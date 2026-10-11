@@ -28,6 +28,8 @@ import com.warofthegods.game.Team;
 /** The /rts command: game setup, teams, alliances and resources. */
 public class CommandRts extends CommandBase {
 
+    /** Section sign color codes; the vanilla stripping helper only exists on the client. */
+    private static final Pattern FORMATTING_CODE = Pattern.compile("\u00a7.");
     private static final Pattern TEAM_NAME = Pattern.compile("[A-Za-z0-9_-]{1,16}");
     private static final List<String> SUBCOMMANDS = Arrays
         .asList("help", "info", "newgame", "endgame", "team", "ally", "unally", "resources");
@@ -486,9 +488,13 @@ public class CommandRts extends CommandBase {
 
     /** Sends a message, without color codes for the server console so its log stays readable. */
     private static void send(ICommandSender sender, String message) {
-        String text = sender instanceof EntityPlayer ? message
-            : EnumChatFormatting.getTextWithoutFormattingCodes(message);
+        String text = sender instanceof EntityPlayer ? message : stripFormatting(message);
         sender.addChatMessage(new ChatComponentText(text));
+    }
+
+    private static String stripFormatting(String message) {
+        return FORMATTING_CODE.matcher(message)
+            .replaceAll("");
     }
 
     /** Tells every player and the server console. */

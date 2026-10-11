@@ -24,6 +24,9 @@ boot() {
     if grep -qE 'This crash report has been saved|Encountered an unexpected exception' "$name.log"; then
         fail "$name: server crashed"
     fi
+    if grep -q "Couldn't process command" "$name.log"; then
+        fail "$name: a command threw an exception"
+    fi
     grep -q 'Stopping server' "$name.log" || fail "$name: server did not stop cleanly"
 }
 
