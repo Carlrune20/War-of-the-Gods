@@ -1,0 +1,64 @@
+name: Build and test
+
+on:
+  pull_request:
+    branches: [ master, main ]
+  push:
+    branches: [ master, main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDKs
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: |
+            8
+            17
+            21
+            25
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Set up the workspace
+        run: ./gradlew --stacktrace setupCIWorkspace
+
+      - name: Check formatting
+        run: |
+          ./gradlew --stacktrace spotlessApply
+          git diff --exit-code || { echo "::error::Formatting differs from spotless; diff above"; exit 1; }
+
+      - name: Build
+        run: ./gradlew --stacktrace build
+
+      - name: Boot a dedicated server and test /rts across restarts
+        run: bash .github/scripts/server-smoke-test.sh
+
+      - name: Upload server logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-logs
+          path: |
+            boot-*.log
+            run/server/logs/
+            run/server/crash-reports/
+          if-no-files-found: ignore
+
+      - name: Upload mod jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-jar
+          path: build/libs/*.jar

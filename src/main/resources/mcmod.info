@@ -1,0 +1,23 @@
+{
+  "modListVersion": 2,
+  "modList": [
+    {
+      "modid": "${modId}",
+      "name": "${modName}",
+      "description": "RTS games on a Minecraft server: teams, alliances, resources, and armies commanded from a web GUI.",
+      "version": "${modVersion}",
+      "mcversion": "${minecraftVersion}",
+      "url": "https://github.com/Carlrune20/War-of-the-Gods",
+      "updateUrl": "",
+      "authorList": ["CJizzy"],
+      "credits": "",
+      "logoFile": "",
+      "screenshots": [],
+      "parent": "",
+      "requiredMods": [],
+      "dependencies": [],
+      "dependants": [],
+      "useDependencyInformation": false
+    }
+  ]
+}
