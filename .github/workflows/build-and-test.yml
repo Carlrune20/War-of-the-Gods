@@ -35,6 +35,11 @@ jobs:
       - name: Set up the workspace
         run: ./gradlew --stacktrace setupCIWorkspace
 
+      - name: Check formatting
+        run: |
+          ./gradlew --stacktrace spotlessApply
+          git diff --exit-code || { echo "::error::Formatting differs from spotless; diff above"; exit 1; }
+
       - name: Build
         run: ./gradlew --stacktrace build
 

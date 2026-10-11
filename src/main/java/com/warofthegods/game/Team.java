@@ -125,10 +125,14 @@ public class Team {
         NBTTagList memberList = new NBTTagList();
         for (Map.Entry<UUID, String> member : members.entrySet()) {
             NBTTagCompound memberTag = new NBTTagCompound();
-            memberTag.setLong("uuidMost", member.getKey()
-                .getMostSignificantBits());
-            memberTag.setLong("uuidLeast", member.getKey()
-                .getLeastSignificantBits());
+            memberTag.setLong(
+                "uuidMost",
+                member.getKey()
+                    .getMostSignificantBits());
+            memberTag.setLong(
+                "uuidLeast",
+                member.getKey()
+                    .getLeastSignificantBits());
             memberTag.setString("name", member.getValue());
             memberList.appendTag(memberTag);
         }

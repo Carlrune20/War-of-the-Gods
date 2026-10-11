@@ -21,8 +21,8 @@ public class PlayerEvents {
         Team team = game.getTeamOf(player.getUniqueID());
         String message = team == null
             ? "War of the Gods game #" + game.getNumber() + " is running. Use /rts team list to see the teams."
-            : "War of the Gods game #" + game.getNumber() + " is running. You are on team " + team.getColoredName()
-                + EnumChatFormatting.GOLD + ".";
+            : "War of the Gods game #" + game
+                .getNumber() + " is running. You are on team " + team.getColoredName() + EnumChatFormatting.GOLD + ".";
         player.addChatMessage(new ChatComponentText(EnumChatFormatting.GOLD + message));
     }
 }

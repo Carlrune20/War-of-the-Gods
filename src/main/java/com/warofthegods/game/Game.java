@@ -136,8 +136,7 @@ public class Game {
         if (team == null) {
             return false;
         }
-        alliances.removeIf(
-            pair -> pair.startsWith(team.getId() + "|") || pair.endsWith("|" + team.getId()));
+        alliances.removeIf(pair -> pair.startsWith(team.getId() + "|") || pair.endsWith("|" + team.getId()));
         changed();
         return true;
     }

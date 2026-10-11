@@ -364,8 +364,9 @@ public class CommandRts extends CommandBase {
         }
         List<String> colors = new ArrayList<>();
         for (EnumChatFormatting color : Team.COLORS) {
-            colors.add(color.name()
-                .toLowerCase());
+            colors.add(
+                color.name()
+                    .toLowerCase());
         }
         List<String> resources = new ArrayList<>();
         for (Resource resource : Resource.values()) {
