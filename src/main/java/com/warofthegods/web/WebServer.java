@@ -68,6 +68,14 @@ public final class WebServer {
                 Config.webBindAddress,
                 Config.webPort,
                 publicUrl());
+            if (Config.webPublicUrl.trim()
+                .isEmpty()) {
+                WarOfTheGods.LOG.warn(
+                    "web.publicUrl is not set in config/warofthegods.cfg, so /rts web links point to localhost and"
+                        + " only open on this machine. Set it to the address players reach this server on, such as"
+                        + " http://play.example.com:{}",
+                    Config.webPort);
+            }
         } catch (Exception e) {
             server.close();
             WarOfTheGods.LOG.error(
