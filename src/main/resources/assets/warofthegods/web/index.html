@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>War of the Gods</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+    <canvas id="map"></canvas>
+
+    <aside id="panel">
+        <header>
+            <h1>War of the Gods</h1>
+            <button id="toggle-panel" type="button" aria-label="Hide panel">&#x2715;</button>
+        </header>
+        <section id="me"></section>
+        <section id="teams"></section>
+        <footer>
+            <button id="follow" type="button">Follow me</button>
+            <button id="fit" type="button">Whole map</button>
+            <button id="logout" type="button">Log out</button>
+        </footer>
+    </aside>
+    <button id="show-panel" type="button" hidden>Teams</button>
+
+    <div id="status">
+        <span id="connection" class="bad">Connecting</span>
+        <span id="cursor"></span>
+        <span id="progress"></span>
+    </div>
+
+    <div id="login" hidden>
+        <div class="card">
+            <h1>War of the Gods</h1>
+            <p id="login-message">You are not logged in.</p>
+            <p>In Minecraft, type <code>/rts web</code> and click the link it gives you.</p>
+        </div>
+    </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
