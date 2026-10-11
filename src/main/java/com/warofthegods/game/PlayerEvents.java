@@ -1,8 +1,11 @@
 package com.warofthegods.game;
 
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
+
+import com.warofthegods.world.GameWorld;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent;
@@ -24,5 +27,20 @@ public class PlayerEvents {
             : "War of the Gods game #" + game
                 .getNumber() + " is running. You are on team " + team.getColoredName() + EnumChatFormatting.GOLD + ".";
         player.addChatMessage(new ChatComponentText(EnumChatFormatting.GOLD + message));
+
+        // Players who were elsewhere, or in an older game's world, start at the spawn of the current map.
+        if (player instanceof EntityPlayerMP && GameWorld.isOutsideGame((EntityPlayerMP) player, game)) {
+            GameWorld.sendToGame((EntityPlayerMP) player, game);
+        }
+    }
+
+    /** Players who die in the game world come back on dry ground in the middle of the map. */
+    @SubscribeEvent
+    public void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
+        Game game = GameManager.getGame();
+        if (game != null && event.player instanceof EntityPlayerMP
+            && event.player.dimension == GameWorld.dimensionId()) {
+            GameWorld.sendToGame((EntityPlayerMP) event.player, game);
+        }
     }
 }

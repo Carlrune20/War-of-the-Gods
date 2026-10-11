@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Boots the dev dedicated server twice. The first boot sets up a game through /rts and saves it; the second
-# boot checks the game came back from the save intact, then starts a new game to check numbering continues.
+# boot checks the game and its map came back from the save intact, then starts a new game to check numbering
+# continues and the old map is replaced by a fresh one.
 set -uo pipefail
 
 TIMEOUT="${SERVER_TIMEOUT:-600}"
@@ -44,7 +45,9 @@ reject() {
     echo "ok (absent): $pattern"
 }
 
-boot boot-1-setup "rts newgame 3 1000
+GAMES_DIR=run/server/world/warofthegods
+
+boot boot-1-setup "rts newgame 3 1000 12345
 rts team create Zombies dark_green
 rts ally red blue
 rts resources give red wood 50
@@ -58,6 +61,15 @@ expect boot-1-setup.log "Game #1 has started on a 1000x1000 map"
 expect boot-1-setup.log "Created team Zombies"
 expect boot-1-setup.log "Red and Blue are now allies."
 expect boot-1-setup.log "Removed team Zombies"
+expect boot-1-setup.log "Game world ready in dimension 77"
+expect boot-1-setup.log "World: dimension 77, seed 12345"
+spawn1=$(grep -oE 'Spawn: -?[0-9]+,-?[0-9]+,-?[0-9]+' boot-1-setup.log | head -1)
+[ -n "$spawn1" ] || fail "boot-1-setup: no spawn point in /rts info"
+spawn_y=$(echo "$spawn1" | cut -d, -f2)
+[ "$spawn_y" -gt 62 ] || fail "boot-1-setup: spawn $spawn1 is not above sea level"
+echo "ok: $spawn1"
+ls "$GAMES_DIR"/game-1/region/*.mca > /dev/null 2>&1 || fail "game 1 world has no saved terrain"
+echo "ok: game-1 terrain saved"
 
 boot boot-2-reload "rts info
 rts newgame 2
@@ -66,7 +78,9 @@ stop"
 
 # Game #1 as reloaded from the save.
 expect boot-2-reload.log "Game #1"
-expect boot-2-reload.log "Map: 1000x1000 from"
+expect boot-2-reload.log "Map: 1000x1000 from -500,-500 to 499,499"
+expect boot-2-reload.log "World: dimension 77, seed 12345"
+expect boot-2-reload.log "$spawn1"
 expect boot-2-reload.log "Team Red [Food 200, Wood 250, Stone 100, Metal 0] members: none"
 expect boot-2-reload.log "Team Blue [Food 175, Wood 200, Stone 100, Metal 0] members: none"
 expect boot-2-reload.log "Team Green [Food 200, Wood 200, Stone 100, Metal 7] members: none"
@@ -76,5 +90,8 @@ reject boot-2-reload.log "Team Zombies"
 expect boot-2-reload.log "Game #1 has ended."
 expect boot-2-reload.log "Game #2 has started on a 1000x1000 map"
 expect boot-2-reload.log "Alliances: none"
+[ -d "$GAMES_DIR/game-2" ] || fail "game 2 has no world folder"
+[ ! -d "$GAMES_DIR/game-1" ] || fail "game 1 world was not deleted"
+echo "ok: game-1 world replaced by game-2"
 
 echo "Server smoke test passed"

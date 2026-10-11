@@ -11,6 +11,8 @@ public class Config {
     public static int defaultMapSize = 1000;
     public static int defaultTeamCount = 2;
     public static boolean allowSelfJoin = true;
+    public static int gameDimensionId = 77;
+    public static int mapMargin = 48;
     public static final long[] startingResources = { 200, 200, 100, 0 };
 
     public static void synchronizeConfiguration(File configFile) {
@@ -35,6 +37,21 @@ public class Config {
             Configuration.CATEGORY_GENERAL,
             allowSelfJoin,
             "Whether players who are not ops may join and leave teams themselves.");
+
+        gameDimensionId = configuration.getInt(
+            "gameDimensionId",
+            Configuration.CATEGORY_GENERAL,
+            gameDimensionId,
+            2,
+            100000,
+            "Dimension id of the world games are played in. Change it if another mod uses the same id.");
+        mapMargin = configuration.getInt(
+            "mapMargin",
+            Configuration.CATEGORY_GENERAL,
+            mapMargin,
+            0,
+            512,
+            "Blocks of terrain generated beyond the map edge, sloping down into the sea around the map.");
 
         for (Resource resource : Resource.values()) {
             startingResources[resource.ordinal()] = configuration.getInt(

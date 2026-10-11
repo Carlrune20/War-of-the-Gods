@@ -5,6 +5,7 @@ import net.minecraft.world.WorldServer;
 
 import com.warofthegods.Config;
 import com.warofthegods.WarOfTheGods;
+import com.warofthegods.world.GameWorld;
 
 /** Entry point for finding, starting and ending the current game. */
 public final class GameManager {
@@ -27,21 +28,20 @@ public final class GameManager {
         return getData().getGame();
     }
 
-    /** Ends any running game and starts a new one with the given number of default teams. */
-    public static Game newGame(int centerX, int centerZ, int size, int teamCount) {
+    /**
+     * Ends any running game and starts a new one with the given number of default teams. The map is centred on 0,0 of
+     * the game world, which is rebuilt from the seed.
+     */
+    public static Game newGame(int size, int teamCount, long seed) {
         GameSavedData data = getData();
-        Game game = new Game(data.getLastGameNumber() + 1, System.currentTimeMillis(), centerX, centerZ, size);
+        Game game = new Game(data.getLastGameNumber() + 1, System.currentTimeMillis(), 0, 0, size, seed);
         for (int i = 0; i < teamCount; i++) {
             game.addDefaultTeam(Config.startingResources);
         }
         data.setGame(game);
-        WarOfTheGods.LOG.info(
-            "Started game #{} centred on {},{} with size {} and {} teams",
-            game.getNumber(),
-            centerX,
-            centerZ,
-            size,
-            teamCount);
+        WarOfTheGods.LOG
+            .info("Started game #{} with size {}, {} teams and seed {}", game.getNumber(), size, teamCount, seed);
+        GameWorld.rebuild();
         return game;
     }
 
