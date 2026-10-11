@@ -1,0 +1,502 @@
+package com.warofthegods.command;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.regex.Pattern;
+
+import net.minecraft.command.CommandBase;
+import net.minecraft.command.CommandException;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.command.NumberInvalidException;
+import net.minecraft.command.WrongUsageException;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.ChunkCoordinates;
+import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.MathHelper;
+
+import com.warofthegods.Config;
+import com.warofthegods.game.Game;
+import com.warofthegods.game.GameManager;
+import com.warofthegods.game.Resource;
+import com.warofthegods.game.Team;
+
+/** The /rts command: game setup, teams, alliances and resources. */
+public class CommandRts extends CommandBase {
+
+    private static final Pattern TEAM_NAME = Pattern.compile("[A-Za-z0-9_-]{1,16}");
+    private static final List<String> SUBCOMMANDS = Arrays
+        .asList("help", "info", "newgame", "endgame", "team", "ally", "unally", "resources");
+    private static final List<String> TEAM_SUBCOMMANDS = Arrays
+        .asList("list", "create", "remove", "color", "join", "leave");
+    private static final List<String> RESOURCE_ACTIONS = Arrays.asList("give", "take", "set");
+
+    @Override
+    public String getCommandName() {
+        return "rts";
+    }
+
+    @Override
+    public String getCommandUsage(ICommandSender sender) {
+        return "/rts <help|info|newgame|endgame|team|ally|unally|resources>";
+    }
+
+    /** Everyone may run /rts; subcommands that change the game check for op themselves. */
+    @Override
+    public int getRequiredPermissionLevel() {
+        return 0;
+    }
+
+    @Override
+    public boolean canCommandSenderUseCommand(ICommandSender sender) {
+        return true;
+    }
+
+    @Override
+    public void processCommand(ICommandSender sender, String[] args) {
+        if (args.length == 0) {
+            help(sender);
+            return;
+        }
+        String[] rest = Arrays.copyOfRange(args, 1, args.length);
+        switch (args[0].toLowerCase()) {
+            case "help":
+                help(sender);
+                break;
+            case "info":
+                info(sender);
+                break;
+            case "newgame":
+                newGame(sender, rest);
+                break;
+            case "endgame":
+                endGame(sender);
+                break;
+            case "team":
+                team(sender, rest);
+                break;
+            case "ally":
+                ally(sender, rest, true);
+                break;
+            case "unally":
+                ally(sender, rest, false);
+                break;
+            case "resources":
+            case "res":
+                resources(sender, rest);
+                break;
+            default:
+                throw new WrongUsageException(getCommandUsage(sender));
+        }
+    }
+
+    private void help(ICommandSender sender) {
+        send(sender, EnumChatFormatting.GOLD + "War of the Gods commands:");
+        send(sender, "/rts info - show the current game");
+        send(sender, "/rts newgame [teams] [mapSize] - start a new game (op)");
+        send(sender, "/rts endgame - end the current game (op)");
+        send(sender, "/rts team list");
+        send(sender, "/rts team create <name> [color] (op)");
+        send(sender, "/rts team remove <name> (op)");
+        send(sender, "/rts team color <name> <color> (op)");
+        send(sender, "/rts team join <team> [player]");
+        send(sender, "/rts team leave [player]");
+        send(sender, "/rts ally <team> <team> (op)");
+        send(sender, "/rts unally <team> <team> (op)");
+        send(sender, "/rts resources [team]");
+        send(sender, "/rts resources <give|take|set> <team> <resource> <amount> (op)");
+    }
+
+    private void info(ICommandSender sender) {
+        Game game = requireGame();
+        send(sender, EnumChatFormatting.GOLD + "Game #" + game.getNumber());
+        send(
+            sender,
+            "Map: " + game.getSize()
+                + "x"
+                + game.getSize()
+                + " from "
+                + game.getMinX()
+                + ","
+                + game.getMinZ()
+                + " to "
+                + game.getMaxX()
+                + ","
+                + game.getMaxZ());
+        teamList(sender);
+        List<Team[]> alliances = game.getAlliances();
+        if (alliances.isEmpty()) {
+            send(sender, "Alliances: none");
+        } else {
+            for (Team[] pair : alliances) {
+                send(sender, "Alliance: " + pair[0].getColoredName() + " + " + pair[1].getColoredName());
+            }
+        }
+    }
+
+    private void newGame(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        int teamCount = args.length > 0 ? parseIntBounded(sender, args[0], 0, Team.COLORS.length)
+            : Config.defaultTeamCount;
+        int size = args.length > 1 ? parseIntBounded(sender, args[1], 64, 100000) : Config.defaultMapSize;
+
+        int centerX;
+        int centerZ;
+        if (sender instanceof EntityPlayer) {
+            EntityPlayer player = (EntityPlayer) sender;
+            centerX = MathHelper.floor_double(player.posX);
+            centerZ = MathHelper.floor_double(player.posZ);
+        } else {
+            ChunkCoordinates spawn = MinecraftServer.getServer()
+                .worldServerForDimension(0)
+                .getSpawnPoint();
+            centerX = spawn.posX;
+            centerZ = spawn.posZ;
+        }
+
+        Game previous = GameManager.getGame();
+        Game game = GameManager.newGame(centerX, centerZ, size, teamCount);
+        if (previous != null) {
+            broadcast("Game #" + previous.getNumber() + " has ended.");
+        }
+        broadcast(
+            "Game #" + game.getNumber()
+                + " has started on a "
+                + size
+                + "x"
+                + size
+                + " map centred on "
+                + centerX
+                + ","
+                + centerZ
+                + " with "
+                + teamCount
+                + " teams.");
+    }
+
+    private void endGame(ICommandSender sender) {
+        requireOp(sender);
+        Game game = requireGame();
+        GameManager.endGame();
+        broadcast("Game #" + game.getNumber() + " has ended.");
+    }
+
+    private void team(ICommandSender sender, String[] args) {
+        if (args.length == 0) {
+            throw new WrongUsageException("/rts team <list|create|remove|color|join|leave>");
+        }
+        Game game = requireGame();
+        switch (args[0].toLowerCase()) {
+            case "list":
+                teamList(sender);
+                break;
+            case "create": {
+                requireOp(sender);
+                requireArgs(args, 2, "/rts team create <name> [color]");
+                String name = args[1];
+                if (!TEAM_NAME.matcher(name)
+                    .matches()) {
+                    throw new CommandException(
+                        "Team names are 1 to 16 letters, digits, dashes or underscores: '%s'",
+                        name);
+                }
+                EnumChatFormatting color = args.length > 2 ? parseColor(args[2]) : game.nextFreeColor();
+                Team team = game.addTeam(name, color, Config.startingResources);
+                if (team == null) {
+                    throw new CommandException("Team '%s' already exists", name);
+                }
+                send(sender, "Created team " + team.getColoredName());
+                break;
+            }
+            case "remove": {
+                requireOp(sender);
+                requireArgs(args, 2, "/rts team remove <name>");
+                Team team = requireTeam(game, args[1]);
+                game.removeTeam(team.getName());
+                send(sender, "Removed team " + team.getColoredName());
+                break;
+            }
+            case "color": {
+                requireOp(sender);
+                requireArgs(args, 3, "/rts team color <name> <color>");
+                Team team = requireTeam(game, args[1]);
+                team.setColor(parseColor(args[2]));
+                send(sender, "Team " + team.getColoredName() + " has a new color");
+                break;
+            }
+            case "join": {
+                requireArgs(args, 2, "/rts team join <team> [player]");
+                Team team = requireTeam(game, args[1]);
+                EntityPlayerMP player = targetPlayer(sender, args, 2);
+                game.setTeamOf(player.getUniqueID(), player.getCommandSenderName(), team);
+                broadcast(player.getCommandSenderName() + " joined team " + team.getColoredName());
+                break;
+            }
+            case "leave": {
+                EntityPlayerMP player = targetPlayer(sender, args, 1);
+                Team team = game.removePlayer(player.getUniqueID());
+                if (team == null) {
+                    throw new CommandException("%s is not on a team", player.getCommandSenderName());
+                }
+                broadcast(player.getCommandSenderName() + " left team " + team.getColoredName());
+                break;
+            }
+            default:
+                throw new WrongUsageException("/rts team <list|create|remove|color|join|leave>");
+        }
+    }
+
+    private void teamList(ICommandSender sender) {
+        Game game = requireGame();
+        if (game.getTeams()
+            .isEmpty()) {
+            send(sender, "Teams: none");
+            return;
+        }
+        for (Team team : game.getTeams()) {
+            List<String> names = new ArrayList<>(
+                team.getMembers()
+                    .values());
+            Collections.sort(names);
+            send(
+                sender,
+                "Team " + team.getColoredName()
+                    + " ["
+                    + resourceSummary(team)
+                    + "] members: "
+                    + (names.isEmpty() ? "none" : String.join(", ", names)));
+        }
+    }
+
+    private void ally(ICommandSender sender, String[] args, boolean allied) {
+        requireOp(sender);
+        requireArgs(args, 2, allied ? "/rts ally <team> <team>" : "/rts unally <team> <team>");
+        Game game = requireGame();
+        Team a = requireTeam(game, args[0]);
+        Team b = requireTeam(game, args[1]);
+        if (a == b) {
+            throw new CommandException("A team cannot ally with itself");
+        }
+        if (!game.setAllied(a, b, allied)) {
+            throw new CommandException(
+                allied ? "%s and %s are already allied" : "%s and %s are not allied",
+                a.getName(),
+                b.getName());
+        }
+        broadcast(
+            a.getColoredName() + EnumChatFormatting.GOLD
+                + " and "
+                + b.getColoredName()
+                + EnumChatFormatting.GOLD
+                + (allied ? " are now allies." : " are no longer allies."));
+    }
+
+    private void resources(ICommandSender sender, String[] args) {
+        Game game = requireGame();
+        if (args.length >= 1 && RESOURCE_ACTIONS.contains(args[0].toLowerCase())) {
+            requireOp(sender);
+            requireArgs(args, 4, "/rts resources <give|take|set> <team> <resource> <amount>");
+            Team team = requireTeam(game, args[1]);
+            Resource resource = Resource.byId(args[2]);
+            if (resource == null) {
+                throw new CommandException("Unknown resource '%s', use food, wood, stone or metal", args[2]);
+            }
+            long amount = parseAmount(args[3]);
+            switch (args[0].toLowerCase()) {
+                case "give":
+                    team.addResource(resource, amount);
+                    break;
+                case "take":
+                    team.addResource(resource, -amount);
+                    break;
+                default:
+                    team.setResource(resource, amount);
+                    break;
+            }
+            send(sender, "Team " + team.getColoredName() + " resources: " + resourceSummary(team));
+            return;
+        }
+
+        Team team;
+        if (args.length >= 1) {
+            team = requireTeam(game, args[0]);
+        } else if (sender instanceof EntityPlayer) {
+            team = game.getTeamOf(((EntityPlayer) sender).getUniqueID());
+            if (team == null) {
+                throw new CommandException("You are not on a team");
+            }
+        } else {
+            throw new WrongUsageException("/rts resources <team>");
+        }
+        send(sender, "Team " + team.getColoredName() + " resources: " + resourceSummary(team));
+    }
+
+    private static String resourceSummary(Team team) {
+        StringBuilder summary = new StringBuilder();
+        for (Resource resource : Resource.values()) {
+            if (summary.length() > 0) {
+                summary.append(", ");
+            }
+            summary.append(resource.color)
+                .append(resource.displayName)
+                .append(" ")
+                .append(team.getResource(resource))
+                .append(EnumChatFormatting.RESET);
+        }
+        return summary.toString();
+    }
+
+    @Override
+    public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
+        if (args.length == 1) {
+            return getListOfStringsFromIterableMatchingLastWord(args, SUBCOMMANDS);
+        }
+        Game game = GameManager.getGame();
+        List<String> teams = new ArrayList<>();
+        if (game != null) {
+            for (Team team : game.getTeams()) {
+                teams.add(team.getName());
+            }
+        }
+        List<String> colors = new ArrayList<>();
+        for (EnumChatFormatting color : Team.COLORS) {
+            colors.add(color.name()
+                .toLowerCase());
+        }
+        List<String> resources = new ArrayList<>();
+        for (Resource resource : Resource.values()) {
+            resources.add(resource.id);
+        }
+        String[] players = MinecraftServer.getServer()
+            .getAllUsernames();
+
+        switch (args[0].toLowerCase()) {
+            case "team":
+                if (args.length == 2) {
+                    return getListOfStringsFromIterableMatchingLastWord(args, TEAM_SUBCOMMANDS);
+                }
+                String action = args[1].toLowerCase();
+                if (args.length == 3 && !action.equals("create") && !action.equals("list")) {
+                    return action.equals("leave") ? getListOfStringsMatchingLastWord(args, players)
+                        : getListOfStringsFromIterableMatchingLastWord(args, teams);
+                }
+                if (args.length == 4 && (action.equals("create") || action.equals("color"))) {
+                    return getListOfStringsFromIterableMatchingLastWord(args, colors);
+                }
+                if (args.length == 4 && action.equals("join")) {
+                    return getListOfStringsMatchingLastWord(args, players);
+                }
+                return null;
+            case "ally":
+            case "unally":
+                return args.length <= 3 ? getListOfStringsFromIterableMatchingLastWord(args, teams) : null;
+            case "resources":
+            case "res":
+                if (args.length == 2) {
+                    List<String> options = new ArrayList<>(RESOURCE_ACTIONS);
+                    options.addAll(teams);
+                    return getListOfStringsFromIterableMatchingLastWord(args, options);
+                }
+                if (args.length == 3) {
+                    return getListOfStringsFromIterableMatchingLastWord(args, teams);
+                }
+                if (args.length == 4) {
+                    return getListOfStringsFromIterableMatchingLastWord(args, resources);
+                }
+                return null;
+            default:
+                return null;
+        }
+    }
+
+    private static Game requireGame() {
+        Game game = GameManager.getGame();
+        if (game == null) {
+            throw new CommandException("No game is running. An op can start one with /rts newgame");
+        }
+        return game;
+    }
+
+    private static Team requireTeam(Game game, String name) {
+        Team team = game.getTeam(name);
+        if (team == null) {
+            throw new CommandException("Unknown team '%s'", name);
+        }
+        return team;
+    }
+
+    private static void requireOp(ICommandSender sender) {
+        if (!isOp(sender)) {
+            throw new CommandException("Only ops can do that");
+        }
+    }
+
+    private static boolean isOp(ICommandSender sender) {
+        return sender.canCommandSenderUseCommand(2, "rts");
+    }
+
+    private static void requireArgs(String[] args, int count, String usage) {
+        if (args.length < count) {
+            throw new WrongUsageException(usage);
+        }
+    }
+
+    /** The player named at args[index], or the sender if there is none. Moving someone else needs op. */
+    private static EntityPlayerMP targetPlayer(ICommandSender sender, String[] args, int index) {
+        if (args.length > index) {
+            EntityPlayerMP player = getPlayer(sender, args[index]);
+            if (player != sender) {
+                requireOp(sender);
+            }
+            if (!Config.allowSelfJoin) {
+                requireOp(sender);
+            }
+            return player;
+        }
+        if (!Config.allowSelfJoin) {
+            requireOp(sender);
+        }
+        return getCommandSenderAsPlayer(sender);
+    }
+
+    private static EnumChatFormatting parseColor(String name) {
+        EnumChatFormatting color = Team.colorByName(name);
+        if (color == null) {
+            throw new CommandException("Unknown color '%s'", name);
+        }
+        return color;
+    }
+
+    private static long parseAmount(String value) {
+        try {
+            long amount = Long.parseLong(value);
+            if (amount < 0) {
+                throw new NumberInvalidException("commands.generic.num.tooSmall", amount, 0);
+            }
+            return amount;
+        } catch (NumberFormatException e) {
+            throw new NumberInvalidException("commands.generic.num.invalid", value);
+        }
+    }
+
+    /** Sends a message, without color codes for the server console so its log stays readable. */
+    private static void send(ICommandSender sender, String message) {
+        String text = sender instanceof EntityPlayer ? message
+            : EnumChatFormatting.getTextWithoutFormattingCodes(message);
+        sender.addChatMessage(new ChatComponentText(text));
+    }
+
+    /** Tells every player and the server console. */
+    private static void broadcast(String message) {
+        MinecraftServer server = MinecraftServer.getServer();
+        String text = EnumChatFormatting.GOLD + message;
+        for (Object player : server.getConfigurationManager().playerEntityList) {
+            ((EntityPlayer) player).addChatMessage(new ChatComponentText(text));
+        }
+        send(server, text);
+    }
+}
