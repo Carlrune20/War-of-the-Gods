@@ -1,10 +1,15 @@
 package com.warofthegods;
 
+import net.minecraftforge.common.MinecraftForge;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.warofthegods.command.CommandRts;
 import com.warofthegods.game.PlayerEvents;
+import com.warofthegods.world.DimensionSync;
+import com.warofthegods.world.GameWorld;
+import com.warofthegods.world.MapBorder;
 
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;
@@ -17,7 +22,7 @@ import cpw.mods.fml.common.event.FMLServerStartingEvent;
     version = Tags.VERSION,
     name = "War of the Gods",
     acceptedMinecraftVersions = "[1.7.10]",
-    // Phase 0 is server side only, so players can join with a plain Forge client.
+    // Server side only, so players can join with a plain Forge client.
     acceptableRemoteVersions = "*")
 public class WarOfTheGods {
 
@@ -28,6 +33,7 @@ public class WarOfTheGods {
     public void preInit(FMLPreInitializationEvent event) {
         Config.synchronizeConfiguration(event.getSuggestedConfigurationFile());
         LOG.info("War of the Gods " + Tags.VERSION + " loading");
+        GameWorld.register();
     }
 
     @Mod.EventHandler
@@ -35,6 +41,14 @@ public class WarOfTheGods {
         FMLCommonHandler.instance()
             .bus()
             .register(new PlayerEvents());
+        FMLCommonHandler.instance()
+            .bus()
+            .register(new DimensionSync());
+        MapBorder border = new MapBorder();
+        FMLCommonHandler.instance()
+            .bus()
+            .register(border);
+        MinecraftForge.EVENT_BUS.register(border);
     }
 
     @Mod.EventHandler

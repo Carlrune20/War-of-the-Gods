@@ -15,8 +15,8 @@ import net.minecraft.nbt.NBTTagString;
 import net.minecraft.util.EnumChatFormatting;
 
 /**
- * One RTS game: its map area, its teams and the alliances between them. Only one game runs at a time; it lasts until
- * an op starts a new one or ends it.
+ * One RTS game: its map area and terrain seed, its teams and the alliances between them. Only one game runs at a time;
+ * it lasts until an op starts a new one or ends it.
  */
 public class Game {
 
@@ -25,17 +25,20 @@ public class Game {
     private final int centerX;
     private final int centerZ;
     private final int size;
+    /** Seed for the terrain of this game's world. */
+    private final long seed;
     private final Map<String, Team> teams = new LinkedHashMap<>();
     /** Allied team pairs, each stored as "a|b" with the two team ids sorted. */
     private final TreeSet<String> alliances = new TreeSet<>();
     private Runnable changeListener = () -> {};
 
-    public Game(int number, long startedAt, int centerX, int centerZ, int size) {
+    public Game(int number, long startedAt, int centerX, int centerZ, int size, long seed) {
         this.number = number;
         this.startedAt = startedAt;
         this.centerX = centerX;
         this.centerZ = centerZ;
         this.size = size;
+        this.seed = seed;
     }
 
     void setChangeListener(Runnable changeListener) {
@@ -64,6 +67,10 @@ public class Game {
 
     public int getSize() {
         return size;
+    }
+
+    public long getSeed() {
+        return seed;
     }
 
     public int getMinX() {
@@ -246,6 +253,7 @@ public class Game {
         tag.setInteger("centerX", centerX);
         tag.setInteger("centerZ", centerZ);
         tag.setInteger("size", size);
+        tag.setLong("seed", seed);
 
         NBTTagList teamList = new NBTTagList();
         for (Team team : teams.values()) {
@@ -267,7 +275,8 @@ public class Game {
             tag.getLong("startedAt"),
             tag.getInteger("centerX"),
             tag.getInteger("centerZ"),
-            tag.getInteger("size"));
+            tag.getInteger("size"),
+            tag.getLong("seed"));
 
         NBTTagList teamList = tag.getTagList("teams", 10);
         for (int i = 0; i < teamList.tagCount(); i++) {

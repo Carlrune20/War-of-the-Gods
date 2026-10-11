@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 import java.util.regex.Pattern;
 
 import net.minecraft.command.CommandBase;
@@ -15,15 +16,14 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.ChunkCoordinates;
 import net.minecraft.util.EnumChatFormatting;
-import net.minecraft.util.MathHelper;
 
 import com.warofthegods.Config;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
+import com.warofthegods.world.GameWorld;
 
 /** The /rts command: game setup, teams, alliances and resources. */
 public class CommandRts extends CommandBase {
@@ -32,7 +32,7 @@ public class CommandRts extends CommandBase {
     private static final Pattern FORMATTING_CODE = Pattern.compile("\u00a7.");
     private static final Pattern TEAM_NAME = Pattern.compile("[A-Za-z0-9_-]{1,16}");
     private static final List<String> SUBCOMMANDS = Arrays
-        .asList("help", "info", "newgame", "endgame", "team", "ally", "unally", "resources");
+        .asList("help", "info", "newgame", "endgame", "spawn", "team", "ally", "unally", "resources");
     private static final List<String> TEAM_SUBCOMMANDS = Arrays
         .asList("list", "create", "remove", "color", "join", "leave");
     private static final List<String> RESOURCE_ACTIONS = Arrays.asList("give", "take", "set");
@@ -44,7 +44,7 @@ public class CommandRts extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/rts <help|info|newgame|endgame|team|ally|unally|resources>";
+        return "/rts <help|info|newgame|endgame|spawn|team|ally|unally|resources>";
     }
 
     /** Everyone may run /rts; subcommands that change the game check for op themselves. */
@@ -78,6 +78,9 @@ public class CommandRts extends CommandBase {
             case "endgame":
                 endGame(sender);
                 break;
+            case "spawn":
+                spawn(sender, rest);
+                break;
             case "team":
                 team(sender, rest);
                 break;
@@ -99,8 +102,9 @@ public class CommandRts extends CommandBase {
     private void help(ICommandSender sender) {
         send(sender, EnumChatFormatting.GOLD + "War of the Gods commands:");
         send(sender, "/rts info - show the current game");
-        send(sender, "/rts newgame [teams] [mapSize] - start a new game (op)");
+        send(sender, "/rts newgame [teams] [mapSize] [seed] - start a new game on a fresh map (op)");
         send(sender, "/rts endgame - end the current game (op)");
+        send(sender, "/rts spawn [player] - go to the game map");
         send(sender, "/rts team list");
         send(sender, "/rts team create <name> [color] (op)");
         send(sender, "/rts team remove <name> (op)");
@@ -129,6 +133,9 @@ public class CommandRts extends CommandBase {
                 + game.getMaxX()
                 + ","
                 + game.getMaxZ());
+        send(sender, "World: dimension " + GameWorld.dimensionId() + ", seed " + game.getSeed());
+        int[] spawn = GameWorld.findSpawn(GameWorld.getWorld(), game);
+        send(sender, "Spawn: " + spawn[0] + "," + spawn[1] + "," + spawn[2]);
         teamList(sender);
         List<Team[]> alliances = game.getAlliances();
         if (alliances.isEmpty()) {
@@ -145,39 +152,26 @@ public class CommandRts extends CommandBase {
         int teamCount = args.length > 0 ? parseIntBounded(sender, args[0], 0, Team.COLORS.length)
             : Config.defaultTeamCount;
         int size = args.length > 1 ? parseIntBounded(sender, args[1], 64, 100000) : Config.defaultMapSize;
-
-        int centerX;
-        int centerZ;
-        if (sender instanceof EntityPlayer) {
-            EntityPlayer player = (EntityPlayer) sender;
-            centerX = MathHelper.floor_double(player.posX);
-            centerZ = MathHelper.floor_double(player.posZ);
-        } else {
-            ChunkCoordinates spawn = MinecraftServer.getServer()
-                .worldServerForDimension(0)
-                .getSpawnPoint();
-            centerX = spawn.posX;
-            centerZ = spawn.posZ;
-        }
+        long seed = args.length > 2 ? parseSeed(args[2]) : new Random().nextLong();
 
         Game previous = GameManager.getGame();
-        Game game = GameManager.newGame(centerX, centerZ, size, teamCount);
         if (previous != null) {
-            broadcast("Game #" + previous.getNumber() + " has ended.");
+            broadcast("Game #" + previous.getNumber() + " has ended. Building a new map...");
         }
+        Game game = GameManager.newGame(size, teamCount, seed);
         broadcast(
-            "Game #" + game.getNumber()
-                + " has started on a "
-                + size
-                + "x"
-                + size
-                + " map centred on "
-                + centerX
-                + ","
-                + centerZ
-                + " with "
-                + teamCount
-                + " teams.");
+            "Game #" + game
+                .getNumber() + " has started on a " + size + "x" + size + " map with " + teamCount + " teams.");
+        GameWorld.sendAllToGame(game);
+    }
+
+    /** A number is used as is; any other text is turned into a seed the way vanilla does for world seeds. */
+    private static long parseSeed(String text) {
+        try {
+            return Long.parseLong(text);
+        } catch (NumberFormatException e) {
+            return text.hashCode();
+        }
     }
 
     private void endGame(ICommandSender sender) {
@@ -185,6 +179,21 @@ public class CommandRts extends CommandBase {
         Game game = requireGame();
         GameManager.endGame();
         broadcast("Game #" + game.getNumber() + " has ended.");
+    }
+
+    private void spawn(ICommandSender sender, String[] args) {
+        Game game = requireGame();
+        EntityPlayerMP player;
+        if (args.length > 0) {
+            player = getPlayer(sender, args[0]);
+            if (player != sender) {
+                requireOp(sender);
+            }
+        } else {
+            player = getCommandSenderAsPlayer(sender);
+        }
+        GameWorld.sendToGame(player, game);
+        send(sender, "Sent " + player.getCommandSenderName() + " to the game map");
     }
 
     private void team(ICommandSender sender, String[] args) {
@@ -378,6 +387,8 @@ public class CommandRts extends CommandBase {
             .getAllUsernames();
 
         switch (args[0].toLowerCase()) {
+            case "spawn":
+                return args.length == 2 ? getListOfStringsMatchingLastWord(args, players) : null;
             case "team":
                 if (args.length == 2) {
                     return getListOfStringsFromIterableMatchingLastWord(args, TEAM_SUBCOMMANDS);
