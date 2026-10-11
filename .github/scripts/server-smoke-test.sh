@@ -94,4 +94,86 @@ expect boot-2-reload.log "Alliances: none"
 [ ! -d "$GAMES_DIR/game-1" ] || fail "game 1 world was not deleted"
 echo "ok: game-1 world replaced by game-2"
 
+# Boot 3: the web map. The server keeps running on commands fed through a pipe while curl and a WebSocket client
+# check the page, logging in with a link, the map tiles and the live state.
+WEB_PORT=8124
+WEB="http://127.0.0.1:$WEB_PORT"
+WEB_LOG=boot-3-web.log
+rm -f run/web-input
+mkfifo run/web-input
+echo "=== Booting server: boot-3-web"
+timeout "$TIMEOUT" ./gradlew runServer < run/web-input > "$WEB_LOG" 2>&1 &
+server_pid=$!
+exec 3> run/web-input
+
+stop_server() {
+    echo "stop" >&3
+    exec 3>&-
+    wait "$server_pid"
+}
+
+web_fail() {
+    stop_server
+    cat "$WEB_LOG"
+    fail "$1"
+}
+
+wait_for_log() {
+    local pattern="$1" seconds="$2"
+    for _ in $(seq "$seconds"); do
+        grep -qF -- "$pattern" "$WEB_LOG" && return 0
+        sleep 1
+    done
+    web_fail "boot-3-web: timed out waiting for: $pattern"
+}
+
+http_status() {
+    curl -s -o /dev/null -w '%{http_code}' "$@"
+}
+
+wait_for_log "Done (" "$TIMEOUT"
+wait_for_log "Web map listening on 0.0.0.0:$WEB_PORT" 5
+echo "ok: web map listening"
+echo "rts newgame 2 256 4242" >&3
+echo "rts web" >&3
+wait_for_log "Web map observer link" 60
+token=$(grep -oE 'localhost:8124/\?token=[0-9a-f]+' "$WEB_LOG" | tail -1 | cut -d= -f2)
+[ -n "$token" ] || web_fail "boot-3-web: no token in the /rts web link"
+echo "ok: /rts web link"
+
+curl -sf "$WEB/" | grep -q "<title>War of the Gods</title>" || web_fail "web page not served"
+curl -sf "$WEB/app.js" > /dev/null || web_fail "app.js not served"
+echo "ok: page served"
+[ "$(http_status "$WEB/api/me")" = 401 ] || web_fail "/api/me without a session was not refused"
+[ "$(http_status "$WEB/api/tile?x=0&z=0")" = 401 ] || web_fail "tile without a session was not refused"
+[ "$(http_status -X POST -d '{"token":"nope"}' "$WEB/api/login")" = 401 ] || web_fail "bad token was accepted"
+[ "$(http_status -X POST -H "Origin: http://evil.example" -d "{\"token\":\"$token\"}" "$WEB/api/login")" = 403 ] \
+    || web_fail "login from another origin was not refused"
+echo "ok: requests without a session refused"
+
+jar=run/web-cookies.txt
+rm -f "$jar"
+curl -sf -c "$jar" -X POST -d "{\"token\":\"$token\"}" "$WEB/api/login" | grep -q '"observer":true' \
+    || web_fail "login with the link token failed"
+[ "$(http_status -X POST -d "{\"token\":\"$token\"}" "$WEB/api/login")" = 401 ] || web_fail "link token worked twice"
+curl -sf -b "$jar" "$WEB/api/me" | grep -q '"name":"Observer"' || web_fail "/api/me after login failed"
+echo "ok: login with a one-time link"
+
+wait_for_log "Web map of game #3 drawn" 300
+echo "ok: map drawn"
+curl -sf -b "$jar" "$WEB/api/tile?x=0&z=0&v=1" -o run/tile.png || web_fail "tile 0,0 not served"
+[ "$(head -c 8 run/tile.png | od -An -tx1 | tr -d ' \n')" = 89504e470d0a1a0a ] || web_fail "tile 0,0 is not a PNG"
+echo "ok: tile 0,0 is a PNG of $(stat -c %s run/tile.png) bytes"
+
+session=$(awk '$6 == "wotg_session" {print $7}' "$jar")
+python3 .github/scripts/web-socket-check.py 127.0.0.1 "$WEB_PORT" "$session" 3 || web_fail "web socket check failed"
+
+stop_server
+cat "$WEB_LOG"
+grep -q 'Stopping server' "$WEB_LOG" || fail "boot-3-web: server did not stop cleanly"
+if grep -qE 'This crash report has been saved|Encountered an unexpected exception' "$WEB_LOG"; then
+    fail "boot-3-web: server crashed"
+fi
+expect "$WEB_LOG" "Web map stopped"
+
 echo "Server smoke test passed"

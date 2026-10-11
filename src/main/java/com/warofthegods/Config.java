@@ -15,6 +15,14 @@ public class Config {
     public static int mapMargin = 48;
     public static final long[] startingResources = { 200, 200, 100, 0 };
 
+    public static boolean webEnabled = true;
+    public static String webBindAddress = "0.0.0.0";
+    public static int webPort = 8124;
+    public static String webPublicUrl = "";
+    public static int webLinkMinutes = 10;
+    public static int webSessionHours = 72;
+    public static int webRenderBudgetMs = 10;
+
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
 
@@ -62,6 +70,41 @@ public class Config {
                 Integer.MAX_VALUE,
                 "Amount of " + resource.displayName + " each team starts a game with.");
         }
+
+        String web = "web";
+        configuration.setCategoryComment(web, "The web map players open in a browser with a link from /rts web.");
+        webEnabled = configuration.getBoolean("enabled", web, webEnabled, "Whether to run the web map server.");
+        webBindAddress = configuration.getString(
+            "bindAddress",
+            web,
+            webBindAddress,
+            "Address the web server listens on. 0.0.0.0 listens on every network interface.");
+        webPort = configuration
+            .getInt("port", web, webPort, 1, 65535, "TCP port of the web server. Open or publish it next to 25565.");
+        webPublicUrl = configuration.getString(
+            "publicUrl",
+            web,
+            webPublicUrl,
+            "Address players' browsers reach the web server on, used in /rts web links, such as"
+                + " http://play.example.com:8124. Empty means http://localhost:<port>, which only works on the"
+                + " server machine itself.");
+        webLinkMinutes = configuration
+            .getInt("linkMinutes", web, webLinkMinutes, 1, 1440, "Minutes a /rts web link stays valid. Links work once.");
+        webSessionHours = configuration.getInt(
+            "sessionHours",
+            web,
+            webSessionHours,
+            1,
+            8760,
+            "Hours a browser stays logged in after opening a link. Restarting the server logs everyone out.");
+        webRenderBudgetMs = configuration.getInt(
+            "renderBudgetMs",
+            web,
+            webRenderBudgetMs,
+            1,
+            40,
+            "Milliseconds per server tick spent drawing the map. A new map fills in faster with more, at some cost"
+                + " to tick rate.");
 
         if (configuration.hasChanged()) {
             configuration.save();

@@ -7,6 +7,8 @@ import org.apache.logging.log4j.Logger;
 
 import com.warofthegods.command.CommandRts;
 import com.warofthegods.game.PlayerEvents;
+import com.warofthegods.web.WebMap;
+import com.warofthegods.web.WebServer;
 import com.warofthegods.world.DimensionSync;
 import com.warofthegods.world.GameWorld;
 import com.warofthegods.world.MapBorder;
@@ -15,7 +17,9 @@ import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
+import cpw.mods.fml.common.event.FMLServerStartedEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
+import cpw.mods.fml.common.event.FMLServerStoppingEvent;
 
 @Mod(
     modid = WarOfTheGods.MODID,
@@ -49,10 +53,25 @@ public class WarOfTheGods {
             .bus()
             .register(border);
         MinecraftForge.EVENT_BUS.register(border);
+        WebMap webMap = new WebMap();
+        FMLCommonHandler.instance()
+            .bus()
+            .register(webMap);
+        MinecraftForge.EVENT_BUS.register(webMap);
     }
 
     @Mod.EventHandler
     public void serverStarting(FMLServerStartingEvent event) {
         event.registerServerCommand(new CommandRts());
+    }
+
+    @Mod.EventHandler
+    public void serverStarted(FMLServerStartedEvent event) {
+        WebServer.start();
+    }
+
+    @Mod.EventHandler
+    public void serverStopping(FMLServerStoppingEvent event) {
+        WebServer.stop();
     }
 }

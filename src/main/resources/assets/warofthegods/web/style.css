@@ -1,0 +1,265 @@
+:root {
+    --bg: #14161a;
+    --panel: rgba(24, 27, 33, 0.92);
+    --text: #e8e6e1;
+    --muted: #9a9890;
+    --line: #2f333b;
+    --accent: #e0b44c;
+    --good: #6fcf7a;
+    --bad: #e06c5c;
+    color-scheme: dark;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+#app {
+    position: fixed;
+    inset: 0;
+}
+
+#map {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: grab;
+    display: block;
+}
+
+#map.dragging {
+    cursor: grabbing;
+}
+
+#panel {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 280px;
+    max-height: calc(100% - 64px);
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#panel header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+}
+
+h1 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+}
+
+#panel section {
+    padding: 10px 12px;
+}
+
+#teams {
+    overflow-y: auto;
+    border-top: 1px solid var(--line);
+}
+
+#panel footer {
+    display: flex;
+    gap: 6px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--line);
+}
+
+button {
+    font: inherit;
+    color: var(--text);
+    background: #2a2e36;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 5px 9px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #343943;
+}
+
+button.on {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+#toggle-panel {
+    padding: 2px 8px;
+}
+
+#show-panel {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+}
+
+.muted {
+    color: var(--muted);
+}
+
+.team {
+    margin-bottom: 12px;
+}
+
+.team-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+
+.swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex: none;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.resources {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    margin: 6px 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.resources div {
+    background: #20242b;
+    border-radius: 4px;
+    padding: 3px 5px;
+}
+
+.resources span {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.members {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.members li {
+    padding: 1px 0;
+}
+
+.members a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.members a:hover {
+    text-decoration: underline;
+}
+
+.dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-right: 6px;
+    background: #4a4d55;
+}
+
+.dot.online {
+    background: var(--good);
+}
+
+#status {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    display: flex;
+    gap: 12px;
+    padding: 5px 10px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+}
+
+#connection.good {
+    color: var(--good);
+}
+
+#connection.bad {
+    color: var(--bad);
+}
+
+#login {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: var(--bg);
+    padding: 16px;
+}
+
+#login[hidden], #show-panel[hidden], #panel[hidden] {
+    display: none;
+}
+
+#login .card {
+    max-width: 420px;
+    padding: 24px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+}
+
+code {
+    background: #2a2e36;
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+@media (max-width: 600px) {
+    #panel {
+        top: auto;
+        bottom: 48px;
+        left: 8px;
+        right: 8px;
+        width: auto;
+        max-height: 45%;
+    }
+
+    #show-panel {
+        top: auto;
+        bottom: 48px;
+        left: 8px;
+    }
+
+    #status {
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+        justify-content: space-between;
+    }
+}

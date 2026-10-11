@@ -16,6 +16,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
+import net.minecraft.event.ClickEvent;
 import net.minecraft.util.EnumChatFormatting;
 
 import com.warofthegods.Config;
@@ -23,6 +24,8 @@ import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
+import com.warofthegods.web.Viewer;
+import com.warofthegods.web.WebServer;
 import com.warofthegods.world.GameWorld;
 
 /** The /rts command: game setup, teams, alliances and resources. */
@@ -32,7 +35,7 @@ public class CommandRts extends CommandBase {
     private static final Pattern FORMATTING_CODE = Pattern.compile("\u00a7.");
     private static final Pattern TEAM_NAME = Pattern.compile("[A-Za-z0-9_-]{1,16}");
     private static final List<String> SUBCOMMANDS = Arrays
-        .asList("help", "info", "newgame", "endgame", "spawn", "team", "ally", "unally", "resources");
+        .asList("help", "info", "newgame", "endgame", "spawn", "team", "ally", "unally", "resources", "web");
     private static final List<String> TEAM_SUBCOMMANDS = Arrays
         .asList("list", "create", "remove", "color", "join", "leave");
     private static final List<String> RESOURCE_ACTIONS = Arrays.asList("give", "take", "set");
@@ -44,7 +47,7 @@ public class CommandRts extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/rts <help|info|newgame|endgame|spawn|team|ally|unally|resources>";
+        return "/rts <help|info|newgame|endgame|spawn|team|ally|unally|resources|web>";
     }
 
     /** Everyone may run /rts; subcommands that change the game check for op themselves. */
@@ -94,6 +97,9 @@ public class CommandRts extends CommandBase {
             case "res":
                 resources(sender, rest);
                 break;
+            case "web":
+                web(sender, rest);
+                break;
             default:
                 throw new WrongUsageException(getCommandUsage(sender));
         }
@@ -115,6 +121,9 @@ public class CommandRts extends CommandBase {
         send(sender, "/rts unally <team> <team> (op)");
         send(sender, "/rts resources [team]");
         send(sender, "/rts resources <give|take|set> <team> <resource> <amount> (op)");
+        send(sender, "/rts web - get a link to the live web map");
+        send(sender, "/rts web <player> - send a player a web map link (op)");
+        send(sender, "/rts web observer - get a link that views the map without a team (op)");
     }
 
     private void info(ICommandSender sender) {
@@ -261,6 +270,60 @@ public class CommandRts extends CommandBase {
         }
     }
 
+    /**
+     * Makes a one-time login link to the web map. A player gets one for themselves; an op can send one to another
+     * player, or get an observer link that belongs to no team. The server console gets an observer link by default.
+     */
+    private void web(ICommandSender sender, String[] args) {
+        WebServer server = WebServer.get();
+        if (server == null) {
+            throw new CommandException("The web map is not running. Check the web section of config/warofthegods.cfg");
+        }
+        boolean console = !(sender instanceof EntityPlayer);
+        boolean observer = args.length == 0 ? console : args[0].equalsIgnoreCase("observer");
+        if (observer) {
+            requireOp(sender);
+            String url = webLink(server, Viewer.observer());
+            String message = "Web map observer link, valid once for " + Config.webLinkMinutes + " minutes:";
+            if (console) {
+                send(sender, message + " " + url);
+            } else {
+                send(sender, EnumChatFormatting.GOLD + message);
+                sendLink((EntityPlayer) sender, url);
+            }
+            return;
+        }
+        EntityPlayerMP player = args.length > 0 ? getPlayer(sender, args[0]) : getCommandSenderAsPlayer(sender);
+        if (player != sender) {
+            requireOp(sender);
+        }
+        String url = webLink(server, Viewer.player(player.getUniqueID(), player.getCommandSenderName()));
+        send(
+            player,
+            EnumChatFormatting.GOLD + "Your web map link works once and for "
+                + Config.webLinkMinutes
+                + " minutes. Do not share it:");
+        sendLink(player, url);
+        if (player != sender) {
+            send(sender, "Sent a web map link to " + player.getCommandSenderName());
+        }
+    }
+
+    private static String webLink(WebServer server, Viewer viewer) {
+        return WebServer.publicUrl() + "/?token="
+            + server.getSessions()
+                .createLinkToken(viewer);
+    }
+
+    private static void sendLink(EntityPlayer player, String url) {
+        ChatComponentText link = new ChatComponentText(url);
+        link.getChatStyle()
+            .setColor(EnumChatFormatting.AQUA)
+            .setUnderlined(true)
+            .setChatClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url));
+        player.addChatMessage(link);
+    }
+
     private void teamList(ICommandSender sender) {
         Game game = requireGame();
         if (game.getTeams()
@@ -389,6 +452,14 @@ public class CommandRts extends CommandBase {
         switch (args[0].toLowerCase()) {
             case "spawn":
                 return args.length == 2 ? getListOfStringsMatchingLastWord(args, players) : null;
+            case "web": {
+                if (args.length != 2) {
+                    return null;
+                }
+                List<String> options = new ArrayList<>(Arrays.asList(players));
+                options.add("observer");
+                return getListOfStringsFromIterableMatchingLastWord(args, options);
+            }
             case "team":
                 if (args.length == 2) {
                     return getListOfStringsFromIterableMatchingLastWord(args, TEAM_SUBCOMMANDS);
