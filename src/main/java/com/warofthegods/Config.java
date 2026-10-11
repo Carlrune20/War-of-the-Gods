@@ -88,8 +88,13 @@ public class Config {
             "Address players' browsers reach the web server on, used in /rts web links, such as"
                 + " http://play.example.com:8124. Empty means http://localhost:<port>, which only works on the"
                 + " server machine itself.");
-        webLinkMinutes = configuration
-            .getInt("linkMinutes", web, webLinkMinutes, 1, 1440, "Minutes a /rts web link stays valid. Links work once.");
+        webLinkMinutes = configuration.getInt(
+            "linkMinutes",
+            web,
+            webLinkMinutes,
+            1,
+            1440,
+            "Minutes a /rts web link stays valid. Links work once.");
         webSessionHours = configuration.getInt(
             "sessionHours",
             web,

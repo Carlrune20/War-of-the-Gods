@@ -158,7 +158,9 @@ final class HttpHandler extends ChannelInboundHandlerAdapter {
             send(
                 ctx,
                 request,
-                text(HttpResponseStatus.UNAUTHORIZED, "This link has expired or was already used. Run /rts web again."));
+                text(
+                    HttpResponseStatus.UNAUTHORIZED,
+                    "This link has expired or was already used. Run /rts web again."));
             return;
         }
         FullHttpResponse response = json(
@@ -176,8 +178,7 @@ final class HttpHandler extends ChannelInboundHandlerAdapter {
         send(ctx, request, response);
     }
 
-    private void tile(ChannelHandlerContext ctx, FullHttpRequest request, QueryStringDecoder query)
-        throws IOException {
+    private void tile(ChannelHandlerContext ctx, FullHttpRequest request, QueryStringDecoder query) throws IOException {
         if (viewer(request) == null) {
             send(ctx, request, text(HttpResponseStatus.UNAUTHORIZED, "Not logged in"));
             return;
@@ -331,7 +332,9 @@ final class HttpHandler extends ChannelInboundHandlerAdapter {
                 .readableBytes());
         headers.set("X-Content-Type-Options", "nosniff");
         headers.set("Referrer-Policy", "no-referrer");
-        headers.set("Content-Security-Policy", "default-src 'self'; img-src 'self' blob:; connect-src 'self' ws: wss:; frame-ancestors 'none'");
+        headers.set(
+            "Content-Security-Policy",
+            "default-src 'self'; img-src 'self' blob:; connect-src 'self' ws: wss:; frame-ancestors 'none'");
         boolean keepAlive = HttpHeaders.isKeepAlive(request);
         if (keepAlive) {
             headers.set(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
