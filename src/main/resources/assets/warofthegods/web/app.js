@@ -2,11 +2,12 @@
 // render.js draws the map in 3D, and this file runs the page.
 //
 // The server sends JSON messages over a WebSocket at /ws:
-//   {type: "game", game: {number, minX, minZ, maxX, maxZ, margin, tileSize, seaLevel} | null}
+//   {type: "game", game: {number, minX, minZ, maxX, maxZ, margin, tileSize, seaLevel, unitCost, unitsPerTeam} | null}
 //   {type: "tiles", tiles: {"x,z": version}}   map tiles to (re)load from /api/tile, see MapTiles.java
-//   {type: "state", teams: [...], players: [...]}
+//   {type: "state", teams: [...], players: [...], units: [...]}
 //   {type: "error", error, replyTo}
-// The page sends {type: "hello"} once connected, and later commands as {type, id, ...}; see command().
+// The page sends {type: "hello"} once connected, and commands such as unit orders as {type, id, ...};
+// see command() and UnitCommands.java.
 "use strict";
 
 (function () {
@@ -20,6 +21,8 @@
         teams: [],
         teamsById: {},
         players: new Map(), // uuid -> {name, team, x, y, z, yaw, drawX, drawY, drawZ}
+        units: new Map(), // id -> {team, number, x, y, z, health, maxHealth, order, toX, toZ, target, drawX...}
+        selected: new Set(), // ids of the viewer's units that orders go to
         tiles: new Map(), // "x,z" -> {version, loaded}
         tilesExpected: 0,
     };
@@ -110,7 +113,7 @@
         el.className = ok ? "good" : "bad";
     }
 
-    // Sends a command to the server; resolves with its reply. Unit orders will use this.
+    // Sends a command to the server; resolves with its reply, or rejects with the error it gave.
     function command(type, body) {
         const id = nextCommandId++;
         socket.send(JSON.stringify(Object.assign({}, body, {type, id})));
@@ -160,6 +163,8 @@
             state.tiles.clear();
             tileQueue.length = 0;
             state.players.clear();
+            state.units.clear();
+            state.selected.clear();
             view.setGame(game);
             if (game) {
                 view.fitMap();
@@ -174,6 +179,7 @@
         }
         updateProgress();
         renderPanel();
+        renderUnitBar();
     }
 
     // Tiles waiting to be fetched, and how many fetches are running.
@@ -277,7 +283,30 @@
                 state.players.delete(uuid);
             }
         }
+        const seenUnits = new Set();
+        for (const u of message.units || []) {
+            seenUnits.add(u.id);
+            const old = state.units.get(u.id);
+            u.drawX = old ? old.drawX : u.x;
+            u.drawY = old ? old.drawY : u.y;
+            u.drawZ = old ? old.drawZ : u.z;
+            state.units.set(u.id, u);
+        }
+        for (const id of [...state.units.keys()]) {
+            if (!seenUnits.has(id)) {
+                state.units.delete(id);
+            }
+        }
+        // Dead units, and units of a team the viewer has left, drop out of the selection.
+        const team = myTeam();
+        for (const id of [...state.selected]) {
+            const u = state.units.get(id);
+            if (!u || !team || u.team !== team.id) {
+                state.selected.delete(id);
+            }
+        }
         renderPanel();
+        renderUnitBar();
         view.dirty = true;
     }
 
@@ -333,6 +362,22 @@
                 resources.append(cell);
             }
             box.append(resources);
+
+            if (state.game && team.units !== undefined) {
+                const units = el("div", "muted", "Units " + team.units + " of " + state.game.unitsPerTeam);
+                if (team.base) {
+                    const link = el("a", "", "base");
+                    link.href = "#";
+                    link.addEventListener("click", (event) => {
+                        event.preventDefault();
+                        setFollow(false);
+                        view.focus(team.base.x + 0.5, surfaceY(team.base.x, team.base.z), team.base.z + 0.5);
+                        view.cam.zoom = Math.min(view.cam.zoom, 40);
+                    });
+                    units.append(document.createTextNode(", "), link);
+                }
+                box.append(units);
+            }
 
             if (team.allies.length) {
                 const names = team.allies.map((id) => state.teamsById[id] ? state.teamsById[id].name : id);
@@ -406,22 +451,285 @@
         topButton.classList.toggle("on", view.isTopView);
     });
 
+    // ---------------------------------------------------------------- units
+    //
+    // Like an RTS: click one of your units to select it (shift-click adds), shift-drag a box around several, or
+    // double-click one to select all of yours in view. Right-click the ground to send them there, or an enemy to
+    // attack it. On a touch screen, tap your units to select them, then tap the ground or an enemy to give the
+    // order; the Box button makes the next drag select instead of pan.
+
+    const unitBar = document.getElementById("unit-bar");
+    const trainButton = document.getElementById("train");
+    const boxButton = document.getElementById("box-select");
+    const toast = document.getElementById("toast");
+    let boxMode = false;
+    let selectionBox = null; // {x0, y0, x1, y1} in CSS pixels while dragging one
+    let orderMark = null; // {x, y, z, color, time} where the last order went
+    let lastClick = {time: 0, id: null};
+
+    function costText() {
+        const cost = state.game && state.game.unitCost ? state.game.unitCost : {};
+        const parts = RESOURCES.filter(([id]) => cost[id]).map(([id, label]) => cost[id] + " " + label.toLowerCase());
+        return parts.length ? parts.join(", ") : "free";
+    }
+
+    function canAfford(team) {
+        const cost = state.game && state.game.unitCost ? state.game.unitCost : {};
+        return RESOURCES.every(([id]) => !cost[id] || team.resources[id] >= cost[id]);
+    }
+
+    function renderUnitBar() {
+        const team = myTeam();
+        unitBar.hidden = !(team && state.game);
+        if (unitBar.hidden) {
+            return;
+        }
+        const full = team.units >= state.game.unitsPerTeam;
+        trainButton.textContent = "Train unit (" + costText() + ")";
+        trainButton.disabled = full || !canAfford(team);
+        trainButton.title = full ? "Your team has the most units it can have" : "Shift-click to train 5";
+        const count = state.selected.size;
+        document.getElementById("selection-info").textContent =
+            count ? count + " selected" : team.units ? "None selected" : "No units yet";
+        document.getElementById("stop-units").disabled = !count;
+        document.getElementById("clear-selection").disabled = !count;
+        boxButton.classList.toggle("on", boxMode);
+    }
+
+    let toastTimer = 0;
+
+    function showToast(text, bad) {
+        toast.textContent = text;
+        toast.className = bad ? "bad" : "";
+        toast.hidden = false;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+            toast.hidden = true;
+        }, 3000);
+    }
+
+    function send(type, body) {
+        return command(type, body).catch((error) => {
+            showToast(error.message, true);
+            return null;
+        });
+    }
+
+    trainButton.addEventListener("click", async (event) => {
+        const reply = await send("units.train", {count: event.shiftKey ? 5 : 1});
+        if (reply) {
+            showToast(reply.count === 1 ? "Trained a unit" : "Trained " + reply.count + " units");
+        }
+    });
+
+    document.getElementById("select-all").addEventListener("click", () => {
+        const team = myTeam();
+        state.selected.clear();
+        for (const u of state.units.values()) {
+            if (team && u.team === team.id) {
+                state.selected.add(u.id);
+            }
+        }
+        changedSelection();
+    });
+
+    document.getElementById("stop-units").addEventListener("click", () => {
+        if (state.selected.size) {
+            send("units.stop", {units: [...state.selected]});
+        }
+    });
+
+    document.getElementById("clear-selection").addEventListener("click", () => {
+        state.selected.clear();
+        changedSelection();
+    });
+
+    boxButton.addEventListener("click", () => {
+        boxMode = !boxMode;
+        renderUnitBar();
+    });
+
+    function changedSelection() {
+        renderUnitBar();
+        view.dirty = true;
+    }
+
+    function isMine(u) {
+        const team = myTeam();
+        return Boolean(team && u.team === team.id);
+    }
+
+    function isEnemyTeam(teamId) {
+        const team = myTeam();
+        if (!team || !teamId) {
+            return false;
+        }
+        return teamId !== team.id && !team.allies.includes(teamId);
+    }
+
+    // How big a unit or player is drawn, so they stay visible when zoomed out.
+    function figureScale() {
+        return Math.max(1, view.cam.zoom / 40);
+    }
+
+    // The unit or player under a screen point: {kind: "unit"|"player", thing}, or null.
+    function entityAt(px, py) {
+        const s = figureScale();
+        const pixelsPerBlock = canvas.clientHeight / (2 * view.cam.zoom);
+        const radius = Math.max(12, 0.9 * s * pixelsPerBlock);
+        let best = null;
+        let bestDistance = radius;
+        const consider = (kind, thing) => {
+            const [x, y] = view.project(thing.drawX, thing.drawY + 0.9 * s, thing.drawZ);
+            const distance = Math.hypot(x - px, y - py);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = {kind, thing};
+            }
+        };
+        for (const u of state.units.values()) {
+            consider("unit", u);
+        }
+        for (const p of state.players.values()) {
+            consider("player", p);
+        }
+        return best;
+    }
+
+    function entityId(hit) {
+        return hit.kind === "unit" ? hit.thing.id : hit.thing.uuid;
+    }
+
+    function isEnemy(hit) {
+        if (hit.kind === "player" && state.me && hit.thing.uuid === state.me.uuid) {
+            return false;
+        }
+        return isEnemyTeam(hit.thing.team);
+    }
+
+    // The ground under a screen point, or null.
+    function groundUnder(px, py) {
+        const hit = view.pick(px, py);
+        if (hit) {
+            return [hit.x + 0.5, hit.y + 1, hit.z + 0.5];
+        }
+        return state.game ? view.groundAt(px, py, state.game.seaLevel + 1) : null;
+    }
+
+    // Selects or orders for a click (or tap) that did not drag.
+    function click(px, py, button, shift, touch) {
+        if (!myTeam()) {
+            return;
+        }
+        const hit = entityAt(px, py);
+        const ordering = button === 2 || (touch && state.selected.size && !(hit && hit.kind === "unit" && isMine(hit.thing)));
+        if (ordering) {
+            if (state.selected.size) {
+                order(px, py, hit);
+            }
+            return;
+        }
+        if (button !== 0) {
+            return;
+        }
+        if (hit && hit.kind === "unit" && isMine(hit.thing)) {
+            const id = hit.thing.id;
+            const now = performance.now();
+            if (lastClick.id === id && now - lastClick.time < 400) {
+                selectInView();
+            } else if (shift || touch) {
+                if (state.selected.has(id)) {
+                    state.selected.delete(id);
+                } else {
+                    state.selected.add(id);
+                }
+            } else {
+                state.selected.clear();
+                state.selected.add(id);
+            }
+            lastClick = {time: now, id};
+            changedSelection();
+        } else if (!shift && !touch && state.selected.size) {
+            state.selected.clear();
+            changedSelection();
+        }
+    }
+
+    function order(px, py, hit) {
+        const units = [...state.selected];
+        if (hit && isEnemy(hit)) {
+            const t = hit.thing;
+            orderMark = {x: t.drawX, y: t.drawY, z: t.drawZ, color: [1, 0.3, 0.25, 1], time: performance.now()};
+            send("units.attack", {units, target: entityId(hit)});
+        } else {
+            const ground = groundUnder(px, py);
+            if (!ground) {
+                return;
+            }
+            orderMark = {x: ground[0], y: ground[1], z: ground[2], color: [0.45, 1, 0.5, 1], time: performance.now()};
+            send("units.move", {units, x: ground[0], z: ground[2]});
+        }
+        view.dirty = true;
+    }
+
+    function selectInView() {
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+        selectIn(0, 0, width, height, false);
+    }
+
+    // Selects the viewer's units drawn inside a screen rectangle; adds to the selection if asked.
+    function selectIn(x0, y0, x1, y1, add) {
+        const [left, right] = [Math.min(x0, x1), Math.max(x0, x1)];
+        const [top, bottom] = [Math.min(y0, y1), Math.max(y0, y1)];
+        if (!add) {
+            state.selected.clear();
+        }
+        const s = figureScale();
+        for (const u of state.units.values()) {
+            if (!isMine(u)) {
+                continue;
+            }
+            const [x, y] = view.project(u.drawX, u.drawY + 0.9 * s, u.drawZ);
+            if (x >= left && x <= right && y >= top && y <= bottom) {
+                state.selected.add(u.id);
+            }
+        }
+        changedSelection();
+    }
+
     // ---------------------------------------------------------------- camera and input
     //
     // As in the map editor: drag with the left button (or one finger) to pan, drag with the right button to tilt
     // and turn, middle button pans too, the wheel or a pinch zooms, two fingers twisting turn the view,
-    // WASD or the arrow keys pan and Q/E turn a quarter round.
+    // WASD or the arrow keys pan and Q/E turn a quarter round. A click that does not drag selects or orders units.
 
-    const pointers = new Map(); // pointerId -> {x, y, button}
+    const pointers = new Map(); // pointerId -> {x, y, button, startX, startY, moved, box}
     let pinch = null; // {distance, angle}
+    let multiTouch = false; // a second finger came down since the first, so lifting is not a tap
 
     canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
     canvas.addEventListener("pointerdown", (event) => {
         canvas.setPointerCapture(event.pointerId);
-        pointers.set(event.pointerId, {x: event.offsetX, y: event.offsetY, button: event.button});
+        const point = {
+            x: event.offsetX,
+            y: event.offsetY,
+            button: event.button,
+            startX: event.offsetX,
+            startY: event.offsetY,
+            moved: false,
+            box: false,
+        };
+        if (!pointers.size) {
+            multiTouch = false;
+            point.box = event.button === 0 && (event.shiftKey || boxMode) && Boolean(myTeam());
+        }
+        pointers.set(event.pointerId, point);
         canvas.classList.add("dragging");
         if (pointers.size === 2) {
+            multiTouch = true;
+            selectionBox = null;
             pinch = pinchState();
         }
     });
@@ -432,13 +740,19 @@
         if (!last) {
             return;
         }
-        const point = {x: event.offsetX, y: event.offsetY, button: last.button};
+        const point = Object.assign({}, last, {x: event.offsetX, y: event.offsetY});
+        point.moved = last.moved || Math.hypot(point.x - last.startX, point.y - last.startY) > 6;
         const dx = point.x - last.x;
         const dy = point.y - last.y;
         pointers.set(event.pointerId, point);
-        if (pointers.size === 1) {
+        if (pointers.size === 1 && point.box) {
+            selectionBox = point.moved ? {x0: point.startX, y0: point.startY, x1: point.x, y1: point.y} : null;
+            view.dirty = true;
+        } else if (pointers.size === 1) {
             if (last.button === 2) {
-                view.orbit(dx, dy);
+                if (point.moved) {
+                    view.orbit(dx, dy);
+                }
             } else if (dx || dy) {
                 setFollow(false);
                 view.pan(dx, dy);
@@ -455,11 +769,28 @@
     });
 
     function endPointer(event) {
+        const point = pointers.get(event.pointerId);
         pointers.delete(event.pointerId);
         pinch = pointers.size === 2 ? pinchState() : null;
         if (!pointers.size) {
             canvas.classList.remove("dragging");
         }
+        if (!point || event.type === "pointercancel" || multiTouch) {
+            selectionBox = null;
+            return;
+        }
+        if (point.box && point.moved) {
+            selectIn(point.startX, point.startY, point.x, point.y, event.shiftKey);
+            selectionBox = null;
+            if (boxMode) {
+                boxMode = false;
+                renderUnitBar();
+            }
+        } else if (!point.moved) {
+            click(point.x, point.y, point.button, event.shiftKey, event.pointerType === "touch");
+        }
+        selectionBox = null;
+        view.dirty = true;
     }
 
     canvas.addEventListener("pointerup", endPointer);
@@ -504,6 +835,9 @@
             view.turn(-1);
         } else if (key === "e") {
             view.turn(1);
+        } else if (key === "escape" && state.selected.size) {
+            state.selected.clear();
+            changedSelection();
         }
     });
 
@@ -537,21 +871,105 @@
     }
 
     const SKIN = [0.94, 0.76, 0.6, 1];
+    const STEEL = [0.62, 0.65, 0.7, 1];
 
-    // Players as a body in their team's colour with a head on top, drawn larger when zoomed out so they stay
-    // visible.
-    function playerBoxes() {
+    function teamColor(teamId) {
+        const team = teamId ? state.teamsById[teamId] : null;
+        return team ? hexColor(team.color, 1) : [0.8, 0.8, 0.8, 1];
+    }
+
+    // Players as a body in their team's colour with a bare head on top; units the same with a steel helmet, so
+    // the two tell apart. Both are drawn larger when zoomed out so they stay visible.
+    function figureBoxes() {
         const boxes = [];
-        const s = Math.max(1, view.cam.zoom / 40);
-        for (const p of state.players.values()) {
-            const team = p.team ? state.teamsById[p.team] : null;
-            const color = team ? hexColor(team.color, 1) : [0.8, 0.8, 0.8, 1];
+        const s = figureScale();
+        const figure = (x, y, z, color, head) => {
             const w = 0.6 * s;
-            boxes.push({min: [p.drawX - w / 2, p.drawY, p.drawZ - w / 2], size: [w, 1.35 * s, w], color});
+            boxes.push({min: [x - w / 2, y, z - w / 2], size: [w, 1.35 * s, w], color});
             const hw = 0.5 * s;
-            boxes.push({min: [p.drawX - hw / 2, p.drawY + 1.35 * s, p.drawZ - hw / 2], size: [hw, hw, hw], color: SKIN});
+            boxes.push({min: [x - hw / 2, y + 1.35 * s, z - hw / 2], size: [hw, hw, hw], color: head});
+        };
+        for (const p of state.players.values()) {
+            figure(p.drawX, p.drawY, p.drawZ, teamColor(p.team), SKIN);
+        }
+        for (const u of state.units.values()) {
+            figure(u.drawX, u.drawY, u.drawZ, teamColor(u.team), STEEL);
+        }
+        for (const team of state.teams) {
+            if (team.base) {
+                // A flag on the pole baseLines() draws.
+                const y = surfaceY(team.base.x, team.base.z) + 9 * s;
+                boxes.push({min: [team.base.x + 0.5, y, team.base.z + 0.45], size: [3 * s, 2 * s, 0.1], color: hexColor(team.color, 1)});
+            }
         }
         return boxes;
+    }
+
+    // The y just above the highest block at x, z, or above sea level where the map is not loaded.
+    function surfaceY(x, z) {
+        const map = view.map;
+        if (map.chunk(x >> 4, z >> 4)) {
+            for (let y = 255; y > 0; y--) {
+                const value = map.block(x, y, z);
+                if (value && !window.WotgBlocks.isInvisible(window.WotgBlocks.index(value >> 4))) {
+                    return y + 1;
+                }
+            }
+        }
+        return state.game ? state.game.seaLevel + 1 : 64;
+    }
+
+    function ring(lines, x, y, z, radius, color) {
+        const segments = 16;
+        for (let i = 0; i < segments; i++) {
+            const a = 2 * Math.PI * i / segments;
+            const b = 2 * Math.PI * (i + 1) / segments;
+            lines.push([[x + Math.cos(a) * radius, y, z + Math.sin(a) * radius],
+                [x + Math.cos(b) * radius, y, z + Math.sin(b) * radius], color]);
+        }
+    }
+
+    const SELECTED = [0.45, 1, 0.5, 1];
+    const ATTACK = [1, 0.3, 0.25, 1];
+
+    // Rings under selected units with a line to where each is headed, the last order's marker and team bases.
+    function unitLines(now) {
+        const lines = [];
+        const s = figureScale();
+        for (const id of state.selected) {
+            const u = state.units.get(id);
+            if (!u) {
+                continue;
+            }
+            ring(lines, u.drawX, u.drawY + 0.05, u.drawZ, 0.7 * s, SELECTED);
+            const target = u.target ? state.units.get(u.target) || state.players.get(u.target) : null;
+            if (u.order === "attack" && target) {
+                lines.push([[u.drawX, u.drawY + 0.1, u.drawZ], [target.drawX, target.drawY + 0.1, target.drawZ], ATTACK]);
+            } else if (u.order === "move" && u.toX !== undefined) {
+                const y = surfaceY(Math.floor(u.toX), Math.floor(u.toZ));
+                lines.push([[u.drawX, u.drawY + 0.1, u.drawZ], [u.toX, y + 0.1, u.toZ], SELECTED]);
+            }
+        }
+        if (orderMark) {
+            const age = (now - orderMark.time) / 1000;
+            if (age > 1) {
+                orderMark = null;
+            } else {
+                const color = orderMark.color.slice(0, 3).concat([1 - age]);
+                ring(lines, orderMark.x, orderMark.y + 0.1, orderMark.z, (0.5 + 1.5 * age) * s, color);
+            }
+        }
+        for (const team of state.teams) {
+            if (team.base) {
+                const x = team.base.x + 0.5;
+                const z = team.base.z + 0.5;
+                const y = surfaceY(team.base.x, team.base.z);
+                const color = hexColor(team.color, 1);
+                lines.push([[x, y, z], [x, y + 11 * s, z], [0.9, 0.85, 0.7, 1]]);
+                ring(lines, x, y + 0.1, z, 4, color);
+            }
+        }
+        return lines;
     }
 
     function borderLines() {
@@ -584,7 +1002,39 @@
         labelCtx.clearRect(0, 0, width, height);
         labelCtx.font = "600 12px system-ui, sans-serif";
         labelCtx.textAlign = "center";
-        const s = Math.max(1, view.cam.zoom / 40);
+        const s = figureScale();
+        for (const team of state.teams) {
+            if (team.base) {
+                const [x, y] = view.project(team.base.x + 0.5, surfaceY(team.base.x, team.base.z) + 11 * s, team.base.z + 0.5);
+                labelCtx.lineWidth = 3;
+                labelCtx.strokeStyle = "rgba(0, 0, 0, 0.8)";
+                labelCtx.strokeText(team.name + " base", x, y - 6);
+                labelCtx.fillStyle = team.color;
+                labelCtx.fillText(team.name + " base", x, y - 6);
+            }
+        }
+        // Health bars over units that are hurt or selected.
+        for (const u of state.units.values()) {
+            const selected = state.selected.has(u.id);
+            if (!selected && u.health >= u.maxHealth) {
+                continue;
+            }
+            const [x, y] = view.project(u.drawX, u.drawY + 1.85 * s, u.drawZ);
+            const width = 24;
+            const fraction = Math.max(0, Math.min(1, u.health / u.maxHealth));
+            labelCtx.fillStyle = "rgba(0, 0, 0, 0.75)";
+            labelCtx.fillRect(x - width / 2 - 1, y - 9, width + 2, 5);
+            labelCtx.fillStyle = fraction > 0.5 ? "#5fdc6a" : fraction > 0.25 ? "#e8c547" : "#e8553f";
+            labelCtx.fillRect(x - width / 2, y - 8, width * fraction, 3);
+        }
+        if (selectionBox) {
+            const b = selectionBox;
+            labelCtx.fillStyle = "rgba(115, 255, 128, 0.12)";
+            labelCtx.strokeStyle = "rgba(115, 255, 128, 0.9)";
+            labelCtx.lineWidth = 1;
+            labelCtx.fillRect(Math.min(b.x0, b.x1), Math.min(b.y0, b.y1), Math.abs(b.x1 - b.x0), Math.abs(b.y1 - b.y0));
+            labelCtx.strokeRect(Math.min(b.x0, b.x1) + 0.5, Math.min(b.y0, b.y1) + 0.5, Math.abs(b.x1 - b.x0), Math.abs(b.y1 - b.y0));
+        }
         for (const p of state.players.values()) {
             const [x, y] = view.project(p.drawX, p.drawY + 1.85 * s, p.drawZ);
             const isMe = state.me && p.uuid === state.me.uuid;
@@ -611,8 +1061,8 @@
             progressTimer = now;
             updateProgress();
         }
-        // Players glide toward their latest reported position between updates.
-        for (const p of state.players.values()) {
+        // Players and units glide toward their latest reported position between updates.
+        for (const p of [...state.players.values(), ...state.units.values()]) {
             const dx = p.x - p.drawX;
             const dy = p.y - p.drawY;
             const dz = p.z - p.drawZ;
@@ -631,8 +1081,11 @@
                 view.focus(me.drawX, me.drawY, me.drawZ);
             }
         }
+        if (orderMark) {
+            view.dirty = true;
+        }
         if (view.dirty && state.game) {
-            view.draw(playerBoxes(), borderLines());
+            view.draw(figureBoxes(), borderLines().concat(unitLines(now)));
             drawLabels();
         } else if (view.dirty) {
             view.draw([], []);
@@ -665,6 +1118,7 @@
     login().then((ok) => {
         if (ok) {
             renderPanel();
+            renderUnitBar();
             setFollow(false);
             connect();
             requestAnimationFrame(frame);

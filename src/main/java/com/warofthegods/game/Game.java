@@ -30,6 +30,8 @@ public class Game {
     private final Map<String, Team> teams = new LinkedHashMap<>();
     /** Allied team pairs, each stored as "a|b" with the two team ids sorted. */
     private final TreeSet<String> alliances = new TreeSet<>();
+    /** Every unit of the game by its entity UUID, with the chunk it was last seen in. */
+    private final Map<UUID, UnitRecord> units = new LinkedHashMap<>();
     private Runnable changeListener = () -> {};
 
     public Game(int number, long startedAt, int centerX, int centerZ, int size, long seed) {
@@ -246,6 +248,33 @@ public class Game {
         return result;
     }
 
+    public Collection<UnitRecord> getUnitRecords() {
+        return Collections.unmodifiableCollection(units.values());
+    }
+
+    /** Remembers where a unit is; only marks the game changed when the unit is new or moved to another chunk. */
+    public void updateUnitRecord(UUID id, String team, int chunkX, int chunkZ) {
+        UnitRecord old = units.get(id);
+        if (old == null || old.chunkX != chunkX || old.chunkZ != chunkZ || !old.team.equals(team)) {
+            units.put(id, new UnitRecord(id, team, chunkX, chunkZ));
+            changed();
+        }
+    }
+
+    public void removeUnitRecord(UUID id) {
+        if (units.remove(id) != null) {
+            changed();
+        }
+    }
+
+    public int countUnits(Team team) {
+        int count = 0;
+        for (UnitRecord unit : units.values()) {
+            count += unit.team.equals(team.getId()) ? 1 : 0;
+        }
+        return count;
+    }
+
     NBTTagCompound writeToNBT() {
         NBTTagCompound tag = new NBTTagCompound();
         tag.setInteger("number", number);
@@ -266,6 +295,12 @@ public class Game {
             allianceList.appendTag(new NBTTagString(pair));
         }
         tag.setTag("alliances", allianceList);
+
+        NBTTagList unitList = new NBTTagList();
+        for (UnitRecord unit : units.values()) {
+            unitList.appendTag(unit.writeToNBT());
+        }
+        tag.setTag("units", unitList);
         return tag;
     }
 
@@ -291,6 +326,12 @@ public class Game {
             if (ids.length == 2 && game.teams.containsKey(ids[0]) && game.teams.containsKey(ids[1])) {
                 game.alliances.add(pair);
             }
+        }
+
+        NBTTagList unitList = tag.getTagList("units", 10);
+        for (int i = 0; i < unitList.tagCount(); i++) {
+            UnitRecord unit = UnitRecord.readFromNBT(unitList.getCompoundTagAt(i));
+            game.units.put(unit.id, unit);
         }
         return game;
     }

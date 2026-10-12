@@ -20,6 +20,8 @@ import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
+import com.warofthegods.unit.EntityUnit;
+import com.warofthegods.unit.Units;
 import com.warofthegods.world.ChunkProviderRts;
 import com.warofthegods.world.GameWorld;
 
@@ -124,11 +126,18 @@ public final class WebMap {
         json.addProperty("margin", Config.mapMargin);
         json.addProperty("tileSize", MapTiles.TILE_SIZE);
         json.addProperty("seaLevel", ChunkProviderRts.SEA_LEVEL);
+        JsonObject cost = new JsonObject();
+        for (Map.Entry<Resource, Long> entry : Units.unitCost()
+            .entrySet()) {
+            cost.addProperty(entry.getKey().id, entry.getValue());
+        }
+        json.add("unitCost", cost);
+        json.addProperty("unitsPerTeam", Config.unitsPerTeam);
         message.add("game", json);
         return message;
     }
 
-    /** Teams with their resources and alliances, and where every player on the map is. */
+    /** Teams with their resources, alliances and bases, and where every player and unit on the map is. */
     private static JsonObject stateMessage(Game game, WorldServer world) {
         JsonObject message = WebJson.message("state");
         JsonArray teams = new JsonArray();
@@ -162,6 +171,14 @@ public final class WebMap {
                     allies.add(new JsonPrimitive(ally.getId()));
                 }
                 json.add("allies", allies);
+                int[] base = team.getBase();
+                if (base != null) {
+                    JsonObject baseJson = new JsonObject();
+                    baseJson.addProperty("x", base[0]);
+                    baseJson.addProperty("z", base[1]);
+                    json.add("base", baseJson);
+                }
+                json.addProperty("units", game.countUnits(team));
                 teams.add(json);
             }
             if (world != null) {
@@ -188,7 +205,47 @@ public final class WebMap {
         }
         message.add("teams", teams);
         message.add("players", players);
+        message.add("units", game == null ? new JsonArray() : unitsJson());
         return message;
+    }
+
+    /** Every loaded unit: where it is, how it is doing and what it is up to. */
+    private static JsonArray unitsJson() {
+        JsonArray units = new JsonArray();
+        for (EntityUnit unit : Units.get()
+            .getLoaded()) {
+            JsonObject json = new JsonObject();
+            json.addProperty(
+                "id",
+                unit.getUniqueID()
+                    .toString());
+            json.addProperty("team", unit.getTeamId());
+            json.addProperty("number", unit.getNumber());
+            json.addProperty("x", round(unit.posX));
+            json.addProperty("y", round(unit.posY));
+            json.addProperty("z", round(unit.posZ));
+            json.addProperty("yaw", round(unit.rotationYaw));
+            json.addProperty("health", round(unit.getHealth()));
+            json.addProperty("maxHealth", round(unit.getMaxHealth()));
+            json.addProperty(
+                "order",
+                unit.getOrder()
+                    .name()
+                    .toLowerCase());
+            double[] heading = unit.getHeading();
+            if (heading != null) {
+                json.addProperty("toX", round(heading[0]));
+                json.addProperty("toZ", round(heading[1]));
+            }
+            if (unit.getTargetId() != null) {
+                json.addProperty(
+                    "target",
+                    unit.getTargetId()
+                        .toString());
+            }
+            units.add(json);
+        }
+        return units;
     }
 
     private static double round(double value) {
@@ -197,39 +254,6 @@ public final class WebMap {
 
     /** The color chat shows for a formatting code, as #rrggbb. */
     static String colorHex(EnumChatFormatting color) {
-        switch (color) {
-            case BLACK:
-                return "#000000";
-            case DARK_BLUE:
-                return "#0000aa";
-            case DARK_GREEN:
-                return "#00aa00";
-            case DARK_AQUA:
-                return "#00aaaa";
-            case DARK_RED:
-                return "#aa0000";
-            case DARK_PURPLE:
-                return "#aa00aa";
-            case GOLD:
-                return "#ffaa00";
-            case GRAY:
-                return "#aaaaaa";
-            case DARK_GRAY:
-                return "#555555";
-            case BLUE:
-                return "#5555ff";
-            case GREEN:
-                return "#55ff55";
-            case AQUA:
-                return "#55ffff";
-            case RED:
-                return "#ff5555";
-            case LIGHT_PURPLE:
-                return "#ff55ff";
-            case YELLOW:
-                return "#ffff55";
-            default:
-                return "#ffffff";
-        }
+        return String.format("#%06x", Team.rgbOf(color));
     }
 }

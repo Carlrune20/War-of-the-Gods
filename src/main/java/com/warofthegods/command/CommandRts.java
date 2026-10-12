@@ -18,26 +18,32 @@ import net.minecraft.event.ClickEvent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.MathHelper;
 
 import com.warofthegods.Config;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
+import com.warofthegods.unit.EntityUnit;
+import com.warofthegods.unit.Units;
 import com.warofthegods.web.Viewer;
 import com.warofthegods.web.WebServer;
 import com.warofthegods.world.GameWorld;
 
-/** The /rts command: game setup, teams, alliances and resources. */
+/** The /rts command: game setup, teams, alliances, resources and units. */
 public class CommandRts extends CommandBase {
 
     /** Section sign color codes; the vanilla stripping helper only exists on the client. */
     private static final Pattern FORMATTING_CODE = Pattern.compile("\u00a7.");
     private static final Pattern TEAM_NAME = Pattern.compile("[A-Za-z0-9_-]{1,16}");
     private static final List<String> SUBCOMMANDS = Arrays
-        .asList("help", "info", "newgame", "endgame", "spawn", "team", "ally", "unally", "resources", "web");
+        .asList("help", "info", "newgame", "endgame", "spawn", "team", "ally", "unally", "resources", "units", "web");
     private static final List<String> TEAM_SUBCOMMANDS = Arrays
-        .asList("list", "create", "remove", "color", "join", "leave");
+        .asList("list", "create", "remove", "color", "join", "leave", "base");
+    private static final List<String> UNIT_ACTIONS = Arrays.asList("spawn", "move", "stop", "kill");
+    /** Units /rts units spawn makes at most at once. */
+    private static final int MAX_SPAWN = 50;
     private static final List<String> RESOURCE_ACTIONS = Arrays.asList("give", "take", "set");
 
     @Override
@@ -47,7 +53,7 @@ public class CommandRts extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/rts <help|info|newgame|endgame|spawn|team|ally|unally|resources|web>";
+        return "/rts <help|info|newgame|endgame|spawn|team|ally|unally|resources|units|web>";
     }
 
     /** Everyone may run /rts; subcommands that change the game check for op themselves. */
@@ -97,6 +103,9 @@ public class CommandRts extends CommandBase {
             case "res":
                 resources(sender, rest);
                 break;
+            case "units":
+                units(sender, rest);
+                break;
             case "web":
                 web(sender, rest);
                 break;
@@ -117,10 +126,16 @@ public class CommandRts extends CommandBase {
         send(sender, "/rts team color <name> <color> (op)");
         send(sender, "/rts team join <team> [player]");
         send(sender, "/rts team leave [player]");
+        send(sender, "/rts team base <team> [x z] - move a team's base, where its units train (op)");
         send(sender, "/rts ally <team> <team> (op)");
         send(sender, "/rts unally <team> <team> (op)");
         send(sender, "/rts resources [team]");
         send(sender, "/rts resources <give|take|set> <team> <resource> <amount> (op)");
+        send(sender, "/rts units [team] - list units");
+        send(sender, "/rts units spawn <team> [count] - spawn units for free at the team's base (op)");
+        send(sender, "/rts units move <team> <x> <z> - send all of a team's units somewhere (op)");
+        send(sender, "/rts units stop <team> - make a team's units stop and guard (op)");
+        send(sender, "/rts units kill <team|all> - remove units (op)");
         send(sender, "/rts web - get a link to the live web map");
         send(sender, "/rts web <player> - send a player a web map link (op)");
         send(sender, "/rts web observer - get a link that views the map without a team (op)");
@@ -146,6 +161,7 @@ public class CommandRts extends CommandBase {
         int[] spawn = GameWorld.findSpawn(GameWorld.getWorld(), game);
         send(sender, "Spawn: " + spawn[0] + "," + spawn[1] + "," + spawn[2]);
         teamList(sender);
+        unitSummary(sender, game);
         List<Team[]> alliances = game.getAlliances();
         if (alliances.isEmpty()) {
             send(sender, "Alliances: none");
@@ -207,7 +223,7 @@ public class CommandRts extends CommandBase {
 
     private void team(ICommandSender sender, String[] args) {
         if (args.length == 0) {
-            throw new WrongUsageException("/rts team <list|create|remove|color|join|leave>");
+            throw new WrongUsageException("/rts team <list|create|remove|color|join|leave|base>");
         }
         Game game = requireGame();
         switch (args[0].toLowerCase()) {
@@ -265,8 +281,171 @@ public class CommandRts extends CommandBase {
                 broadcast(player.getCommandSenderName() + " left team " + team.getColoredName());
                 break;
             }
+            case "base": {
+                requireOp(sender);
+                requireArgs(args, 2, "/rts team base <team> [x z]");
+                Team team = requireTeam(game, args[1]);
+                int x;
+                int z;
+                if (args.length >= 4) {
+                    x = MathHelper.floor_double(coordinate(sender, args[2], true));
+                    z = MathHelper.floor_double(coordinate(sender, args[3], false));
+                } else {
+                    EntityPlayerMP player = getCommandSenderAsPlayer(sender);
+                    x = MathHelper.floor_double(player.posX);
+                    z = MathHelper.floor_double(player.posZ);
+                }
+                if (!game.isInside(x, z)) {
+                    throw new CommandException("%d,%d is outside the map", x, z);
+                }
+                team.setBase(x, z);
+                send(sender, "Team " + team.getColoredName() + " base is now at " + x + "," + z);
+                break;
+            }
             default:
-                throw new WrongUsageException("/rts team <list|create|remove|color|join|leave>");
+                throw new WrongUsageException("/rts team <list|create|remove|color|join|leave|base>");
+        }
+    }
+
+    private void units(ICommandSender sender, String[] args) {
+        Game game = requireGame();
+        String action = args.length > 0 ? args[0].toLowerCase() : "";
+        if (!UNIT_ACTIONS.contains(action)) {
+            Team own = sender instanceof EntityPlayer ? game.getTeamOf(((EntityPlayer) sender).getUniqueID()) : null;
+            if (args.length > 0) {
+                unitList(sender, game, requireTeam(game, args[0]));
+            } else if (own != null) {
+                unitList(sender, game, own);
+            } else {
+                unitSummary(sender, game);
+            }
+            return;
+        }
+        requireOp(sender);
+        switch (action) {
+            case "spawn": {
+                requireArgs(args, 2, "/rts units spawn <team> [count]");
+                Team team = requireTeam(game, args[1]);
+                int count = args.length > 2 ? parseIntBounded(sender, args[2], 1, MAX_SPAWN) : 1;
+                List<EntityUnit> spawned = Units.get()
+                    .spawn(game, team, count);
+                if (spawned.isEmpty()) {
+                    throw new CommandException(
+                        "Team %s has the most units it can have (%d)",
+                        team.getName(),
+                        Config.unitsPerTeam);
+                }
+                int[] base = team.getBase();
+                send(
+                    sender,
+                    "Spawned " + spawned
+                        .size() + " units for " + team.getColoredName() + " at " + base[0] + "," + base[1]);
+                break;
+            }
+            case "move": {
+                requireArgs(args, 4, "/rts units move <team> <x> <z>");
+                Team team = requireTeam(game, args[1]);
+                double x = coordinate(sender, args[2], true);
+                double z = coordinate(sender, args[3], false);
+                List<EntityUnit> units = requireUnits(team);
+                Units.get()
+                    .orderMove(units, x, z);
+                send(
+                    sender,
+                    "Sent " + units.size()
+                        + " units of "
+                        + team.getColoredName()
+                        + " to "
+                        + MathHelper.floor_double(x)
+                        + ","
+                        + MathHelper.floor_double(z));
+                break;
+            }
+            case "stop": {
+                requireArgs(args, 2, "/rts units stop <team>");
+                Team team = requireTeam(game, args[1]);
+                List<EntityUnit> units = requireUnits(team);
+                Units.get()
+                    .orderStop(units);
+                send(sender, "Stopped " + units.size() + " units of " + team.getColoredName());
+                break;
+            }
+            default: {
+                requireArgs(args, 2, "/rts units kill <team|all>");
+                List<EntityUnit> units;
+                if (args[1].equalsIgnoreCase("all")) {
+                    units = new ArrayList<>(
+                        Units.get()
+                            .getLoaded());
+                } else {
+                    units = Units.get()
+                        .getUnits(requireTeam(game, args[1]));
+                }
+                Units.get()
+                    .kill(units);
+                send(sender, "Removed " + units.size() + " units");
+                break;
+            }
+        }
+    }
+
+    /** An x or z coordinate; ~ means relative to the sender's position. */
+    private static double coordinate(ICommandSender sender, String text, boolean isX) {
+        double base = 0;
+        if (sender instanceof EntityPlayer) {
+            base = isX ? ((EntityPlayer) sender).posX : ((EntityPlayer) sender).posZ;
+        }
+        return func_110666_a(sender, base, text);
+    }
+
+    private static List<EntityUnit> requireUnits(Team team) {
+        List<EntityUnit> units = Units.get()
+            .getUnits(team);
+        if (units.isEmpty()) {
+            throw new CommandException("Team %s has no units on loaded ground", team.getName());
+        }
+        return units;
+    }
+
+    /** One line with every team's unit count. */
+    private void unitSummary(ICommandSender sender, Game game) {
+        if (game.getTeams()
+            .isEmpty()) {
+            return;
+        }
+        StringBuilder line = new StringBuilder("Units:");
+        boolean first = true;
+        for (Team team : game.getTeams()) {
+            line.append(first ? " " : ", ")
+                .append(team.getColoredName())
+                .append(" ")
+                .append(game.countUnits(team));
+            first = false;
+        }
+        send(sender, line.toString());
+    }
+
+    private void unitList(ICommandSender sender, Game game, Team team) {
+        List<EntityUnit> units = Units.get()
+            .getUnits(team);
+        units.sort((a, b) -> Integer.compare(a.getNumber(), b.getNumber()));
+        send(
+            sender,
+            "Team " + team
+                .getColoredName() + " has " + game.countUnits(team) + " of " + Config.unitsPerTeam + " units");
+        for (EntityUnit unit : units) {
+            send(
+                sender,
+                unit.getCommandSenderName() + " at "
+                    + MathHelper.floor_double(unit.posX)
+                    + ","
+                    + MathHelper.floor_double(unit.posY)
+                    + ","
+                    + MathHelper.floor_double(unit.posZ)
+                    + " "
+                    + unit.getOrder()
+                        .name()
+                        .toLowerCase());
         }
     }
 
@@ -474,6 +653,19 @@ public class CommandRts extends CommandBase {
                 }
                 if (args.length == 4 && action.equals("join")) {
                     return getListOfStringsMatchingLastWord(args, players);
+                }
+                return null;
+            case "units":
+                if (args.length == 2) {
+                    List<String> options = new ArrayList<>(UNIT_ACTIONS);
+                    options.addAll(teams);
+                    return getListOfStringsFromIterableMatchingLastWord(args, options);
+                }
+                if (args.length == 3 && UNIT_ACTIONS.contains(args[1].toLowerCase())) {
+                    if (args[1].equalsIgnoreCase("kill")) {
+                        teams.add("all");
+                    }
+                    return getListOfStringsFromIterableMatchingLastWord(args, teams);
                 }
                 return null;
             case "ally":

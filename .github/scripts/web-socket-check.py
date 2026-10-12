@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Checks the web map WebSocket: logs in with a session cookie, says hello and expects the game, the map tiles and
-the live state, then sends an unknown command and expects an error reply. Without a cookie the upgrade must be
-refused. Standard library only.
+the live state with at least the expected number of units, then sends an unknown command and a unit order and
+expects both to be refused, since the session is an observer's. Without a cookie the upgrade must be refused.
+Standard library only.
 
-Usage: web-socket-check.py <host> <port> <session cookie value> <expected game number>
+Usage: web-socket-check.py <host> <port> <session cookie value> <expected game number> [expected units]
 """
 import base64
 import json
@@ -78,6 +79,7 @@ def fail(message):
 
 def main():
     host, port, cookie, game_number = sys.argv[1], int(sys.argv[2]), sys.argv[3], int(sys.argv[4])
+    expected_units = int(sys.argv[5]) if len(sys.argv) > 5 else 0
 
     sock, status = connect(host, port, None)
     sock.close()
@@ -90,6 +92,7 @@ def main():
         fail(f"upgrade failed: {status}")
     send_text(sock, json.dumps({"type": "hello"}))
     seen = set()
+    unit_id = None
     while not {"game", "tiles", "state"} <= seen:
         opcode, payload = read_frame(sock)
         if opcode != 1:
@@ -107,7 +110,19 @@ def main():
             print(f"ok: {len(message['tiles'])} map tiles")
         elif kind == "state":
             names = [team["name"] for team in message["teams"]]
-            print(f"ok: live state with teams {names}")
+            units = message.get("units", [])
+            if len(units) < expected_units:
+                # Units may still be loading; wait for the next state.
+                print(f"waiting: {len(units)} of {expected_units} units in the live state")
+                continue
+            for unit in units:
+                for key in ("id", "team", "number", "x", "y", "z", "health", "maxHealth", "order"):
+                    if key not in unit:
+                        fail(f"unit without {key}: {unit}")
+            if units:
+                unit_id = units[0]["id"]
+            bases = [team["name"] for team in message["teams"] if "base" in team]
+            print(f"ok: live state with teams {names}, {len(units)} units, bases for {bases}")
         seen.add(kind)
 
     send_text(sock, json.dumps({"type": "no-such-command", "id": 7}))
@@ -121,6 +136,19 @@ def main():
                 fail(f"unknown command got {payload[:200]!r}")
             print(f"ok: unknown command answered with: {message['error']}")
             break
+
+    if unit_id:
+        send_text(sock, json.dumps({"type": "units.move", "id": 8, "units": [unit_id], "x": 0, "z": 0}))
+        while True:
+            opcode, payload = read_frame(sock)
+            if opcode != 1:
+                continue
+            message = json.loads(payload)
+            if message.get("replyTo") == 8:
+                if message.get("type") != "error" or "Observers" not in message.get("error", ""):
+                    fail(f"an observer's unit order got {payload[:200]!r}")
+                print(f"ok: observer's unit order refused with: {message['error']}")
+                break
     sock.close()
 
 

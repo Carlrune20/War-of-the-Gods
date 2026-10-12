@@ -133,25 +133,29 @@ public final class GameWorld {
     /** A spot on dry ground near the middle of the map, as x, y, z of the block to stand in. */
     public static int[] findSpawn(WorldServer world, Game game) {
         MapArea area = MapArea.of(game, Config.mapMargin);
-        int centerX = area.getCenterX();
-        int centerZ = area.getCenterZ();
+        return findDryGround(world, area.getCenterX(), area.getCenterZ(), 96);
+    }
+
+    /**
+     * A spot on dry ground near x, z, searched in growing squares up to the given distance, as x, y, z of the block
+     * to stand in. If there is none it gives x, z itself.
+     */
+    public static int[] findDryGround(WorldServer world, int x, int z, int maxDistance) {
         int[] fallback = null;
-        for (int ring = 0; ring <= 96; ring += 8) {
+        for (int ring = 0; ring <= maxDistance; ring += 8) {
             for (int dx = -ring; dx <= ring; dx += 8) {
                 for (int dz = -ring; dz <= ring; dz += 8) {
                     if (Math.max(Math.abs(dx), Math.abs(dz)) != ring) {
                         continue;
                     }
-                    int x = centerX + dx;
-                    int z = centerZ + dz;
-                    int y = world.getTopSolidOrLiquidBlock(x, z);
+                    int y = world.getTopSolidOrLiquidBlock(x + dx, z + dz);
                     if (fallback == null) {
-                        fallback = new int[] { x, y, z };
+                        fallback = new int[] { x + dx, y, z + dz };
                     }
-                    Block ground = world.getBlock(x, y - 1, z);
+                    Block ground = world.getBlock(x + dx, y - 1, z + dz);
                     Material material = ground.getMaterial();
                     if (!material.isLiquid() && material != Material.leaves && material != Material.ice) {
-                        return new int[] { x, y, z };
+                        return new int[] { x + dx, y, z + dz };
                     }
                 }
             }

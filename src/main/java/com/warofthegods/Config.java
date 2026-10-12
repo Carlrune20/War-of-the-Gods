@@ -15,6 +15,11 @@ public class Config {
     public static int mapMargin = 48;
     public static final long[] startingResources = { 200, 200, 100, 0 };
 
+    /** Food, Wood, Stone and Metal one unit costs to train from the web map. */
+    public static final long[] unitCost = { 50, 20, 0, 0 };
+    public static int unitsPerTeam = 50;
+    public static int unitHealth = 20;
+
     public static boolean webEnabled = true;
     public static String webBindAddress = "0.0.0.0";
     public static int webPort = 8124;
@@ -70,6 +75,21 @@ public class Config {
                 Integer.MAX_VALUE,
                 "Amount of " + resource.displayName + " each team starts a game with.");
         }
+
+        String units = "units";
+        configuration.setCategoryComment(units, "Soldiers teams train and command from the web map.");
+        for (Resource resource : Resource.values()) {
+            unitCost[resource.ordinal()] = configuration.getInt(
+                "cost" + resource.displayName,
+                units,
+                (int) unitCost[resource.ordinal()],
+                0,
+                Integer.MAX_VALUE,
+                resource.displayName + " a unit costs to train.");
+        }
+        unitsPerTeam = configuration
+            .getInt("perTeam", units, unitsPerTeam, 0, 1000, "Most units a team can have at once.");
+        unitHealth = configuration.getInt("health", units, unitHealth, 1, 1000, "Health of a unit; 20 is a player's.");
 
         String web = "web";
         configuration.setCategoryComment(web, "The web map players open in a browser with a link from /rts web.");
