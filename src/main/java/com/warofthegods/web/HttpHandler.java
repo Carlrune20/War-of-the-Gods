@@ -32,8 +32,9 @@ import io.netty.util.AttributeKey;
 import io.netty.util.CharsetUtil;
 
 /**
- * Answers plain HTTP requests: the web page itself, logging in with a link token, and map tiles (the blocks of the map, see {@link MapTiles}). A WebSocket
- * upgrade request from a logged-in browser is passed on to the WebSocket handlers with its viewer attached.
+ * Answers plain HTTP requests: the web page itself, logging in with a link token, and map tiles (the blocks of the map,
+ * see {@link MapTiles}). A WebSocket upgrade request from a logged-in browser is passed on to the WebSocket handlers
+ * with its viewer attached.
  */
 final class HttpHandler extends ChannelInboundHandlerAdapter {
 
