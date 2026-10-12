@@ -15,10 +15,10 @@ import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.event.ClickEvent;
-import net.minecraft.util.MathHelper;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.MathHelper;
 
 import com.warofthegods.Config;
 import com.warofthegods.game.Game;
@@ -338,13 +338,8 @@ public class CommandRts extends CommandBase {
                 int[] base = team.getBase();
                 send(
                     sender,
-                    "Spawned " + spawned.size()
-                        + " units for "
-                        + team.getColoredName()
-                        + " at "
-                        + base[0]
-                        + ","
-                        + base[1]);
+                    "Spawned " + spawned
+                        .size() + " units for " + team.getColoredName() + " at " + base[0] + "," + base[1]);
                 break;
             }
             case "move": {
@@ -436,12 +431,8 @@ public class CommandRts extends CommandBase {
         units.sort((a, b) -> Integer.compare(a.getNumber(), b.getNumber()));
         send(
             sender,
-            "Team " + team.getColoredName()
-                + " has "
-                + game.countUnits(team)
-                + " of "
-                + Config.unitsPerTeam
-                + " units");
+            "Team " + team
+                .getColoredName() + " has " + game.countUnits(team) + " of " + Config.unitsPerTeam + " units");
         for (EntityUnit unit : units) {
             send(
                 sender,

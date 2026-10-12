@@ -267,7 +267,8 @@ public class EntityUnit extends EntityCreature {
 
     private void tickAttack() {
         EntityLivingBase current = resolveTarget();
-        boolean tooFar = defending && hasPost && current != null
+        boolean tooFar = defending && hasPost
+            && current != null
             && current.getDistance(postX, current.posY, postZ) > CHASE_RANGE;
         if (current == null || tooFar) {
             if (defending) {
