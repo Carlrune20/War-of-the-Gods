@@ -38,6 +38,7 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts upgrade <building id>` | (op) Take a building up a level at once, for free. |
 | `/rts research <team> <upgrade>` | (op) Give a team an upgrade at once, such as `forged_blades`. |
 | `/rts chop <team>` | (op) Send a team's idle workers to chop the tree nearest its town center. |
+| `/rts finish [team]` | (op) Finish every building site at once. |
 | `/rts damage <building id> <amount>` | (op) Take health off a building; at 0 it is gone. The id is the `#` number `/rts buildings` shows. |
 | `/rts web` | Get a link to the live web map. From the server console it gives an observer link. |
 | `/rts web <player>` | (op) Send a player their own web map link. |

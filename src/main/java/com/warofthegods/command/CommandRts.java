@@ -66,6 +66,7 @@ public class CommandRts extends CommandBase {
         "upgrade",
         "research",
         "chop",
+        "finish",
         "web");
     private static final List<String> TEAM_SUBCOMMANDS = Arrays
         .asList("list", "create", "remove", "color", "faction", "join", "leave", "base");
@@ -82,7 +83,7 @@ public class CommandRts extends CommandBase {
     @Override
     public String getCommandUsage(ICommandSender sender) {
         return "/rts <help|info|newgame|endgame|spawn|team|ally|unally|resources|units|buildings|build|train|damage"
-            + "|upgrade|research|chop|web>";
+            + "|upgrade|research|chop|finish|web>";
     }
 
     /** Everyone may run /rts; subcommands that change the game check for op themselves. */
@@ -156,6 +157,9 @@ public class CommandRts extends CommandBase {
             case "chop":
                 chop(sender, rest);
                 break;
+            case "finish":
+                finish(sender, rest);
+                break;
             case "web":
                 web(sender, rest);
                 break;
@@ -198,6 +202,7 @@ public class CommandRts extends CommandBase {
         send(sender, "/rts upgrade <building id> - take a building up a level at once (op)");
         send(sender, "/rts research <team> <upgrade> - give a team an upgrade at once (op)");
         send(sender, "/rts chop <team> - send a team's idle workers to chop the tree nearest its town center (op)");
+        send(sender, "/rts finish [team] - finish every building site at once (op)");
         send(sender, "/rts damage <building id> <amount> - take health off a building; at 0 it is gone (op)");
         send(sender, "/rts web - get a link to the live web map");
         send(sender, "/rts web <player> - send a player a web map link (op)");
@@ -675,6 +680,21 @@ public class CommandRts extends CommandBase {
             unit.applyUpgrades(team);
         }
         send(sender, "Team " + team.getColoredName() + " has " + upgrade.displayName.toLowerCase());
+    }
+
+    private void finish(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        Game game = requireGame();
+        Team only = args.length > 0 ? requireTeam(game, args[0]) : null;
+        int count = 0;
+        for (Building building : new ArrayList<>(game.getBuildings())) {
+            if (!building.isComplete() && (only == null || building.team.equals(only.getId()))) {
+                Buildings.get()
+                    .raise(GameWorld.getWorld(), building);
+                count++;
+            }
+        }
+        send(sender, "Finished " + count + " building sites");
     }
 
     private void chop(ICommandSender sender, String[] args) {

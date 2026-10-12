@@ -41,17 +41,10 @@ public final class RtsWorldRenderer {
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDisable(GL11.GL_ALPHA_TEST);
 
-        // See-through buildings first, without writing depth, so lines and each other show through them.
+        // The see-through building being placed first, without writing depth, so lines show through it.
         GL11.glDepthMask(false);
         tessellator.startDrawingQuads();
-        for (RtsState.BuildingInfo b : state.buildings.values()) {
-            RtsState.BuildingTypeInfo type = state.buildingType(b.type);
-            if (!b.complete && type != null) {
-                RtsState.TeamInfo team = state.teamsById.get(b.team);
-                float[] color = team == null ? new float[] { 0.8F, 0.8F, 0.8F } : rgb(team.color);
-                ghost(type, b.rotation, b.x, b.z, b.y, color, 0.3F);
-            }
-        }
+        // Building sites need no see-through copy: their scaffolding stands in the world.
         RtsClient.Footprint spot = client.footprint();
         if (spot != null) {
             ghost(

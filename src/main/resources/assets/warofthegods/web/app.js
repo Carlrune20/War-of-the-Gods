@@ -1661,11 +1661,7 @@
                     w * 0.6], color: ATTACK});
             }
         }
-        for (const b of state.buildings.values()) {
-            if (!b.complete && buildingType(b.type)) {
-                ghostBoxes(boxes, b.type, b.rotation, b.x, b.z, b.y, teamColor(b.team).slice(0, 3).concat([0.35]));
-            }
-        }
+        // Building sites need no see-through copy: their scaffolding stands in the world.
         const spot = placingFootprint();
         if (spot) {
             const color = spot.ok ? [0.45, 1, 0.5, 0.4] : [1, 0.3, 0.25, 0.4];
