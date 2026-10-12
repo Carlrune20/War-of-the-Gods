@@ -20,6 +20,7 @@ import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
+import com.warofthegods.world.ChunkProviderRts;
 import com.warofthegods.world.GameWorld;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -107,7 +108,7 @@ public final class WebMap {
         }
     }
 
-    /** {"type": "game", "game": null} or the game's number and map bounds. */
+    /** {"type": "game", "game": null} or the game's number, map bounds and sea level. */
     private static JsonObject gameMessage(Game game) {
         JsonObject message = WebJson.message("game");
         if (game == null) {
@@ -122,6 +123,7 @@ public final class WebMap {
         json.addProperty("maxZ", game.getMaxZ());
         json.addProperty("margin", Config.mapMargin);
         json.addProperty("tileSize", MapTiles.TILE_SIZE);
+        json.addProperty("seaLevel", ChunkProviderRts.SEA_LEVEL);
         message.add("game", json);
         return message;
     }

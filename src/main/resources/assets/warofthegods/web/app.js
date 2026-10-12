@@ -1,8 +1,9 @@
-// War of the Gods web map. Plain JavaScript, no build step.
+// War of the Gods web map. Plain JavaScript, no build step: blocks.js has the block colours and shapes,
+// render.js draws the map in 3D, and this file runs the page.
 //
 // The server sends JSON messages over a WebSocket at /ws:
-//   {type: "game", game: {number, minX, minZ, maxX, maxZ, margin, tileSize} | null}
-//   {type: "tiles", tiles: {"x,z": version}}   map tiles to (re)load from /api/tile
+//   {type: "game", game: {number, minX, minZ, maxX, maxZ, margin, tileSize, seaLevel} | null}
+//   {type: "tiles", tiles: {"x,z": version}}   map tiles to (re)load from /api/tile, see MapTiles.java
 //   {type: "state", teams: [...], players: [...]}
 //   {type: "error", error, replyTo}
 // The page sends {type: "hello"} once connected, and later commands as {type, id, ...}; see command().
@@ -10,24 +11,21 @@
 
 (function () {
     const canvas = document.getElementById("map");
-    const ctx = canvas.getContext("2d");
+    const labels = document.getElementById("labels");
+    const labelCtx = labels.getContext("2d");
 
     const state = {
         me: null,
         game: null,
         teams: [],
         teamsById: {},
-        players: new Map(), // uuid -> {name, team, x, z, yaw, drawX, drawZ}
-        tiles: new Map(), // "x,z" -> {version, image, loading}
+        players: new Map(), // uuid -> {name, team, x, y, z, yaw, drawX, drawY, drawZ}
+        tiles: new Map(), // "x,z" -> {version, loaded}
         tilesExpected: 0,
     };
 
-    // Camera: the block at the middle of the screen and screen pixels per block.
-    const view = {x: 0, z: 0, scale: 1, follow: false, placed: false};
-    const MIN_SCALE = 1 / 8;
-    const MAX_SCALE = 16;
-
-    let dirty = true;
+    let view = null;
+    let follow = false;
     let socket = null;
     let nextCommandId = 1;
     const pending = new Map();
@@ -112,14 +110,16 @@
         el.className = ok ? "good" : "bad";
     }
 
-    // Sends a command to the server; resolves with its reply. Later phases use this for unit orders.
+    // Sends a command to the server; resolves with its reply. Unit orders will use this.
     function command(type, body) {
         const id = nextCommandId++;
         socket.send(JSON.stringify(Object.assign({}, body, {type, id})));
         return new Promise((resolve, reject) => pending.set(id, {resolve, reject}));
     }
 
-    window.wotg = {command, state, view};
+    window.wotg = {command, state, get view() {
+        return view;
+    }};
 
     function handle(message) {
         if (message.replyTo !== undefined && pending.has(message.replyTo)) {
@@ -158,44 +158,84 @@
         state.game = game;
         if (changed) {
             state.tiles.clear();
+            tileQueue.length = 0;
             state.players.clear();
-            view.placed = false;
+            view.setGame(game);
+            if (game) {
+                view.fitMap();
+            }
         }
         if (game) {
             const size = game.tileSize;
             const tilesX = Math.floor((game.maxX + game.margin) / size) - Math.floor((game.minX - game.margin) / size) + 1;
             const tilesZ = Math.floor((game.maxZ + game.margin) / size) - Math.floor((game.minZ - game.margin) / size) + 1;
             state.tilesExpected = tilesX * tilesZ;
-            if (!view.placed) {
-                fitMap();
-                view.placed = true;
-            }
+            view.game = game;
         }
         updateProgress();
         renderPanel();
-        dirty = true;
     }
+
+    // Tiles waiting to be fetched, and how many fetches are running.
+    const tileQueue = [];
+    let tileFetches = 0;
+    const MAX_TILE_FETCHES = 4;
 
     function updateTile(key, version) {
         let tile = state.tiles.get(key);
         if (!tile) {
-            tile = {version: -1, image: null};
+            tile = {version: -1, loaded: false};
             state.tiles.set(key, tile);
         }
         if (tile.version === version) {
             return;
         }
         tile.version = version;
-        const [x, z] = key.split(",");
-        const image = new Image();
-        image.onload = () => {
-            // An older request finishing late must not replace a newer image.
-            if (tile.version === version) {
-                tile.image = image;
-                dirty = true;
+        if (!tileQueue.includes(key)) {
+            tileQueue.push(key);
+        }
+        pumpTiles();
+    }
+
+    function pumpTiles() {
+        while (tileFetches < MAX_TILE_FETCHES && tileQueue.length) {
+            const key = tileQueue.shift();
+            const tile = state.tiles.get(key);
+            if (!tile) {
+                continue;
             }
-        };
-        image.src = "api/tile?x=" + x + "&z=" + z + "&v=" + version;
+            const version = tile.version;
+            const gameNumber = state.game && state.game.number;
+            const [x, z] = key.split(",").map(Number);
+            tileFetches++;
+            fetchTile(x, z, version).then((buffer) => {
+                // A tile of an older game, or an older version finishing late, is dropped.
+                if (buffer && state.game && state.game.number === gameNumber && tile.version === version) {
+                    view.setTile(x, z, buffer);
+                    tile.loaded = true;
+                    updateProgress();
+                }
+            }).catch((error) => {
+                console.warn("Map tile " + key + " failed:", error);
+                setTimeout(() => updateTile(key, version), 3000);
+                tile.version = -1;
+            }).finally(() => {
+                tileFetches--;
+                pumpTiles();
+            });
+        }
+    }
+
+    async function fetchTile(x, z, version) {
+        const response = await fetch("api/tile?x=" + x + "&z=" + z + "&v=" + version);
+        if (response.status === 404) {
+            return null;
+        }
+        if (!response.ok) {
+            throw new Error("HTTP " + response.status);
+        }
+        const inflated = response.body.pipeThrough(new DecompressionStream("deflate"));
+        return new Response(inflated).arrayBuffer();
     }
 
     function updateProgress() {
@@ -204,10 +244,17 @@
             el.textContent = "No game running";
             return;
         }
-        const drawn = state.tiles.size;
-        el.textContent = drawn < state.tilesExpected
-            ? "Drawing map " + Math.floor(100 * drawn / state.tilesExpected) + "%"
-            : "Game #" + state.game.number;
+        let loaded = 0;
+        for (const tile of state.tiles.values()) {
+            loaded += tile.loaded ? 1 : 0;
+        }
+        if (state.tiles.size < state.tilesExpected) {
+            el.textContent = "Reading map " + Math.floor(100 * state.tiles.size / state.tilesExpected) + "%";
+        } else if (loaded < state.tiles.size || view.pendingChunks) {
+            el.textContent = "Loading map " + Math.floor(100 * loaded / Math.max(1, state.tiles.size)) + "%";
+        } else {
+            el.textContent = "Game #" + state.game.number;
+        }
     }
 
     function setState(message) {
@@ -221,6 +268,7 @@
             seen.add(p.uuid);
             const old = state.players.get(p.uuid);
             p.drawX = old ? old.drawX : p.x;
+            p.drawY = old ? old.drawY : p.y;
             p.drawZ = old ? old.drawZ : p.z;
             state.players.set(p.uuid, p);
         }
@@ -230,7 +278,7 @@
             }
         }
         renderPanel();
-        dirty = true;
+        view.dirty = true;
     }
 
     function myTeam() {
@@ -307,10 +355,8 @@
                         const p = state.players.get(member.uuid);
                         if (p) {
                             setFollow(false);
-                            view.x = p.x;
-                            view.z = p.z;
-                            view.scale = Math.max(view.scale, 2);
-                            dirty = true;
+                            view.focus(p.x, p.y, p.z);
+                            view.cam.zoom = Math.min(view.cam.zoom, 40);
                         }
                     });
                     li.append(link);
@@ -331,14 +377,14 @@
     followButton.addEventListener("click", () => setFollow(!view.follow));
 
     function setFollow(on) {
-        view.follow = on && state.me && !state.me.observer;
-        followButton.classList.toggle("on", view.follow);
-        dirty = true;
+        follow = Boolean(on && state.me && !state.me.observer);
+        followButton.classList.toggle("on", follow);
+        view.dirty = true;
     }
 
     document.getElementById("fit").addEventListener("click", () => {
         setFollow(false);
-        fitMap();
+        view.fitMap();
     });
 
     const panel = document.getElementById("panel");
@@ -352,84 +398,65 @@
         showPanel.hidden = true;
     });
 
+    document.getElementById("turn-left").addEventListener("click", () => view.turn(-1));
+    document.getElementById("turn-right").addEventListener("click", () => view.turn(1));
+    const topButton = document.getElementById("top-view");
+    topButton.addEventListener("click", () => {
+        view.setTopView(!view.isTopView);
+        topButton.classList.toggle("on", view.isTopView);
+    });
+
     // ---------------------------------------------------------------- camera and input
+    //
+    // As in the map editor: drag with the left button (or one finger) to pan, drag with the right button to tilt
+    // and turn, middle button pans too, the wheel or a pinch zooms, two fingers twisting turn the view,
+    // WASD or the arrow keys pan and Q/E turn a quarter round.
 
-    function fitMap() {
-        if (!state.game) {
-            return;
-        }
-        const g = state.game;
-        const width = g.maxX - g.minX + 1 + 2 * g.margin;
-        const height = g.maxZ - g.minZ + 1 + 2 * g.margin;
-        view.x = (g.minX + g.maxX + 1) / 2;
-        view.z = (g.minZ + g.maxZ + 1) / 2;
-        const scale = Math.min(canvas.clientWidth / width, canvas.clientHeight / height) * 0.95;
-        view.scale = clampScale(scale);
-        dirty = true;
-    }
+    const pointers = new Map(); // pointerId -> {x, y, button}
+    let pinch = null; // {distance, angle}
 
-    function clampScale(scale) {
-        return Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale));
-    }
-
-    function toWorld(px, py) {
-        return {
-            x: view.x + (px - canvas.clientWidth / 2) / view.scale,
-            z: view.z + (py - canvas.clientHeight / 2) / view.scale,
-        };
-    }
-
-    function zoomAt(px, py, factor) {
-        const before = toWorld(px, py);
-        view.scale = clampScale(view.scale * factor);
-        const after = toWorld(px, py);
-        view.x += before.x - after.x;
-        view.z += before.z - after.z;
-        dirty = true;
-    }
-
-    const pointers = new Map();
-    let pinchDistance = 0;
+    canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
     canvas.addEventListener("pointerdown", (event) => {
         canvas.setPointerCapture(event.pointerId);
-        pointers.set(event.pointerId, {x: event.offsetX, y: event.offsetY});
+        pointers.set(event.pointerId, {x: event.offsetX, y: event.offsetY, button: event.button});
         canvas.classList.add("dragging");
         if (pointers.size === 2) {
-            pinchDistance = distanceBetweenPointers();
+            pinch = pinchState();
         }
     });
 
     canvas.addEventListener("pointermove", (event) => {
-        const world = toWorld(event.offsetX, event.offsetY);
-        document.getElementById("cursor").textContent = Math.floor(world.x) + ", " + Math.floor(world.z);
+        updateCursor(event.offsetX, event.offsetY);
         const last = pointers.get(event.pointerId);
         if (!last) {
             return;
         }
-        const point = {x: event.offsetX, y: event.offsetY};
-        if (pointers.size === 1) {
-            if (view.follow && (point.x !== last.x || point.y !== last.y)) {
-                setFollow(false);
-            }
-            view.x -= (point.x - last.x) / view.scale;
-            view.z -= (point.y - last.y) / view.scale;
-            dirty = true;
-        }
+        const point = {x: event.offsetX, y: event.offsetY, button: last.button};
+        const dx = point.x - last.x;
+        const dy = point.y - last.y;
         pointers.set(event.pointerId, point);
-        if (pointers.size === 2) {
-            const distance = distanceBetweenPointers();
-            if (pinchDistance > 0) {
-                const [a, b] = [...pointers.values()];
-                zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, distance / pinchDistance);
+        if (pointers.size === 1) {
+            if (last.button === 2) {
+                view.orbit(dx, dy);
+            } else if (dx || dy) {
+                setFollow(false);
+                view.pan(dx, dy);
             }
-            pinchDistance = distance;
+        } else if (pointers.size === 2 && pinch) {
+            const now = pinchState();
+            const [a, b] = [...pointers.values()];
+            if (pinch.distance > 0) {
+                view.zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, now.distance / pinch.distance);
+            }
+            view.orbit(-(now.angle - pinch.angle) / 0.008, 0);
+            pinch = now;
         }
     });
 
     function endPointer(event) {
         pointers.delete(event.pointerId);
-        pinchDistance = pointers.size === 2 ? distanceBetweenPointers() : 0;
+        pinch = pointers.size === 2 ? pinchState() : null;
         if (!pointers.size) {
             canvas.classList.remove("dragging");
         }
@@ -438,152 +465,180 @@
     canvas.addEventListener("pointerup", endPointer);
     canvas.addEventListener("pointercancel", endPointer);
 
-    function distanceBetweenPointers() {
+    function pinchState() {
         const [a, b] = [...pointers.values()];
-        return Math.hypot(a.x - b.x, a.y - b.y);
+        return {distance: Math.hypot(a.x - b.x, a.y - b.y), angle: Math.atan2(b.y - a.y, b.x - a.x)};
     }
 
     canvas.addEventListener("wheel", (event) => {
         event.preventDefault();
-        zoomAt(event.offsetX, event.offsetY, Math.pow(1.0015, -event.deltaY));
+        view.zoomAt(event.offsetX, event.offsetY, Math.pow(1.0015, -event.deltaY));
     }, {passive: false});
 
+    let cursorTimer = 0;
+
+    function updateCursor(px, py) {
+        // Picking walks the blocks under the pointer, so it runs at most every 50 ms.
+        const now = performance.now();
+        if (now - cursorTimer < 50) {
+            return;
+        }
+        cursorTimer = now;
+        const hit = view.pick(px, py);
+        document.getElementById("cursor").textContent = hit ? hit.x + ", " + hit.y + ", " + hit.z : "";
+    }
+
+    const keys = new Set();
+    const PAN_KEYS = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
+
+    window.addEventListener("keydown", (event) => {
+        if (event.target instanceof HTMLInputElement || event.ctrlKey || event.metaKey || event.altKey) {
+            return;
+        }
+        const key = event.key.toLowerCase();
+        if (PAN_KEYS.includes(key)) {
+            keys.add(key);
+            setFollow(false);
+            event.preventDefault();
+        } else if (key === "q") {
+            view.turn(-1);
+        } else if (key === "e") {
+            view.turn(1);
+        }
+    });
+
+    window.addEventListener("keyup", (event) => keys.delete(event.key.toLowerCase()));
+    window.addEventListener("blur", () => keys.clear());
+
+    function panWithKeys(dt) {
+        let right = 0;
+        let forward = 0;
+        if (keys.has("w") || keys.has("arrowup")) forward += 1;
+        if (keys.has("s") || keys.has("arrowdown")) forward -= 1;
+        if (keys.has("d") || keys.has("arrowright")) right += 1;
+        if (keys.has("a") || keys.has("arrowleft")) right -= 1;
+        if (right || forward) {
+            const speed = view.cam.zoom * 1.6 * dt;
+            view.move(right * speed, forward * speed);
+        }
+    }
+
     window.addEventListener("resize", () => {
-        dirty = true;
+        if (view) {
+            view.dirty = true;
+        }
     });
 
     // ---------------------------------------------------------------- drawing
 
-    function resizeCanvas() {
-        const ratio = window.devicePixelRatio || 1;
-        const width = Math.round(canvas.clientWidth * ratio);
-        const height = Math.round(canvas.clientHeight * ratio);
-        if (canvas.width !== width || canvas.height !== height) {
-            canvas.width = width;
-            canvas.height = height;
-        }
-        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    function hexColor(hex, alpha) {
+        const n = parseInt(hex.slice(1), 16);
+        return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255, alpha];
     }
 
-    function frame() {
+    const SKIN = [0.94, 0.76, 0.6, 1];
+
+    // Players as a body in their team's colour with a head on top, drawn larger when zoomed out so they stay
+    // visible.
+    function playerBoxes() {
+        const boxes = [];
+        const s = Math.max(1, view.cam.zoom / 40);
+        for (const p of state.players.values()) {
+            const team = p.team ? state.teamsById[p.team] : null;
+            const color = team ? hexColor(team.color, 1) : [0.8, 0.8, 0.8, 1];
+            const w = 0.6 * s;
+            boxes.push({min: [p.drawX - w / 2, p.drawY, p.drawZ - w / 2], size: [w, 1.35 * s, w], color});
+            const hw = 0.5 * s;
+            boxes.push({min: [p.drawX - hw / 2, p.drawY + 1.35 * s, p.drawZ - hw / 2], size: [hw, hw, hw], color: SKIN});
+        }
+        return boxes;
+    }
+
+    function borderLines() {
+        const g = state.game;
+        if (!g) {
+            return [];
+        }
+        const y = g.seaLevel + 1.5;
+        const red = [1, 0.32, 0.24, 0.9];
+        const corners = [[g.minX, g.minZ], [g.maxX + 1, g.minZ], [g.maxX + 1, g.maxZ + 1], [g.minX, g.maxZ + 1]];
+        const lines = [];
+        for (let i = 0; i < 4; i++) {
+            const [ax, az] = corners[i];
+            const [bx, bz] = corners[(i + 1) % 4];
+            lines.push([[ax, y, az], [bx, y, bz], red]);
+            lines.push([[ax, y, az], [ax, y + 24, az], red]);
+        }
+        return lines;
+    }
+
+    function drawLabels() {
+        const ratio = window.devicePixelRatio || 1;
+        const width = labels.clientWidth;
+        const height = labels.clientHeight;
+        if (labels.width !== Math.round(width * ratio) || labels.height !== Math.round(height * ratio)) {
+            labels.width = Math.round(width * ratio);
+            labels.height = Math.round(height * ratio);
+        }
+        labelCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        labelCtx.clearRect(0, 0, width, height);
+        labelCtx.font = "600 12px system-ui, sans-serif";
+        labelCtx.textAlign = "center";
+        const s = Math.max(1, view.cam.zoom / 40);
+        for (const p of state.players.values()) {
+            const [x, y] = view.project(p.drawX, p.drawY + 1.85 * s, p.drawZ);
+            const isMe = state.me && p.uuid === state.me.uuid;
+            labelCtx.lineWidth = 3;
+            labelCtx.strokeStyle = "rgba(0, 0, 0, 0.8)";
+            labelCtx.strokeText(p.name, x, y - 6);
+            labelCtx.fillStyle = isMe ? "#ffe9a8" : "#ffffff";
+            labelCtx.fillText(p.name, x, y - 6);
+        }
+    }
+
+    let lastFrame = performance.now();
+    let progressTimer = 0;
+
+    function frame(now) {
+        const dt = Math.min(0.1, (now - lastFrame) / 1000);
+        lastFrame = now;
+        panWithKeys(dt);
+        view.animate(dt);
+        if (view.meshSome() && now - progressTimer > 250) {
+            progressTimer = now;
+            updateProgress();
+        } else if (!view.pendingChunks && now - progressTimer > 1000) {
+            progressTimer = now;
+            updateProgress();
+        }
         // Players glide toward their latest reported position between updates.
         for (const p of state.players.values()) {
             const dx = p.x - p.drawX;
+            const dy = p.y - p.drawY;
             const dz = p.z - p.drawZ;
-            if (Math.abs(dx) > 0.01 || Math.abs(dz) > 0.01) {
+            if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01 || Math.abs(dz) > 0.01) {
                 const jump = Math.abs(dx) > 64 || Math.abs(dz) > 64;
                 p.drawX = jump ? p.x : p.drawX + dx * 0.2;
+                p.drawY = jump ? p.y : p.drawY + dy * 0.2;
                 p.drawZ = jump ? p.z : p.drawZ + dz * 0.2;
-                dirty = true;
+                view.dirty = true;
             }
         }
-        if (view.follow && state.me) {
+        if (follow && state.me) {
             const me = state.players.get(state.me.uuid);
-            if (me && (view.x !== me.drawX || view.z !== me.drawZ)) {
-                view.x = me.drawX;
-                view.z = me.drawZ;
-                dirty = true;
+            const t = view.cam.target;
+            if (me && (t[0] !== me.drawX || t[2] !== me.drawZ)) {
+                view.focus(me.drawX, me.drawY, me.drawZ);
             }
         }
-        if (dirty) {
-            dirty = false;
-            draw();
+        if (view.dirty && state.game) {
+            view.draw(playerBoxes(), borderLines());
+            drawLabels();
+        } else if (view.dirty) {
+            view.draw([], []);
+            drawLabels();
         }
         requestAnimationFrame(frame);
-    }
-
-    function screenX(x) {
-        return (x - view.x) * view.scale + canvas.clientWidth / 2;
-    }
-
-    function screenY(z) {
-        return (z - view.z) * view.scale + canvas.clientHeight / 2;
-    }
-
-    function draw() {
-        resizeCanvas();
-        const width = canvas.clientWidth;
-        const height = canvas.clientHeight;
-        ctx.fillStyle = "#1d3a5c";
-        ctx.fillRect(0, 0, width, height);
-        if (!state.game) {
-            return;
-        }
-        drawTiles(width, height);
-        drawBorder();
-        drawPlayers();
-    }
-
-    function drawTiles(width, height) {
-        const size = state.game.tileSize;
-        ctx.imageSmoothingEnabled = view.scale < 1;
-        const topLeft = toWorld(0, 0);
-        const bottomRight = toWorld(width, height);
-        const minTx = Math.floor(topLeft.x / size);
-        const maxTx = Math.floor(bottomRight.x / size);
-        const minTz = Math.floor(topLeft.z / size);
-        const maxTz = Math.floor(bottomRight.z / size);
-        const pixels = size * view.scale;
-        for (let tz = minTz; tz <= maxTz; tz++) {
-            for (let tx = minTx; tx <= maxTx; tx++) {
-                const tile = state.tiles.get(tx + "," + tz);
-                if (tile && tile.image) {
-                    // Round edges outward so neighbouring tiles leave no hairline gaps.
-                    const x = Math.floor(screenX(tx * size));
-                    const y = Math.floor(screenY(tz * size));
-                    ctx.drawImage(tile.image, x, y, Math.ceil(pixels) + 1, Math.ceil(pixels) + 1);
-                }
-            }
-        }
-    }
-
-    function drawBorder() {
-        const g = state.game;
-        ctx.strokeStyle = "rgba(255, 80, 60, 0.85)";
-        ctx.lineWidth = 2;
-        ctx.setLineDash([8, 6]);
-        ctx.strokeRect(screenX(g.minX), screenY(g.minZ),
-            (g.maxX - g.minX + 1) * view.scale, (g.maxZ - g.minZ + 1) * view.scale);
-        ctx.setLineDash([]);
-    }
-
-    function drawPlayers() {
-        ctx.font = "600 12px system-ui, sans-serif";
-        ctx.textAlign = "center";
-        for (const p of state.players.values()) {
-            const team = p.team ? state.teamsById[p.team] : null;
-            const color = team ? team.color : "#cccccc";
-            const x = screenX(p.drawX);
-            const y = screenY(p.drawZ);
-            const isMe = state.me && p.uuid === state.me.uuid;
-            const radius = isMe ? 7 : 6;
-
-            // Facing: Minecraft yaw 0 looks toward +z (down on the map), increasing clockwise seen from above.
-            const angle = (p.yaw * Math.PI) / 180;
-            const fx = -Math.sin(angle);
-            const fz = Math.cos(angle);
-            ctx.beginPath();
-            ctx.moveTo(x + fx * (radius + 7), y + fz * (radius + 7));
-            ctx.lineTo(x - fz * radius * 0.8, y + fx * radius * 0.8);
-            ctx.lineTo(x + fz * radius * 0.8, y - fx * radius * 0.8);
-            ctx.closePath();
-            ctx.fillStyle = color;
-            ctx.fill();
-
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fillStyle = color;
-            ctx.fill();
-            ctx.lineWidth = isMe ? 3 : 2;
-            ctx.strokeStyle = isMe ? "#ffffff" : "rgba(0, 0, 0, 0.7)";
-            ctx.stroke();
-
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = "rgba(0, 0, 0, 0.8)";
-            ctx.strokeText(p.name, x, y - radius - 6);
-            ctx.fillStyle = "#ffffff";
-            ctx.fillText(p.name, x, y - radius - 6);
-        }
     }
 
     // ---------------------------------------------------------------- start
@@ -591,6 +646,20 @@
     if (window.matchMedia("(max-width: 600px)").matches) {
         panel.hidden = true;
         showPanel.hidden = false;
+    }
+
+    function start() {
+        if (typeof DecompressionStream === "undefined") {
+            throw new Error("This browser is too old for the 3D map. Update it, or try another browser.");
+        }
+        view = new window.WotgRender.MapView(canvas);
+    }
+
+    try {
+        start();
+    } catch (error) {
+        showLogin(error.message);
+        return;
     }
 
     login().then((ok) => {

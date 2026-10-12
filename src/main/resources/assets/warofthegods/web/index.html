@@ -9,6 +9,7 @@
 <body>
 <div id="app">
     <canvas id="map"></canvas>
+    <canvas id="labels"></canvas>
 
     <aside id="panel">
         <header>
@@ -25,6 +26,12 @@
     </aside>
     <button id="show-panel" type="button" hidden>Teams</button>
 
+    <div id="view-controls">
+        <button id="turn-left" type="button" title="Turn left (Q)" aria-label="Turn left">&#x27F2;</button>
+        <button id="top-view" type="button" title="Look straight down">Top</button>
+        <button id="turn-right" type="button" title="Turn right (E)" aria-label="Turn right">&#x27F3;</button>
+    </div>
+
     <div id="status">
         <span id="connection" class="bad">Connecting</span>
         <span id="cursor"></span>
@@ -39,6 +46,8 @@
         </div>
     </div>
 </div>
+<script src="blocks.js"></script>
+<script src="render.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

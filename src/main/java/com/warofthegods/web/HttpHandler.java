@@ -32,7 +32,7 @@ import io.netty.util.AttributeKey;
 import io.netty.util.CharsetUtil;
 
 /**
- * Answers plain HTTP requests: the web page itself, logging in with a link token, and map tiles. A WebSocket
+ * Answers plain HTTP requests: the web page itself, logging in with a link token, and map tiles (the blocks of the map, see {@link MapTiles}). A WebSocket
  * upgrade request from a logged-in browser is passed on to the WebSocket handlers with its viewer attached.
  */
 final class HttpHandler extends ChannelInboundHandlerAdapter {
@@ -48,6 +48,8 @@ final class HttpHandler extends ChannelInboundHandlerAdapter {
         STATIC_FILES.put("/", "index.html");
         STATIC_FILES.put("/index.html", "index.html");
         STATIC_FILES.put("/app.js", "app.js");
+        STATIC_FILES.put("/blocks.js", "blocks.js");
+        STATIC_FILES.put("/render.js", "render.js");
         STATIC_FILES.put("/style.css", "style.css");
     }
 
@@ -186,12 +188,12 @@ final class HttpHandler extends ChannelInboundHandlerAdapter {
         MapTiles tiles = server.getTiles();
         Integer x = intParam(query, "x");
         Integer z = intParam(query, "z");
-        byte[] png = tiles == null || x == null || z == null ? null : tiles.png(x, z);
-        if (png == null) {
-            send(ctx, request, text(HttpResponseStatus.NOT_FOUND, "Not drawn yet"));
+        byte[] blob = tiles == null || x == null || z == null ? null : tiles.blob(x, z);
+        if (blob == null) {
+            send(ctx, request, text(HttpResponseStatus.NOT_FOUND, "Not read yet"));
             return;
         }
-        FullHttpResponse response = bytes(HttpResponseStatus.OK, png, "image/png");
+        FullHttpResponse response = bytes(HttpResponseStatus.OK, blob, "application/octet-stream");
         // Browsers ask with the tile's version in the address, so a given address never changes.
         response.headers()
             .set(HttpHeaders.Names.CACHE_CONTROL, "private, max-age=86400");

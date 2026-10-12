@@ -51,14 +51,28 @@ at a time; it lasts until an op starts a new one.
 
 ## Web map
 
-The mod runs a small web server (port 8124 by default) with a live top-down map of the game: the terrain drawn from
-the world itself, the map border, every player on the map in their team's color, and each team's resources,
-members and alliances. Armies will be commanded from this page in later versions.
+The mod runs a small web server (port 8124 by default) with a live 3D map of the game, drawn the way the beta map
+editor draws worlds: every block as a flat-coloured box, seen from above at an angle through an RTS camera. It shows
+the terrain, the map border, every player on the map in their team's color, and each team's resources, members and
+alliances. Armies will be commanded from this page in later versions.
 
 Type `/rts web` in game and click the link. Each link works once and for 10 minutes, and logs that browser in for
-72 hours; restarting the server logs everyone out. Drag to pan, scroll or pinch to zoom, and use "Follow me" to keep
-yourself centred. A new map is drawn in the background after `/rts newgame` (or a server start) and fills in on the
-page as it goes; after that, changes to the world show up within a few seconds.
+72 hours; restarting the server logs everyone out. A new map is read in the background after `/rts newgame` (or a
+server start) and fills in on the page as it goes; after that, changes to the world show up within a few seconds.
+
+| Control | What it does |
+|---|---|
+| Drag (left or middle button, or one finger) | Pan |
+| Right-drag | Tilt and turn the view |
+| Wheel or pinch | Zoom |
+| Two fingers twisting | Turn the view |
+| WASD or the arrow keys | Pan |
+| Q / E, or the ⟲ ⟳ buttons | Turn a quarter round |
+| Top | Look straight down with north up, like a paper map |
+| Follow me / Whole map | Keep yourself in the middle, or show the whole map |
+
+The page needs a browser with WebGL 2 (any current Chrome, Edge, Firefox or Safari). Zoomed all the way out on a
+large map it draws a lot of blocks, which older phones may find slow.
 
 Two settings matter when hosting:
 
@@ -121,5 +135,5 @@ Built with the [GTNH ExampleMod](https://github.com/GTNewHorizons/ExampleMod1.7.
 
 CI builds the mod and boots a dedicated server three times to check that a game set up with `/rts` comes back from
 the save intact with the same map, that a new game replaces the old map, and that the web map serves its page,
-logs in with a one-time link, draws map tiles and streams live state over its WebSocket
+logs in with a one-time link, serves the map's blocks and streams live state over its WebSocket
 (`.github/scripts/server-smoke-test.sh`).
