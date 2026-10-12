@@ -24,7 +24,8 @@ import com.warofthegods.world.GameWorld;
  *
  * <pre>
  *   {type: "units.move", units: [id...], x, z}  walk there
- *   {type: "units.attack", units: [id...], target: id}  attack an enemy unit or player; workers do not fight
+ *   {type: "units.attack", units: [id...], target: id}  attack an enemy unit or player, or a mob; workers do not
+ *                                                       fight
  *   {type: "units.attack", units: [id...], building: id}  attack an enemy building
  *   {type: "units.build", units: [id...], building: id}  workers build a building site or work a farm or quarry
  *   {type: "units.stop", units: [id...]}        stop and guard where they stand
@@ -124,7 +125,8 @@ public final class UnitCommands {
             request.replyError("That target is gone");
             return;
         }
-        if (!Units.get()
+        // Any mob can be hunted on command; units and players only if their team is an enemy.
+        if (!Units.isMob(target) && !Units.get()
             .isEnemy(units.get(0), target)) {
             request.replyError("You can only attack enemies");
             return;

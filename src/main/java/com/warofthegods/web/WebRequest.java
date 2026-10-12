@@ -1,20 +1,23 @@
 package com.warofthegods.web;
 
+import java.util.function.Consumer;
+
 import com.google.gson.JsonObject;
 
-import io.netty.channel.Channel;
-
-/** A message a browser sent over its WebSocket, waiting for the server thread. */
+/**
+ * A command waiting for the server thread: from a browser over the web map's WebSocket, or from a player's client in
+ * the in-game RTS view. Both send the same commands and get the same replies.
+ */
 public final class WebRequest {
 
     public final Viewer viewer;
-    public final Channel channel;
     public final String type;
     public final JsonObject body;
+    private final Consumer<JsonObject> replies;
 
-    WebRequest(Viewer viewer, Channel channel, String type, JsonObject body) {
+    public WebRequest(Viewer viewer, Consumer<JsonObject> replies, String type, JsonObject body) {
         this.viewer = viewer;
-        this.channel = channel;
+        this.replies = replies;
         this.type = type;
         this.body = body;
     }
@@ -24,7 +27,7 @@ public final class WebRequest {
         if (body.has("id")) {
             message.add("replyTo", body.get("id"));
         }
-        WebServer.send(channel, message);
+        replies.accept(message);
     }
 
     public void replyError(String error) {

@@ -68,6 +68,10 @@ public class Config {
     public static int webRenderBudgetMs = 10;
     public static int webStateTicks = 1;
 
+    public static int rtsStateTicks = 2;
+    public static int rtsCameraFov = 40;
+    public static boolean rtsEdgeScroll = true;
+
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
 
@@ -284,6 +288,31 @@ public class Config {
             100,
             "Server ticks between live updates of units, players and buildings sent to browsers. 1 is every tick,"
                 + " 20 times a second, the fastest the game itself changes.");
+
+        String rts = "rts";
+        configuration.addCustomCategoryComment(
+            rts,
+            "The in-game RTS view, which players open with V (rebindable under Controls). The camera settings only"
+                + " matter in a player's own client config.");
+        rtsStateTicks = configuration.getInt(
+            "stateTicks",
+            rts,
+            rtsStateTicks,
+            1,
+            100,
+            "Server ticks between live updates of units, players and buildings sent to players in the RTS view.");
+        rtsCameraFov = configuration.getInt(
+            "cameraFov",
+            rts,
+            rtsCameraFov,
+            20,
+            90,
+            "Field of view of the RTS camera, in degrees. Lower looks flatter, more like the web map.");
+        rtsEdgeScroll = configuration.getBoolean(
+            "edgeScroll",
+            rts,
+            rtsEdgeScroll,
+            "Whether the RTS camera moves when the mouse touches the edge of the window.");
 
         if (configuration.hasChanged()) {
             configuration.save();

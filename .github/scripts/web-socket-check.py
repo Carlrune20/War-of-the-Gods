@@ -124,8 +124,14 @@ def main():
                 # Units may still be loading; wait for the next state.
                 print(f"waiting: {len(units)} of {expected_units} units in the live state")
                 continue
+            if not isinstance(message.get("mobs"), list):
+                fail(f"live state has no mobs list: {sorted(message)}")
+            for mob in message["mobs"]:
+                for key in ("id", "eid", "name", "hostile", "x", "y", "z", "health", "maxHealth"):
+                    if key not in mob:
+                        fail(f"mob without {key}: {mob}")
             for unit in units:
-                for key in ("id", "team", "number", "x", "y", "z", "health", "maxHealth", "order"):
+                for key in ("id", "eid", "team", "number", "x", "y", "z", "health", "maxHealth", "order"):
                     if key not in unit:
                         fail(f"unit without {key}: {unit}")
             if units:
@@ -137,7 +143,8 @@ def main():
             if len(halls) < len(names):
                 print(f"waiting: town halls for {halls} of {names}")
                 continue
-            print(f"ok: live state with teams {names}, {len(units)} units, town halls for {halls}")
+            print(f"ok: live state with teams {names}, {len(units)} units, {len(message['mobs'])} mobs,"
+                  f" town halls for {halls}")
         seen.add(kind)
 
     send_text(sock, json.dumps({"type": "no-such-command", "id": 7}))

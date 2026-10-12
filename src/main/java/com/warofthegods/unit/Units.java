@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.monster.IMob;
 import net.minecraft.entity.player.EntityPlayer;
@@ -29,6 +30,7 @@ import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.UnitRecord;
+import com.warofthegods.rts.Commanders;
 import com.warofthegods.world.GameWorld;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -179,13 +181,44 @@ public final class Units {
         return unit == null || unit.isDead ? null : unit;
     }
 
-    /** A unit or a player in the world with the given UUID, or null. */
+    /** A unit, a player or a mob in the world with the given UUID, or null. */
     EntityLivingBase findLiving(World world, UUID id) {
         EntityUnit unit = getUnit(id);
         if (unit != null) {
             return unit;
         }
-        return world.func_152378_a(id);
+        EntityPlayer player = world.func_152378_a(id);
+        if (player != null) {
+            return player;
+        }
+        for (Object object : world.loadedEntityList) {
+            if (object instanceof EntityLiving && ((Entity) object).getUniqueID()
+                .equals(id)) {
+                return (EntityLiving) object;
+            }
+        }
+        return null;
+    }
+
+    /** Whether the entity is a mob: a living thing that is neither a unit nor a player. */
+    public static boolean isMob(Entity entity) {
+        return entity instanceof EntityLiving && !(entity instanceof EntityUnit);
+    }
+
+    /** The living mobs on the game's map, hostile or not. */
+    public List<EntityLiving> getMobs(Game game, World world) {
+        List<EntityLiving> mobs = new ArrayList<>();
+        for (Object object : world.loadedEntityList) {
+            if (!isMob((Entity) object)) {
+                continue;
+            }
+            EntityLiving mob = (EntityLiving) object;
+            if (mob.isEntityAlive()
+                && game.isInside(MathHelper.floor_double(mob.posX), MathHelper.floor_double(mob.posZ))) {
+                mobs.add(mob);
+            }
+        }
+        return mobs;
     }
 
     // ---------------------------------------------------------------- bases
@@ -374,7 +407,8 @@ public final class Units {
 
     /** Whether a guarding unit attacks the entity: units and players of enemy teams, and hostile mobs. */
     public boolean isEnemy(EntityUnit unit, Entity other) {
-        if (other instanceof EntityPlayer && ((EntityPlayer) other).capabilities.isCreativeMode) {
+        if (other instanceof EntityPlayer && (((EntityPlayer) other).capabilities.isCreativeMode || Commanders.get()
+            .isCommanding(other.getUniqueID()))) {
             return false;
         }
         Game game = GameManager.getGame();
