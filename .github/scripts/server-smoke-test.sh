@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Boots the dev dedicated server twice. The first boot sets up a game through /rts and saves it; the second
+# Boots the dev dedicated server four times. The first boot sets up a game through /rts and saves it; the second
 # boot checks the game and its map came back from the save intact, then starts a new game to check numbering
-# continues and the old map is replaced by a fresh one.
+# continues and the old map is replaced by a fresh one. The third checks the web map and units, and the fourth
+# that units come back after a restart.
 set -uo pipefail
 
 TIMEOUT="${SERVER_TIMEOUT:-600}"
@@ -165,8 +166,28 @@ curl -sf -b "$jar" "$WEB/api/tile?x=0&z=0&v=1" -o run/tile.bin || web_fail "tile
 python3 .github/scripts/map-tile-check.py run/tile.bin || web_fail "tile 0,0 does not hold the blocks of the map"
 curl -sf "$WEB/blocks.js" > /dev/null && curl -sf "$WEB/render.js" > /dev/null || web_fail "map scripts not served"
 
+# Units: spawn some, check they show on the web map, and that they walk where they are sent.
+echo "rts units spawn red 3" >&3
+echo "rts units spawn blue 2" >&3
+wait_for_log "Spawned 2 units for Blue" 30
+expect "$WEB_LOG" "Spawned 3 units for Red"
+echo "rts units red" >&3
+wait_for_log "Red 3 at" 30
+expect "$WEB_LOG" "Team Red has 3 of 50 units"
+
 session=$(awk '$6 == "wotg_session" {print $7}' "$jar")
-python3 .github/scripts/web-socket-check.py 127.0.0.1 "$WEB_PORT" "$session" 3 || web_fail "web socket check failed"
+python3 .github/scripts/web-socket-check.py 127.0.0.1 "$WEB_PORT" "$session" 3 5 || web_fail "web socket check failed"
+
+red1_before=$(grep -oE 'Red 1 at -?[0-9]+,-?[0-9]+,-?[0-9]+' "$WEB_LOG" | tail -1)
+echo "rts units move red 128 128" >&3
+wait_for_log "Sent 3 units of Red to 128,128" 30
+sleep 15
+echo "rts units red" >&3
+echo "rts info" >&3
+wait_for_log "Units: Red 3, Blue 2" 30
+red1_after=$(grep -oE 'Red 1 at -?[0-9]+,-?[0-9]+,-?[0-9]+' "$WEB_LOG" | tail -1)
+[ -n "$red1_before" ] && [ "$red1_before" != "$red1_after" ] || web_fail "Red 1 did not move: $red1_before, then $red1_after"
+echo "ok: $red1_before, then $red1_after"
 
 stop_server
 cat "$WEB_LOG"
@@ -175,5 +196,29 @@ if grep -qE 'This crash report has been saved|Encountered an unexpected exceptio
     fail "boot-3-web: server crashed"
 fi
 expect "$WEB_LOG" "Web map stopped"
+
+# Boot 4: units are saved with the game and come back where they were, with their chunks loaded again.
+WEB_LOG=boot-4-units.log
+rm -f run/web-input
+mkfifo run/web-input
+echo "=== Booting server: boot-4-units"
+timeout "$TIMEOUT" ./gradlew runServer < run/web-input > "$WEB_LOG" 2>&1 &
+server_pid=$!
+exec 3> run/web-input
+wait_for_log "Done (" "$TIMEOUT"
+# Long enough for the units' chunks to load, and for a missing unit's record to be dropped.
+sleep 10
+echo "rts units" >&3
+echo "rts units red" >&3
+wait_for_log "Team Red has" 30
+sleep 2
+stop_server
+cat "$WEB_LOG"
+if grep -qE 'This crash report has been saved|Encountered an unexpected exception' "$WEB_LOG"; then
+    fail "boot-4-units: server crashed"
+fi
+expect "$WEB_LOG" "Units: Red 3, Blue 2"
+expect "$WEB_LOG" "Team Red has 3 of 50 units"
+expect "$WEB_LOG" "Red 1 at "
 
 echo "Server smoke test passed"

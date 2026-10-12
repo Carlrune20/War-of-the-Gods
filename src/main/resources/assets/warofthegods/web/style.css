@@ -243,7 +243,52 @@ button.on {
     padding: 16px;
 }
 
-#login[hidden], #show-panel[hidden], #panel[hidden] {
+#unit-bar {
+    position: absolute;
+    bottom: 48px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    max-width: calc(100% - 24px);
+    padding: 6px 8px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+#selection-info {
+    min-width: 88px;
+    text-align: center;
+    color: var(--muted, #9aa3b2);
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+#toast {
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    pointer-events: none;
+}
+
+#toast.bad {
+    border-color: #e8553f;
+    color: #ffb4a8;
+}
+
+#login[hidden], #show-panel[hidden], #panel[hidden], #unit-bar[hidden], #toast[hidden] {
     display: none;
 }
 
@@ -275,6 +320,20 @@ code {
         top: auto;
         bottom: 48px;
         left: 8px;
+    }
+
+    #unit-bar {
+        top: 56px;
+        bottom: auto;
+        left: 8px;
+        right: 8px;
+        transform: none;
+        max-width: none;
+    }
+
+    #toast {
+        bottom: auto;
+        top: 140px;
     }
 
     #status {

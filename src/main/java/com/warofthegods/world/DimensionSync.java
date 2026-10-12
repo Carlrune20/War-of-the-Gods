@@ -9,8 +9,8 @@ import cpw.mods.fml.common.network.NetworkRegistry;
 import cpw.mods.fml.relauncher.Side;
 
 /**
- * Tells each connecting Forge client about the game dimension before the player joins, so a client without this mod
- * can enter it. The client is told it is an overworld-type dimension (provider type 0), which it knows how to draw.
+ * Tells each connecting Forge client about the game dimension before the player joins, since its id comes from the
+ * server's config. The client is told it is an overworld-type dimension (provider type 0), which it knows how to draw.
  */
 public class DimensionSync {
 
