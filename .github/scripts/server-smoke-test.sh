@@ -2,8 +2,8 @@
 # Boots the dev dedicated server four times. The first boot sets up a game through /rts and saves it; the second
 # boot checks the game and its map came back from the save intact, then starts a new game to check numbering
 # continues and the old map is replaced by a fresh one. The third checks the web map, units and buildings: town
-# halls, a worker building a farm, working it and carrying the harvest home, a barracks, training, a storehouse
-# and building health down to 0. The fourth checks that units and buildings come back after a restart.
+# centers, a worker building a farm, working it and carrying the harvest home, a barracks training warriors and
+# archers, a storehouse and building health down to 0, a house, a tower, levels, upgrades and chopping a tree. The fourth checks that units and buildings come back after a restart.
 set -uo pipefail
 
 TIMEOUT="${SERVER_TIMEOUT:-600}"
@@ -163,8 +163,8 @@ echo "ok: login with a one-time link"
 
 wait_for_log "Web map of game #3 drawn" 300
 echo "ok: map drawn"
-wait_for_log "Built Red town hall #1" 30
-wait_for_log "Built Blue town hall #2" 30
+wait_for_log "Built Red town center #1" 30
+wait_for_log "Built Blue town center #2" 30
 curl -sf -b "$jar" "$WEB/api/tile?x=0&z=0&v=1" -o run/tile.bin || web_fail "tile 0,0 not served"
 python3 .github/scripts/map-tile-check.py run/tile.bin || web_fail "tile 0,0 does not hold the blocks of the map"
 [ "$(http_status -b "$jar" "$WEB/api/tile?x=0&z=0&v=1&m=1-old")" = 404 ] || web_fail "tile of an old map was served"
@@ -177,26 +177,26 @@ echo "rts units spawn blue 2" >&3
 wait_for_log "Spawned 2 units for Blue" 30
 expect "$WEB_LOG" "Spawned 3 units for Red"
 echo "rts units red" >&3
-wait_for_log "Red 3 at" 30
-expect "$WEB_LOG" "Team Red has 3 of 50 units"
+wait_for_log "Red warrior 3 at" 30
+expect "$WEB_LOG" "Team Red has 3 units, room for 10"
 
 session=$(awk '$6 == "wotg_session" {print $7}' "$jar")
 python3 .github/scripts/web-socket-check.py 127.0.0.1 "$WEB_PORT" "$session" 3 5 || web_fail "web socket check failed"
 
-red1_before=$(grep -oE 'Red 1 at -?[0-9]+,-?[0-9]+,-?[0-9]+' "$WEB_LOG" | tail -1)
+red1_before=$(grep -oE 'Red warrior 1 at -?[0-9]+,-?[0-9]+,-?[0-9]+' "$WEB_LOG" | tail -1)
 echo "rts units move red 128 128" >&3
 wait_for_log "Sent 3 units of Red to 128,128" 30
 sleep 15
 echo "rts units red" >&3
 echo "rts info" >&3
 wait_for_log "Units: Red 3, Blue 2" 30
-red1_after=$(grep -oE 'Red 1 at -?[0-9]+,-?[0-9]+,-?[0-9]+' "$WEB_LOG" | tail -1)
+red1_after=$(grep -oE 'Red warrior 1 at -?[0-9]+,-?[0-9]+,-?[0-9]+' "$WEB_LOG" | tail -1)
 [ -n "$red1_before" ] && [ "$red1_before" != "$red1_after" ] || web_fail "Red 1 did not move: $red1_before, then $red1_after"
 echo "ok: $red1_before, then $red1_after"
 
 # Buildings: a worker walks to a farm site, builds it, and stays to work it, carrying the harvest to the town
-# hall. A worker trained at the town hall builds a barracks, which trains a soldier, and a storehouse, which is
-# then damaged until it is gone.
+# center. A worker trained at the town center builds a barracks, which trains a warrior and an archer, and a
+# storehouse, which is then damaged until it is gone.
 echo "rts units spawn blue 1 worker" >&3
 wait_for_log "Spawned 1 units for Blue" 30
 echo "rts build blue farm" >&3
@@ -223,9 +223,11 @@ grep -q "Blue barracks #4 at .*(building site), health [0-9]*/800, [0-9]*% built
     || web_fail "the barracks site does not show the worker building it"
 echo "ok: $(grep -oE 'Blue barracks #4 at .*% built by 1 workers' "$WEB_LOG" | tail -1)"
 wait_for_log "Built Blue barracks #4" 120
-echo "rts train blue soldier 1" >&3
-wait_for_log "trained Blue 5" 60
-# The farm worker carries what it gathers to the town hall once its hands are full.
+echo "rts train blue warrior 1" >&3
+wait_for_log "trained Blue warrior 5" 60
+echo "rts train blue archer 1" >&3
+wait_for_log "trained Blue archer 6" 60
+# The farm worker carries what it gathers to the town center once its hands are full.
 food=0
 for _ in $(seq 45); do
     echo "rts resources blue" >&3
@@ -244,6 +246,41 @@ wait_for_log "has 500/600 health" 30
 echo "rts damage 5 1000" >&3
 wait_for_log "Destroyed Blue storehouse #5" 30
 echo "ok: the storehouse lost health and was destroyed at 0"
+
+# New buildings, levels and upgrades: a house and a tower go up, the town center goes up a level, and an upgrade
+# is given.
+echo "rts build blue house" >&3
+wait_for_log "Laid out Blue house #6" 30
+wait_for_log "Built Blue house #6" 120
+echo "rts units blue" >&3
+wait_for_log "units, room for 15" 30
+echo "ok: the house makes room for more units"
+echo "rts build blue tower" >&3
+wait_for_log "Laid out Blue tower #7" 30
+wait_for_log "Built Blue tower #7" 120
+echo "rts upgrade 2" >&3
+wait_for_log "Upgraded Blue town center (level 2) #2" 30
+echo "rts research blue forged_blades" >&3
+wait_for_log "Team Blue has forged blades" 30
+
+# A worker chops a tree near the town center and brings the wood home.
+echo "rts units spawn blue 1 worker" >&3
+sleep 2
+echo "rts resources blue" >&3
+sleep 2
+wood_before=$(grep -oE 'Team Blue resources: .*Wood [0-9]+' "$WEB_LOG" | tail -1 | grep -oE '[0-9]+$')
+echo "rts chop blue" >&3
+wait_for_log "to chop the tree at" 30
+expect "$WEB_LOG" "workers of Blue to chop the tree"
+wood=0
+for _ in $(seq 60); do
+    echo "rts resources blue" >&3
+    sleep 2
+    wood=$(grep -oE 'Team Blue resources: .*Wood [0-9]+' "$WEB_LOG" | tail -1 | grep -oE '[0-9]+$')
+    [ "${wood:-0}" -gt "${wood_before:-0}" ] && break
+done
+[ "${wood:-0}" -gt "${wood_before:-0}" ] || web_fail "no wood came in from the tree: $wood_before, then $wood"
+echo "ok: Blue wood went from $wood_before to $wood"
 
 stop_server
 cat "$WEB_LOG"
@@ -275,10 +312,12 @@ cat "$WEB_LOG"
 if grep -qE 'This crash report has been saved|Encountered an unexpected exception' "$WEB_LOG"; then
     fail "boot-4-units: server crashed"
 fi
-expect "$WEB_LOG" "Units: Red 3, Blue 5"
-expect "$WEB_LOG" "Team Red has 3 of 50 units"
-expect "$WEB_LOG" "Red 1 at "
-expect "$WEB_LOG" "Red town hall #1 at"
+expect "$WEB_LOG" "Units: Red 3, Blue 7"
+expect "$WEB_LOG" "Team Red has 3 units, room for 10"
+expect "$WEB_LOG" "Red warrior 1 at "
+expect "$WEB_LOG" "Red town center #1 at"
+expect "$WEB_LOG" "Blue town center (level 2) #2 at"
+expect "$WEB_LOG" "Blue tower #7 at"
 expect "$WEB_LOG" "Blue barracks #4 at"
 grep -q "Blue worker 3 at .* work" "$WEB_LOG" || fail "boot-4-units: the farm lost its worker"
 if grep -q "Blue storehouse #5" "$WEB_LOG"; then

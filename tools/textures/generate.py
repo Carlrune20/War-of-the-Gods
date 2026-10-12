@@ -1,0 +1,615 @@
+"""Draws the unit skins and the building and unit icons of War of the Gods.
+
+    python3 tools/textures/generate.py [--preview DIR]
+
+Like the structures, the textures are drawn from code so they stay consistent and are easy to change. Skins use the
+64x32 player layout. Saradomin's people wear bright steel, white and blue; Zamorak's wear blackened iron, bone and
+red. A unit's team shows as a band of its team's color drawn over the skin from team_overlay.png.
+
+Writes into src/main/resources/assets/warofthegods/textures/entity/unit/ and
+src/main/resources/assets/warofthegods/textures/gui/icons.png, which the web map also serves.
+"""
+
+import argparse
+import os
+import random
+
+from PIL import Image
+
+ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "src", "main", "resources", "assets", "warofthegods")
+SKINS = os.path.join(ROOT, "textures", "entity", "unit")
+ICONS = os.path.join(ROOT, "textures", "gui", "icons.png")
+
+# ---------------------------------------------------------------- skins
+
+# The parts of the player model in the skin: u, v and the box's width, height and depth.
+HEAD = (0, 0, 8, 8, 8)
+HAT = (32, 0, 8, 8, 8)
+BODY = (16, 16, 8, 12, 4)
+ARM = (40, 16, 4, 12, 4)
+LEG = (0, 16, 4, 12, 4)
+
+SKIN = (196, 146, 108)
+SKIN_DARK = (168, 120, 86)
+
+
+def faces(part):
+    """Each face of a box as (name, u, v, width, height)."""
+    u, v, w, h, d = part
+    return [
+        ("top", u + d, v, w, d),
+        ("bottom", u + d + w, v, w, d),
+        ("right", u, v + d, d, h),
+        ("front", u + d, v + d, w, h),
+        ("left", u + d + w, v + d, d, h),
+        ("back", u + d + w + d, v + d, w, h),
+    ]
+
+
+def paint(image, part, fn, rng, noise=8):
+    """Fills each face of a part pixel by pixel with fn(face, x, y, width, height), a color or None."""
+    for face, fu, fv, fw, fh in faces(part):
+        for y in range(fh):
+            for x in range(fw):
+                color = fn(face, x, y, fw, fh)
+                if color is None:
+                    continue
+                n = rng.randint(-noise, noise)
+                shade = 0.88 if face in ("left", "right") else 0.8 if face == "bottom" else 1.0
+                image.putpixel((fu + x, fv + y), tuple(max(0, min(255, int(c * shade) + n)) for c in color) + (255,))
+
+
+def face_fn(hair, eyes=(60, 80, 150), mouth=(140, 80, 70), beard=None):
+    def fn(face, x, y, w, h):
+        if face == "top":
+            return hair
+        if face == "bottom":
+            return SKIN_DARK
+        if face == "back":
+            return hair if y < 6 else SKIN_DARK
+        if face in ("left", "right"):
+            if y < 3 or (face == "right" and x < 3 and y < 5) or (face == "left" and x > 4 and y < 5):
+                return hair
+            return SKIN
+        # front
+        if y < 2:
+            return hair
+        if y == 4 and x in (1, 2, 5, 6):
+            return (245, 245, 245) if x in (1, 6) else eyes
+        if beard and y >= 6:
+            return beard
+        if y == 6 and x in (3, 4):
+            return mouth
+        if y == 5 and x in (3, 4):
+            return SKIN_DARK
+        return SKIN
+    return fn
+
+
+def worker(faction):
+    def tunic_color():
+        return (196, 176, 136) if faction == "saradomin" else (88, 74, 64)
+    tunic = tunic_color()
+    apron = (122, 88, 56) if faction == "saradomin" else (52, 40, 34)
+    trim = (52, 84, 168) if faction == "saradomin" else (150, 26, 24)
+    trousers = (110, 84, 58) if faction == "saradomin" else (40, 36, 36)
+    boots = (70, 48, 30) if faction == "saradomin" else (26, 22, 22)
+
+    def body(face, x, y, w, h):
+        if face == "top":
+            return tunic
+        if face == "bottom":
+            return trousers
+        if y == 7:
+            return (78, 54, 32)
+        if face == "front" and 2 <= x <= 5 and y >= 3:
+            return apron
+        if face == "front" and y == 0 and x in (2, 3, 4, 5):
+            return SKIN
+        if y == 11 or (face == "front" and x == 0 and False):
+            return trim
+        return tunic
+
+    def arm(face, x, y, w, h):
+        if face == "top":
+            return tunic
+        if face == "bottom" or y >= 9:
+            return SKIN
+        if y == 8:
+            return trim
+        return tunic
+
+    def leg(face, x, y, w, h):
+        if face == "bottom" or y >= 9:
+            return boots
+        return trousers
+
+    def hat(face, x, y, w, h):
+        if faction == "saradomin":
+            # A straw cap.
+            if face == "top":
+                return (214, 190, 112)
+            if face != "bottom" and y < 2:
+                return (190, 166, 92) if y == 1 else (214, 190, 112)
+            return None
+        # A hood that frames the face.
+        hood = (66, 56, 50)
+        if face == "bottom":
+            return None
+        if face == "front":
+            if y < 2 or x == 0 or x == 7:
+                return trim if y == 1 or x in (0, 7) and y == 1 else hood
+            return None
+        if face in ("left", "right") and y > 6:
+            return None
+        return hood
+
+    hair = (92, 62, 36) if faction == "saradomin" else (34, 28, 26)
+    return {"head": face_fn(hair, beard=(92, 62, 36) if faction == "saradomin" else None), "hat": hat,
+            "body": body, "arm": arm, "leg": leg}
+
+
+def warrior(faction):
+    if faction == "saradomin":
+        steel, steel_dark = (188, 194, 204), (130, 136, 148)
+        tabard, tabard_trim, emblem = (44, 72, 164), (232, 232, 226), (230, 190, 60)
+        slit = (30, 34, 44)
+    else:
+        steel, steel_dark = (58, 54, 60), (34, 32, 36)
+        tabard, tabard_trim, emblem = (124, 20, 22), (24, 20, 20), (214, 204, 176)
+        slit = (230, 50, 30)
+    chain = (150, 154, 160) if faction == "saradomin" else (72, 68, 72)
+
+    def body(face, x, y, w, h):
+        if face in ("top", "bottom"):
+            return steel
+        if face in ("front", "back") and 1 <= x <= 6:
+            if x in (1, 6) or y == 11:
+                return tabard_trim
+            if face == "front" and faction == "saradomin" and ((x in (3, 4) and 2 <= y <= 7) or (y == 4 and 2 <= x <= 5)):
+                return emblem
+            if face == "front" and faction == "zamorak" and (
+                    (y == 3 and 2 <= x <= 5) or (y == 7 and 2 <= x <= 5) or (y == 4 and x == 4) or (y == 5 and x == 3)
+                    or (y == 6 and x == 2)):
+                return emblem
+            return tabard
+        if y == 7:
+            return steel_dark
+        return steel if y < 3 else chain
+
+    def arm(face, x, y, w, h):
+        if face == "top":
+            return steel
+        if y < 4:
+            # A pauldron; Zamorak's has a spike of bone on top.
+            if faction == "zamorak" and face == "top":
+                return emblem
+            return steel if y < 3 else steel_dark
+        if y >= 9:
+            return steel_dark if y == 9 else steel
+        return chain
+
+    def leg(face, x, y, w, h):
+        if face == "bottom" or y >= 10:
+            return steel_dark
+        if y < 3 and face in ("front", "back"):
+            return tabard
+        return steel if y % 4 else steel_dark
+
+    def hat(face, x, y, w, h):
+        if face == "bottom":
+            return None
+        if face == "top":
+            if faction == "zamorak" and (x in (0, 7) and y in (0, 1)):
+                return emblem
+            return steel
+        if face == "front":
+            if y == 3 and 1 <= x <= 6 and x not in (3, 4):
+                return slit
+            if faction == "saradomin" and x in (3, 4) and 3 <= y <= 6:
+                return steel_dark
+            if y >= 5 and 2 <= x <= 5 and faction == "saradomin":
+                return None
+            if faction == "zamorak" and y >= 5 and x in (3, 4):
+                return steel_dark
+            return steel
+        if face == "back" and y == 0 and faction == "saradomin" and x in (3, 4):
+            return tabard
+        return steel if y != 2 else steel_dark
+
+    return {"head": face_fn((60, 44, 30), beard=(70, 50, 34) if faction == "saradomin" else None), "hat": hat,
+            "body": body, "arm": arm, "leg": leg}
+
+
+def archer(faction):
+    if faction == "saradomin":
+        hood, hood_trim = (40, 70, 150), (220, 220, 214)
+        jerkin, leather = (112, 82, 50), (84, 58, 34)
+        shirt, trousers, boots = (220, 214, 196), (78, 92, 56), (66, 46, 30)
+        mask = None
+    else:
+        hood, hood_trim = (30, 26, 28), (140, 22, 22)
+        jerkin, leather = (46, 38, 36), (96, 22, 20)
+        shirt, trousers, boots = (70, 30, 28), (32, 30, 30), (20, 18, 18)
+        mask = (24, 20, 20)
+    strap = (70, 46, 26) if faction == "saradomin" else (130, 24, 22)
+
+    def body(face, x, y, w, h):
+        if face in ("top", "bottom"):
+            return jerkin
+        # The quiver's strap, from the right shoulder down to the left hip, and the quiver on the back.
+        if face == "front" and x == y - 1 and y <= 8:
+            return strap
+        if face == "back" and 4 <= x <= 6 and y <= 9:
+            if y == 0:
+                return (236, 236, 230)
+            return leather
+        if y == 8:
+            return leather
+        return jerkin
+
+    def arm(face, x, y, w, h):
+        if face == "top":
+            return jerkin
+        if y < 3:
+            return jerkin
+        if face == "bottom" or y >= 9:
+            return leather if y < 11 else SKIN
+        return shirt
+
+    def leg(face, x, y, w, h):
+        if face == "bottom" or y >= 8:
+            return boots
+        return trousers
+
+    def hat(face, x, y, w, h):
+        if face == "bottom":
+            return None
+        if face == "front":
+            if y < 2 or x in (0, 7):
+                return hood_trim if y == 1 and 0 < x < 7 else hood
+            if mask and y >= 5:
+                return mask
+            return None
+        if face in ("left", "right") and y > 6:
+            return None
+        if face == "back" and y >= 7:
+            return hood
+        return hood
+
+    return {"head": face_fn((120, 84, 44) if faction == "saradomin" else (28, 24, 24)), "hat": hat,
+            "body": body, "arm": arm, "leg": leg}
+
+
+def overlay():
+    """White bands the team's color is drawn in: round the upper arms and a belt."""
+    image = Image.new("RGBA", (64, 32), (0, 0, 0, 0))
+    rng = random.Random(1)
+
+    def body(face, x, y, w, h):
+        if face in ("top", "bottom"):
+            return None
+        return (255, 255, 255) if y in (8, 9) else None
+
+    def arm(face, x, y, w, h):
+        if face in ("top", "bottom"):
+            return None
+        return (255, 255, 255) if y in (4, 5) else None
+
+    def leg(face, x, y, w, h):
+        return None
+
+    paint(image, BODY, body, rng, noise=0)
+    paint(image, ARM, arm, rng, noise=0)
+    return image
+
+
+def skin(kind, faction):
+    image = Image.new("RGBA", (64, 32), (0, 0, 0, 0))
+    rng = random.Random(sum(map(ord, kind.__name__ + faction)))
+    parts = kind(faction)
+    paint(image, HEAD, parts["head"], rng, noise=4)
+    paint(image, HAT, parts["hat"], rng, noise=5)
+    paint(image, BODY, parts["body"], rng)
+    paint(image, ARM, parts["arm"], rng)
+    paint(image, LEG, parts["leg"], rng)
+    return image
+
+
+# ---------------------------------------------------------------- icons
+
+PALETTE = {
+    "k": (34, 28, 24), "w": (156, 110, 64), "W": (104, 72, 42), "s": (160, 160, 160), "S": (106, 106, 112),
+    "r": (178, 64, 48), "R": (120, 38, 32), "b": (64, 96, 196), "B": (38, 58, 132), "y": (234, 194, 64),
+    "g": (84, 156, 64), "G": (46, 104, 42), "l": (236, 230, 214), "f": (226, 172, 132), "i": (206, 210, 220),
+    "I": (132, 138, 150), "h": (226, 196, 92), "o": (224, 134, 62), "c": (96, 204, 214), "d": (122, 86, 56),
+    "x": (44, 50, 66), "e": (60, 40, 30),
+}
+
+ICON_ORDER = ["town_hall", "house", "barracks", "storehouse", "quarry", "farm", "armory", "tower",
+              "worker", "soldier", "archer", "tree", "upgrade", "level"]
+
+ICON_ART = {
+    "town_hall": """
+        .......y........
+        .......yb.......
+        .......k........
+        ......krk.......
+        .....krrrk......
+        ....kRRRRRk.....
+        ..kk.ksssk.kk...
+        .krrkksxskkrrk..
+        krrrrksxskrrrrk.
+        kkkkkkkkkkkkkkk.
+        ksssssssssssssk.
+        ksxxsssssssxxsk.
+        ksxxssskkssxxsk.
+        kSSSSSkWWkSSSSk.
+        kSSSSSkWWkSSSSk.
+        kkkkkkkkkkkkkkk.""",
+    "house": """
+        ................
+        ........kk......
+        .......krrk.....
+        ......krrrrk....
+        .....krrrrrrk...
+        ....krrrrrrrrk..
+        ...krrrrrrrrrrk.
+        ..kkkkkkkkkkkkkk
+        ...kllllllllllk.
+        ...klxxlllxxllk.
+        ...klxxlllxxllk.
+        ...kllllkkllllk.
+        ...kWWWWkWkWWWk.
+        ...kllllkWkllllk
+        ...kkkkkkkkkkkk.
+        ................""",
+    "barracks": """
+        ................
+        .kk..........kk.
+        kiik........kiik
+        .kiik......kiik.
+        ..kiik....kiik..
+        ...kiik..kiik...
+        ....kiikkiik....
+        .....kiiiik.....
+        .....kiiiik.....
+        ....kiikkiik....
+        ...kyykk.kyyk...
+        ..kyyk....kyyk..
+        .kWWk......kWWk.
+        kWWk........kWWk
+        .kk..........kk.
+        ................""",
+    "storehouse": """
+        ................
+        ................
+        ..kkkkkkkkkkkk..
+        .kwwwwwwwwwwwwk.
+        .kWWWWWWWWWWWWk.
+        .kkkkkkkkkkkkkk.
+        .kwwwwwkkwwwwwk.
+        .kwwwwkyykwwwwk.
+        .kWWWWkyykWWWWk.
+        .kwwwwwkkwwwwwk.
+        .kwwwwwwwwwwwwk.
+        .kWWWWWWWWWWWWk.
+        .kwwwwwwwwwwwwk.
+        .kkkkkkkkkkkkkk.
+        ................
+        ................""",
+    "quarry": """
+        ................
+        .........kk.....
+        ........kiik....
+        .......kiIk.....
+        ......kiIk......
+        ..kkkkWkk.......
+        .kiiikWk........
+        ..kkkWk.........
+        ....kWk.........
+        ...kWk..........
+        ..kWk..sssss....
+        ..kk.ssosssss...
+        ...sssssssocss..
+        ..sSssossSssss..
+        .SSSSSSSSSSSSSS.
+        ................""",
+    "farm": """
+        ................
+        ....h..h..h..h..
+        ...hhh.hh.hh.hh.
+        ...hh.hhh.hhhh..
+        ....h..h..h..h..
+        ....g..g..g..g..
+        ....g..g..g..g..
+        .dddddddddddddd.
+        .dGdGdGdGdGdGdd.
+        .dddddddddddddd.
+        .ddhdhdhddhdhdd.
+        .dddddddddddddd.
+        .dGdGdGdGdGdGdd.
+        .dddddddddddddd.
+        ................
+        ................""",
+    "armory": """
+        ................
+        ................
+        ....kkkkkkkk....
+        ...kiiiiiiiiik..
+        ..kiiiiiiiiiiik.
+        ..kIIIIIIIIIIIk.
+        ...kkkkiiikkkk..
+        ......kiiik.....
+        ......kIIIk.....
+        .....kiiiiik....
+        ....kiiiiiiik...
+        ....kIIIIIIIk...
+        ....kkkkkkkkk...
+        .....kWWWWWk....
+        .....kkkkkkk....
+        ................""",
+    "tower": """
+        ....k.k..k.k....
+        ....kskkkksk....
+        ....kssssssk....
+        ....kkkkkkkk....
+        .....kssssk.....
+        .....ksxxsk.....
+        .....kssssk.....
+        .....ksSssk.....
+        .....kssssk.....
+        .....ksxxsk.....
+        .....kssssk.....
+        .....kSsssk.....
+        .....ksssSk.....
+        ....kssWWssk....
+        ....kSSWWSSk....
+        ....kkkkkkkk....""",
+    "worker": """
+        ................
+        .....kkkk.......
+        ....khhhhk......
+        ...khhhhhhk.....
+        ....kffffk......
+        ....kfkfkk...kk.
+        ....kffffk..kiik
+        .....kffk..kiIk.
+        ...kkllllkkkWk..
+        ..klllllllkWk...
+        ..kllkllkllWk...
+        ..kfkwwwwkkk....
+        ....kddddk......
+        ....kdkkdk......
+        ....kekkek......
+        ....kkk.kkk.....""",
+    "soldier": """
+        .........kk.....
+        ....kkkkkik.....
+        ...kiiiikik.....
+        ...kixxiikik....
+        ...kiiiik.kik...
+        ....kiik...kik..
+        ..kkbbbbkk..kik.
+        .kibbyybbik..kik
+        .kibyyyybikkyk..
+        .kibbyybbikyyk..
+        .kfbbbbbbfkk....
+        ..kkIIIIkk......
+        ...kiIIik.......
+        ...kik.kik......
+        ...kIk.kIk......
+        ...kkk.kkk......""",
+    "archer": """
+        ................
+        .....kkkk..kk...
+        ....kbbbbk.kWk..
+        ...kbbbbbbk.kWk.
+        ....kffffk..kWk.
+        ....kfkfkk..klWk
+        ....kffffk..kl.k
+        .....kbbk...kl.k
+        ...kkwwwwkk.kl.k
+        ..kwwwwwwwwkkl.k
+        ..kfwwwwwwkfkWk.
+        ....kwwwwk..kWk.
+        ....kGGGGk.kWk..
+        ....kGkkGk..kk..
+        ....kekkek......
+        ....kkk.kkk.....""",
+    "tree": """
+        ................
+        ......kkkk......
+        ....kkggggkk....
+        ...kggGggggGk...
+        ..kgggggGggggk..
+        ..kgGggggggGgk..
+        .kgggggggGggggk.
+        .kggGgggggggGgk.
+        ..kgggggGggggk..
+        ...kkggggggkk...
+        .....kkWWkk.....
+        ......kWWk......
+        ......kWwk......
+        ......kWWk......
+        .....kWWWWk.....
+        .....kkkkkk.....""",
+    "upgrade": """
+        ................
+        .......kk.......
+        ......kyyk......
+        .....kyyyyk.....
+        ....kyyyyyyk....
+        ...kyyyyyyyyk...
+        ..kkkkyyyykkkk..
+        .....kyyyyk.....
+        .....kyyyyk.....
+        .....kyyyyk.....
+        .....kyyyyk.....
+        .....kkkkkk.....
+        ................
+        ..kkkkkkkkkkkk..
+        ..kWWWWWWWWWWk..
+        ..kkkkkkkkkkkk..""",
+    "level": """
+        ................
+        ..kk..........k.
+        .kyyk........kyk
+        .kyyyk......kyyk
+        ..kyyyk....kyyk.
+        ...kyyykkkkyyk..
+        ....kyyyyyyyk...
+        .....kyyyyyk....
+        ......kkkkk.....
+        ...kkkkkkkkkk...
+        ..kssssssssssk..
+        ..ksSssSssSssk..
+        ..kssssssssssk..
+        ..kSSSSSSSSSSk..
+        ..kkkkkkkkkkkk..
+        ................""",
+}
+
+
+def icon(name):
+    rows = [row.strip() for row in ICON_ART[name].strip("\n").split("\n")]
+    image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    for y, row in enumerate(rows[:16]):
+        for x, char in enumerate(row[:16].ljust(16, ".")):
+            if char != ".":
+                image.putpixel((x, y), PALETTE[char] + (255,))
+    return image
+
+
+def icons():
+    sheet = Image.new("RGBA", (16 * len(ICON_ORDER), 16), (0, 0, 0, 0))
+    for i, name in enumerate(ICON_ORDER):
+        sheet.paste(icon(name), (16 * i, 0))
+    return sheet
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--preview", help="also write enlarged pictures into this folder")
+    args = parser.parse_args()
+    os.makedirs(SKINS, exist_ok=True)
+    os.makedirs(os.path.dirname(ICONS), exist_ok=True)
+    written = []
+    for faction in ("saradomin", "zamorak"):
+        for kind, name in ((worker, "worker"), (warrior, "soldier"), (archer, "archer")):
+            path = os.path.join(SKINS, "%s_%s.png" % (faction, name))
+            skin(kind, faction).save(path)
+            written.append(path)
+    overlay().save(os.path.join(SKINS, "team_overlay.png"))
+    icons().save(ICONS)
+    if args.preview:
+        os.makedirs(args.preview, exist_ok=True)
+        for path in written + [ICONS]:
+            image = Image.open(path)
+            image.resize((image.width * 8, image.height * 8), Image.NEAREST).save(
+                os.path.join(args.preview, os.path.basename(path)))
+    print("Wrote %d skins and %d icons" % (len(written), len(ICON_ORDER)))
+
+
+if __name__ == "__main__":
+    main()

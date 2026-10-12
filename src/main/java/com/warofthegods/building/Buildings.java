@@ -21,10 +21,13 @@ import com.warofthegods.Config;
 import com.warofthegods.WarOfTheGods;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
+import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
+import com.warofthegods.game.Upgrade;
+import com.warofthegods.unit.EntityTeamArrow;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Units;
 import com.warofthegods.web.WebMap;
@@ -58,14 +61,21 @@ public final class Buildings {
 
     private static Buildings instance;
 
+    /** Structures put into the world per interval, as big ones take a while. */
+    private static final int PASTES_PER_INTERVAL = 2;
+
     private final EnumMap<BuildingType, Schematic> schematics = new EnumMap<>(BuildingType.class);
+    /** Every look of every building, by faction folder and name, such as zamorak/house_l2_d1. */
+    private final Map<String, Schematic> variants = new HashMap<>();
     private final Map<Integer, Integer> harvestTicks = new HashMap<>();
+    private final Map<Integer, Integer> shotTicks = new HashMap<>();
     private int ticks;
 
     public Buildings() {
         instance = this;
         for (BuildingType type : BuildingType.values()) {
-            schematics.put(type, Schematic.load(type.schematic));
+            // Every faction's look of a type has the same size; the first level stands for them all.
+            schematics.put(type, variant(Faction.SARADOMIN, type.id + "_l1"));
         }
     }
 
@@ -73,8 +83,39 @@ public final class Buildings {
         return instance;
     }
 
+    /** The structure of the type at its first level, which has the size and shape every look of it shares. */
     public Schematic schematic(BuildingType type) {
         return schematics.get(type);
+    }
+
+    /** One look of a building, such as house_l2_d1 for a damaged level 2 house; loaded the first time. */
+    public Schematic variant(Faction faction, String name) {
+        String key = faction.id + "/" + name;
+        Schematic schematic = variants.get(key);
+        if (schematic == null) {
+            schematic = Schematic.load(key);
+            variants.put(key, schematic);
+        }
+        return schematic;
+    }
+
+    /**
+     * The look a building should have now: a building site of three stages as work on it goes on, then the
+     * finished building at its level, looking worse at three quarters, half and a quarter of its health.
+     */
+    public static String lookOf(Building building) {
+        String type = building.type.id;
+        if (!building.isComplete()) {
+            return type + "_stage" + Math.min(3, 1 + (int) (building.getBuildProgress() * 3));
+        }
+        double health = building.getHealth() / (double) building.getMaxHealth();
+        int damage = health < 0.25 ? 3 : health < 0.5 ? 2 : health < 0.75 ? 1 : 0;
+        return type + "_l" + building.getLevel() + (damage > 0 ? "_d" + damage : "");
+    }
+
+    private static Faction factionOf(Game game, Building building) {
+        Team team = game.getTeam(building.team);
+        return team == null ? Faction.SARADOMIN : team.getFaction();
     }
 
     @SubscribeEvent
@@ -92,6 +133,9 @@ public final class Buildings {
         construct(game, world);
         train(game);
         harvest(game);
+        research(game);
+        shoot(game, world);
+        updateLooks(game, world);
     }
 
     // ---------------------------------------------------------------- town halls
@@ -241,6 +285,10 @@ public final class Buildings {
             plan.rotation,
             false);
         WarOfTheGods.LOG.info("Started {}", site.describe(game));
+        WorldServer world = GameWorld.getWorld();
+        if (world != null) {
+            show(world, game, site);
+        }
         return site;
     }
 
@@ -302,12 +350,49 @@ public final class Buildings {
 
     // ---------------------------------------------------------------- raising
 
-    /**
-     * Puts the structure into the world and marks the building complete. Anything standing on the footprint is
-     * moved off it first, so nobody ends up inside a wall.
-     */
+    /** Marks the building complete and puts the finished structure into the world. */
     public void raise(WorldServer world, Building building) {
-        Schematic schematic = schematic(building.type);
+        building.setComplete();
+        Game game = GameManager.getGame();
+        if (game != null) {
+            show(world, game, building);
+        }
+        WarOfTheGods.LOG.info("Built {}", game == null ? building.type.displayName : building.describe(game));
+    }
+
+    /** Puts the building's look into the world where it changed, a few buildings at a time. */
+    private void updateLooks(Game game, WorldServer world) {
+        int pasted = 0;
+        for (Building building : new ArrayList<>(game.getBuildings())) {
+            if (pasted >= PASTES_PER_INTERVAL) {
+                return;
+            }
+            if (!lookOf(building).equals(building.getShown())) {
+                if (show(world, game, building)) {
+                    pasted++;
+                }
+            }
+        }
+    }
+
+    /**
+     * Puts the building's current look into the world. Anything standing on the footprint is moved off it first,
+     * so nobody ends up inside a wall. Returns whether anything was pasted: a building from a save made before its
+     * type took its present size keeps the blocks it has.
+     */
+    public boolean show(WorldServer world, Game game, Building building) {
+        String look = lookOf(building);
+        Schematic schematic = variant(factionOf(game, building), look);
+        building.setShown(look);
+        if (schematic.sizeX(building.rotation) != building.sizeX
+            || schematic.sizeZ(building.rotation) != building.sizeZ) {
+            return false;
+        }
+        paste(world, building, schematic);
+        return true;
+    }
+
+    private static void paste(WorldServer world, Building building, Schematic schematic) {
         int baseY = building.groundY - schematic.ground;
         AxisAlignedBB box = AxisAlignedBB.getBoundingBox(
             building.minX,
@@ -329,18 +414,15 @@ public final class Buildings {
                 entity.setPositionAndUpdate(out[0], y, out[1]);
             }
         }
-        building.setComplete();
         WebMap
             .blocksChanged(world, building.minX - 1, building.minZ - 1, building.getMaxX() + 1, building.getMaxZ() + 1);
-        Game game = GameManager.getGame();
-        WarOfTheGods.LOG.info("Built {}", game == null ? building.type.displayName : building.describe(game));
     }
 
     // ---------------------------------------------------------------- training
 
-    /** Units the team has trained or waiting to train, against its limit. */
+    /** Units the team has room for: what its buildings house, less units it has and has waiting to train. */
     public static int room(Game game, Team team) {
-        return Config.unitsPerTeam - game.countUnits(team) - game.countQueued(team);
+        return game.getPopulationCap(team) - game.countUnits(team) - game.countQueued(team);
     }
 
     private void train(Game game) {
@@ -410,11 +492,171 @@ public final class Buildings {
                 continue;
             }
             harvestTicks.put(workplace.id, 0);
-            long[] yield = workplace.type.yield();
+            long[] yield = harvestOf(game, workplace);
             for (EntityUnit worker : workers.subList(0, Math.min(workers.size(), workplace.type.maxWorkers()))) {
                 worker.gather(yield);
             }
         }
+    }
+
+    /** What one worker gathers at a workplace per harvest, with its level and the team's upgrades. */
+    public static long[] harvestOf(Game game, Building workplace) {
+        long[] yield = workplace.type.yield(workplace.getLevel());
+        Team team = game.getTeam(workplace.team);
+        boolean better = team != null && (workplace.type == BuildingType.FARM ? team.has(Upgrade.PLOUGHS)
+            : workplace.type == BuildingType.QUARRY && team.has(Upgrade.PICKAXES));
+        if (better) {
+            for (int i = 0; i < yield.length; i++) {
+                yield[i] = yield[i] * 3 / 2;
+            }
+        }
+        return yield;
+    }
+
+    // ---------------------------------------------------------------- levels and research
+
+    /** Ticks a building takes over what it researches. */
+    public static int researchTicks(Building building) {
+        if (Building.LEVEL_UP.equals(building.getResearch())) {
+            return building.type.upgradeTicks(building.getLevel() + 1);
+        }
+        Upgrade upgrade = Upgrade.byId(building.getResearch());
+        return upgrade == null ? 1 : upgrade.ticks();
+    }
+
+    /** Why the building cannot go up a level now, or null if it can, leaving out whether the team can pay. */
+    public static String levelUpProblem(Game game, Building building) {
+        if (!building.isComplete()) {
+            return "It is not built yet";
+        }
+        if (building.getLevel() >= building.type.levels) {
+            return "It is at its highest level";
+        }
+        if (building.getResearch() != null) {
+            return "It is busy";
+        }
+        Team team = game.getTeam(building.team);
+        Building center = team == null ? null : game.getTownHall(team);
+        if (building.type != BuildingType.TOWN_HALL && (center == null || center.getLevel() < 2)) {
+            return "Your town center has to be at level 2 first";
+        }
+        return null;
+    }
+
+    /** Why the upgrade cannot be researched at the building now, or null; leaves out whether the team can pay. */
+    public static String researchProblem(Game game, Building building, Upgrade upgrade) {
+        Team team = game.getTeam(building.team);
+        if (building.type != upgrade.at) {
+            return "That is researched at the " + upgrade.at.displayName.toLowerCase();
+        }
+        if (!building.isComplete()) {
+            return "It is not built yet";
+        }
+        if (team != null && team.has(upgrade)) {
+            return "Already researched";
+        }
+        for (Building other : game.getBuildings()) {
+            if (other.team.equals(building.team) && upgrade.id.equals(other.getResearch())) {
+                return "Already being researched";
+            }
+        }
+        if (building.getResearch() != null) {
+            return "It is busy";
+        }
+        if (building.getLevel() < upgrade.level) {
+            return "The " + building.type.displayName.toLowerCase() + " has to be at level " + upgrade.level;
+        }
+        return null;
+    }
+
+    /** Moves research and level-ups along, and finishes what is done. */
+    private void research(Game game) {
+        for (Building building : new ArrayList<>(game.getBuildings())) {
+            if (!building.isComplete() || building.getResearch() == null) {
+                continue;
+            }
+            String done = building.research(INTERVAL, researchTicks(building));
+            if (done == null) {
+                continue;
+            }
+            Team team = game.getTeam(building.team);
+            if (Building.LEVEL_UP.equals(done)) {
+                building.levelUp();
+                WarOfTheGods.LOG.info("Upgraded {}", building.describe(game));
+                continue;
+            }
+            Upgrade upgrade = Upgrade.byId(done);
+            if (team == null || upgrade == null) {
+                continue;
+            }
+            Map<Building, Integer> before = new HashMap<>();
+            for (Building own : game.getBuildings(team)) {
+                before.put(own, own.getMaxHealth());
+            }
+            team.addUpgrade(upgrade);
+            for (Map.Entry<Building, Integer> entry : before.entrySet()) {
+                entry.getKey()
+                    .addMaxHealth(entry.getValue());
+            }
+            for (EntityUnit unit : Units.get()
+                .getUnits(team)) {
+                unit.applyUpgrades(team);
+            }
+            WarOfTheGods.LOG.info("{} researched {}", team.getName(), upgrade.displayName.toLowerCase());
+        }
+    }
+
+    // ---------------------------------------------------------------- towers
+
+    /** Towers, and town centers from level 2, shoot arrows at the nearest enemy in range. */
+    private void shoot(Game game, WorldServer world) {
+        for (Building building : game.getBuildings()) {
+            if (!building.isComplete() || !building.type.shoots(building.getLevel())) {
+                shotTicks.remove(building.id);
+                continue;
+            }
+            int every = building.getLevel() >= 2 && building.type == BuildingType.TOWER ? Config.towerShotTicks * 2 / 3
+                : Config.towerShotTicks;
+            int elapsed = shotTicks.getOrDefault(building.id, 0) + INTERVAL;
+            if (elapsed < every) {
+                shotTicks.put(building.id, elapsed);
+                continue;
+            }
+            Team team = game.getTeam(building.team);
+            if (team == null) {
+                continue;
+            }
+            int range = building.type.range(building.getLevel()) + (team.has(Upgrade.FLETCHING) ? 4 : 0);
+            double y = building.groundY + shootHeight(building);
+            EntityLivingBase target = Units.get()
+                .findEnemyNear(world, team, building.getCenterX(), y, building.getCenterZ(), range);
+            if (target == null) {
+                shotTicks.put(building.id, every);
+                continue;
+            }
+            shotTicks.put(building.id, 0);
+            // From the side facing the target, so the arrow clears the building's own walls.
+            double dx = target.posX - building.getCenterX();
+            double dz = target.posZ - building.getCenterZ();
+            double length = Math.max(0.01, Math.sqrt(dx * dx + dz * dz));
+            double out = Math.min(building.sizeX, building.sizeZ) / 2.0 + 0.6;
+            EntityTeamArrow arrow = new EntityTeamArrow(
+                world,
+                building.getCenterX() + dx / length * out,
+                y,
+                building.getCenterZ() + dz / length * out,
+                team.getId());
+            arrow.aim(target, Config.towerDamage + (team.has(Upgrade.FLETCHING) ? 1 : 0));
+            world.spawnEntityInWorld(arrow);
+        }
+    }
+
+    /** Blocks above the ground a building shoots from: a tower's deck, the town center's upper windows. */
+    private static int shootHeight(Building building) {
+        if (building.type == BuildingType.TOWER) {
+            return building.getLevel() >= 2 ? 14 : 11;
+        }
+        return 9;
     }
 
     /** The nearest finished town hall or storehouse of the team, or null. */
@@ -436,9 +678,8 @@ public final class Buildings {
     // ---------------------------------------------------------------- damage
 
     /**
-     * Takes health off a building; at 0 it is gone: its blocks above ground are cleared, the ground layer turns back
-     * to grass, and units training there are lost. Foundations stay in the ground. A destroyed building site just
-     * goes away.
+     * Takes health off a building; at 0 it is gone, leaving a ruin, and units training there are lost. A destroyed
+     * building site is cleared away.
      */
     public void damage(Building building, int amount, String cause) {
         Game game = GameManager.getGame();
@@ -446,16 +687,23 @@ public final class Buildings {
             return;
         }
         WorldServer world = DimensionManager.getWorld(GameWorld.dimensionId());
-        // A building site has nothing standing yet; leave the ground as it is.
-        if (world != null && building.isComplete()) {
-            tearDown(world, building);
+        if (world != null) {
+            tearDown(world, game, building);
         }
         game.removeBuilding(building);
         harvestTicks.remove(building.id);
+        shotTicks.remove(building.id);
         WarOfTheGods.LOG.info("Destroyed {} ({})", building.describe(game), cause);
     }
 
-    private void tearDown(WorldServer world, Building building) {
+    /** A destroyed building leaves its ruin; a destroyed building site leaves bare ground. */
+    private void tearDown(WorldServer world, Game game, Building building) {
+        Schematic ruin = variant(factionOf(game, building), building.type.id + "_ruin");
+        if (building.isComplete() && ruin.sizeX(building.rotation) == building.sizeX
+            && ruin.sizeZ(building.rotation) == building.sizeZ) {
+            paste(world, building, ruin);
+            return;
+        }
         Schematic schematic = schematic(building.type);
         int top = building.groundY - schematic.ground + schematic.height;
         for (int x = building.minX; x <= building.getMaxX(); x++) {
@@ -475,11 +723,11 @@ public final class Buildings {
             .blocksChanged(world, building.minX - 1, building.minZ - 1, building.getMaxX() + 1, building.getMaxZ() + 1);
     }
 
-    /** The building whose blocks hold x, y, z, or null. */
+    /** The building or building site whose blocks hold x, y, z, or null. */
     public Building buildingWithBlock(Game game, int x, int y, int z) {
         for (Building building : game.getBuildings()) {
             Schematic schematic = schematic(building.type);
-            if (building.isComplete() && building.holds(x, y, z, schematic.height - schematic.ground)) {
+            if (building.getShown() != null && building.holds(x, y, z, schematic.height - schematic.ground)) {
                 return building;
             }
         }

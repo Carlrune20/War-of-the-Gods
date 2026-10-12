@@ -25,6 +25,26 @@ public final class RtsState {
         public String id;
         public String name;
         public Map<String, Long> cost;
+        public boolean fights;
+    }
+
+    public static final class LevelInfo {
+
+        public Map<String, Long> cost;
+        public int seconds;
+        public int health;
+    }
+
+    public static final class UpgradeInfo {
+
+        public String id;
+        public String name;
+        public String description;
+        /** The building type it is researched at. */
+        public String at;
+        public int level;
+        public Map<String, Long> cost;
+        public int seconds;
     }
 
     public static final class BuildingTypeInfo {
@@ -35,7 +55,13 @@ public final class RtsState {
         public boolean buildable;
         public int health;
         public int workers;
-        public String trains;
+        public final List<String> trains = new ArrayList<>();
+        public int levels;
+        /** What going up to each level costs, by level. */
+        public final Map<Integer, LevelInfo> levelUps = new HashMap<>();
+        /** Units it houses at each level, from level 1. */
+        public int[] population;
+        public final List<String> researches = new ArrayList<>();
         public int width;
         public int length;
         public int[] heights;
@@ -53,6 +79,7 @@ public final class RtsState {
         public int buildingGap;
         public final Map<String, UnitKindInfo> unitKinds = new LinkedHashMap<>();
         public final Map<String, BuildingTypeInfo> buildingTypes = new LinkedHashMap<>();
+        public final Map<String, UpgradeInfo> upgrades = new LinkedHashMap<>();
     }
 
     public static final class TeamInfo {
@@ -64,6 +91,9 @@ public final class RtsState {
         public final List<String> members = new ArrayList<>();
         public final List<String> allies = new ArrayList<>();
         public int units;
+        public int population;
+        public String faction;
+        public final List<String> upgrades = new ArrayList<>();
     }
 
     /** Something with a place in the world: a unit, player or mob. */
@@ -91,9 +121,16 @@ public final class RtsState {
         public final Map<String, Long> carrying = new HashMap<>();
         public boolean delivering;
         public String target;
+        /** The foot of the tree it chops, or null. */
+        public int[] tree;
+        public boolean chopping;
 
         public boolean isWorker() {
             return "worker".equals(kind);
+        }
+
+        public boolean isArcher() {
+            return "archer".equals(kind);
         }
     }
 
@@ -131,10 +168,24 @@ public final class RtsState {
         public final List<String> queue = new ArrayList<>();
         public double progress;
         public int workers;
+        public int level = 1;
+        /** An upgrade id, or "level" while it goes up a level; null when it researches nothing. */
+        public String research;
+        public double researched;
 
         public boolean contains(double px, double pz) {
             return px >= x && px < x + sizeX && pz >= z && pz < z + sizeZ;
         }
+    }
+
+    public static final class TreeInfo {
+
+        public int x;
+        public int y;
+        public int z;
+        public int top;
+        public int wood;
+        public int maxWood;
     }
 
     public GameInfo game;
@@ -144,6 +195,7 @@ public final class RtsState {
     public final Map<String, PlayerInfo> players = new LinkedHashMap<>();
     public final Map<String, MobInfo> mobs = new LinkedHashMap<>();
     public final Map<Integer, BuildingInfo> buildings = new LinkedHashMap<>();
+    public final List<TreeInfo> trees = new ArrayList<>();
     /** Entity id to unit, player or mob. */
     public final Map<Integer, Thing> byEntityId = new HashMap<>();
     /** The viewer's UUID, from the server. */
@@ -172,6 +224,7 @@ public final class RtsState {
             kindInfo.id = entry.getKey();
             kindInfo.name = string(kind, "name");
             kindInfo.cost = amounts(object(kind, "cost"));
+            kindInfo.fights = bool(kind, "fights");
             info.unitKinds.put(kindInfo.id, kindInfo);
         }
         for (Map.Entry<String, JsonElement> entry : object(json, "buildingTypes").entrySet()) {
@@ -184,7 +237,34 @@ public final class RtsState {
             typeInfo.buildable = bool(type, "buildable");
             typeInfo.health = integer(type, "health");
             typeInfo.workers = integer(type, "workers");
-            typeInfo.trains = type.has("trains") ? string(type, "trains") : null;
+            for (JsonElement kind : array(type, "trains")) {
+                typeInfo.trains.add(kind.getAsString());
+            }
+            typeInfo.levels = Math.max(1, integer(type, "levels"));
+            for (Map.Entry<String, JsonElement> level : object(type, "levelUps").entrySet()) {
+                JsonObject levelJson = level.getValue()
+                    .getAsJsonObject();
+                LevelInfo levelInfo = new LevelInfo();
+                levelInfo.cost = amounts(object(levelJson, "cost"));
+                levelInfo.seconds = integer(levelJson, "seconds");
+                levelInfo.health = integer(levelJson, "health");
+                try {
+                    typeInfo.levelUps.put(Integer.parseInt(level.getKey()), levelInfo);
+                } catch (NumberFormatException e) {
+                    // Not a level; leave it out.
+                }
+            }
+            List<Integer> population = new ArrayList<>();
+            for (JsonElement count : array(type, "population")) {
+                population.add(count.getAsInt());
+            }
+            typeInfo.population = new int[population.size()];
+            for (int i = 0; i < population.size(); i++) {
+                typeInfo.population[i] = population.get(i);
+            }
+            for (JsonElement upgrade : array(type, "researches")) {
+                typeInfo.researches.add(upgrade.getAsString());
+            }
             typeInfo.width = integer(type, "width");
             typeInfo.length = integer(type, "length");
             JsonArray heights = type.has("heights") ? type.getAsJsonArray("heights") : new JsonArray();
@@ -194,6 +274,19 @@ public final class RtsState {
                     .getAsInt();
             }
             info.buildingTypes.put(typeInfo.id, typeInfo);
+        }
+        for (Map.Entry<String, JsonElement> entry : object(json, "upgrades").entrySet()) {
+            JsonObject upgrade = entry.getValue()
+                .getAsJsonObject();
+            UpgradeInfo upgradeInfo = new UpgradeInfo();
+            upgradeInfo.id = entry.getKey();
+            upgradeInfo.name = string(upgrade, "name");
+            upgradeInfo.description = string(upgrade, "description");
+            upgradeInfo.at = string(upgrade, "at");
+            upgradeInfo.level = integer(upgrade, "level");
+            upgradeInfo.cost = amounts(object(upgrade, "cost"));
+            upgradeInfo.seconds = integer(upgrade, "seconds");
+            info.upgrades.put(upgradeInfo.id, upgradeInfo);
         }
         game = info;
     }
@@ -205,6 +298,7 @@ public final class RtsState {
         players.clear();
         mobs.clear();
         buildings.clear();
+        trees.clear();
         byEntityId.clear();
     }
 
@@ -228,6 +322,11 @@ public final class RtsState {
                 info.allies.add(ally.getAsString());
             }
             info.units = integer(team, "units");
+            info.population = integer(team, "population");
+            info.faction = string(team, "faction");
+            for (JsonElement upgrade : array(team, "upgrades")) {
+                info.upgrades.add(upgrade.getAsString());
+            }
             teams.add(info);
             teamsById.put(info.id, info);
         }
@@ -258,6 +357,18 @@ public final class RtsState {
             info.carrying.putAll(amounts(object(unit, "carrying")));
             info.delivering = bool(unit, "delivering");
             info.target = unit.has("target") ? string(unit, "target") : null;
+            JsonElement tree = unit.get("tree");
+            if (tree != null && tree.isJsonArray()
+                && tree.getAsJsonArray()
+                    .size() == 3) {
+                info.tree = new int[3];
+                for (int i = 0; i < 3; i++) {
+                    info.tree[i] = tree.getAsJsonArray()
+                        .get(i)
+                        .getAsInt();
+                }
+            }
+            info.chopping = bool(unit, "chopping");
             units.put(info.id, info);
             byEntityId.put(info.eid, info);
         }
@@ -294,7 +405,21 @@ public final class RtsState {
             }
             info.progress = number(building, "progress");
             info.workers = integer(building, "workers");
+            info.level = Math.max(1, integer(building, "level"));
+            info.research = building.has("research") ? string(building, "research") : null;
+            info.researched = number(building, "researched");
             buildings.put(info.id, info);
+        }
+        for (JsonElement element : array(json, "trees")) {
+            JsonObject tree = element.getAsJsonObject();
+            TreeInfo info = new TreeInfo();
+            info.x = integer(tree, "x");
+            info.y = integer(tree, "y");
+            info.z = integer(tree, "z");
+            info.top = integer(tree, "top");
+            info.wood = integer(tree, "wood");
+            info.maxWood = integer(tree, "maxWood");
+            trees.add(info);
         }
     }
 
@@ -338,6 +463,30 @@ public final class RtsState {
             }
         }
         return null;
+    }
+
+    /** The tracked tree with its trunk's foot at x, y, z, or null. */
+    public TreeInfo treeAt(int x, int y, int z) {
+        for (TreeInfo tree : trees) {
+            if (tree.x == x && tree.y == y && tree.z == z) {
+                return tree;
+            }
+        }
+        return null;
+    }
+
+    public UpgradeInfo upgrade(String id) {
+        return game == null ? null : game.upgrades.get(id);
+    }
+
+    /** Whether one of the team's buildings researches the upgrade now. */
+    public boolean isResearching(TeamInfo team, String upgrade) {
+        for (BuildingInfo building : buildings.values()) {
+            if (building.team.equals(team.id) && upgrade.equals(building.research)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public BuildingInfo townHallOf(String teamId) {

@@ -13,6 +13,8 @@ import com.warofthegods.game.PlayerEvents;
 import com.warofthegods.rts.Commanders;
 import com.warofthegods.rts.EntityCommanderBody;
 import com.warofthegods.rts.RtsNetwork;
+import com.warofthegods.unit.Combat;
+import com.warofthegods.unit.EntityTeamArrow;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.UnitCommands;
 import com.warofthegods.unit.Units;
@@ -56,6 +58,7 @@ public class WarOfTheGods {
         GameWorld.register();
         EntityRegistry.registerModEntity(EntityUnit.class, "Unit", 0, this, 96, 3, true);
         EntityRegistry.registerModEntity(EntityCommanderBody.class, "CommanderBody", 1, this, 160, 3, true);
+        EntityRegistry.registerModEntity(EntityTeamArrow.class, "TeamArrow", 2, this, 64, 20, true);
         RtsNetwork.register();
     }
 
@@ -82,6 +85,7 @@ public class WarOfTheGods {
             .bus()
             .register(units);
         ForgeChunkManager.setForcedChunkLoadingCallback(this, units.chunkLoadingCallback());
+        MinecraftForge.EVENT_BUS.register(new Combat());
         UnitCommands.register();
         Buildings buildings = new Buildings();
         FMLCommonHandler.instance()

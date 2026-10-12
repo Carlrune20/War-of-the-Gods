@@ -719,7 +719,7 @@ void main() { o_color = v_c; }`;
                     const value = this.map.block(x, y, z);
                     const id = B.index(value >> 4);
                     if (value && !B.isInvisible(id)) {
-                        return {x, y, z, point: [o[0] + d[0] * t, o[1] + d[1] * t, o[2] + d[2] * t]};
+                        return {x, y, z, block: value >> 4, point: [o[0] + d[0] * t, o[1] + d[1] * t, o[2] + d[2] * t]};
                     }
                 }
                 const axis = tMax[0] < tMax[1] ? (tMax[0] < tMax[2] ? 0 : 2) : (tMax[1] < tMax[2] ? 1 : 2);

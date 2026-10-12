@@ -1,13 +1,16 @@
 package com.warofthegods.game;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagString;
 import net.minecraft.util.EnumChatFormatting;
 
 public class Team {
@@ -30,11 +33,14 @@ public class Team {
     /** Whether a town hall is still to go up at the base; once it is destroyed, it stays gone. */
     private boolean townHallDue;
     private int lastUnitNumber;
+    private Faction faction;
+    private final EnumSet<Upgrade> upgrades = EnumSet.noneOf(Upgrade.class);
 
     Team(Game game, String name, EnumChatFormatting color) {
         this.game = game;
         this.name = name;
         this.color = color;
+        this.faction = Faction.forColor(color);
         for (Resource resource : Resource.values()) {
             resources.put(resource, 0L);
         }
@@ -55,6 +61,29 @@ public class Team {
 
     public void setColor(EnumChatFormatting color) {
         this.color = color;
+        game.changed();
+    }
+
+    public Faction getFaction() {
+        return faction;
+    }
+
+    /** Changes how the team's buildings and units look; buildings take on the new look as they next change. */
+    public void setFaction(Faction faction) {
+        this.faction = faction;
+        game.changed();
+    }
+
+    public boolean has(Upgrade upgrade) {
+        return upgrades.contains(upgrade);
+    }
+
+    public Collection<Upgrade> getUpgrades() {
+        return Collections.unmodifiableSet(upgrades);
+    }
+
+    public void addUpgrade(Upgrade upgrade) {
+        upgrades.add(upgrade);
         game.changed();
     }
 
@@ -224,6 +253,12 @@ public class Team {
         }
         tag.setBoolean("townHallDue", townHallDue);
         tag.setInteger("lastUnitNumber", lastUnitNumber);
+        tag.setString("faction", faction.id);
+        NBTTagList upgradeList = new NBTTagList();
+        for (Upgrade upgrade : upgrades) {
+            upgradeList.appendTag(new NBTTagString(upgrade.id));
+        }
+        tag.setTag("upgrades", upgradeList);
         return tag;
     }
 
@@ -246,6 +281,17 @@ public class Team {
         team.base = base.length == 2 ? base : null;
         team.townHallDue = tag.getBoolean("townHallDue");
         team.lastUnitNumber = tag.getInteger("lastUnitNumber");
+        Faction faction = Faction.byId(tag.getString("faction"));
+        if (faction != null) {
+            team.faction = faction;
+        }
+        NBTTagList upgradeList = tag.getTagList("upgrades", 8);
+        for (int i = 0; i < upgradeList.tagCount(); i++) {
+            Upgrade upgrade = Upgrade.byId(upgradeList.getStringTagAt(i));
+            if (upgrade != null) {
+                team.upgrades.add(upgrade);
+            }
+        }
         return team;
     }
 }

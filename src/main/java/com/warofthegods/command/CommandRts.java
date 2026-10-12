@@ -3,7 +3,9 @@ package com.warofthegods.command;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.regex.Pattern;
 
@@ -25,12 +27,16 @@ import com.warofthegods.Config;
 import com.warofthegods.building.Buildings;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
+import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
+import com.warofthegods.game.Tree;
 import com.warofthegods.game.UnitKind;
+import com.warofthegods.game.Upgrade;
 import com.warofthegods.unit.EntityUnit;
+import com.warofthegods.unit.Trees;
 import com.warofthegods.unit.Units;
 import com.warofthegods.web.Viewer;
 import com.warofthegods.web.WebServer;
@@ -57,9 +63,13 @@ public class CommandRts extends CommandBase {
         "build",
         "train",
         "damage",
+        "upgrade",
+        "research",
+        "chop",
+        "finish",
         "web");
     private static final List<String> TEAM_SUBCOMMANDS = Arrays
-        .asList("list", "create", "remove", "color", "join", "leave", "base");
+        .asList("list", "create", "remove", "color", "faction", "join", "leave", "base");
     private static final List<String> UNIT_ACTIONS = Arrays.asList("spawn", "move", "stop", "kill");
     /** Units /rts units spawn makes at most at once. */
     private static final int MAX_SPAWN = 50;
@@ -72,7 +82,8 @@ public class CommandRts extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/rts <help|info|newgame|endgame|spawn|team|ally|unally|resources|units|buildings|build|train|damage|web>";
+        return "/rts <help|info|newgame|endgame|spawn|team|ally|unally|resources|units|buildings|build|train|damage"
+            + "|upgrade|research|chop|finish|web>";
     }
 
     /** Everyone may run /rts; subcommands that change the game check for op themselves. */
@@ -137,6 +148,18 @@ public class CommandRts extends CommandBase {
             case "damage":
                 damage(sender, rest);
                 break;
+            case "upgrade":
+                upgrade(sender, rest);
+                break;
+            case "research":
+                research(sender, rest);
+                break;
+            case "chop":
+                chop(sender, rest);
+                break;
+            case "finish":
+                finish(sender, rest);
+                break;
             case "web":
                 web(sender, rest);
                 break;
@@ -155,24 +178,31 @@ public class CommandRts extends CommandBase {
         send(sender, "/rts team create <name> [color] (op)");
         send(sender, "/rts team remove <name> (op)");
         send(sender, "/rts team color <name> <color> (op)");
+        send(sender, "/rts team faction <name> <saradomin|zamorak> - how the team's buildings and units look (op)");
         send(sender, "/rts team join <team> [player]");
         send(sender, "/rts team leave [player]");
-        send(sender, "/rts team base <team> [x z] - move a team's base and raise a new town hall there (op)");
+        send(sender, "/rts team base <team> [x z] - move a team's base and raise a new town center there (op)");
         send(sender, "/rts ally <team> <team> (op)");
         send(sender, "/rts unally <team> <team> (op)");
         send(sender, "/rts resources [team]");
         send(sender, "/rts resources <give|take|set> <team> <resource> <amount> (op)");
         send(sender, "/rts units [team] - list units");
-        send(sender, "/rts units spawn <team> [count] [soldier|worker] - spawn units for free at the town hall (op)");
+        send(
+            sender,
+            "/rts units spawn <team> [count] [warrior|archer|worker] - spawn units for free at the town center (op)");
         send(sender, "/rts units move <team> <x> <z> - send all of a team's units somewhere (op)");
         send(sender, "/rts units stop <team> - make a team's units stop and guard (op)");
         send(sender, "/rts units kill <team|all> - remove units (op)");
         send(sender, "/rts buildings [team] - list buildings and building sites");
         send(
             sender,
-            "/rts build <team> <farm|barracks|storehouse|quarry> [x z] [rotation] - lay out a site for the team's"
-                + " workers (op)");
-        send(sender, "/rts train <team> <worker|soldier> [count] - queue units for free at a building (op)");
+            "/rts build <team> <farm|house|barracks|storehouse|quarry|armory|tower> [x z] [rotation] - lay out a site"
+                + " for the team's workers (op)");
+        send(sender, "/rts train <team> <worker|warrior|archer> [count] - queue units for free at a building (op)");
+        send(sender, "/rts upgrade <building id> - take a building up a level at once (op)");
+        send(sender, "/rts research <team> <upgrade> - give a team an upgrade at once (op)");
+        send(sender, "/rts chop <team> - send a team's idle workers to chop the tree nearest its town center (op)");
+        send(sender, "/rts finish [team] - finish every building site at once (op)");
         send(sender, "/rts damage <building id> <amount> - take health off a building; at 0 it is gone (op)");
         send(sender, "/rts web - get a link to the live web map");
         send(sender, "/rts web <player> - send a player a web map link (op)");
@@ -261,7 +291,7 @@ public class CommandRts extends CommandBase {
 
     private void team(ICommandSender sender, String[] args) {
         if (args.length == 0) {
-            throw new WrongUsageException("/rts team <list|create|remove|color|join|leave|base>");
+            throw new WrongUsageException("/rts team <list|create|remove|color|faction|join|leave|base>");
         }
         Game game = requireGame();
         switch (args[0].toLowerCase()) {
@@ -292,6 +322,22 @@ public class CommandRts extends CommandBase {
                 Team team = requireTeam(game, args[1]);
                 game.removeTeam(team.getName());
                 send(sender, "Removed team " + team.getColoredName());
+                break;
+            }
+            case "faction": {
+                requireOp(sender);
+                requireArgs(args, 3, "/rts team faction <name> <saradomin|zamorak>");
+                Team team = requireTeam(game, args[1]);
+                Faction faction = Faction.byId(args[2]);
+                if (faction == null) {
+                    throw new CommandException("Factions are saradomin and zamorak");
+                }
+                team.setFaction(faction);
+                // Buildings take on the new look at once.
+                for (Building building : game.getBuildings(team)) {
+                    building.setShown("");
+                }
+                send(sender, "Team " + team.getColoredName() + " now follows " + faction.displayName);
                 break;
             }
             case "color": {
@@ -346,7 +392,7 @@ public class CommandRts extends CommandBase {
                 break;
             }
             default:
-                throw new WrongUsageException("/rts team <list|create|remove|color|join|leave|base>");
+                throw new WrongUsageException("/rts team <list|create|remove|color|faction|join|leave|base>");
         }
     }
 
@@ -367,7 +413,7 @@ public class CommandRts extends CommandBase {
         requireOp(sender);
         switch (action) {
             case "spawn": {
-                requireArgs(args, 2, "/rts units spawn <team> [count] [soldier|worker]");
+                requireArgs(args, 2, "/rts units spawn <team> [count] [warrior|archer|worker]");
                 Team team = requireTeam(game, args[1]);
                 int count = args.length > 2 ? parseIntBounded(sender, args[2], 1, MAX_SPAWN) : 1;
                 UnitKind kind = args.length > 3 ? requireKind(args[3]) : UnitKind.SOLDIER;
@@ -441,7 +487,7 @@ public class CommandRts extends CommandBase {
     private static UnitKind requireKind(String text) {
         UnitKind kind = UnitKind.byId(text);
         if (kind == null) {
-            throw new CommandException("Unknown unit kind %s; use soldier or worker", text);
+            throw new CommandException("Unknown unit kind %s; use warrior, archer or worker", text);
         }
         return kind;
     }
@@ -493,11 +539,12 @@ public class CommandRts extends CommandBase {
     private void build(ICommandSender sender, String[] args) {
         requireOp(sender);
         Game game = requireGame();
-        requireArgs(args, 2, "/rts build <team> <farm|barracks|storehouse|quarry> [x z] [rotation]");
+        requireArgs(args, 2, "/rts build <team> <type> [x z] [rotation]");
         Team team = requireTeam(game, args[0]);
         BuildingType type = BuildingType.byId(args[1]);
         if (type == null || !type.buildable) {
-            throw new CommandException("Workers can build a farm, barracks, storehouse or quarry");
+            throw new CommandException(
+                "Workers can build a farm, house, barracks, storehouse, quarry, armory or tower");
         }
         WorldServer world = GameWorld.getWorld();
         Buildings.Plan plan;
@@ -569,12 +616,12 @@ public class CommandRts extends CommandBase {
     private void train(ICommandSender sender, String[] args) {
         requireOp(sender);
         Game game = requireGame();
-        requireArgs(args, 2, "/rts train <team> <worker|soldier> [count]");
+        requireArgs(args, 2, "/rts train <team> <worker|warrior|archer> [count]");
         Team team = requireTeam(game, args[0]);
         UnitKind kind = requireKind(args[1]);
         int count = args.length > 2 ? parseIntBounded(sender, args[2], 1, Buildings.MAX_QUEUE) : 1;
         for (Building building : game.getBuildings(team)) {
-            if (building.type.trains == kind && building.isComplete()) {
+            if (building.type.trains.contains(kind) && building.isComplete()) {
                 count = Math.min(count, Buildings.room(game, team));
                 for (int i = 0; i < count; i++) {
                     building.enqueue(kind);
@@ -583,7 +630,111 @@ public class CommandRts extends CommandBase {
                 return;
             }
         }
-        throw new CommandException("Team %s has no building that trains %ss", team.getName(), kind.id);
+        throw new CommandException(
+            "Team %s has no building that trains %ss",
+            team.getName(),
+            kind.displayName.toLowerCase());
+    }
+
+    private void upgrade(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        Game game = requireGame();
+        requireArgs(args, 1, "/rts upgrade <building id>");
+        Building building = game.getBuilding(parseIntBounded(sender, args[0], 1, Integer.MAX_VALUE));
+        if (building == null) {
+            throw new CommandException("There is no building #%s", args[0]);
+        }
+        if (!building.isComplete() || building.getLevel() >= building.type.levels) {
+            throw new CommandException("%s cannot go up a level", building.describe(game));
+        }
+        building.cancelResearch();
+        building.levelUp();
+        send(sender, "Upgraded " + building.describe(game));
+    }
+
+    private void research(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        Game game = requireGame();
+        requireArgs(args, 2, "/rts research <team> <upgrade>");
+        Team team = requireTeam(game, args[0]);
+        Upgrade upgrade = Upgrade.byId(args[1]);
+        if (upgrade == null) {
+            StringBuilder ids = new StringBuilder();
+            for (Upgrade each : Upgrade.values()) {
+                ids.append(ids.length() > 0 ? ", " : "")
+                    .append(each.id);
+            }
+            throw new CommandException("Upgrades are %s", ids.toString());
+        }
+        Map<Building, Integer> before = new HashMap<>();
+        for (Building building : game.getBuildings(team)) {
+            before.put(building, building.getMaxHealth());
+        }
+        team.addUpgrade(upgrade);
+        for (Map.Entry<Building, Integer> entry : before.entrySet()) {
+            entry.getKey()
+                .addMaxHealth(entry.getValue());
+        }
+        for (EntityUnit unit : Units.get()
+            .getUnits(team)) {
+            unit.applyUpgrades(team);
+        }
+        send(sender, "Team " + team.getColoredName() + " has " + upgrade.displayName.toLowerCase());
+    }
+
+    private void finish(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        Game game = requireGame();
+        Team only = args.length > 0 ? requireTeam(game, args[0]) : null;
+        int count = 0;
+        for (Building building : new ArrayList<>(game.getBuildings())) {
+            if (!building.isComplete() && (only == null || building.team.equals(only.getId()))) {
+                Buildings.get()
+                    .raise(GameWorld.getWorld(), building);
+                count++;
+            }
+        }
+        send(sender, "Finished " + count + " building sites");
+    }
+
+    private void chop(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        Game game = requireGame();
+        requireArgs(args, 1, "/rts chop <team>");
+        Team team = requireTeam(game, args[0]);
+        Building hall = game.getTownHall(team);
+        if (hall == null) {
+            throw new CommandException("Team %s has no town center", team.getName());
+        }
+        WorldServer world = GameWorld.getWorld();
+        int[] tree = Trees.nearest(world, game, hall.getCenterX(), hall.groundY, hall.getCenterZ(), 48);
+        if (tree == null) {
+            throw new CommandException("Found no tree near the town center of %s", team.getName());
+        }
+        List<EntityUnit> idle = new ArrayList<>();
+        for (EntityUnit unit : Units.get()
+            .getUnits(team)) {
+            if (unit.isWorker() && unit.getOrder() == EntityUnit.Order.IDLE) {
+                idle.add(unit);
+            }
+        }
+        int sent = Units.get()
+            .orderChop(idle, tree[0], tree[1], tree[2]);
+        Tree tracked = Trees.track(world, game, tree[0], tree[1], tree[2]);
+        send(
+            sender,
+            "Sent " + sent
+                + " workers of "
+                + team.getColoredName()
+                + " to chop the tree at "
+                + tree[0]
+                + ","
+                + tree[1]
+                + ","
+                + tree[2]
+                + " with "
+                + tracked.getWood()
+                + " wood");
     }
 
     /** An x or z coordinate; ~ means relative to the sender's position. */
@@ -628,8 +779,11 @@ public class CommandRts extends CommandBase {
         units.sort((a, b) -> Integer.compare(a.getNumber(), b.getNumber()));
         send(
             sender,
-            "Team " + team
-                .getColoredName() + " has " + game.countUnits(team) + " of " + Config.unitsPerTeam + " units");
+            "Team " + team.getColoredName()
+                + " has "
+                + game.countUnits(team)
+                + " units, room for "
+                + game.getPopulationCap(team));
         for (EntityUnit unit : units) {
             send(
                 sender,

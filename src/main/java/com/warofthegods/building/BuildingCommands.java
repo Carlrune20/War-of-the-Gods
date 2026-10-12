@@ -5,6 +5,7 @@ import java.util.Map;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.warofthegods.Config;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
@@ -12,6 +13,7 @@ import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
+import com.warofthegods.game.Upgrade;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.UnitCommands;
 import com.warofthegods.unit.Units;
@@ -27,7 +29,10 @@ import com.warofthegods.world.GameWorld;
  * <pre>
  *   {type: "buildings.place", building: type, x, z, rotation, units: [id...]}
  *       lay out a building site centred on x, z, paying for it, and send the workers among the units to build it
- *   {type: "buildings.train", building: id, count}  queue units at a town hall or barracks, paying for each
+ *   {type: "buildings.train", building: id, unit: kind, count}  queue units at a town center or barracks,
+ *       paying for each; unit may be left out where the building trains one kind
+ *   {type: "buildings.upgrade", building: id}  take the building up a level, paying for it
+ *   {type: "buildings.research", building: id, upgrade: id}  research an upgrade at an armory or storehouse
  * </pre>
  */
 public final class BuildingCommands {
@@ -39,6 +44,68 @@ public final class BuildingCommands {
     public static void register() {
         WebCommand.register("buildings.place", BuildingCommands::place);
         WebCommand.register("buildings.train", BuildingCommands::train);
+        WebCommand.register("buildings.upgrade", BuildingCommands::upgrade);
+        WebCommand.register("buildings.research", BuildingCommands::research);
+    }
+
+    /** The viewer's own building the request names, or null after replying why not. */
+    private static Building ownBuilding(WebRequest request, Team team) {
+        Game game = GameManager.getGame();
+        Building building = game.getBuilding(UnitCommands.intField(request.body, "building", 0));
+        if (building == null || !building.team.equals(team.getId())) {
+            request.replyError("That is not your building");
+            return null;
+        }
+        return building;
+    }
+
+    private static void upgrade(WebRequest request) {
+        Team team = UnitCommands.commander(request);
+        Building building = team == null ? null : ownBuilding(request, team);
+        if (building == null) {
+            return;
+        }
+        Game game = GameManager.getGame();
+        String problem = Buildings.levelUpProblem(game, building);
+        if (problem != null) {
+            request.replyError(problem);
+            return;
+        }
+        if (!team.spend(building.type.upgradeCost(building.getLevel() + 1))) {
+            request.replyError("Not enough resources");
+            return;
+        }
+        building.startResearch(Building.LEVEL_UP);
+        JsonObject reply = WebJson.message("buildings.upgrading");
+        reply.addProperty("level", building.getLevel() + 1);
+        request.reply(reply);
+    }
+
+    private static void research(WebRequest request) {
+        Team team = UnitCommands.commander(request);
+        Building building = team == null ? null : ownBuilding(request, team);
+        if (building == null) {
+            return;
+        }
+        JsonElement field = request.body.get("upgrade");
+        Upgrade upgrade = field != null && field.isJsonPrimitive() ? Upgrade.byId(field.getAsString()) : null;
+        if (upgrade == null) {
+            request.replyError("There is no such upgrade");
+            return;
+        }
+        String problem = Buildings.researchProblem(GameManager.getGame(), building, upgrade);
+        if (problem != null) {
+            request.replyError(problem);
+            return;
+        }
+        if (!team.spend(upgrade.cost())) {
+            request.replyError("Not enough resources");
+            return;
+        }
+        building.startResearch(upgrade.id);
+        JsonObject reply = WebJson.message("buildings.researching");
+        reply.addProperty("upgrade", upgrade.id);
+        request.reply(reply);
     }
 
     private static void place(WebRequest request) {
@@ -100,15 +167,20 @@ public final class BuildingCommands {
         if (team == null) {
             return;
         }
-        Game game = GameManager.getGame();
-        Building building = game.getBuilding(UnitCommands.intField(request.body, "building", 0));
-        if (building == null || !building.team.equals(team.getId())) {
-            request.replyError("That is not your building");
+        Building building = ownBuilding(request, team);
+        if (building == null) {
             return;
         }
-        UnitKind kind = building.type.trains;
-        if (kind == null) {
+        Game game = GameManager.getGame();
+        if (building.type.trains.isEmpty()) {
             request.replyError("A " + building.type.displayName.toLowerCase() + " does not train units");
+            return;
+        }
+        JsonElement unitField = request.body.get("unit");
+        UnitKind kind = unitField != null && unitField.isJsonPrimitive() ? UnitKind.byId(unitField.getAsString())
+            : building.type.trains.get(0);
+        if (kind == null || !building.type.trains.contains(kind)) {
+            request.replyError("A " + building.type.displayName.toLowerCase() + " does not train those");
             return;
         }
         if (!building.isComplete()) {
@@ -126,7 +198,9 @@ public final class BuildingCommands {
         }
         int room = Buildings.room(game, team);
         if (room <= 0) {
-            request.replyError("Your team has the most units it can have");
+            request.replyError(
+                game.getPopulationCap(team) < Config.unitsPerTeam ? "Build more houses to train more units"
+                    : "Your team has the most units it can have");
             return;
         }
         count = Math.min(count, room);

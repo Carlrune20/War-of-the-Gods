@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.world.WorldServer;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -28,6 +29,7 @@ import com.warofthegods.world.GameWorld;
  *                                                       fight
  *   {type: "units.attack", units: [id...], building: id}  attack an enemy building
  *   {type: "units.build", units: [id...], building: id}  workers build a building site or work a farm or quarry
+ *   {type: "units.gather", units: [id...], x, y, z}  workers chop the tree at or near that block
  *   {type: "units.stop", units: [id...]}        stop and guard where they stand
  * </pre>
  *
@@ -45,6 +47,7 @@ public final class UnitCommands {
         WebCommand.register("units.attack", UnitCommands::attack);
         WebCommand.register("units.build", UnitCommands::build);
         WebCommand.register("units.stop", UnitCommands::stop);
+        WebCommand.register("units.gather", UnitCommands::gather);
     }
 
     /** The viewer's team, or null after replying with why they cannot command units. */
@@ -162,6 +165,45 @@ public final class UnitCommands {
             return;
         }
         ok(request, sent);
+    }
+
+    private static void gather(WebRequest request) {
+        Team team = commander(request);
+        if (team == null) {
+            return;
+        }
+        List<EntityUnit> units = ownUnits(request, team);
+        if (units == null) {
+            return;
+        }
+        Double x = doubleField(request.body, "x");
+        Double y = doubleField(request.body, "y");
+        Double z = doubleField(request.body, "z");
+        if (x == null || z == null) {
+            request.replyError("Where to?");
+            return;
+        }
+        Game game = GameManager.getGame();
+        WorldServer world = GameWorld.getWorld();
+        double fromY = y != null ? y : world.getHeightValue((int) Math.floor(x), (int) Math.floor(z));
+        int[] tree = Trees.findTree(world, game, x, fromY, z);
+        if (tree == null || !game.isInside(tree[0], tree[2])) {
+            request.replyError("There is no tree there");
+            return;
+        }
+        int sent = Units.get()
+            .orderChop(units, tree[0], tree[1], tree[2]);
+        if (sent == 0) {
+            request.replyError("Only workers chop trees");
+            return;
+        }
+        Trees.track(world, game, tree[0], tree[1], tree[2]);
+        JsonObject reply = WebJson.message("ok");
+        reply.addProperty("units", sent);
+        reply.addProperty("x", tree[0]);
+        reply.addProperty("y", tree[1]);
+        reply.addProperty("z", tree[2]);
+        request.reply(reply);
     }
 
     private static void stop(WebRequest request) {

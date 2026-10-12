@@ -1,6 +1,9 @@
 package com.warofthegods.game;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.warofthegods.Config;
@@ -8,39 +11,48 @@ import com.warofthegods.Config;
 /** The kinds of building. Ids are stored in save data, so only add new values. */
 public enum BuildingType {
 
-    /** Every team starts with one; trains workers and takes in what workers carry. Workers cannot build more. */
-    TOWN_HALL("town_hall", "Town hall", "townHall", null, UnitKind.WORKER, false, true),
-    /** Workers working at it gather food and wood. */
-    FARM("farm", "Farm", "farm", "farm", null, true, false),
-    /** Trains soldiers. */
-    BARRACKS("barracks", "Barracks", "barracks", "barracks", UnitKind.SOLDIER, true, false),
-    /** Takes in what workers carry, so they need not walk all the way to the town hall. */
-    STOREHOUSE("storehouse", "Storehouse", "storehouse", "storehouse", null, true, true),
+    /**
+     * Every team starts with one: trains workers, takes in what workers carry, houses units, and shoots arrows at
+     * enemies once upgraded. Workers cannot build more. Its id is from when it was called the town hall.
+     */
+    TOWN_HALL("town_hall", "Town center", "townHall", 3, false, true, UnitKind.WORKER),
+    /** Workers working at it gather food. */
+    FARM("farm", "Farm", "farm", 2, true, false),
+    /** Trains warriors and archers. */
+    BARRACKS("barracks", "Barracks", "barracks", 2, true, false, UnitKind.SOLDIER, UnitKind.ARCHER),
+    /** Takes in what workers carry, so they need not walk all the way home; researches economic upgrades. */
+    STOREHOUSE("storehouse", "Storehouse", "storehouse", 2, true, true),
     /** Workers working at it gather stone and a little metal. */
-    QUARRY("quarry", "Quarry", "quarry", "quarry", null, true, false);
+    QUARRY("quarry", "Quarry", "quarry", 2, true, false),
+    /** Houses more units. */
+    HOUSE("house", "House", "house", 2, true, false),
+    /** Researches military upgrades. */
+    ARMORY("armory", "Armory", "armory", 2, true, false),
+    /** Shoots arrows at enemies that come near. */
+    TOWER("tower", "Tower", "tower", 2, true, false);
 
     public final String id;
     public final String displayName;
     /** Name in the config file, such as farm in farmCostWood. */
     public final String configName;
-    /** File name under assets/warofthegods/structures, without .schematic. */
-    public final String schematic;
-    /** The unit it trains, or null. */
-    public final UnitKind trains;
+    /** Levels it can be upgraded to; each looks different. */
+    public final int levels;
     /** Whether workers can build it. */
     public final boolean buildable;
     /** Whether workers bring what they gather here. */
     public final boolean storesResources;
+    /** The units it trains, if any. */
+    public final List<UnitKind> trains;
 
-    BuildingType(String id, String displayName, String configName, String schematic, UnitKind trains, boolean buildable,
-        boolean storesResources) {
+    BuildingType(String id, String displayName, String configName, int levels, boolean buildable,
+        boolean storesResources, UnitKind... trains) {
         this.id = id;
         this.displayName = displayName;
         this.configName = configName;
-        this.schematic = schematic == null ? id : schematic;
-        this.trains = trains;
+        this.levels = levels;
         this.buildable = buildable;
         this.storesResources = storesResources;
+        this.trains = Collections.unmodifiableList(Arrays.asList(trains));
     }
 
     /** Whether workers can work here, gathering resources. */
@@ -48,20 +60,56 @@ public enum BuildingType {
         return this == FARM || this == QUARRY;
     }
 
+    /** Whether it shoots at enemies at that level. */
+    public boolean shoots(int level) {
+        return this == TOWER || (this == TOWN_HALL && level >= 2);
+    }
+
+    /** Whether upgrades are researched here. */
+    public boolean researches() {
+        return this == ARMORY || this == STOREHOUSE;
+    }
+
     /** What building one costs, leaving out resources it costs none of. */
     public Map<Resource, Long> cost() {
-        long[] amounts = Config.buildingCost.get(this);
+        return amounts(Config.buildingCost.get(this), 1);
+    }
+
+    /**
+     * What upgrading one to the level costs: the building's own cost and a half for each level, and for the town
+     * center a fixed price, as it has no cost of its own.
+     */
+    public Map<Resource, Long> upgradeCost(int level) {
+        if (this == TOWN_HALL) {
+            return amounts(level <= 2 ? Config.townCenterLevel2Cost : Config.townCenterLevel3Cost, 1);
+        }
+        return amounts(Config.buildingCost.get(this), 1.5 * (level - 1));
+    }
+
+    /** Seconds an upgrade to the level takes. */
+    public int upgradeTicks(int level) {
+        return Math.max(1, Config.upgradeSeconds * 20 * (level - 1));
+    }
+
+    private static Map<Resource, Long> amounts(long[] amounts, double factor) {
         Map<Resource, Long> cost = new LinkedHashMap<>();
         for (Resource resource : Resource.values()) {
-            if (amounts[resource.ordinal()] > 0) {
-                cost.put(resource, amounts[resource.ordinal()]);
+            long amount = Math.round(amounts[resource.ordinal()] * factor);
+            if (amount > 0) {
+                cost.put(resource, amount);
             }
         }
         return cost;
     }
 
+    /** Health at level 1. */
     public int maxHealth() {
         return Config.buildingHealth.get(this);
+    }
+
+    /** Health at a level: half as much again for each level above the first. */
+    public int maxHealth(int level) {
+        return maxHealth() + maxHealth() * (level - 1) / 2;
     }
 
     /** Ticks of work one worker puts in to build it; two workers take half as long. */
@@ -69,15 +117,16 @@ public enum BuildingType {
         return Math.max(1, Config.buildSeconds.get(this) * 20);
     }
 
-    /** Resources one worker gathers here per harvest, by resource ordinal; all zero where nothing is gathered. */
-    public long[] yield() {
+    /** Resources one worker gathers here per harvest at a level, by resource ordinal; all zero where nothing is. */
+    public long[] yield(int level) {
         long[] amounts = new long[Resource.values().length];
+        // A second level yields a third more.
+        double factor = level >= 2 ? 4 / 3.0 : 1;
         if (this == FARM) {
-            amounts[Resource.FOOD.ordinal()] = Config.farmFood;
-            amounts[Resource.WOOD.ordinal()] = Config.farmWood;
+            amounts[Resource.FOOD.ordinal()] = Math.round(Config.farmFood * factor);
         } else if (this == QUARRY) {
-            amounts[Resource.STONE.ordinal()] = Config.quarryStone;
-            amounts[Resource.METAL.ordinal()] = Config.quarryMetal;
+            amounts[Resource.STONE.ordinal()] = Math.round(Config.quarryStone * factor);
+            amounts[Resource.METAL.ordinal()] = Math.round(Config.quarryMetal * factor);
         }
         return amounts;
     }
@@ -87,7 +136,29 @@ public enum BuildingType {
         return this == FARM ? Config.farmWorkers : this == QUARRY ? Config.quarryWorkers : 0;
     }
 
+    /** Units it houses at a level. */
+    public int population(int level) {
+        if (this == TOWN_HALL) {
+            return Config.townCenterPopulation + (level - 1) * Config.townCenterPopulation / 2;
+        }
+        if (this == HOUSE) {
+            return Config.housePopulation + (level - 1) * Config.housePopulation / 2;
+        }
+        return 0;
+    }
+
+    /** Blocks it shoots at a level, before upgrades; 0 if it does not shoot. */
+    public int range(int level) {
+        if (!shoots(level)) {
+            return 0;
+        }
+        return Config.towerRange + (level - 1) * 4;
+    }
+
     public static BuildingType byId(String id) {
+        if ("town_center".equalsIgnoreCase(id) || "towncenter".equalsIgnoreCase(id)) {
+            return TOWN_HALL;
+        }
         for (BuildingType type : values()) {
             if (type.id.equalsIgnoreCase(id) || type.name()
                 .equalsIgnoreCase(id)) {

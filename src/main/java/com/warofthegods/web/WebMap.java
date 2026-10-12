@@ -28,7 +28,9 @@ import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
+import com.warofthegods.game.Tree;
 import com.warofthegods.game.UnitKind;
+import com.warofthegods.game.Upgrade;
 import com.warofthegods.rts.Commanders;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Units;
@@ -207,6 +209,7 @@ public final class WebMap {
             JsonObject kindJson = new JsonObject();
             kindJson.addProperty("name", kind.displayName);
             kindJson.add("cost", costJson(kind.cost()));
+            kindJson.addProperty("fights", kind.fights());
             unitKinds.add(kind.id, kindJson);
         }
         json.add("unitKinds", unitKinds);
@@ -231,7 +234,7 @@ public final class WebMap {
             }
             if (type.isWorkplace()) {
                 typeJson.addProperty("workers", type.maxWorkers());
-                long[] yield = type.yield();
+                long[] yield = type.yield(1);
                 JsonObject yieldJson = new JsonObject();
                 for (Resource resource : Resource.values()) {
                     if (yield[resource.ordinal()] > 0) {
@@ -240,8 +243,39 @@ public final class WebMap {
                 }
                 typeJson.add("yield", yieldJson);
             }
-            if (type.trains != null) {
-                typeJson.addProperty("trains", type.trains.id);
+            if (!type.trains.isEmpty()) {
+                JsonArray trains = new JsonArray();
+                for (UnitKind kind : type.trains) {
+                    trains.add(new JsonPrimitive(kind.id));
+                }
+                typeJson.add("trains", trains);
+            }
+            typeJson.addProperty("levels", type.levels);
+            JsonObject upgradeCosts = new JsonObject();
+            JsonArray population = new JsonArray();
+            JsonArray ranges = new JsonArray();
+            for (int level = 1; level <= type.levels; level++) {
+                if (level > 1) {
+                    JsonObject levelJson = new JsonObject();
+                    levelJson.add("cost", costJson(type.upgradeCost(level)));
+                    levelJson.addProperty("seconds", type.upgradeTicks(level) / 20);
+                    levelJson.addProperty("health", type.maxHealth(level));
+                    upgradeCosts.add(String.valueOf(level), levelJson);
+                }
+                population.add(new JsonPrimitive(type.population(level)));
+                ranges.add(new JsonPrimitive(type.range(level)));
+            }
+            typeJson.add("levelUps", upgradeCosts);
+            typeJson.add("population", population);
+            typeJson.add("range", ranges);
+            if (type.researches()) {
+                JsonArray researches = new JsonArray();
+                for (Upgrade upgrade : Upgrade.values()) {
+                    if (upgrade.at == type) {
+                        researches.add(new JsonPrimitive(upgrade.id));
+                    }
+                }
+                typeJson.add("researches", researches);
             }
             typeJson.addProperty("width", schematic.width);
             typeJson.addProperty("length", schematic.length);
@@ -253,6 +287,18 @@ public final class WebMap {
             buildingTypes.add(type.id, typeJson);
         }
         json.add("buildingTypes", buildingTypes);
+        JsonObject upgrades = new JsonObject();
+        for (Upgrade upgrade : Upgrade.values()) {
+            JsonObject upgradeJson = new JsonObject();
+            upgradeJson.addProperty("name", upgrade.displayName);
+            upgradeJson.addProperty("description", upgrade.description);
+            upgradeJson.addProperty("at", upgrade.at.id);
+            upgradeJson.addProperty("level", upgrade.level);
+            upgradeJson.add("cost", costJson(upgrade.cost()));
+            upgradeJson.addProperty("seconds", upgrade.seconds);
+            upgrades.add(upgrade.id, upgradeJson);
+        }
+        json.add("upgrades", upgrades);
         message.add("game", json);
         return message;
     }
@@ -307,6 +353,13 @@ public final class WebMap {
                     json.add("base", baseJson);
                 }
                 json.addProperty("units", game.countUnits(team));
+                json.addProperty("population", game.getPopulationCap(team));
+                json.addProperty("faction", team.getFaction().id);
+                JsonArray upgrades = new JsonArray();
+                for (Upgrade upgrade : team.getUpgrades()) {
+                    upgrades.add(new JsonPrimitive(upgrade.id));
+                }
+                json.add("upgrades", upgrades);
                 teams.add(json);
             }
             if (world != null) {
@@ -346,7 +399,24 @@ public final class WebMap {
         message.add("units", game == null ? new JsonArray() : unitsJson());
         message.add("mobs", game == null || world == null ? new JsonArray() : mobsJson(game, world));
         message.add("buildings", game == null ? new JsonArray() : buildingsJson(game));
+        message.add("trees", game == null ? new JsonArray() : treesJson(game));
         return message;
+    }
+
+    /** Trees workers have started chopping, with the wood left in them. */
+    private static JsonArray treesJson(Game game) {
+        JsonArray trees = new JsonArray();
+        for (Tree tree : game.getTrees()) {
+            JsonObject json = new JsonObject();
+            json.addProperty("x", tree.x);
+            json.addProperty("y", tree.y);
+            json.addProperty("z", tree.z);
+            json.addProperty("top", tree.top);
+            json.addProperty("wood", tree.getWood());
+            json.addProperty("maxWood", tree.maxWood);
+            trees.add(json);
+        }
+        return trees;
     }
 
     /** Every building and building site, with what it is training. */
@@ -367,6 +437,13 @@ public final class WebMap {
             json.addProperty("complete", building.isComplete());
             json.addProperty("health", building.getHealth());
             json.addProperty("maxHealth", building.getMaxHealth());
+            json.addProperty("level", building.getLevel());
+            if (building.getResearch() != null) {
+                json.addProperty("research", building.getResearch());
+                json.addProperty(
+                    "researched",
+                    round(Math.min(1, building.getResearchTicks() / (double) Buildings.researchTicks(building))));
+            }
             if (!building.isComplete()) {
                 json.addProperty("built", Math.round(building.getBuildProgress() * 100) / 100.0);
                 json.addProperty("builders", Buildings.countBuilders(building));
@@ -420,6 +497,17 @@ public final class WebMap {
             }
             if (unit.getBuildingId() != 0) {
                 json.addProperty("building", unit.getBuildingId());
+            }
+            int[] tree = unit.getTree();
+            if (tree != null) {
+                JsonArray treeJson = new JsonArray();
+                for (int coordinate : tree) {
+                    treeJson.add(new JsonPrimitive(coordinate));
+                }
+                json.add("tree", treeJson);
+                if (unit.isChopping()) {
+                    json.addProperty("chopping", true);
+                }
             }
             if (unit.isWorker()) {
                 JsonObject carrying = new JsonObject();

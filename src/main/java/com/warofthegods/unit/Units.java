@@ -15,6 +15,7 @@ import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.monster.IMob;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.MathHelper;
 import net.minecraft.world.ChunkCoordIntPair;
 import net.minecraft.world.World;
@@ -26,7 +27,6 @@ import com.warofthegods.Config;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
-import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.UnitRecord;
@@ -254,11 +254,6 @@ public final class Units {
 
     // ---------------------------------------------------------------- training
 
-    /** What training one soldier costs. */
-    public static Map<Resource, Long> unitCost() {
-        return UnitKind.SOLDIER.cost();
-    }
-
     /**
      * Spawns units for the team in front of its town hall, or at its base if it has none yet, up to its unit
      * limit; returns them.
@@ -354,6 +349,18 @@ public final class Units {
         return sent;
     }
 
+    /** Sends workers to chop the tree with its trunk's foot at x, y, z; returns how many went. */
+    public int orderChop(List<EntityUnit> units, int x, int y, int z) {
+        int sent = 0;
+        for (EntityUnit unit : units) {
+            if (unit.isWorker()) {
+                unit.orderChop(x, y, z);
+                sent++;
+            }
+        }
+        return sent;
+    }
+
     /** Sends soldiers to attack an enemy building; returns how many went. */
     public int orderAttackBuilding(List<EntityUnit> units, Building building) {
         int sent = 0;
@@ -438,6 +445,53 @@ public final class Units {
             return team != null && otherTeam != null && game.areEnemies(team, otherTeam);
         }
         return other instanceof IMob;
+    }
+
+    /**
+     * Whether a tower or arrow of the team fights the entity: units, players and bodies of enemy teams, and hostile
+     * mobs. Players in creative mode and commanding players, who hover above, are left alone.
+     */
+    public boolean isEnemyOf(Team team, Entity other) {
+        if (other instanceof EntityPlayer && (((EntityPlayer) other).capabilities.isCreativeMode || Commanders.get()
+            .isCommanding(other.getUniqueID()))) {
+            return false;
+        }
+        if (other instanceof EntityCommanderBody) {
+            EntityPlayer owner = ((EntityCommanderBody) other).getOwner();
+            if (owner == null || owner.capabilities.isCreativeMode) {
+                return false;
+            }
+        }
+        Game game = GameManager.getGame();
+        if (game == null || team == null) {
+            return false;
+        }
+        if (other instanceof EntityUnit || other instanceof EntityPlayer || other instanceof EntityCommanderBody) {
+            Team otherTeam = teamOf(game, other);
+            return otherTeam != null && game.areEnemies(team, otherTeam);
+        }
+        return other instanceof IMob;
+    }
+
+    /** The nearest enemy of the team within range of a point, such as a tower's top, or null. */
+    public EntityLivingBase findEnemyNear(World world, Team team, double x, double y, double z, double range) {
+        EntityLivingBase best = null;
+        double bestDistance = range * range;
+        AxisAlignedBB box = AxisAlignedBB.getBoundingBox(x - range, y - range, z - range, x + range, y + 8, z + range);
+        for (Object object : world.getEntitiesWithinAABB(EntityLivingBase.class, box)) {
+            EntityLivingBase other = (EntityLivingBase) object;
+            if (!other.isEntityAlive() || !isEnemyOf(team, other)) {
+                continue;
+            }
+            double dx = other.posX - x;
+            double dz = other.posZ - z;
+            double distance = dx * dx + dz * dz;
+            if (distance < bestDistance) {
+                best = other;
+                bestDistance = distance;
+            }
+        }
+        return best;
     }
 
     /** The nearest enemy the unit can see within range, or null. */

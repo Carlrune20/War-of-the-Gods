@@ -5,7 +5,7 @@
 //   {type: "game", game: {number, minX, minZ, maxX, maxZ, margin, tileSize, seaLevel, unitKinds, unitsPerTeam,
 //                         trainSeconds, buildingGap, buildingTypes} | null}
 //   {type: "tiles", tiles: {"x,z": version}}   map tiles to (re)load from /api/tile, see MapTiles.java
-//   {type: "state", teams: [...], players: [...], units: [...], buildings: [...], mobs: [...]}
+//   {type: "state", teams: [...], players: [...], units: [...], buildings: [...], mobs: [...], trees: [...]}
 //   {type: "error", error, replyTo}
 // The page sends {type: "hello"} once connected, and commands such as unit orders as {type, id, ...};
 // see command(), UnitCommands.java and BuildingCommands.java.
@@ -28,6 +28,7 @@
         // id -> {type, team, x, z, sizeX, sizeZ, y, rotation, complete, built, builders, health, maxHealth, queue,
         // progress, workers}
         buildings: new Map(),
+        trees: [], // {x, y, z, top, wood, maxWood}: trees workers have started chopping
         selectedBuilding: null, // id of the viewer's building whose controls the bar shows
         tiles: new Map(), // "x,z" -> {version, loaded}
         tilesExpected: 0,
@@ -332,6 +333,7 @@
         for (const b of message.buildings || []) {
             state.buildings.set(b.id, b);
         }
+        state.trees = message.trees || [];
         // Dead units, and units of a team the viewer has left, drop out of the selection, as do lost buildings.
         const team = myTeam();
         for (const id of [...state.selected]) {
@@ -403,10 +405,10 @@
             box.append(resources);
 
             if (state.game && team.units !== undefined) {
-                const units = el("div", "muted", "Units " + team.units + " of " + state.game.unitsPerTeam);
+                const units = el("div", "muted", "Units " + team.units + " of " + (team.population || 0));
                 const hall = townHallOf(team.id);
                 if (hall) {
-                    const link = el("a", "", "town hall");
+                    const link = el("a", "", "town center");
                     link.href = "#";
                     link.addEventListener("click", (event) => {
                         event.preventDefault();
@@ -415,6 +417,11 @@
                     units.append(document.createTextNode(", "), link);
                 }
                 box.append(units);
+            }
+
+            if (team.upgrades && team.upgrades.length && state.game && state.game.upgrades) {
+                box.append(el("div", "muted", "Upgrades: " + team.upgrades
+                    .map((id) => state.game.upgrades[id] ? state.game.upgrades[id].name.toLowerCase() : id).join(", ")));
             }
 
             if (team.allies.length) {
@@ -582,6 +589,35 @@
         return b;
     }
 
+    // The building and unit icons in icons.png, one 16 pixel square each, in this order.
+    const SPRITES = ["town_hall", "house", "barracks", "storehouse", "quarry", "farm", "armory", "tower", "worker",
+        "soldier", "archer", "tree", "upgrade", "level"];
+
+    function sprite(name) {
+        const span = el("span", "sprite");
+        span.style.backgroundPosition = -16 * Math.max(0, SPRITES.indexOf(name)) + "px 0";
+        return span;
+    }
+
+    function iconButton(icon, label, title, onClick) {
+        const b = button("", title, onClick);
+        b.append(sprite(icon), document.createTextNode(label));
+        b.classList.add("with-icon");
+        return b;
+    }
+
+    function roman(level) {
+        return level === 2 ? "II" : level === 3 ? "III" : String(level);
+    }
+
+    function researchName(research) {
+        if (research === "level") {
+            return "Going up a level";
+        }
+        const upgrade = state.game && state.game.upgrades ? state.game.upgrades[research] : null;
+        return upgrade ? upgrade.name : research;
+    }
+
     // The left of the bar changes with what is going on: placing a building, a building selected, workers
     // selected, or nothing in particular.
     function renderUnitBar() {
@@ -604,24 +640,28 @@
                 if (!type.buildable) {
                     continue;
                 }
-                const b = button("Build " + type.name.toLowerCase() + " (" + costText(type.cost) + ")",
-                    "Then click on the map where it goes", () => startPlacing(id));
+                const b = iconButton(id, type.name, "Build a " + type.name.toLowerCase() + " for " + costText(type.cost)
+                    + ", then click on the map where it goes", () => startPlacing(id));
                 b.disabled = !canAfford(team, type.cost);
                 actions.append(b);
             }
         } else {
             const hall = townHallOf(team.id);
             if (hall) {
-                actions.append(button("Town hall", "Select your town hall to train workers", () => {
+                actions.append(iconButton("town_hall", "Town center", "Select your town center to train workers", () => {
                     selectBuilding(hall.id);
                     focusBuilding(hall);
                 }));
             }
         }
         swapIfChanged(barActions, actions);
-        const fill = barActions.querySelector(".progress span");
-        if (fill && building) {
-            fill.style.width = Math.round(100 * ((building.complete ? building.progress : building.built) || 0)) + "%";
+        for (const fill of barActions.querySelectorAll(".progress span")) {
+            if (!building) {
+                break;
+            }
+            const value = fill.parentNode.classList.contains("research") ? building.researched
+                : building.complete ? building.progress : building.built;
+            fill.style.width = Math.round(100 * (value || 0)) + "%";
         }
         const count = state.selected.size;
         const workers = selectedWorkers().length;
@@ -658,32 +698,78 @@
             actions.append(el("span", "note", note));
             return;
         }
-        actions.append(el("span", "", type.name));
+        const title = el("span", "");
+        title.append(sprite(building.type), document.createTextNode(type.name
+            + (building.level > 1 ? " " + roman(building.level) : "")));
+        actions.append(title);
         actions.append(el("span", "note", "Health " + building.health + "/" + building.maxHealth));
         if (type.workers) {
             actions.append(el("span", "note", (building.workers || 0) + " of " + type.workers + " workers"));
         }
-        if (!type.trains) {
-            return;
+        const full = teamUnitCount(team) >= (team.population || 0);
+        for (const kindId of type.trains || []) {
+            const kind = unitKind(kindId);
+            if (!kind) {
+                continue;
+            }
+            const train = iconButton(kindId, kind.name + " (" + costText(kind.cost) + ")",
+                full ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
+                    : "Your team has the most units it can have")
+                    : "Train a " + kind.name.toLowerCase() + "; shift-click for 5", async (event) => {
+                    const reply = await send("buildings.train",
+                        {building: building.id, unit: kindId, count: event.shiftKey ? 5 : 1});
+                    if (reply) {
+                        showToast(reply.count === 1 ? "Training a " + kind.name.toLowerCase()
+                            : "Training " + reply.count + " " + kind.name.toLowerCase() + "s");
+                    }
+                });
+            train.disabled = full || !canAfford(team, kind.cost) || (building.queue || []).length >= 10;
+            actions.append(train);
         }
-        const kind = unitKind(type.trains);
-        const full = teamUnitCount(team) >= state.game.unitsPerTeam;
-        const train = button("Train " + kind.name.toLowerCase() + " (" + costText(kind.cost) + ")",
-            full ? "Your team has the most units it can have" : "Shift-click to train 5", async (event) => {
-                const reply = await send("buildings.train", {building: building.id, count: event.shiftKey ? 5 : 1});
-                if (reply) {
-                    showToast(reply.count === 1 ? "Training a " + kind.name.toLowerCase()
-                        : "Training " + reply.count + " " + kind.name.toLowerCase() + "s");
-                }
-            });
-        train.dataset.building = building.id;
-        train.disabled = full || !canAfford(team, kind.cost) || (building.queue || []).length >= 10;
-        actions.append(train);
         if (building.queue && building.queue.length) {
             const bar = el("span", "progress");
             bar.append(el("span"));
             actions.append(bar);
             actions.append(el("span", "note", building.queue.length + " in training"));
+        }
+        if (building.research) {
+            const bar = el("span", "progress research");
+            bar.append(el("span"));
+            actions.append(bar);
+            actions.append(el("span", "note", researchName(building.research)));
+            return;
+        }
+        const next = type.levelUps ? type.levelUps[building.level + 1] : null;
+        if (next) {
+            const center = townHallOf(team.id);
+            const ready = building.type === "town_hall" || (center && center.level >= 2);
+            const up = iconButton("level", "Level " + (building.level + 1) + " (" + costText(next.cost) + ")",
+                ready ? "Takes " + next.seconds + "s; health goes up to " + next.health
+                    : "Your town center has to be at level 2 first", async () => {
+                    if (await send("buildings.upgrade", {building: building.id})) {
+                        showToast("Going up a level");
+                    }
+                });
+            up.disabled = !ready || !canAfford(team, next.cost);
+            actions.append(up);
+        }
+        for (const upgradeId of type.researches || []) {
+            const upgrade = state.game.upgrades[upgradeId];
+            if (!upgrade || (team.upgrades || []).includes(upgradeId)) {
+                continue;
+            }
+            const busy = [...state.buildings.values()].some((b) => b.team === team.id && b.research === upgradeId);
+            const levelOk = building.level >= upgrade.level;
+            const research = iconButton("upgrade", upgrade.name + " (" + costText(upgrade.cost) + ")",
+                !levelOk ? "Needs a level " + upgrade.level + " " + type.name.toLowerCase()
+                    : busy ? "Being researched" : upgrade.description + "; takes " + upgrade.seconds + "s",
+                async () => {
+                    if (await send("buildings.research", {building: building.id, upgrade: upgradeId})) {
+                        showToast("Researching " + upgrade.name.toLowerCase());
+                    }
+                });
+            research.disabled = !levelOk || busy || !canAfford(team, upgrade.cost);
+            actions.append(research);
         }
     }
 
@@ -1005,7 +1091,7 @@
             const t = hit.thing;
             orderMark = {x: t.drawX, y: t.drawY, z: t.drawZ, color: [1, 0.3, 0.25, 1], time: performance.now()};
             send("units.attack", {units, target: entityId(hit)});
-        } else if (!hit && (orderBuild(px, py) || orderAttackBuilding(px, py))) {
+        } else if (!hit && (orderBuild(px, py) || orderAttackBuilding(px, py) || orderChop(px, py))) {
             return;
         } else {
             const ground = groundUnder(px, py);
@@ -1048,6 +1134,50 @@
         orderMark = {x: building.x + building.sizeX / 2, y: building.y + 1, z: building.z + building.sizeZ / 2,
             color: [0.45, 1, 0.5, 1], time: performance.now()};
         send("units.build", {units: workers, building: building.id});
+        view.dirty = true;
+        return true;
+    }
+
+    const TREE_BLOCKS = new Set([17, 18, 161, 162]);
+
+    // The log or leaves under a screen point, off any building, as {x, y, z}; null if it is no tree.
+    function treeUnder(px, py) {
+        const hit = view.pick(px, py);
+        if (!hit || !TREE_BLOCKS.has(hit.block)) {
+            return null;
+        }
+        for (const b of state.buildings.values()) {
+            if (hit.x >= b.x && hit.x < b.x + b.sizeX && hit.z >= b.z && hit.z < b.z + b.sizeZ) {
+                return null;
+            }
+        }
+        return hit;
+    }
+
+    // The tracked tree nearest a block of a tree, or null.
+    function trackedTreeNear(block) {
+        let best = null;
+        let bestDistance = Infinity;
+        for (const t of state.trees) {
+            const distance = (t.x - block.x) ** 2 + (t.z - block.z) ** 2;
+            if (distance <= 9 && block.y >= t.y - 1 && block.y <= t.top + 4 && distance < bestDistance) {
+                best = t;
+                bestDistance = distance;
+            }
+        }
+        return best;
+    }
+
+    // Right-clicking a tree sends the selected workers to chop it.
+    function orderChop(px, py) {
+        const tree = treeUnder(px, py);
+        const workers = selectedWorkers();
+        if (!tree || !workers.length) {
+            return false;
+        }
+        orderMark = {x: tree.x + 0.5, y: tree.y + 0.5, z: tree.z + 0.5, color: [0.45, 1, 0.5, 1],
+            time: performance.now()};
+        send("units.gather", {units: workers, x: tree.x + 0.5, y: tree.y, z: tree.z + 0.5});
         view.dirty = true;
         return true;
     }
@@ -1242,6 +1372,11 @@
                     return "taking " + amountsText(u.carrying || {}) + " to store";
                 }
                 return u.toX === undefined ? "working at " + where : "on the way to " + where;
+            case "chop":
+                if (u.delivering) {
+                    return "taking " + amountsText(u.carrying || {}) + " to store";
+                }
+                return u.chopping ? "chopping a tree" : "on the way to a tree";
             default:
                 return u.kind === "worker" ? "idle" : "on guard";
         }
@@ -1249,13 +1384,15 @@
 
     function unitName(u) {
         const team = state.teamsById[u.team];
-        return (team ? team.name + " " : "") + (u.kind === "worker" ? "worker " : "soldier ") + u.number;
+        const kind = unitKind(u.kind);
+        return (team ? team.name + " " : "") + (kind ? kind.name.toLowerCase() : u.kind) + " " + u.number;
     }
 
     function buildingName(b) {
         const team = state.teamsById[b.team];
         const type = buildingType(b.type);
-        return (team ? team.name + " " : "") + (type ? type.name.toLowerCase() : b.type);
+        return (team ? team.name + " " : "") + (type ? type.name.toLowerCase() : b.type)
+            + (b.level > 1 ? " (level " + b.level + ")" : "");
     }
 
     // What the pointer at px, py is over, as {icon, text, action}, or null for nothing worth a tooltip.
@@ -1289,12 +1426,21 @@
             if (u.carrying && !u.delivering) {
                 text += " \u00B7 carrying " + amountsText(u.carrying);
             }
-            return {icon: u.kind === "worker" ? ICONS.worker : ICONS.soldier,
+            return {icon: u.kind,
                 text: text + " \u00B7 " + Math.ceil(u.health) + "/" + Math.ceil(u.maxHealth)};
         }
         const b = buildingAt(px, py);
         if (!b) {
-            return null;
+            const block = treeUnder(px, py);
+            if (!block) {
+                return null;
+            }
+            const tree = trackedTreeNear(block);
+            const wood = tree ? " \u00B7 " + tree.wood + "/" + tree.maxWood + " wood" : "";
+            if (workers) {
+                return {icon: "tree", text: "Chop tree" + wood, action: "build"};
+            }
+            return {icon: "tree", text: "Tree" + wood + (team ? " \u00B7 select workers to chop it" : "")};
         }
         const type = buildingType(b.type);
         const mine = team && b.team === team.id;
@@ -1303,11 +1449,11 @@
                 action: "attack"};
         }
         if (mine && workers && !b.complete) {
-            return {icon: ICONS.build, text: "Build " + type.name.toLowerCase() + " \u00B7 "
+            return {icon: "worker", text: "Build " + type.name.toLowerCase() + " \u00B7 "
                 + Math.floor(100 * (b.built || 0)) + "% built", action: "build"};
         }
         if (mine && workers && type.workers) {
-            return {icon: ICONS[b.type] || ICONS.work, text: "Work at " + type.name.toLowerCase() + " ("
+            return {icon: b.type, text: "Work at " + type.name.toLowerCase() + " ("
                 + (b.workers || 0) + " of " + type.workers + " workers)", action: "build"};
         }
         let text = buildingName(b);
@@ -1315,11 +1461,14 @@
             text += " \u00B7 building site, " + Math.floor(100 * (b.built || 0)) + "% built";
         } else if (b.queue && b.queue.length) {
             text += " \u00B7 training " + b.queue.length;
+        } else if (b.research) {
+            text += " \u00B7 " + researchName(b.research).toLowerCase() + " "
+                + Math.floor(100 * (b.researched || 0)) + "%";
         } else if (type.workers) {
             text += " \u00B7 " + (b.workers || 0) + " working";
         }
         text += " \u00B7 " + b.health + "/" + b.maxHealth;
-        return {icon: b.complete ? ICONS[b.type] || "" : ICONS.site, text};
+        return {icon: b.complete ? b.type : ICONS.site, text};
     }
 
     function updateTip() {
@@ -1330,7 +1479,8 @@
             tip.hidden = true;
             return;
         }
-        tip.replaceChildren(el("span", "icon", h.icon), document.createTextNode(h.text));
+        tip.replaceChildren(SPRITES.includes(h.icon) ? sprite(h.icon) : el("span", "icon", h.icon),
+            document.createTextNode(h.text));
         tip.hidden = false;
         const rect = canvas.getBoundingClientRect();
         const x = Math.min(pointer.x + 16, rect.width - tip.offsetWidth - 4);
@@ -1511,11 +1661,7 @@
                     w * 0.6], color: ATTACK});
             }
         }
-        for (const b of state.buildings.values()) {
-            if (!b.complete && buildingType(b.type)) {
-                ghostBoxes(boxes, b.type, b.rotation, b.x, b.z, b.y, teamColor(b.team).slice(0, 3).concat([0.35]));
-            }
-        }
+        // Building sites need no see-through copy: their scaffolding stands in the world.
         const spot = placingFootprint();
         if (spot) {
             const color = spot.ok ? [0.45, 1, 0.5, 0.4] : [1, 0.3, 0.25, 0.4];
@@ -1634,13 +1780,14 @@
             const team = state.teamsById[b.team];
             const hurt = b.complete && b.health < b.maxHealth;
             if (!type || !team || (b.type !== "town_hall" && b.id !== state.selectedBuilding && b.complete && !b.queue
-                && !hurt)) {
+                && !b.research && !hurt)) {
                 continue;
             }
             const shape = turnedShape(b.type, b.rotation);
             const top = b.y + Math.max(...shape.heights) + 1;
             const [x, y] = view.project(b.x + b.sizeX / 2, top, b.z + b.sizeZ / 2);
-            const text = team.name + " " + type.name.toLowerCase() + (b.complete ? "" : " (site)");
+            const text = team.name + " " + type.name.toLowerCase()
+                + (b.complete ? (b.level > 1 ? " " + roman(b.level) : "") : " (site)");
             labelCtx.lineWidth = 3;
             labelCtx.strokeStyle = "rgba(0, 0, 0, 0.8)";
             labelCtx.strokeText(text, x, y - 6);
@@ -1652,6 +1799,9 @@
                 bars.push(["#f0b43c", b.built || 0]);
             } else if (b.queue && b.queue.length) {
                 bars.push(["#5fdc6a", b.progress || 0]);
+            }
+            if (b.research) {
+                bars.push(["#6fa8ff", b.researched || 0]);
             }
             if (hurt) {
                 const health = b.health / b.maxHealth;
@@ -1669,6 +1819,18 @@
         const dots = markerMode();
         if (dots) {
             drawDots();
+        }
+        // Wood left in trees being chopped.
+        for (const t of dots ? [] : state.trees) {
+            if (t.wood >= t.maxWood) {
+                continue;
+            }
+            const [x, y] = view.project(t.x + 0.5, t.top + 2, t.z + 0.5);
+            const width = 28;
+            labelCtx.fillStyle = "rgba(0, 0, 0, 0.75)";
+            labelCtx.fillRect(x - width / 2 - 1, y - 1, width + 2, 5);
+            labelCtx.fillStyle = "#c8963c";
+            labelCtx.fillRect(x - width / 2, y, width * Math.max(0, Math.min(1, t.wood / t.maxWood)), 3);
         }
         // Health bars over units that are hurt or selected; zoomed far out only over selected ones.
         for (const u of state.units.values()) {
