@@ -167,6 +167,8 @@ wait_for_log "Built Red town hall #1" 30
 wait_for_log "Built Blue town hall #2" 30
 curl -sf -b "$jar" "$WEB/api/tile?x=0&z=0&v=1" -o run/tile.bin || web_fail "tile 0,0 not served"
 python3 .github/scripts/map-tile-check.py run/tile.bin || web_fail "tile 0,0 does not hold the blocks of the map"
+[ "$(http_status -b "$jar" "$WEB/api/tile?x=0&z=0&v=1&m=1-old")" = 404 ] || web_fail "tile of an old map was served"
+echo "ok: tiles of an old map are refused"
 curl -sf "$WEB/blocks.js" > /dev/null && curl -sf "$WEB/render.js" > /dev/null || web_fail "map scripts not served"
 
 # Units: spawn some, check they show on the web map, and that they walk where they are sent.

@@ -103,6 +103,8 @@ def main():
             game = message.get("game")
             if not game or game.get("number") != game_number:
                 fail(f"expected game #{game_number}, got {payload[:200]!r}")
+            if not str(game.get("mapId", "")).startswith(f"{game_number}-"):
+                fail(f"game message has no map id for game #{game_number}: {game.get('mapId')!r}")
             types = game.get("buildingTypes", {})
             for type_id in ("town_hall", "farm", "barracks"):
                 shape = types.get(type_id)

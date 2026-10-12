@@ -313,7 +313,33 @@ button:disabled {
     color: #ffb4a8;
 }
 
-#login[hidden], #show-panel[hidden], #panel[hidden], #unit-bar[hidden], #toast[hidden] {
+#tip {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    border-radius: 4px;
+    font-size: 13px;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+#tip .icon {
+    font-size: 15px;
+}
+
+#map.attack {
+    cursor: crosshair;
+}
+
+#map.act {
+    cursor: pointer;
+}
+
+#login[hidden], #show-panel[hidden], #panel[hidden], #unit-bar[hidden], #toast[hidden], #tip[hidden] {
     display: none;
 }
 

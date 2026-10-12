@@ -159,8 +159,11 @@
 
     // ---------------------------------------------------------------- game data
 
+    // A new game, or the same game after a server restart, comes with a new map id. Everything drawn from the
+    // old map is thrown away then: tile versions start over, so old tiles would otherwise look current.
     function setGame(game) {
-        const changed = !state.game || !game || state.game.number !== game.number;
+        const newGame = !state.game || !game || state.game.number !== game.number;
+        const changed = newGame || state.game.mapId !== game.mapId;
         state.game = game;
         if (changed) {
             state.tiles.clear();
@@ -172,7 +175,7 @@
             state.selectedBuilding = null;
             placing = null;
             view.setGame(game);
-            if (game) {
+            if (game && newGame) {
                 view.fitMap();
             }
         }
@@ -217,20 +220,24 @@
                 continue;
             }
             const version = tile.version;
-            const gameNumber = state.game && state.game.number;
+            const mapId = state.game && state.game.mapId;
             const [x, z] = key.split(",").map(Number);
             tileFetches++;
-            fetchTile(x, z, version).then((buffer) => {
+            fetchTile(x, z, version, mapId).then((buffer) => {
                 // A tile of an older game, or an older version finishing late, is dropped.
-                if (buffer && state.game && state.game.number === gameNumber && tile.version === version) {
+                if (buffer && state.game && state.game.mapId === mapId && tile.version === version) {
                     view.setTile(x, z, buffer);
                     tile.loaded = true;
                     updateProgress();
                 }
             }).catch((error) => {
                 console.warn("Map tile " + key + " failed:", error);
-                setTimeout(() => updateTile(key, version), 3000);
                 tile.version = -1;
+                setTimeout(() => {
+                    if (state.game && state.game.mapId === mapId && state.tiles.get(key) === tile) {
+                        updateTile(key, version);
+                    }
+                }, 3000);
             }).finally(() => {
                 tileFetches--;
                 pumpTiles();
@@ -238,8 +245,8 @@
         }
     }
 
-    async function fetchTile(x, z, version) {
-        const response = await fetch("api/tile?x=" + x + "&z=" + z + "&v=" + version);
+    async function fetchTile(x, z, version, mapId) {
+        const response = await fetch("api/tile?x=" + x + "&z=" + z + "&m=" + encodeURIComponent(mapId) + "&v=" + version);
         if (response.status === 404) {
             return null;
         }
@@ -1024,6 +1031,7 @@
     });
 
     canvas.addEventListener("pointermove", (event) => {
+        pointer = event.pointerType === "touch" ? null : {x: event.offsetX, y: event.offsetY};
         updateCursor(event.offsetX, event.offsetY);
         if (placing) {
             movePlacing(event.offsetX, event.offsetY);
@@ -1100,6 +1108,110 @@
 
     let cursorTimer = 0;
 
+    // ---------------------------------------------------------------- hover tooltips
+    //
+    // A small black box by the pointer says what is under it, with an icon: what a right-click would do with the
+    // selected units (attack, build, work), or else what the unit or building is.
+
+    const tip = document.getElementById("tip");
+    let pointer = null; // {x, y} over the map, or null when the pointer is elsewhere
+    let tipTimer = 0;
+
+    const ICONS = {
+        attack: "\u2694\uFE0F",
+        build: "\uD83D\uDD28",
+        work: "\uD83C\uDF3E",
+        soldier: "\uD83D\uDEE1\uFE0F",
+        worker: "\uD83E\uDE93",
+        player: "\uD83D\uDC64",
+        town_hall: "\uD83C\uDFDB\uFE0F",
+        farm: "\uD83C\uDF3E",
+        barracks: "\u2694\uFE0F",
+        site: "\uD83D\uDEA7",
+    };
+
+    const ORDER_TEXT = {move: "walking", attack: "fighting", build: "on the way to build", work: "farming"};
+
+    function unitName(u) {
+        const team = state.teamsById[u.team];
+        return (team ? team.name + " " : "") + (u.kind === "worker" ? "worker " : "soldier ") + u.number;
+    }
+
+    function buildingName(b) {
+        const team = state.teamsById[b.team];
+        const type = buildingType(b.type);
+        return (team ? team.name + " " : "") + (type ? type.name.toLowerCase() : b.type);
+    }
+
+    // What the pointer at px, py is over, as {icon, text, action}, or null for nothing worth a tooltip.
+    function hint(px, py) {
+        if (!state.game || placing) {
+            return null;
+        }
+        const team = myTeam();
+        const selected = [...state.selected].map((id) => state.units.get(id)).filter(Boolean);
+        const fighters = selected.filter((u) => u.kind !== "worker").length;
+        const workers = selected.length - fighters;
+        const hit = entityAt(px, py);
+        if (hit) {
+            if (fighters && isEnemy(hit)) {
+                const name = hit.kind === "unit" ? unitName(hit.thing) : hit.thing.name;
+                return {icon: ICONS.attack, text: "Attack " + name, action: "attack"};
+            }
+            if (hit.kind === "player") {
+                const t = state.teamsById[hit.thing.team];
+                return {icon: ICONS.player, text: hit.thing.name + (t ? " (" + t.name + ")" : "")};
+            }
+            const u = hit.thing;
+            const doing = ORDER_TEXT[u.order] || (u.kind === "worker" ? "idle" : "on guard");
+            return {icon: u.kind === "worker" ? ICONS.worker : ICONS.soldier,
+                text: unitName(u) + " \u00B7 " + doing + " \u00B7 " + Math.ceil(u.health) + "/" + Math.ceil(u.maxHealth)};
+        }
+        const b = buildingAt(px, py);
+        if (!b) {
+            return null;
+        }
+        const type = buildingType(b.type);
+        const mine = team && b.team === team.id;
+        if (mine && workers && !b.complete) {
+            return {icon: ICONS.build, text: "Build " + type.name.toLowerCase(), action: "build"};
+        }
+        if (mine && workers && b.type === "farm") {
+            return {icon: ICONS.work, text: "Work at farm (" + (b.workers || 0) + " of " + (state.game.farmWorkers || 3) + " workers)", action: "build"};
+        }
+        let text = buildingName(b);
+        if (!b.complete) {
+            text += " \u00B7 building site";
+        } else if (b.queue && b.queue.length) {
+            text += " \u00B7 training " + b.queue.length;
+        } else if (b.type === "farm") {
+            text += " \u00B7 " + (b.workers || 0) + " working";
+        }
+        return {icon: b.complete ? ICONS[b.type] || "" : ICONS.site, text};
+    }
+
+    function updateTip() {
+        const h = pointer && !pointers.size ? hint(pointer.x, pointer.y) : null;
+        canvas.classList.toggle("attack", Boolean(h && h.action === "attack"));
+        canvas.classList.toggle("act", Boolean(h && h.action && h.action !== "attack"));
+        if (!h) {
+            tip.hidden = true;
+            return;
+        }
+        tip.replaceChildren(el("span", "icon", h.icon), document.createTextNode(h.text));
+        tip.hidden = false;
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.min(pointer.x + 16, rect.width - tip.offsetWidth - 4);
+        const y = pointer.y + 20 + tip.offsetHeight > rect.height ? pointer.y - tip.offsetHeight - 8 : pointer.y + 20;
+        tip.style.left = x + "px";
+        tip.style.top = y + "px";
+    }
+
+    canvas.addEventListener("pointerleave", () => {
+        pointer = null;
+        updateTip();
+    });
+
     function updateCursor(px, py) {
         // Picking walks the blocks under the pointer, so it runs at most every 50 ms.
         const now = performance.now();
@@ -1109,6 +1221,10 @@
         cursorTimer = now;
         const hit = view.pick(px, py);
         document.getElementById("cursor").textContent = hit ? hit.x + ", " + hit.y + ", " + hit.z : "";
+        if (pointer) {
+            tipTimer = now;
+            updateTip();
+        }
     }
 
     const keys = new Set();
@@ -1436,16 +1552,18 @@
             progressTimer = now;
             updateProgress();
         }
-        // Players and units glide toward their latest reported position between updates.
+        // Players and units glide toward their latest reported position between updates, which come every
+        // server tick (50 ms), so they move smoothly at any frame rate.
+        const glide = 1 - Math.exp(-dt * 15);
         for (const p of [...state.players.values(), ...state.units.values()]) {
             const dx = p.x - p.drawX;
             const dy = p.y - p.drawY;
             const dz = p.z - p.drawZ;
             if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01 || Math.abs(dz) > 0.01) {
                 const jump = Math.abs(dx) > 64 || Math.abs(dz) > 64;
-                p.drawX = jump ? p.x : p.drawX + dx * 0.2;
-                p.drawY = jump ? p.y : p.drawY + dy * 0.2;
-                p.drawZ = jump ? p.z : p.drawZ + dz * 0.2;
+                p.drawX = jump ? p.x : p.drawX + dx * glide;
+                p.drawY = jump ? p.y : p.drawY + dy * glide;
+                p.drawZ = jump ? p.z : p.drawZ + dz * glide;
                 view.dirty = true;
             }
         }
@@ -1458,6 +1576,11 @@
         }
         if (orderMark) {
             view.dirty = true;
+        }
+        // Things move under a still pointer too.
+        if (pointer && now - tipTimer > 150) {
+            tipTimer = now;
+            updateTip();
         }
         if (view.dirty && state.game) {
             view.draw(figureBoxes(), borderLines().concat(unitLines(now)));

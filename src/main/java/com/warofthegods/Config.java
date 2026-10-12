@@ -37,6 +37,7 @@ public class Config {
     public static int webLinkMinutes = 10;
     public static int webSessionHours = 72;
     public static int webRenderBudgetMs = 10;
+    public static int webStateTicks = 1;
 
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
@@ -183,6 +184,15 @@ public class Config {
             40,
             "Milliseconds per server tick spent drawing the map. A new map fills in faster with more, at some cost"
                 + " to tick rate.");
+
+        webStateTicks = configuration.getInt(
+            "stateTicks",
+            web,
+            webStateTicks,
+            1,
+            100,
+            "Server ticks between live updates of units, players and buildings sent to browsers. 1 is every tick,"
+                + " 20 times a second, the fastest the game itself changes.");
 
         if (configuration.hasChanged()) {
             configuration.save();
