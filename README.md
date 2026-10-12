@@ -108,7 +108,9 @@ server with many units.
 The mod runs a small web server (port 8124 by default) with a live 3D map of the game, drawn the way the beta map
 editor draws worlds: every block as a flat-coloured box, seen from above at an angle through an RTS camera. It shows
 the terrain, the map border, buildings and building sites, every player and unit on the map in their team's colour (units wear a grey
-helmet, workers a straw hat), every mob (hostile ones dark green with red eyes, animals sandy brown), and each team's resources, members, units and alliances. Players on a team command their units here.
+helmet, workers a straw hat), every mob (hostile ones dark green with red eyes, animals sandy brown), and each team's resources, members, units and alliances. Zoomed far out, units and players turn into dots in their
+team's colour and hostile mobs into faint dots, and animals are left out. Players on a team command their units
+here.
 
 Type `/rts web` in game and click the link. Each link works once and for 10 minutes, and logs that browser in for
 72 hours; restarting the server logs everyone out. A new map is read in the background after `/rts newgame` (or a

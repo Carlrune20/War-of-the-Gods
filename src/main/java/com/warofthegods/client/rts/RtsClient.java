@@ -14,6 +14,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiChat;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.passive.EntityAmbientCreature;
+import net.minecraft.entity.passive.EntityAnimal;
+import net.minecraft.entity.passive.EntityWaterMob;
 import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
 import net.minecraft.util.ChatComponentText;
@@ -384,13 +388,22 @@ public final class RtsClient {
         if (mc.currentScreen == null) {
             mc.displayGuiScreen(new GuiRts(this));
         }
-        // Far entities are drawn too, since the camera stands back from what it looks at.
+        // Units, players and hostile mobs are drawn as far as the camera stands back from what it looks at; animals,
+        // items and the like only as far as usual, which saves drawing a crowd nobody can make out.
+        double weight = Math.max(1, Math.min(3, (camera.distance + 32) / 64));
         for (Object object : mc.theWorld.loadedEntityList) {
             Entity entity = (Entity) object;
-            if (entity.renderDistanceWeight < 4 && !renderWeights.containsKey(entity)) {
-                renderWeights.put(entity, entity.renderDistanceWeight);
-                entity.renderDistanceWeight = 4;
+            if (!(entity instanceof EntityLivingBase) || entity instanceof EntityAnimal
+                || entity instanceof EntityAmbientCreature
+                || entity instanceof EntityWaterMob) {
+                continue;
             }
+            Double original = renderWeights.get(entity);
+            if (original == null) {
+                original = entity.renderDistanceWeight;
+                renderWeights.put(entity, original);
+            }
+            entity.renderDistanceWeight = Math.max(original, weight);
         }
         // The player hovers where the camera looks, so that what it looks at is loaded.
         double dx = camera.focusX - sentX;
@@ -478,7 +491,7 @@ public final class RtsClient {
 
     /** Farthest the camera may stand back: within the distance the client draws the world. */
     public double maxDistance() {
-        return Math.max(24, Math.min(160, mc.gameSettings.renderDistanceChunks * 16 * 0.75));
+        return Math.max(24, Math.min(128, mc.gameSettings.renderDistanceChunks * 16 * 0.75));
     }
 
     /** The y on top of the ground at x, z, as the client has it, or above sea level where it is not loaded. */

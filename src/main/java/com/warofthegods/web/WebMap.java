@@ -10,6 +10,7 @@ import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.monster.IMob;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.DimensionManager;
 import net.minecraftforge.event.world.ChunkEvent;
@@ -49,13 +50,42 @@ public final class WebMap {
     /** Commands from browsers run per tick at most, so a flood cannot stall the server. */
     private static final int COMMANDS_PER_TICK = 64;
 
+    private static WebMap instance;
+
     private MapRenderer renderer;
+    /** Whether changed tiles go out on the next tick rather than at the next interval. */
+    private boolean flushTiles;
     private boolean webAnnounced;
     /** The game and world the game message last sent to RTS views was for. */
     private Game announcedGame;
     private WorldServer announcedWorld;
     private boolean announced;
     private int ticks;
+
+    public WebMap() {
+        instance = this;
+    }
+
+    /**
+     * Rereads the map under an area of the game world at once, such as where a building just went up or came down,
+     * and sends browsers the changed tiles on the next tick, so the map shows it as soon as the live state does.
+     */
+    public static void blocksChanged(World world, int minX, int minZ, int maxX, int maxZ) {
+        WebMap map = instance;
+        MapRenderer current = map == null ? null : map.renderer;
+        if (current == null || current.world != world) {
+            return;
+        }
+        for (int chunkX = minX >> 4; chunkX <= maxX >> 4; chunkX++) {
+            for (int chunkZ = minZ >> 4; chunkZ <= maxZ >> 4; chunkZ++) {
+                if (current.world.getChunkProvider()
+                    .chunkExists(chunkX, chunkZ)) {
+                    current.scan(current.world.getChunkFromChunkCoords(chunkX, chunkZ));
+                }
+            }
+        }
+        map.flushTiles = true;
+    }
 
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
@@ -120,7 +150,8 @@ public final class WebMap {
         }
         runCommands(server);
 
-        if (renderer != null && ticks % TILES_INTERVAL == 0) {
+        if (renderer != null && (flushTiles || ticks % TILES_INTERVAL == 0)) {
+            flushTiles = false;
             server.tilesChanged(renderer.tiles.takeChanged());
         }
     }
