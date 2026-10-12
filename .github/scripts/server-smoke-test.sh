@@ -188,8 +188,14 @@ session=$(awk '$6 == "wotg_session" {print $7}' "$jar")
 python3 .github/scripts/web-socket-check.py 127.0.0.1 "$WEB_PORT" "$session" 3 5 || web_fail "web socket check failed"
 
 red1_before=$(grep -oE 'Red warrior 1 at -?[0-9]+,-?[0-9]+,-?[0-9]+' "$WEB_LOG" | tail -1)
-echo "rts units move red 128 128" >&3
+echo "rts route -100 -100 100 100" >&3
+wait_for_log "Route from -100,-100 to 100,100" 30
+grep -qE "Route from -100,-100 to 100,100: [1-9][0-9]* waypoints" "$WEB_LOG" || web_fail "no route across the map"
+echo "ok: $(grep -oE 'Route from -100,-100 to 100,100: [0-9]+ waypoints' "$WEB_LOG" | tail -1)"
+echo "rts units move red 128 128 wedge" >&3
 wait_for_log "Sent 3 units of Red to 128,128" 30
+echo "rts units stance red hold" >&3
+wait_for_log "Set 3 units of Red to hold ground" 30
 sleep 15
 echo "rts units red" >&3
 echo "rts info" >&3
@@ -344,6 +350,8 @@ fi
 expect "$WEB_LOG" "Units: Red 3, Blue 8"
 expect "$WEB_LOG" "Team Red has 3 units, room for 10"
 expect "$WEB_LOG" "Red warrior 1 at "
+grep -q "Red warrior 1 at .*, hold" "$WEB_LOG" || fail "boot-4-units: Red warrior 1 lost its stance"
+echo "ok: stances are saved"
 expect "$WEB_LOG" "Red town center #1 at"
 expect "$WEB_LOG" "Blue town center (level 2) #2 at"
 expect "$WEB_LOG" "Blue tower #7 at"

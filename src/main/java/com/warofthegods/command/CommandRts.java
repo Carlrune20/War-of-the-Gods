@@ -36,6 +36,7 @@ import com.warofthegods.game.Tree;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.Upgrade;
 import com.warofthegods.unit.EntityUnit;
+import com.warofthegods.unit.Routes;
 import com.warofthegods.unit.Torches;
 import com.warofthegods.unit.Trees;
 import com.warofthegods.unit.Units;
@@ -68,12 +69,13 @@ public class CommandRts extends CommandBase {
         "research",
         "chop",
         "light",
+        "route",
         "explode",
         "finish",
         "web");
     private static final List<String> TEAM_SUBCOMMANDS = Arrays
         .asList("list", "create", "remove", "color", "faction", "join", "leave", "auto", "base");
-    private static final List<String> UNIT_ACTIONS = Arrays.asList("spawn", "move", "stop", "kill");
+    private static final List<String> UNIT_ACTIONS = Arrays.asList("spawn", "move", "stop", "stance", "kill");
     /** Units /rts units spawn makes at most at once. */
     private static final int MAX_SPAWN = 50;
     private static final List<String> RESOURCE_ACTIONS = Arrays.asList("give", "take", "set");
@@ -163,6 +165,9 @@ public class CommandRts extends CommandBase {
             case "light":
                 light(sender, rest);
                 break;
+            case "route":
+                route(sender, rest);
+                break;
             case "explode":
                 explode(sender, rest);
                 break;
@@ -199,7 +204,13 @@ public class CommandRts extends CommandBase {
         send(
             sender,
             "/rts units spawn <team> [count] [warrior|archer|worker] - spawn units for free at the town center (op)");
-        send(sender, "/rts units move <team> <x> <z> - send all of a team's units somewhere (op)");
+        send(
+            sender,
+            "/rts units move <team> <x> <z> [box|line|wedge] - send all of a team's units somewhere in formation (op)");
+        send(
+            sender,
+            "/rts units stance <team> <aggressive|defensive|hold|passive> - set how a team's units fight (op)");
+        send(sender, "/rts route <x1> <z1> <x2> <z2> - plan the way a unit would walk between two points (op)");
         send(sender, "/rts units stop <team> - make a team's units stop and guard (op)");
         send(sender, "/rts units kill <team|all> - remove units (op)");
         send(sender, "/rts buildings [team] - list buildings and building sites");
@@ -493,13 +504,17 @@ public class CommandRts extends CommandBase {
                 break;
             }
             case "move": {
-                requireArgs(args, 4, "/rts units move <team> <x> <z>");
+                requireArgs(args, 4, "/rts units move <team> <x> <z> [box|line|wedge]");
                 Team team = requireTeam(game, args[1]);
                 double x = coordinate(sender, args[2], true);
                 double z = coordinate(sender, args[3], false);
+                Units.Formation formation = args.length > 4 ? Units.Formation.byId(args[4]) : Units.Formation.BOX;
+                if (formation == null) {
+                    throw new CommandException("Unknown formation '%s': box, line or wedge", args[4]);
+                }
                 List<EntityUnit> units = requireUnits(team);
                 Units.get()
-                    .orderMove(units, x, z);
+                    .orderMove(units, x, z, formation);
                 send(
                     sender,
                     "Sent " + units.size()
@@ -509,6 +524,22 @@ public class CommandRts extends CommandBase {
                         + MathHelper.floor_double(x)
                         + ","
                         + MathHelper.floor_double(z));
+                break;
+            }
+            case "stance": {
+                requireArgs(args, 3, "/rts units stance <team> <aggressive|defensive|hold|passive>");
+                Team team = requireTeam(game, args[1]);
+                EntityUnit.Stance stance = EntityUnit.Stance.byId(args[2]);
+                if (stance == null) {
+                    throw new CommandException("Unknown stance '%s': aggressive, defensive, hold or passive", args[2]);
+                }
+                List<EntityUnit> units = requireUnits(team);
+                Units.get()
+                    .orderStance(units, stance);
+                send(
+                    sender,
+                    "Set " + units
+                        .size() + " units of " + team.getColoredName() + " to " + stance.displayName.toLowerCase());
                 break;
             }
             case "stop": {
@@ -831,6 +862,31 @@ public class CommandRts extends CommandBase {
             "Sent " + sent + " workers of " + team.getColoredName() + " to put up " + spots.size() + " torches");
     }
 
+    private void route(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        Game game = requireGame();
+        requireArgs(args, 4, "/rts route <x1> <z1> <x2> <z2>");
+        int x1 = MathHelper.floor_double(coordinate(sender, args[0], true));
+        int z1 = MathHelper.floor_double(coordinate(sender, args[1], false));
+        int x2 = MathHelper.floor_double(coordinate(sender, args[2], true));
+        int z2 = MathHelper.floor_double(coordinate(sender, args[3], false));
+        List<double[]> route = Routes.find(GameWorld.getWorld(), game, x1 + 0.5, z1 + 0.5, x2 + 0.5, z2 + 0.5);
+        if (route == null) {
+            send(sender, "Found no way from " + x1 + "," + z1 + " to " + x2 + "," + z2);
+            return;
+        }
+        StringBuilder points = new StringBuilder();
+        for (double[] point : route) {
+            points.append(' ')
+                .append((int) Math.floor(point[0]))
+                .append(',')
+                .append((int) Math.floor(point[1]));
+        }
+        send(
+            sender,
+            "Route from " + x1 + "," + z1 + " to " + x2 + "," + z2 + ": " + route.size() + " waypoints:" + points);
+    }
+
     /**
      * Sets off an explosion as big as a creeper's two blocks off a building's side, then tells how much health it
      * lost and how many of its blocks broke, which should be none.
@@ -936,7 +992,8 @@ public class CommandRts extends CommandBase {
                     + unit.getOrder()
                         .name()
                         .toLowerCase()
-                    + unitActivity(unit));
+                    + unitActivity(unit)
+                    + (unit.isWorker() ? "" : ", " + unit.getStance().id));
         }
     }
 
