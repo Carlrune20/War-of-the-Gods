@@ -828,7 +828,9 @@ public final class Buildings {
         }
         Explosion explosion = event.explosion;
         int pad = Config.explosionProtection;
-        double reach = explosion.explosionSize * 2 + 1;
+        // By now the explosion has doubled its size for working out what it hits; a creeper's is 3 to begin with.
+        double size = explosion.explosionSize / 2;
+        double reach = size * 2 + 1;
         for (Building building : new ArrayList<>(game.getBuildings())) {
             if (building.getShown() == null) {
                 continue;
@@ -854,8 +856,8 @@ public final class Buildings {
             double dy = Math.max(0, Math.max(building.groundY - explosion.explosionY, explosion.explosionY - top));
             double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
             if (distance < reach) {
-                int amount = (int) Math.round(
-                    Config.explosionBuildingDamage * (1 - distance / reach) * Math.min(2, explosion.explosionSize / 3));
+                int amount = (int) Math
+                    .round(Config.explosionBuildingDamage * (1 - distance / reach) * Math.min(2, size / 3));
                 if (amount > 0) {
                     String cause = explosion.exploder instanceof EntityCreeper ? "a creeper exploded" : "an explosion";
                     damage(building, amount, cause);

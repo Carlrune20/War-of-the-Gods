@@ -289,7 +289,7 @@ echo "ok: Blue wood went from $wood_before to $wood"
 # An explosion beside the tower takes health off it but breaks none of its blocks.
 echo "rts explode 7" >&3
 wait_for_log "The explosion took" 30
-grep -qE "The explosion took [1-9][0-9]* health off Blue tower #7 and broke 0 of its blocks" "$WEB_LOG" \
+grep -qE "The explosion took [1-9][0-9]? health off Blue tower #7 .* and broke 0 of its blocks|The explosion took 1[0-2][0-9] health off Blue tower #7 .* and broke 0 of its blocks" "$WEB_LOG" \
     || web_fail "the explosion did not just damage the tower: $(grep -oE 'The explosion took .*' "$WEB_LOG" | tail -1)"
 echo "ok: $(grep -oE 'The explosion took .*' "$WEB_LOG" | tail -1)"
 
