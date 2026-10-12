@@ -161,9 +161,9 @@ echo "ok: login with a one-time link"
 
 wait_for_log "Web map of game #3 drawn" 300
 echo "ok: map drawn"
-curl -sf -b "$jar" "$WEB/api/tile?x=0&z=0&v=1" -o run/tile.png || web_fail "tile 0,0 not served"
-[ "$(head -c 8 run/tile.png | od -An -tx1 | tr -d ' \n')" = 89504e470d0a1a0a ] || web_fail "tile 0,0 is not a PNG"
-echo "ok: tile 0,0 is a PNG of $(stat -c %s run/tile.png) bytes"
+curl -sf -b "$jar" "$WEB/api/tile?x=0&z=0&v=1" -o run/tile.bin || web_fail "tile 0,0 not served"
+python3 .github/scripts/map-tile-check.py run/tile.bin || web_fail "tile 0,0 does not hold the blocks of the map"
+curl -sf "$WEB/blocks.js" > /dev/null && curl -sf "$WEB/render.js" > /dev/null || web_fail "map scripts not served"
 
 session=$(awk '$6 == "wotg_session" {print $7}' "$jar")
 python3 .github/scripts/web-socket-check.py 127.0.0.1 "$WEB_PORT" "$session" 3 || web_fail "web socket check failed"
