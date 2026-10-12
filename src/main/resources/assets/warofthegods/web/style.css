@@ -285,6 +285,10 @@ button.on {
     background: var(--good);
 }
 
+#bar-actions .progress.build span {
+    background: #f0b43c;
+}
+
 #selection-info {
     min-width: 88px;
     text-align: center;

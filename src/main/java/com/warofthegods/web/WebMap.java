@@ -146,7 +146,7 @@ public final class WebMap {
         json.addProperty("unitsPerTeam", Config.unitsPerTeam);
         json.addProperty("trainSeconds", Config.trainSeconds);
         json.addProperty("buildingGap", Buildings.GAP);
-        json.addProperty("farmWorkers", Config.farmWorkers);
+        json.addProperty("carryCapacity", Config.carryCapacity);
         JsonObject buildingTypes = new JsonObject();
         for (BuildingType type : BuildingType.values()) {
             Schematic schematic = Buildings.get()
@@ -155,6 +155,24 @@ public final class WebMap {
             typeJson.addProperty("name", type.displayName);
             typeJson.add("cost", costJson(type.cost()));
             typeJson.addProperty("buildable", type.buildable);
+            typeJson.addProperty("health", type.maxHealth());
+            if (type.buildable) {
+                typeJson.addProperty("buildSeconds", type.buildTicks() / 20.0);
+            }
+            if (type.storesResources) {
+                typeJson.addProperty("stores", true);
+            }
+            if (type.isWorkplace()) {
+                typeJson.addProperty("workers", type.maxWorkers());
+                long[] yield = type.yield();
+                JsonObject yieldJson = new JsonObject();
+                for (Resource resource : Resource.values()) {
+                    if (yield[resource.ordinal()] > 0) {
+                        yieldJson.addProperty(resource.id, yield[resource.ordinal()]);
+                    }
+                }
+                typeJson.add("yield", yieldJson);
+            }
             if (type.trains != null) {
                 typeJson.addProperty("trains", type.trains.id);
             }
@@ -269,6 +287,12 @@ public final class WebMap {
             json.addProperty("y", building.groundY);
             json.addProperty("rotation", building.rotation);
             json.addProperty("complete", building.isComplete());
+            json.addProperty("health", building.getHealth());
+            json.addProperty("maxHealth", building.getMaxHealth());
+            if (!building.isComplete()) {
+                json.addProperty("built", Math.round(building.getBuildProgress() * 100) / 100.0);
+                json.addProperty("builders", Buildings.countBuilders(building));
+            }
             if (!building.getQueue()
                 .isEmpty()) {
                 JsonArray queue = new JsonArray();
@@ -278,7 +302,7 @@ public final class WebMap {
                 json.add("queue", queue);
                 json.addProperty("progress", round(Math.min(1, building.getTrainingTicks() / ticksPerUnit)));
             }
-            if (building.type == BuildingType.FARM && building.isComplete()) {
+            if (building.type.isWorkplace() && building.isComplete()) {
                 json.addProperty("workers", Buildings.countWorkers(building));
             }
             buildings.add(json);
@@ -317,6 +341,21 @@ public final class WebMap {
             }
             if (unit.getBuildingId() != 0) {
                 json.addProperty("building", unit.getBuildingId());
+            }
+            if (unit.isWorker()) {
+                JsonObject carrying = new JsonObject();
+                for (Resource resource : Resource.values()) {
+                    if (unit.getCarrying(resource) > 0) {
+                        carrying.addProperty(resource.id, unit.getCarrying(resource));
+                    }
+                }
+                if (carrying.entrySet()
+                    .size() > 0) {
+                    json.add("carrying", carrying);
+                }
+                if (unit.isDelivering()) {
+                    json.addProperty("delivering", true);
+                }
             }
             if (unit.getTargetId() != null) {
                 json.addProperty(

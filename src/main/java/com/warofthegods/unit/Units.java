@@ -313,6 +313,18 @@ public final class Units {
         return sent;
     }
 
+    /** Sends soldiers to attack an enemy building; returns how many went. */
+    public int orderAttackBuilding(List<EntityUnit> units, Building building) {
+        int sent = 0;
+        for (EntityUnit unit : units) {
+            if (!unit.isWorker()) {
+                unit.orderAttackBuilding(building);
+                sent++;
+            }
+        }
+        return sent;
+    }
+
     public void orderAttack(List<EntityUnit> units, EntityLivingBase target) {
         for (EntityUnit unit : units) {
             unit.orderAttack(target);
@@ -391,6 +403,29 @@ public final class Units {
             if (distance < bestDistance && unit.getEntitySenses()
                 .canSee(other)) {
                 best = other;
+                bestDistance = distance;
+            }
+        }
+        return best;
+    }
+
+    /** The nearest building of an enemy team within range of the unit, or null. */
+    Building findEnemyBuildingNear(EntityUnit unit, double range) {
+        Game game = GameManager.getGame();
+        Team team = game == null ? null : game.getTeam(unit.getTeamId());
+        if (team == null) {
+            return null;
+        }
+        Building best = null;
+        double bestDistance = range;
+        for (Building building : game.getBuildings()) {
+            Team owner = game.getTeam(building.team);
+            if (owner == null || !game.areEnemies(team, owner)) {
+                continue;
+            }
+            double distance = building.distanceTo(unit.posX, unit.posZ);
+            if (distance < bestDistance) {
+                best = building;
                 bestDistance = distance;
             }
         }

@@ -9,8 +9,11 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraft.nbt.NBTTagString;
 
 /**
- * A building of a team: what it is, the ground it stands on, which way it faces, and whether it is still a building
- * site waiting for a worker. Buildings that train units keep their training queue here.
+ * A building of a team: what it is, the ground it stands on, which way it faces, its health, and whether it is still
+ * a building site and how far along. Buildings that train units keep their training queue here.
+ *
+ * <p>
+ * A building site starts with a tenth of the building's health and gains the rest as it is built.
  */
 public final class Building {
 
@@ -30,6 +33,9 @@ public final class Building {
 
     private final Game game;
     private boolean complete;
+    /** Ticks of work put into a building site. */
+    private int buildTicks;
+    private int health;
     private final List<UnitKind> queue = new ArrayList<>();
     /** Ticks spent training the first unit in the queue. */
     private int trainingTicks;
@@ -47,6 +53,12 @@ public final class Building {
         this.groundY = groundY;
         this.rotation = rotation & 3;
         this.complete = complete;
+        this.health = complete ? type.maxHealth() : siteHealth(0);
+    }
+
+    private int siteHealth(int ticks) {
+        int max = type.maxHealth();
+        return Math.max(1, max / 10 + (int) ((long) (max - max / 10) * ticks / type.buildTicks()));
     }
 
     public int getMaxX() {
@@ -69,9 +81,54 @@ public final class Building {
         return complete;
     }
 
+    /** Finishes the building, at full health less what it lost while a site. */
     public void setComplete() {
+        if (!complete) {
+            health = Math.max(1, type.maxHealth() - (siteHealth(buildTicks) - health));
+        }
         complete = true;
+        buildTicks = 0;
         game.changed();
+    }
+
+    /** How far a building site is along, from 0 to 1; 1 once built. */
+    public double getBuildProgress() {
+        return complete ? 1 : Math.min(1, buildTicks / (double) type.buildTicks());
+    }
+
+    /** Adds ticks of work to a building site; returns whether it is now fully built. */
+    public boolean build(int ticks) {
+        if (complete) {
+            return true;
+        }
+        int before = siteHealth(buildTicks);
+        buildTicks = Math.min(type.buildTicks(), buildTicks + ticks);
+        health = Math.min(type.maxHealth(), health + siteHealth(buildTicks) - before);
+        game.changed();
+        return buildTicks >= type.buildTicks();
+    }
+
+    public int getHealth() {
+        return health;
+    }
+
+    public int getMaxHealth() {
+        return type.maxHealth();
+    }
+
+    /** Takes health off; returns whether that brought it to 0. */
+    public boolean damage(int amount) {
+        if (amount <= 0 || health <= 0) {
+            return false;
+        }
+        health = Math.max(0, health - amount);
+        game.changed();
+        return health == 0;
+    }
+
+    /** Whether x, y, z is in the building's own blocks: on the footprint, from the ground layer up to its top. */
+    public boolean holds(int x, int y, int z, int height) {
+        return covers(x + 0.5, z + 0.5, 0) && y >= groundY && y < groundY + height;
     }
 
     /** Whether x, z is on the footprint, or within margin blocks of it. */
@@ -186,6 +243,8 @@ public final class Building {
         tag.setString("team", team);
         tag.setIntArray("box", new int[] { minX, minZ, sizeX, sizeZ, groundY, rotation });
         tag.setBoolean("complete", complete);
+        tag.setInteger("buildTicks", buildTicks);
+        tag.setInteger("health", health);
         NBTTagList queueList = new NBTTagList();
         for (UnitKind kind : queue) {
             queueList.appendTag(new NBTTagString(kind.id));
@@ -222,6 +281,10 @@ public final class Building {
             }
         }
         building.trainingTicks = tag.getInteger("trainingTicks");
+        building.buildTicks = tag.getInteger("buildTicks");
+        if (tag.hasKey("health")) {
+            building.health = Math.max(1, Math.min(type.maxHealth(), tag.getInteger("health")));
+        }
         return building;
     }
 }

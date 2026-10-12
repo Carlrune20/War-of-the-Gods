@@ -1,9 +1,11 @@
 package com.warofthegods;
 
 import java.io.File;
+import java.util.EnumMap;
 
 import net.minecraftforge.common.config.Configuration;
 
+import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Resource;
 
 public class Config {
@@ -23,12 +25,39 @@ public class Config {
     public static final long[] workerCost = { 50, 0, 0, 0 };
     public static int trainSeconds = 5;
 
-    public static final long[] farmCost = { 0, 75, 0, 0 };
-    public static final long[] barracksCost = { 0, 150, 50, 0 };
+    /** Food, Wood, Stone and Metal each kind of building costs. */
+    public static final EnumMap<BuildingType, long[]> buildingCost = new EnumMap<>(BuildingType.class);
+    public static final EnumMap<BuildingType, Integer> buildingHealth = new EnumMap<>(BuildingType.class);
+    /** Seconds one worker takes to build each kind of building. */
+    public static final EnumMap<BuildingType, Integer> buildSeconds = new EnumMap<>(BuildingType.class);
+
+    static {
+        defaults(BuildingType.TOWN_HALL, new long[4], 1500, 0);
+        defaults(BuildingType.FARM, new long[] { 0, 75, 0, 0 }, 300, 15);
+        defaults(BuildingType.BARRACKS, new long[] { 0, 150, 50, 0 }, 800, 25);
+        defaults(BuildingType.STOREHOUSE, new long[] { 0, 100, 0, 0 }, 600, 20);
+        defaults(BuildingType.QUARRY, new long[] { 0, 100, 0, 0 }, 500, 20);
+    }
+
+    private static void defaults(BuildingType type, long[] cost, int health, int seconds) {
+        buildingCost.put(type, cost);
+        buildingHealth.put(type, health);
+        buildSeconds.put(type, seconds);
+    }
+
     public static int farmWorkers = 3;
     public static int farmYieldSeconds = 5;
     public static int farmFood = 5;
     public static int farmWood = 3;
+    public static int quarryWorkers = 3;
+    public static int quarryStone = 4;
+    public static int quarryMetal = 1;
+    /** Most a worker carries before taking it to the town hall or a storehouse. */
+    public static int carryCapacity = 20;
+    /** Health a building loses to one hit of a soldier. */
+    public static int unitBuildingDamage = 10;
+    /** Health a building loses when an enemy player breaks one of its blocks. */
+    public static int blockBreakDamage = 5;
 
     public static boolean webEnabled = true;
     public static String webBindAddress = "0.0.0.0";
@@ -119,31 +148,93 @@ public class Config {
             .getInt("trainSeconds", units, trainSeconds, 0, 3600, "Seconds it takes to train one unit.");
 
         String buildings = "buildings";
-        configuration.setCategoryComment(buildings, "Buildings workers build: farms and barracks.");
-        for (Resource resource : Resource.values()) {
-            farmCost[resource.ordinal()] = configuration.getInt(
-                "farmCost" + resource.displayName,
-                buildings,
-                (int) farmCost[resource.ordinal()],
-                0,
-                Integer.MAX_VALUE,
-                resource.displayName + " a farm costs.");
-            barracksCost[resource.ordinal()] = configuration.getInt(
-                "barracksCost" + resource.displayName,
-                buildings,
-                (int) barracksCost[resource.ordinal()],
-                0,
-                Integer.MAX_VALUE,
-                resource.displayName + " a barracks costs.");
+        configuration.setCategoryComment(
+            buildings,
+            "Buildings: the town hall every team starts with, and the farms, barracks, storehouses and quarries"
+                + " workers build.");
+        for (BuildingType type : BuildingType.values()) {
+            String name = type.displayName.toLowerCase();
+            if (type.buildable) {
+                long[] cost = buildingCost.get(type);
+                for (Resource resource : Resource.values()) {
+                    cost[resource.ordinal()] = configuration.getInt(
+                        type.configName + "Cost" + resource.displayName,
+                        buildings,
+                        (int) cost[resource.ordinal()],
+                        0,
+                        Integer.MAX_VALUE,
+                        resource.displayName + " a " + name + " costs.");
+                }
+                buildSeconds.put(
+                    type,
+                    configuration.getInt(
+                        type.configName + "BuildSeconds",
+                        buildings,
+                        buildSeconds.get(type),
+                        0,
+                        3600,
+                        "Seconds one worker takes to build a " + name + "; more workers build faster."));
+            }
+            buildingHealth.put(
+                type,
+                configuration.getInt(
+                    type.configName + "Health",
+                    buildings,
+                    buildingHealth.get(type),
+                    1,
+                    1000000,
+                    "Health of a " + name + ". It is gone when enemies bring it to 0."));
         }
         farmWorkers = configuration
             .getInt("farmWorkers", buildings, farmWorkers, 1, 64, "Most workers that can work one farm at a time.");
         farmYieldSeconds = configuration
             .getInt("farmYieldSeconds", buildings, farmYieldSeconds, 1, 3600, "Seconds between a farm's harvests.");
         farmFood = configuration
-            .getInt("farmFood", buildings, farmFood, 0, 100000, "Food each worker at a farm brings in per harvest.");
+            .getInt("farmFood", buildings, farmFood, 0, 100000, "Food each worker at a farm gathers per harvest.");
         farmWood = configuration
-            .getInt("farmWood", buildings, farmWood, 0, 100000, "Wood each worker at a farm brings in per harvest.");
+            .getInt("farmWood", buildings, farmWood, 0, 100000, "Wood each worker at a farm gathers per harvest.");
+        quarryWorkers = configuration.getInt(
+            "quarryWorkers",
+            buildings,
+            quarryWorkers,
+            1,
+            64,
+            "Most workers that can work one quarry at a time.");
+        quarryStone = configuration.getInt(
+            "quarryStone",
+            buildings,
+            quarryStone,
+            0,
+            100000,
+            "Stone each worker at a quarry gathers per harvest; harvests come as often as a farm's.");
+        quarryMetal = configuration.getInt(
+            "quarryMetal",
+            buildings,
+            quarryMetal,
+            0,
+            100000,
+            "Metal each worker at a quarry gathers per harvest.");
+        carryCapacity = configuration.getInt(
+            "carryCapacity",
+            buildings,
+            carryCapacity,
+            1,
+            100000,
+            "Resources a worker carries before taking them to the town hall or a storehouse.");
+        unitBuildingDamage = configuration.getInt(
+            "unitDamage",
+            buildings,
+            unitBuildingDamage,
+            0,
+            100000,
+            "Health a building loses to one hit of an enemy soldier.");
+        blockBreakDamage = configuration.getInt(
+            "blockBreakDamage",
+            buildings,
+            blockBreakDamage,
+            0,
+            100000,
+            "Health a building loses when an enemy player breaks one of its blocks. The block comes back.");
 
         String web = "web";
         configuration.setCategoryComment(web, "The web map players open in a browser with a link from /rts web.");

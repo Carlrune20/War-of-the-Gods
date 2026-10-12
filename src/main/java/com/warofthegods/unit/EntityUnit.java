@@ -1,5 +1,6 @@
 package com.warofthegods.unit;
 
+import java.util.Arrays;
 import java.util.UUID;
 
 import net.minecraft.entity.Entity;
@@ -7,6 +8,7 @@ import net.minecraft.entity.EntityCreature;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.ai.EntityAISwimming;
+import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -18,18 +20,18 @@ import net.minecraft.world.World;
 import com.warofthegods.Config;
 import com.warofthegods.building.Buildings;
 import com.warofthegods.game.Building;
-import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
+import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
-import com.warofthegods.world.GameWorld;
 
 /**
  * A unit of a team, with the player model and its team's color on dyed leather armor. Soldiers carry an iron sword
  * and follow orders from the web map: walk somewhere, attack something, or stand guard, in which case they fight
- * enemies that come close and walk back to their post afterwards. Workers carry an axe and never fight: they walk,
- * raise buildings at building sites and work farms.
+ * enemies and enemy buildings that come close and walk back to their post afterwards. Workers carry an axe and never
+ * fight: they walk, build at building sites, and work farms and quarries, carrying what they gather to the nearest
+ * town hall or storehouse whenever their hands are full.
  *
  * <p>
  * Walking uses vanilla pathfinding in legs of at most {@link #LEG} blocks toward the goal, since vanilla paths only
@@ -41,10 +43,12 @@ public class EntityUnit extends EntityCreature {
         IDLE,
         MOVE,
         ATTACK,
-        /** A worker on its way to a building site; the building goes up when it gets there. */
+        /** A worker building at a building site, or on its way there. */
         BUILD,
-        /** A worker working at a farm. */
-        WORK
+        /** A worker working at a farm or quarry, or carrying what it gathered there to a store. */
+        WORK,
+        /** A soldier attacking an enemy building. */
+        ATTACK_BUILDING
     }
 
     /** Blocks walked per path before planning the next one. */
@@ -74,10 +78,14 @@ public class EntityUnit extends EntityCreature {
     private EntityLivingBase target;
     /** Whether the target was picked up while guarding rather than ordered. */
     private boolean defending;
-    /** The building a build or work order is for. */
+    /** The building a build, work or attack order is for. */
     private int buildingId;
-    /** Whether a worker is at the farm it was sent to, working. */
+    /** Whether a worker is at the building site or workplace it was sent to, working. */
     private boolean working;
+    /** What a worker carries, by resource ordinal. */
+    private final long[] carrying = new long[Resource.values().length];
+    /** Whether a worker is taking what it carries to a store. */
+    private boolean delivering;
 
     private int attackCooldown;
     private int planTicks;
@@ -163,15 +171,70 @@ public class EntityUnit extends EntityCreature {
         return kind == UnitKind.WORKER;
     }
 
-    /** The building a build or work order is for, or 0. */
+    /** The building a build, work or attack order is for, or 0. */
     public int getBuildingId() {
-        return order == Order.BUILD || order == Order.WORK ? buildingId : 0;
+        return order == Order.BUILD || order == Order.WORK || order == Order.ATTACK_BUILDING ? buildingId : 0;
     }
 
-    /** Whether the unit is a worker working at the farm with that id. */
-    public boolean isWorkingAt(int farmId) {
-        return order == Order.WORK && working && buildingId == farmId;
+    /** Whether the unit is a worker at the building site with that id, building it. */
+    public boolean isBuildingAt(int siteId) {
+        return order == Order.BUILD && working && buildingId == siteId;
     }
+
+    /** Whether the unit is a worker at the farm or quarry with that id, working with room left to carry more. */
+    public boolean isWorkingAt(int workplaceId) {
+        return order == Order.WORK && working && !delivering && buildingId == workplaceId;
+    }
+
+    /** Whether a worker is on its way to a store with what it carries. */
+    public boolean isDelivering() {
+        return order == Order.WORK && delivering;
+    }
+
+    /** What the worker carries, in all. */
+    public long getCarried() {
+        long total = 0;
+        for (long amount : carrying) {
+            total += amount;
+        }
+        return total;
+    }
+
+    /** What the worker carries of each resource. */
+    public long getCarrying(Resource resource) {
+        return carrying[resource.ordinal()];
+    }
+
+    /** Adds a harvest to what the worker carries; once its hands are full it sets off for a store. */
+    public void gather(long[] amounts) {
+        for (int i = 0; i < carrying.length; i++) {
+            carrying[i] += amounts[i];
+        }
+        if (getCarried() >= Config.carryCapacity) {
+            delivering = true;
+            working = false;
+            startOrder();
+        }
+        showCarrying();
+    }
+
+    /** Holds what it carries most of, or its axe when empty-handed. */
+    private void showCarrying() {
+        int most = -1;
+        for (int i = 0; i < carrying.length; i++) {
+            if (carrying[i] > 0 && (most < 0 || carrying[i] > carrying[most])) {
+                most = i;
+            }
+        }
+        Item item = most < 0 ? (isWorker() ? Items.iron_axe : Items.iron_sword) : CARRIED_ITEMS[most];
+        ItemStack held = getHeldItem();
+        if (held == null || held.getItem() != item) {
+            setCurrentItemOrArmor(0, new ItemStack(item));
+        }
+    }
+
+    private static final Item[] CARRIED_ITEMS = { Items.wheat, Item.getItemFromBlock(Blocks.log),
+        Item.getItemFromBlock(Blocks.cobblestone), Items.iron_ingot };
 
     public Order getOrder() {
         return order;
@@ -186,8 +249,13 @@ public class EntityUnit extends EntityCreature {
                 return target == null ? null : new double[] { target.posX, target.posZ };
             case BUILD:
             case WORK: {
-                Building building = building();
+                Building building = delivering ? store() : building();
                 return building == null || working ? null : building.nearestOutside(posX, posZ);
+            }
+            case ATTACK_BUILDING: {
+                Building building = targetBuilding();
+                return building == null || building.distanceTo(posX, posZ) <= Buildings.REACH ? null
+                    : building.nearestOutside(posX, posZ);
             }
             default:
                 return hasPost && distanceTo(postX, postZ) > 2 ? new double[] { postX, postZ } : null;
@@ -210,11 +278,21 @@ public class EntityUnit extends EntityCreature {
         startOrder();
     }
 
-    /** Sends a worker to a building site to raise it, or to a farm to work it. */
+    /** Sends a worker to a building site to build it, or to a farm or quarry to work it. */
     void orderBuild(Building building) {
         order = building.isComplete() ? Order.WORK : Order.BUILD;
         buildingId = building.id;
         working = false;
+        delivering = order == Order.WORK && getCarried() >= Config.carryCapacity;
+        target = null;
+        targetId = null;
+        defending = false;
+        startOrder();
+    }
+
+    void orderAttackBuilding(Building building) {
+        order = Order.ATTACK_BUILDING;
+        buildingId = building.id;
         target = null;
         targetId = null;
         defending = false;
@@ -247,6 +325,7 @@ public class EntityUnit extends EntityCreature {
     private void guardHere() {
         order = Order.IDLE;
         working = false;
+        delivering = false;
         target = null;
         targetId = null;
         defending = false;
@@ -259,6 +338,7 @@ public class EntityUnit extends EntityCreature {
     private void backToPost() {
         order = Order.IDLE;
         working = false;
+        delivering = false;
         target = null;
         targetId = null;
         defending = false;
@@ -298,6 +378,9 @@ public class EntityUnit extends EntityCreature {
             case WORK:
                 tickWork();
                 break;
+            case ATTACK_BUILDING:
+                tickAttackBuilding();
+                break;
             default:
                 tickGuard();
         }
@@ -331,14 +414,9 @@ public class EntityUnit extends EntityCreature {
             guardHere();
             return;
         }
-        if (!site.isComplete() && site.distanceTo(posX, posZ) <= Buildings.REACH) {
-            getNavigator().clearPathEntity();
-            Buildings.get()
-                .raise(GameWorld.getWorld(), site);
-        }
         if (site.isComplete()) {
-            // Built, by this worker or another: farmers stay to work the farm.
-            if (site.type == BuildingType.FARM) {
+            // Built, by this worker and others: farmers and quarrymen stay to work it.
+            if (site.type.isWorkplace()) {
                 orderBuild(site);
             } else {
                 getNavigator().clearPathEntity();
@@ -346,26 +424,45 @@ public class EntityUnit extends EntityCreature {
             }
             return;
         }
-        walkTo(site);
-    }
-
-    private void tickWork() {
-        Building farm = building();
-        if (farm == null || farm.type != BuildingType.FARM) {
-            getNavigator().clearPathEntity();
-            guardHere();
-            return;
-        }
-        if (!farm.isComplete()) {
-            order = Order.BUILD;
-            return;
-        }
-        if (farm.distanceTo(posX, posZ) <= Buildings.REACH) {
+        if (site.distanceTo(posX, posZ) <= Buildings.REACH) {
             if (!working) {
                 working = true;
                 getNavigator().clearPathEntity();
             }
-            getLookHelper().setLookPosition(farm.getCenterX(), farm.groundY + 1, farm.getCenterZ(), 10, 30);
+            getLookHelper().setLookPosition(site.getCenterX(), site.groundY + 1, site.getCenterZ(), 10, 30);
+            if (ticksExisted % 15 == 0) {
+                swingItem();
+            }
+            progressTicks = 0;
+            return;
+        }
+        working = false;
+        walkTo(site);
+    }
+
+    private void tickWork() {
+        Building workplace = building();
+        if (workplace == null || !workplace.type.isWorkplace()) {
+            getNavigator().clearPathEntity();
+            guardHere();
+            return;
+        }
+        if (!workplace.isComplete()) {
+            order = Order.BUILD;
+            working = false;
+            return;
+        }
+        if (delivering) {
+            deliver();
+            return;
+        }
+        if (workplace.distanceTo(posX, posZ) <= Buildings.REACH) {
+            if (!working) {
+                working = true;
+                getNavigator().clearPathEntity();
+            }
+            getLookHelper()
+                .setLookPosition(workplace.getCenterX(), workplace.groundY + 1, workplace.getCenterZ(), 10, 30);
             if (ticksExisted % 30 == 0) {
                 swingItem();
             }
@@ -373,7 +470,90 @@ public class EntityUnit extends EntityCreature {
             return;
         }
         working = false;
-        walkTo(farm);
+        walkTo(workplace);
+    }
+
+    /** The nearest town hall or storehouse of the unit's team, or null. */
+    private Building store() {
+        Game game = GameManager.getGame();
+        return game == null ? null : Buildings.nearestStore(game, teamId, posX, posZ);
+    }
+
+    /** Carries what the worker gathered to the nearest store and hands it to the team, then goes back to work. */
+    private void deliver() {
+        working = false;
+        Building store = store();
+        if (store == null) {
+            // Nowhere to take it; wait where it is until there is.
+            getNavigator().clearPathEntity();
+            progressTicks = 0;
+            return;
+        }
+        if (store.distanceTo(posX, posZ) > Buildings.REACH) {
+            walkTo(store);
+            return;
+        }
+        Game game = GameManager.getGame();
+        Team team = game.getTeam(teamId);
+        if (team != null) {
+            for (Resource resource : Resource.values()) {
+                if (carrying[resource.ordinal()] > 0) {
+                    team.addResource(resource, carrying[resource.ordinal()]);
+                }
+            }
+        }
+        Arrays.fill(carrying, 0);
+        delivering = false;
+        showCarrying();
+        startOrder();
+    }
+
+    /** The enemy building an attack order is against, or null once it is gone or no longer an enemy's. */
+    private Building targetBuilding() {
+        Game game = GameManager.getGame();
+        Building building = game == null ? null : game.getBuilding(buildingId);
+        if (building == null) {
+            return null;
+        }
+        Team team = game.getTeam(teamId);
+        Team owner = game.getTeam(building.team);
+        return team != null && owner != null && game.areEnemies(team, owner) ? building : null;
+    }
+
+    private void tickAttackBuilding() {
+        Building building = targetBuilding();
+        if (building == null) {
+            if (defending) {
+                backToPost();
+            } else {
+                getNavigator().clearPathEntity();
+                guardHere();
+            }
+            return;
+        }
+        // Enemies coming at a unit on guard come first.
+        if (defending && --scanTicks <= 0) {
+            scanTicks = 10 + rand.nextInt(5);
+            EntityLivingBase enemy = Units.get()
+                .findEnemyNear(this, GUARD_RANGE);
+            if (enemy != null) {
+                defend(enemy);
+                return;
+            }
+        }
+        if (building.distanceTo(posX, posZ) <= Buildings.REACH) {
+            getNavigator().clearPathEntity();
+            getLookHelper().setLookPosition(building.getCenterX(), building.groundY + 1, building.getCenterZ(), 30, 30);
+            if (attackCooldown <= 0) {
+                attackCooldown = 20;
+                swingItem();
+                Buildings.get()
+                    .damage(building, Config.unitBuildingDamage, getCommandSenderName().replaceAll("\u00a7.", ""));
+            }
+            progressTicks = 0;
+            return;
+        }
+        walkTo(building);
     }
 
     /** Walks toward the nearest side of a building; gives up and guards when stuck too long. */
@@ -441,6 +621,15 @@ public class EntityUnit extends EntityCreature {
                 .findEnemyNear(this, GUARD_RANGE);
             if (enemy != null) {
                 defend(enemy);
+                return;
+            }
+            Building building = Units.get()
+                .findEnemyBuildingNear(this, GUARD_RANGE);
+            if (building != null) {
+                order = Order.ATTACK_BUILDING;
+                buildingId = building.id;
+                defending = true;
+                startOrder();
                 return;
             }
         }
@@ -580,6 +769,12 @@ public class EntityUnit extends EntityCreature {
         tag.setString("Team", teamId);
         tag.setString("Kind", kind.id);
         tag.setInteger("Building", buildingId);
+        int[] carried = new int[carrying.length];
+        for (int i = 0; i < carried.length; i++) {
+            carried[i] = (int) Math.min(Integer.MAX_VALUE, carrying[i]);
+        }
+        tag.setIntArray("Carrying", carried);
+        tag.setBoolean("Delivering", delivering);
         tag.setInteger("Number", number);
         tag.setInteger("ArmorColor", armorColor);
         // A fight picked up while guarding is not worth keeping; the unit is back on guard after a restart.
@@ -601,6 +796,11 @@ public class EntityUnit extends EntityCreature {
         UnitKind savedKind = UnitKind.byId(tag.getString("Kind"));
         kind = savedKind == null ? UnitKind.SOLDIER : savedKind;
         buildingId = tag.getInteger("Building");
+        int[] carried = tag.getIntArray("Carrying");
+        for (int i = 0; i < carrying.length; i++) {
+            carrying[i] = i < carried.length ? carried[i] : 0;
+        }
+        delivering = tag.getBoolean("Delivering");
         number = tag.getInteger("Number");
         armorColor = tag.getInteger("ArmorColor");
         try {

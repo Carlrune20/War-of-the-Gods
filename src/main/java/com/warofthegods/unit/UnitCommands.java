@@ -10,7 +10,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.warofthegods.game.Building;
-import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Team;
@@ -26,7 +25,8 @@ import com.warofthegods.world.GameWorld;
  * <pre>
  *   {type: "units.move", units: [id...], x, z}  walk there
  *   {type: "units.attack", units: [id...], target: id}  attack an enemy unit or player; workers do not fight
- *   {type: "units.build", units: [id...], building: id}  workers raise a building site or work a farm
+ *   {type: "units.attack", units: [id...], building: id}  attack an enemy building
+ *   {type: "units.build", units: [id...], building: id}  workers build a building site or work a farm or quarry
  *   {type: "units.stop", units: [id...]}        stop and guard where they stand
  * </pre>
  *
@@ -98,6 +98,24 @@ public final class UnitCommands {
             request.replyError("Workers do not fight");
             return;
         }
+        if (request.body.has("building")) {
+            Game game = GameManager.getGame();
+            Building building = game.getBuilding(intField(request.body, "building", 0));
+            Team owner = building == null ? null : game.getTeam(building.team);
+            if (owner == null) {
+                request.replyError("That building is gone");
+                return;
+            }
+            if (!game.areEnemies(team, owner)) {
+                request.replyError("You can only attack enemies");
+                return;
+            }
+            ok(
+                request,
+                Units.get()
+                    .orderAttackBuilding(units, building));
+            return;
+        }
         UUID targetId = uuid(request.body.get("target"));
         EntityLivingBase target = targetId == null ? null
             : Units.get()
@@ -131,14 +149,14 @@ public final class UnitCommands {
             request.replyError("That is not your building");
             return;
         }
-        if (building.isComplete() && building.type != BuildingType.FARM) {
+        if (building.isComplete() && !building.type.isWorkplace()) {
             request.replyError("That is already built");
             return;
         }
         int sent = Units.get()
             .orderBuild(units, building);
         if (sent == 0) {
-            request.replyError("Only workers can build and farm");
+            request.replyError("Only workers can build and gather");
             return;
         }
         ok(request, sent);

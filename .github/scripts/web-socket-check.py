@@ -106,10 +106,12 @@ def main():
             if not str(game.get("mapId", "")).startswith(f"{game_number}-"):
                 fail(f"game message has no map id for game #{game_number}: {game.get('mapId')!r}")
             types = game.get("buildingTypes", {})
-            for type_id in ("town_hall", "farm", "barracks"):
+            for type_id in ("town_hall", "farm", "barracks", "storehouse", "quarry"):
                 shape = types.get(type_id)
                 if not shape or len(shape["heights"]) != shape["width"] * shape["length"]:
                     fail(f"game message has no usable {type_id} building type")
+                if not shape.get("health"):
+                    fail(f"the {type_id} building type has no health")
             print(f"ok: game #{game['number']} map {game['minX']},{game['minZ']} to {game['maxX']},{game['maxZ']}")
         elif kind == "tiles":
             if not message["tiles"]:
@@ -128,6 +130,9 @@ def main():
                         fail(f"unit without {key}: {unit}")
             if units:
                 unit_id = units[0]["id"]
+            for building in message.get("buildings", []):
+                if not 0 < building.get("health", 0) <= building.get("maxHealth", 0):
+                    fail(f"building without sensible health: {building}")
             halls = [b["team"] for b in message.get("buildings", []) if b["type"] == "town_hall" and b["complete"]]
             if len(halls) < len(names):
                 print(f"waiting: town halls for {halls} of {names}")

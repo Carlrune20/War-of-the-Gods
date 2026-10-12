@@ -24,7 +24,9 @@
         players: new Map(), // uuid -> {name, team, x, y, z, yaw, drawX, drawY, drawZ}
         units: new Map(), // id -> {team, number, x, y, z, health, maxHealth, order, toX, toZ, target, drawX...}
         selected: new Set(), // ids of the viewer's units that orders go to
-        buildings: new Map(), // id -> {type, team, x, z, sizeX, sizeZ, y, rotation, complete, queue, progress, workers}
+        // id -> {type, team, x, z, sizeX, sizeZ, y, rotation, complete, built, builders, health, maxHealth, queue,
+        // progress, workers}
+        buildings: new Map(),
         selectedBuilding: null, // id of the viewer's building whose controls the bar shows
         tiles: new Map(), // "x,z" -> {version, loaded}
         tilesExpected: 0,
@@ -598,7 +600,7 @@
         swapIfChanged(barActions, actions);
         const fill = barActions.querySelector(".progress span");
         if (fill && building) {
-            fill.style.width = Math.round(100 * (building.progress || 0)) + "%";
+            fill.style.width = Math.round(100 * ((building.complete ? building.progress : building.built) || 0)) + "%";
         }
         const count = state.selected.size;
         const workers = selectedWorkers().length;
@@ -616,16 +618,29 @@
     function renderBuildingActions(actions, team, building) {
         const type = buildingType(building.type);
         if (!building.complete) {
-            const builders = [...state.units.values()].filter((u) => u.building === building.id && u.order === "build");
-            actions.append(el("span", "note", type.name + " site: " + (builders.length
-                ? builders.length + (builders.length === 1 ? " worker on the way" : " workers on the way")
-                : "select a worker and right-click it to build")));
+            const coming = [...state.units.values()].filter((u) => u.building === building.id && u.order === "build")
+                .length - (building.builders || 0);
+            actions.append(el("span", "", type.name + " site"));
+            const bar = el("span", "progress build");
+            bar.append(el("span"));
+            actions.append(bar);
+            let note = Math.floor(100 * (building.built || 0)) + "% built";
+            if (building.builders) {
+                note += ", " + building.builders + (building.builders === 1 ? " worker building" : " workers building");
+            }
+            if (coming > 0) {
+                note += ", " + coming + " on the way";
+            }
+            if (!building.builders && coming <= 0) {
+                note += ": select a worker and right-click it to build";
+            }
+            actions.append(el("span", "note", note));
             return;
         }
         actions.append(el("span", "", type.name));
-        if (building.type === "farm") {
-            actions.append(el("span", "note", (building.workers || 0) + " of " + (state.game.farmWorkers || 3)
-                + " workers"));
+        actions.append(el("span", "note", "Health " + building.health + "/" + building.maxHealth));
+        if (type.workers) {
+            actions.append(el("span", "note", (building.workers || 0) + " of " + type.workers + " workers"));
         }
         if (!type.trains) {
             return;
@@ -940,7 +955,7 @@
             const t = hit.thing;
             orderMark = {x: t.drawX, y: t.drawY, z: t.drawZ, color: [1, 0.3, 0.25, 1], time: performance.now()};
             send("units.attack", {units, target: entityId(hit)});
-        } else if (!hit && orderBuild(px, py)) {
+        } else if (!hit && (orderBuild(px, py) || orderAttackBuilding(px, py))) {
             return;
         } else {
             const ground = groundUnder(px, py);
@@ -953,12 +968,31 @@
         view.dirty = true;
     }
 
-    // Right-clicking one of the team's building sites, or a farm, sends the selected workers to build or work it.
+    // Right-clicking an enemy building sends the selected soldiers to attack it.
+    function orderAttackBuilding(px, py) {
+        const building = buildingAt(px, py);
+        const fighters = [...state.selected].filter((id) => {
+            const u = state.units.get(id);
+            return u && u.kind !== "worker";
+        });
+        if (!building || !fighters.length || !isEnemyTeam(building.team)) {
+            return false;
+        }
+        orderMark = {x: building.x + building.sizeX / 2, y: building.y + 1, z: building.z + building.sizeZ / 2,
+            color: [1, 0.3, 0.25, 1], time: performance.now()};
+        send("units.attack", {units: fighters, building: building.id});
+        view.dirty = true;
+        return true;
+    }
+
+    // Right-clicking one of the team's building sites, or a farm or quarry, sends the selected workers to build or
+    // work it.
     function orderBuild(px, py) {
         const building = buildingAt(px, py);
         const workers = selectedWorkers();
+        const type = building && buildingType(building.type);
         if (!building || building.team !== myTeam().id || !workers.length
-            || (building.complete && building.type !== "farm")) {
+            || (building.complete && !(type && type.workers))) {
             return false;
         }
         orderMark = {x: building.x + building.sizeX / 2, y: building.y + 1, z: building.z + building.sizeZ / 2,
@@ -1127,10 +1161,39 @@
         town_hall: "\uD83C\uDFDB\uFE0F",
         farm: "\uD83C\uDF3E",
         barracks: "\u2694\uFE0F",
+        storehouse: "\uD83D\uDCE6",
+        quarry: "\u26CF\uFE0F",
         site: "\uD83D\uDEA7",
     };
 
-    const ORDER_TEXT = {move: "walking", attack: "fighting", build: "on the way to build", work: "farming"};
+    const RESOURCE_ORDER = ["food", "wood", "stone", "metal"];
+
+    function amountsText(amounts) {
+        return RESOURCE_ORDER.filter((id) => amounts[id]).map((id) => amounts[id] + " " + id).join(", ");
+    }
+
+    // What a unit is doing, in a few words.
+    function doingText(u) {
+        const b = state.buildings.get(u.building);
+        const where = b ? buildingType(b.type).name.toLowerCase() : "";
+        switch (u.order) {
+            case "move":
+                return "walking";
+            case "attack":
+                return "fighting";
+            case "attack_building":
+                return "attacking " + (b ? buildingName(b) : "a building");
+            case "build":
+                return u.toX === undefined ? "building " + where : "on the way to build " + where;
+            case "work":
+                if (u.delivering) {
+                    return "taking " + amountsText(u.carrying || {}) + " to store";
+                }
+                return u.toX === undefined ? "working at " + where : "on the way to " + where;
+            default:
+                return u.kind === "worker" ? "idle" : "on guard";
+        }
+    }
 
     function unitName(u) {
         const team = state.teamsById[u.team];
@@ -1163,9 +1226,12 @@
                 return {icon: ICONS.player, text: hit.thing.name + (t ? " (" + t.name + ")" : "")};
             }
             const u = hit.thing;
-            const doing = ORDER_TEXT[u.order] || (u.kind === "worker" ? "idle" : "on guard");
+            let text = unitName(u) + " \u00B7 " + doingText(u);
+            if (u.carrying && !u.delivering) {
+                text += " \u00B7 carrying " + amountsText(u.carrying);
+            }
             return {icon: u.kind === "worker" ? ICONS.worker : ICONS.soldier,
-                text: unitName(u) + " \u00B7 " + doing + " \u00B7 " + Math.ceil(u.health) + "/" + Math.ceil(u.maxHealth)};
+                text: text + " \u00B7 " + Math.ceil(u.health) + "/" + Math.ceil(u.maxHealth)};
         }
         const b = buildingAt(px, py);
         if (!b) {
@@ -1173,20 +1239,27 @@
         }
         const type = buildingType(b.type);
         const mine = team && b.team === team.id;
-        if (mine && workers && !b.complete) {
-            return {icon: ICONS.build, text: "Build " + type.name.toLowerCase(), action: "build"};
+        if (fighters && isEnemyTeam(b.team)) {
+            return {icon: ICONS.attack, text: "Attack " + buildingName(b) + " \u00B7 " + b.health + "/" + b.maxHealth,
+                action: "attack"};
         }
-        if (mine && workers && b.type === "farm") {
-            return {icon: ICONS.work, text: "Work at farm (" + (b.workers || 0) + " of " + (state.game.farmWorkers || 3) + " workers)", action: "build"};
+        if (mine && workers && !b.complete) {
+            return {icon: ICONS.build, text: "Build " + type.name.toLowerCase() + " \u00B7 "
+                + Math.floor(100 * (b.built || 0)) + "% built", action: "build"};
+        }
+        if (mine && workers && type.workers) {
+            return {icon: ICONS[b.type] || ICONS.work, text: "Work at " + type.name.toLowerCase() + " ("
+                + (b.workers || 0) + " of " + type.workers + " workers)", action: "build"};
         }
         let text = buildingName(b);
         if (!b.complete) {
-            text += " \u00B7 building site";
+            text += " \u00B7 building site, " + Math.floor(100 * (b.built || 0)) + "% built";
         } else if (b.queue && b.queue.length) {
             text += " \u00B7 training " + b.queue.length;
-        } else if (b.type === "farm") {
+        } else if (type.workers) {
             text += " \u00B7 " + (b.workers || 0) + " working";
         }
+        text += " \u00B7 " + b.health + "/" + b.maxHealth;
         return {icon: b.complete ? ICONS[b.type] || "" : ICONS.site, text};
     }
 
@@ -1480,11 +1553,13 @@
         labelCtx.font = "600 12px system-ui, sans-serif";
         labelCtx.textAlign = "center";
         const s = figureScale();
-        // Town halls are always named; other buildings when selected, still a site or training.
+        // Town halls are always named; other buildings when selected, still a site, training or damaged.
         for (const b of state.buildings.values()) {
             const type = buildingType(b.type);
             const team = state.teamsById[b.team];
-            if (!type || !team || (b.type !== "town_hall" && b.id !== state.selectedBuilding && b.complete && !b.queue)) {
+            const hurt = b.complete && b.health < b.maxHealth;
+            if (!type || !team || (b.type !== "town_hall" && b.id !== state.selectedBuilding && b.complete && !b.queue
+                && !hurt)) {
                 continue;
             }
             const shape = turnedShape(b.type, b.rotation);
@@ -1496,13 +1571,25 @@
             labelCtx.strokeText(text, x, y - 6);
             labelCtx.fillStyle = team.color;
             labelCtx.fillText(text, x, y - 6);
-            if (b.queue && b.queue.length) {
-                const width = 40;
-                labelCtx.fillStyle = "rgba(0, 0, 0, 0.75)";
-                labelCtx.fillRect(x - width / 2 - 1, y - 2, width + 2, 6);
-                labelCtx.fillStyle = "#5fdc6a";
-                labelCtx.fillRect(x - width / 2, y - 1, width * (b.progress || 0), 4);
+            // Bars under the name: how far a site is built, how far training is, how hurt it is.
+            const bars = [];
+            if (!b.complete) {
+                bars.push(["#f0b43c", b.built || 0]);
+            } else if (b.queue && b.queue.length) {
+                bars.push(["#5fdc6a", b.progress || 0]);
             }
+            if (hurt) {
+                const health = b.health / b.maxHealth;
+                bars.push([health > 0.5 ? "#5fdc6a" : health > 0.25 ? "#f0b43c" : "#e8493f", health]);
+            }
+            bars.forEach(([color, fraction], i) => {
+                const width = 56;
+                const top = y - 2 + i * 8;
+                labelCtx.fillStyle = "rgba(0, 0, 0, 0.75)";
+                labelCtx.fillRect(x - width / 2 - 1, top, width + 2, 6);
+                labelCtx.fillStyle = color;
+                labelCtx.fillRect(x - width / 2, top + 1, width * Math.max(0, Math.min(1, fraction)), 4);
+            });
         }
         // Health bars over units that are hurt or selected.
         for (const u of state.units.values()) {

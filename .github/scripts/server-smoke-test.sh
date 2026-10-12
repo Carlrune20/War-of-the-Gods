@@ -2,8 +2,8 @@
 # Boots the dev dedicated server four times. The first boot sets up a game through /rts and saves it; the second
 # boot checks the game and its map came back from the save intact, then starts a new game to check numbering
 # continues and the old map is replaced by a fresh one. The third checks the web map, units and buildings: town
-# halls, a worker building a farm and working it, a barracks, and training. The fourth checks that units and
-# buildings come back after a restart.
+# halls, a worker building a farm, working it and carrying the harvest home, a barracks, training, a storehouse
+# and building health down to 0. The fourth checks that units and buildings come back after a restart.
 set -uo pipefail
 
 TIMEOUT="${SERVER_TIMEOUT:-600}"
@@ -194,8 +194,9 @@ red1_after=$(grep -oE 'Red 1 at -?[0-9]+,-?[0-9]+,-?[0-9]+' "$WEB_LOG" | tail -1
 [ -n "$red1_before" ] && [ "$red1_before" != "$red1_after" ] || web_fail "Red 1 did not move: $red1_before, then $red1_after"
 echo "ok: $red1_before, then $red1_after"
 
-# Buildings: a worker walks to a farm site, the farm goes up when it gets there, and it stays to work it. A
-# worker trained at the town hall builds a barracks, which trains a soldier.
+# Buildings: a worker walks to a farm site, builds it, and stays to work it, carrying the harvest to the town
+# hall. A worker trained at the town hall builds a barracks, which trains a soldier, and a storehouse, which is
+# then damaged until it is gone.
 echo "rts units spawn blue 1 worker" >&3
 wait_for_log "Spawned 1 units for Blue" 30
 echo "rts build blue farm" >&3
@@ -213,14 +214,36 @@ grep -q "Blue farm #3 at .*, 1 working" "$WEB_LOG" || web_fail "the worker is no
 echo "ok: the worker works the farm"
 echo "rts build blue barracks" >&3
 wait_for_log "Laid out Blue barracks #4" 30
+for _ in $(seq 30); do
+    echo "rts buildings blue" >&3
+    sleep 2
+    grep -q "Blue barracks #4 at .*% built by 1 workers" "$WEB_LOG" && break
+done
+grep -q "Blue barracks #4 at .*(building site), health [0-9]*/800, [0-9]*% built by 1 workers" "$WEB_LOG" \
+    || web_fail "the barracks site does not show the worker building it"
+echo "ok: $(grep -oE 'Blue barracks #4 at .*% built by 1 workers' "$WEB_LOG" | tail -1)"
 wait_for_log "Built Blue barracks #4" 120
 echo "rts train blue soldier 1" >&3
 wait_for_log "trained Blue 5" 60
-echo "rts resources blue" >&3
-wait_for_log "Team Blue resources" 30
-food=$(grep -oE 'Team Blue resources: Food [0-9]+' "$WEB_LOG" | tail -1 | grep -oE '[0-9]+$')
-[ "$food" -gt 200 ] || web_fail "the farm brought in no food: $food"
+# The farm worker carries what it gathers to the town hall once its hands are full.
+food=0
+for _ in $(seq 45); do
+    echo "rts resources blue" >&3
+    sleep 2
+    food=$(grep -oE 'Team Blue resources: Food [0-9]+' "$WEB_LOG" | tail -1 | grep -oE '[0-9]+$')
+    [ "${food:-0}" -gt 200 ] && break
+done
+[ "${food:-0}" -gt 200 ] || web_fail "the farm worker brought in no food: $food"
 echo "ok: Blue has $food food from the farm"
+
+echo "rts build blue storehouse" >&3
+wait_for_log "Laid out Blue storehouse #5" 30
+wait_for_log "Built Blue storehouse #5" 120
+echo "rts damage 5 100" >&3
+wait_for_log "has 500/600 health" 30
+echo "rts damage 5 1000" >&3
+wait_for_log "Destroyed Blue storehouse #5" 30
+echo "ok: the storehouse lost health and was destroyed at 0"
 
 stop_server
 cat "$WEB_LOG"
@@ -244,7 +267,8 @@ sleep 10
 echo "rts units" >&3
 echo "rts units red" >&3
 echo "rts buildings" >&3
-wait_for_log "Team Red has" 30
+echo "rts units blue" >&3
+wait_for_log "Team Blue has" 30
 sleep 2
 stop_server
 cat "$WEB_LOG"
@@ -256,7 +280,10 @@ expect "$WEB_LOG" "Team Red has 3 of 50 units"
 expect "$WEB_LOG" "Red 1 at "
 expect "$WEB_LOG" "Red town hall #1 at"
 expect "$WEB_LOG" "Blue barracks #4 at"
-grep -q "Blue farm #3 at .*, 1 working" "$WEB_LOG" || fail "boot-4-units: the farm lost its worker"
+grep -q "Blue worker 3 at .* work" "$WEB_LOG" || fail "boot-4-units: the farm lost its worker"
+if grep -q "Blue storehouse #5" "$WEB_LOG"; then
+    fail "boot-4-units: the destroyed storehouse came back"
+fi
 echo "ok: buildings and the farm worker came back"
 
 echo "Server smoke test passed"
