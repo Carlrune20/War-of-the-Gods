@@ -66,14 +66,47 @@ public class EntityUnit extends EntityCreature {
         LIGHT
     }
 
+    /** How a unit fights when it has no orders to: how far it looks for enemies and how far it chases them. */
+    public enum Stance {
+
+        /** Looks further, and chases enemies far from its post. */
+        AGGRESSIVE("aggressive", "Aggressive", 1.5, 40),
+        /** Fights what comes near, and goes back to its post. */
+        DEFENSIVE("defensive", "Defensive", 1, 20),
+        /** Never leaves its spot: fights only what it can reach from there. */
+        HOLD("hold", "Hold ground", 1, 0),
+        /** Never fights unless ordered, not even back. */
+        PASSIVE("passive", "Passive", 0, 0);
+
+        public final String id;
+        public final String displayName;
+        final double rangeFactor;
+        final double chaseRange;
+
+        Stance(String id, String displayName, double rangeFactor, double chaseRange) {
+            this.id = id;
+            this.displayName = displayName;
+            this.rangeFactor = rangeFactor;
+            this.chaseRange = chaseRange;
+        }
+
+        public static Stance byId(String id) {
+            for (Stance stance : values()) {
+                if (stance.id.equalsIgnoreCase(id) || stance.name()
+                    .equalsIgnoreCase(id)) {
+                    return stance;
+                }
+            }
+            return null;
+        }
+    }
+
     /** Blocks walked per path before planning the next one. */
     private static final double LEG = 24;
     /** How close a unit has to get to where it was sent. */
     private static final double ARRIVED = 1.5;
     /** Range at which guarding units notice enemies. */
     private static final double GUARD_RANGE = 10;
-    /** How far from its post a guarding unit chases an enemy before giving up. */
-    private static final double CHASE_RANGE = 20;
     /** Times in a row a unit may fail to make progress before it gives up on an order. */
     private static final int MAX_STALLS = 6;
     private static final double SPEED = 1.0;
@@ -103,6 +136,7 @@ public class EntityUnit extends EntityCreature {
     /** Where a worker still has to put torches, in order: x, y, z each. */
     private final List<int[]> torches = new ArrayList<>();
     private Order order = Order.IDLE;
+    private Stance stance = Stance.DEFENSIVE;
     private double goalX;
     private double goalZ;
     private double postX;
@@ -129,6 +163,10 @@ public class EntityUnit extends EntityCreature {
     private double progressX;
     private double progressZ;
     private int stalls;
+    /** Waypoints of the long route being walked, and where it leads; not saved, planned again after a restart. */
+    private List<double[]> route;
+    private double routeX = Double.NaN;
+    private double routeZ = Double.NaN;
 
     public EntityUnit(World world) {
         super(world);
@@ -348,6 +386,17 @@ public class EntityUnit extends EntityCreature {
 
     public Order getOrder() {
         return order;
+    }
+
+    public Stance getStance() {
+        return stance;
+    }
+
+    void setStance(Stance stance) {
+        this.stance = stance;
+        if (defending && stance == Stance.PASSIVE) {
+            backToPost();
+        }
     }
 
     /** Where the unit is headed: its goal, its target or its post; null when it stands at its post. */
@@ -863,7 +912,17 @@ public class EntityUnit extends EntityCreature {
 
     /** Range at which a guarding unit notices enemies: farther for archers, who shoot from where they stand. */
     private double guardRange() {
-        return kind == UnitKind.ARCHER ? archerRange() : GUARD_RANGE;
+        return (kind == UnitKind.ARCHER ? archerRange() : GUARD_RANGE) * stance.rangeFactor;
+    }
+
+    /** Whether the unit can hit the target from where it stands, by sword or by bow. */
+    private boolean inReach(EntityLivingBase target) {
+        double distanceSq = getDistanceSq(target.posX, target.boundingBox.minY, target.posZ);
+        if (kind == UnitKind.ARCHER) {
+            return distanceSq <= archerRange() * archerRange();
+        }
+        double reach = width * 2 * width * 2 + target.width;
+        return distanceSq <= reach + 1;
     }
 
     private void shoot(EntityLivingBase victim) {
@@ -890,7 +949,8 @@ public class EntityUnit extends EntityCreature {
         EntityLivingBase current = resolveTarget();
         boolean tooFar = defending && hasPost
             && current != null
-            && current.getDistance(postX, current.posY, postZ) > CHASE_RANGE;
+            && (stance == Stance.HOLD ? !inReach(current)
+                : current.getDistance(postX, current.posY, postZ) > stance.chaseRange);
         if (current == null || tooFar) {
             if (defending) {
                 backToPost();
@@ -943,16 +1003,18 @@ public class EntityUnit extends EntityCreature {
             postZ = posZ;
             hasPost = true;
         }
-        if (!isWorker() && --scanTicks <= 0) {
+        if (!isWorker() && stance != Stance.PASSIVE && --scanTicks <= 0) {
             scanTicks = 10 + rand.nextInt(5);
             EntityLivingBase enemy = Units.get()
                 .findEnemyNear(this, guardRange());
-            if (enemy != null) {
+            if (enemy != null && (stance != Stance.HOLD || inReach(enemy))) {
                 defend(enemy);
                 return;
             }
+            double buildingRange = kind == UnitKind.ARCHER ? ARCHER_BUILDING_RANGE
+                : stance == Stance.HOLD ? Buildings.REACH : GUARD_RANGE;
             Building building = Units.get()
-                .findEnemyBuildingNear(this, kind == UnitKind.ARCHER ? ARCHER_BUILDING_RANGE : GUARD_RANGE);
+                .findEnemyBuildingNear(this, buildingRange);
             if (building != null) {
                 order = Order.ATTACK_BUILDING;
                 buildingId = building.id;
@@ -1001,6 +1063,9 @@ public class EntityUnit extends EntityCreature {
      * either side. When nothing works it walks straight ahead and hopes.
      */
     private void walkToward(double x, double z) {
+        double[] next = nextWaypoint(x, z);
+        x = next[0];
+        z = next[1];
         double dx = x - posX;
         double dz = z - posZ;
         double distance = Math.sqrt(dx * dx + dz * dz);
@@ -1031,6 +1096,31 @@ public class EntityUnit extends EntityCreature {
         getMoveHelper().setMoveTo(posX + dx / distance * 4, posY, posZ + dz / distance * 4, SPEED);
     }
 
+    /**
+     * Where to head for now on the way to x, z: past one leg away, the next waypoint of a route planned around what
+     * is in the way; close by, or with no route, x, z itself.
+     */
+    private double[] nextWaypoint(double x, double z) {
+        if (distanceTo(x, z) <= LEG) {
+            route = null;
+            return new double[] { x, z };
+        }
+        if (route == null || Math.abs(routeX - x) > 3 || Math.abs(routeZ - z) > 3) {
+            Game game = GameManager.getGame();
+            route = game == null ? null : Routes.find(worldObj, game, posX, posZ, x, z);
+            routeX = x;
+            routeZ = z;
+            if (route == null) {
+                // No time to plan this tick, or no way found: straight at it, and plan again next time.
+                return new double[] { x, z };
+            }
+        }
+        while (!route.isEmpty() && distanceTo(route.get(0)[0], route.get(0)[1]) < 3) {
+            route.remove(0);
+        }
+        return route.isEmpty() ? new double[] { x, z } : route.get(0);
+    }
+
     /** Checks every two seconds that the unit got somewhere; returns false once it has been stuck too long. */
     private boolean madeProgress() {
         if (++progressTicks < 40) {
@@ -1046,6 +1136,7 @@ public class EntityUnit extends EntityCreature {
         }
         stalls++;
         planTicks = 0;
+        route = null;
         getNavigator().clearPathEntity();
         return stalls < MAX_STALLS;
     }
@@ -1078,6 +1169,7 @@ public class EntityUnit extends EntityCreature {
         boolean hurt = super.attackEntityFrom(source, amount);
         // Guarding units hit back; units on the move keep going.
         if (hurt && !isWorker()
+            && stance != Stance.PASSIVE
             && attacker instanceof EntityLivingBase
             && attacker != this
             && (order == Order.IDLE || defending)) {
@@ -1117,6 +1209,7 @@ public class EntityUnit extends EntityCreature {
         }
         tag.setIntArray("Torches", spots);
         // A fight picked up while guarding is not worth keeping; the unit is back on guard after a restart.
+        tag.setString("Stance", stance.id);
         tag.setString("Order", defending ? Order.IDLE.name() : order.name());
         tag.setDouble("GoalX", goalX);
         tag.setDouble("GoalZ", goalZ);
@@ -1152,6 +1245,8 @@ public class EntityUnit extends EntityCreature {
         for (int i = 0; i + 2 < spots.length; i += 3) {
             torches.add(new int[] { spots[i], spots[i + 1], spots[i + 2] });
         }
+        Stance savedStance = Stance.byId(tag.getString("Stance"));
+        stance = savedStance == null ? Stance.DEFENSIVE : savedStance;
         try {
             order = Order.valueOf(tag.getString("Order"));
         } catch (IllegalArgumentException e) {
