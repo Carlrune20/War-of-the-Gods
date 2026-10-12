@@ -27,6 +27,7 @@ import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Units;
+import com.warofthegods.web.WebMap;
 import com.warofthegods.world.GameWorld;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -329,6 +330,8 @@ public final class Buildings {
             }
         }
         building.setComplete();
+        WebMap
+            .blocksChanged(world, building.minX - 1, building.minZ - 1, building.getMaxX() + 1, building.getMaxZ() + 1);
         Game game = GameManager.getGame();
         WarOfTheGods.LOG.info("Built {}", game == null ? building.type.displayName : building.describe(game));
     }
@@ -468,6 +471,8 @@ public final class Buildings {
                 }
             }
         }
+        WebMap
+            .blocksChanged(world, building.minX - 1, building.minZ - 1, building.getMaxX() + 1, building.getMaxZ() + 1);
     }
 
     /** The building whose blocks hold x, y, z, or null. */

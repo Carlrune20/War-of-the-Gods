@@ -854,34 +854,56 @@
         return teamId !== team.id && !team.allies.includes(teamId);
     }
 
-    // How big a unit or player is drawn, so they stay visible when zoomed out.
-    function figureScale() {
-        return Math.max(1, view.cam.zoom / 40);
+    // CSS pixels one block takes up on screen at the current zoom.
+    function pixelsPerBlock() {
+        return canvas.clientHeight / (2 * view.cam.zoom);
     }
 
-    // The unit, player or mob under a screen point: {kind: "unit"|"player"|"mob", thing}, or null.
+    // How big units, players and mobs are drawn: life size up close, up to a little larger when zoomed out so they
+    // stay visible. Further out they are drawn as dots instead, see markerMode().
+    function figureScale() {
+        return Math.min(MAX_FIGURE_SCALE, Math.max(1, MIN_FIGURE_PIXELS / (1.8 * pixelsPerBlock())));
+    }
+
+    const MAX_FIGURE_SCALE = 1.6;
+    const MIN_FIGURE_PIXELS = 14;
+
+    // Whether figures would be too small to make out even enlarged: then units and players are drawn as dots in their
+    // team's colour, hostile mobs as faint dots, and animals not at all.
+    function markerMode() {
+        return 1.8 * MAX_FIGURE_SCALE * pixelsPerBlock() < MIN_FIGURE_PIXELS;
+    }
+
+    // The unit, player or mob under a screen point: {kind: "unit"|"player"|"mob", thing}, or null. The pointer has to
+    // be on the figure (or dot) as drawn, give or take a few pixels, so a click never lands on something blocks away.
     function entityAt(px, py) {
         const s = figureScale();
-        const pixelsPerBlock = canvas.clientHeight / (2 * view.cam.zoom);
-        const radius = Math.max(12, 0.9 * s * pixelsPerBlock);
+        const ppb = pixelsPerBlock();
+        const dots = markerMode();
         let best = null;
-        let bestDistance = radius;
-        const consider = (kind, thing) => {
-            const [x, y] = view.project(thing.drawX, thing.drawY + 0.9 * s, thing.drawZ);
+        let bestDistance = Infinity;
+        const consider = (kind, thing, height) => {
+            if (dots && kind === "mob" && !thing.hostile) {
+                return;
+            }
+            // Up close the middle of the figure, with half its height as the reach; zoomed out the dot.
+            const middle = dots ? 0 : height * s / 2;
+            const reach = dots ? 6 : Math.max(5, middle * ppb + 3);
+            const [x, y] = view.project(thing.drawX, thing.drawY + middle, thing.drawZ);
             const distance = Math.hypot(x - px, y - py);
-            if (distance < bestDistance) {
+            if (distance <= reach && distance < bestDistance) {
                 bestDistance = distance;
                 best = {kind, thing};
             }
         };
         for (const u of state.units.values()) {
-            consider("unit", u);
+            consider("unit", u, 1.8);
         }
         for (const p of state.players.values()) {
-            consider("player", p);
+            consider("player", p, 1.8);
         }
         for (const m of state.mobs.values()) {
-            consider("mob", m);
+            consider("mob", m, Math.max(0.4, m.height || 1));
         }
         return best;
     }
@@ -1464,10 +1486,12 @@
             const hw = 0.5 * s;
             boxes.push({min: [x - hw / 2, y + 1.35 * s, z - hw / 2], size: [hw, hw, hw], color: head});
         };
-        for (const p of state.players.values()) {
+        // Zoomed far out they are dots, drawn with the labels.
+        const dots = markerMode();
+        for (const p of dots ? [] : state.players.values()) {
             figure(p.drawX, p.drawY, p.drawZ, teamColor(p.team), SKIN);
         }
-        for (const u of state.units.values()) {
+        for (const u of dots ? [] : state.units.values()) {
             if (u.kind === "worker") {
                 figure(u.drawX, u.drawY, u.drawZ, teamColor(u.team), SKIN);
                 const hw = 0.8 * s;
@@ -1477,7 +1501,7 @@
             }
         }
         // Mobs as a box their own size, hostile ones dark green with red eyes, others a sandy brown.
-        for (const m of state.mobs.values()) {
+        for (const m of dots ? [] : state.mobs.values()) {
             const w = Math.max(0.4, m.width || 0.6) * s;
             const h = Math.max(0.4, m.height || 1) * s;
             boxes.push({min: [m.drawX - w / 2, m.drawY, m.drawZ - w / 2], size: [w, h, w],
@@ -1642,13 +1666,18 @@
                 labelCtx.fillRect(x - width / 2, top + 1, width * Math.max(0, Math.min(1, fraction)), 4);
             });
         }
-        // Health bars over units that are hurt or selected.
+        const dots = markerMode();
+        if (dots) {
+            drawDots();
+        }
+        // Health bars over units that are hurt or selected; zoomed far out only over selected ones.
         for (const u of state.units.values()) {
             const selected = state.selected.has(u.id);
-            if (!selected && u.health >= u.maxHealth) {
+            if (!selected && (dots || u.health >= u.maxHealth)) {
                 continue;
             }
-            const [x, y] = view.project(u.drawX, u.drawY + 1.85 * s, u.drawZ);
+            const [x, y] = dots ? view.project(u.drawX, u.drawY, u.drawZ).map((v, i) => v - i * 2)
+                : view.project(u.drawX, u.drawY + 1.85 * s, u.drawZ);
             const width = 24;
             const fraction = Math.max(0, Math.min(1, u.health / u.maxHealth));
             labelCtx.fillStyle = "rgba(0, 0, 0, 0.75)";
@@ -1657,7 +1686,7 @@
             labelCtx.fillRect(x - width / 2, y - 8, width * fraction, 3);
         }
         // And over hurt mobs, in red.
-        for (const m of state.mobs.values()) {
+        for (const m of dots ? [] : state.mobs.values()) {
             if (m.health >= m.maxHealth) {
                 continue;
             }
@@ -1684,6 +1713,37 @@
             labelCtx.strokeText(p.name, x, y - 6);
             labelCtx.fillStyle = isMe ? "#ffe9a8" : "#ffffff";
             labelCtx.fillText(p.name, x, y - 6);
+        }
+    }
+
+    // Units, players and hostile mobs as dots, for when the map is zoomed too far out to make out figures. Animals
+    // are left out, and selected units get a ring.
+    function drawDots() {
+        const dot = (thing, radius, fill, stroke) => {
+            const [x, y] = view.project(thing.drawX, thing.drawY, thing.drawZ);
+            labelCtx.beginPath();
+            labelCtx.arc(x, y, radius, 0, 2 * Math.PI);
+            labelCtx.fillStyle = fill;
+            labelCtx.fill();
+            labelCtx.lineWidth = 1;
+            labelCtx.strokeStyle = stroke;
+            labelCtx.stroke();
+        };
+        for (const m of state.mobs.values()) {
+            if (m.hostile) {
+                dot(m, 2, "rgba(61, 107, 64, 0.55)", "rgba(0, 0, 0, 0.35)");
+            }
+        }
+        for (const u of state.units.values()) {
+            const team = state.teamsById[u.team];
+            dot(u, 3, team ? team.color : "#cccccc", "rgba(0, 0, 0, 0.8)");
+            if (state.selected.has(u.id)) {
+                dot(u, 5.5, "rgba(0, 0, 0, 0)", "#73ff80");
+            }
+        }
+        for (const p of state.players.values()) {
+            const team = state.teamsById[p.team];
+            dot(p, 3.5, team ? team.color : "#cccccc", "#ffffff");
         }
     }
 

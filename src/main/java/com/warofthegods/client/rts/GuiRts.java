@@ -43,7 +43,9 @@ public final class GuiRts extends GuiScreen {
     private static final int GREEN = 0xFF5FDC6A;
     private static final int AMBER = 0xFFF0B43C;
     private static final int RED = 0xFFE8493F;
-    private static final double PICK_PIXELS = 10;
+    /** Pixels around a unit, player or mob as drawn that still count as pointing at it. */
+    private static final double PICK_SLACK = 3;
+    private static final double PICK_MIN = 4;
 
     private final RtsClient client;
     private final List<Widget> widgets = new ArrayList<>();
@@ -63,6 +65,8 @@ public final class GuiRts extends GuiScreen {
     private int mouseY = -1;
     /** The y of the bar's top row, for what goes just above it. */
     private int barTop;
+    /** How far between ticks the frame being drawn is, so picking matches what is on screen. */
+    private float partialTicks = 1;
 
     /** Something on a panel: a button when it has an action, else a label or a progress bar. */
     private static final class Widget {
@@ -304,15 +308,21 @@ public final class GuiRts extends GuiScreen {
         for (RtsState.MobInfo mob : state().mobs.values()) {
             candidates.add(new Object[] { "mob", mob });
         }
+        double[] right = camera().right();
         for (Object[] candidate : candidates) {
             RtsState.Thing thing = (RtsState.Thing) candidate[1];
-            double[] at = client.positionOf(thing, 1);
+            double[] at = client.positionOf(thing, partialTicks);
             double[] feet = project(at[0], at[1], at[2]);
             double[] head = project(at[0], at[1] + at[3], at[2]);
-            if (feet == null || head == null) {
+            // Half the width it is drawn at, measured across the screen.
+            double halfWidth = thing instanceof RtsState.MobInfo ? Math.max(0.3, ((RtsState.MobInfo) thing).width / 2)
+                : 0.3;
+            double[] side = project(at[0] + right[0] * halfWidth, at[1], at[2] + right[2] * halfWidth);
+            if (feet == null || head == null || side == null) {
                 continue;
             }
-            double reach = Math.max(PICK_PIXELS, Math.hypot(head[0] - feet[0], head[1] - feet[1]) * 0.35);
+            // Only on the figure as drawn, give or take a few pixels: zoomed out a few pixels span blocks.
+            double reach = Math.max(PICK_MIN, Math.hypot(side[0] - feet[0], side[1] - feet[1]) + PICK_SLACK);
             double distance = distanceToSegment(px, py, feet, head);
             if (distance <= reach && distance < bestDistance) {
                 bestDistance = distance;
@@ -751,6 +761,7 @@ public final class GuiRts extends GuiScreen {
         if (camera() == null) {
             return;
         }
+        this.partialTicks = partialTicks;
         if (mouseX < 0) {
             mouseX = Mouse.getX();
             mouseY = mc.displayHeight - Mouse.getY() - 1;
