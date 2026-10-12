@@ -83,6 +83,8 @@ public final class GuiRts extends GuiScreen {
     private int mouseY = -1;
     /** The y of the bar's top row, for what goes just above it. */
     private int barTop;
+    /** Whether the left button went down on the minimap, which then pans the camera while held. */
+    private boolean minimapDrag;
     /** How far between ticks the frame being drawn is, so picking matches what is on screen. */
     private float partialTicks = 1;
 
@@ -193,6 +195,21 @@ public final class GuiRts extends GuiScreen {
                 }
             }
         }
+        double[] onMap = minimapAt(gx, gy);
+        if (onMap != null && downButton < 0) {
+            if (button == 0) {
+                minimapDrag = true;
+                client.focusOn(onMap[0], onMap[1]);
+            } else if (button == 1 && !client.selected.isEmpty() && state().myTeam() != null) {
+                double y = mc.theWorld.getHeightValue((int) Math.floor(onMap[0]), (int) Math.floor(onMap[1]));
+                client.mark(onMap[0], y, onMap[1], false);
+                JsonObject body = unitsBody(client.selected);
+                body.addProperty("x", onMap[0]);
+                body.addProperty("z", onMap[1]);
+                client.command("units.move", body, null);
+            }
+            return;
+        }
         if (downButton >= 0 || overPanel(gx, gy)) {
             return;
         }
@@ -200,12 +217,19 @@ public final class GuiRts extends GuiScreen {
         downX = lastX = px;
         downY = lastY = py;
         moved = false;
-        box = button == 0 && client.placing == null && state().myTeam() != null;
+        box = button == 0 && client.placing == null && !client.lighting && state().myTeam() != null;
     }
 
     private void drag(int px, int py) {
         if (client.placing != null) {
             movePlacing(px, py);
+        }
+        if (minimapDrag) {
+            double[] onMap = minimapAt(guiX(px), guiY(py));
+            if (onMap != null) {
+                client.focusOn(onMap[0], onMap[1]);
+            }
+            return;
         }
         if (downButton < 0) {
             return;
@@ -233,6 +257,10 @@ public final class GuiRts extends GuiScreen {
             pressedWidget = null;
             return;
         }
+        if (minimapDrag && button == 0) {
+            minimapDrag = false;
+            return;
+        }
         if (button != downButton) {
             return;
         }
@@ -254,6 +282,8 @@ public final class GuiRts extends GuiScreen {
         if (key == Keyboard.KEY_ESCAPE) {
             if (client.placing != null) {
                 client.stopPlacing();
+            } else if (client.lighting) {
+                client.stopLighting();
             } else if (!client.selected.isEmpty() || client.selectedBuilding != 0) {
                 client.selected.clear();
                 client.selectedBuilding = 0;
@@ -263,6 +293,8 @@ public final class GuiRts extends GuiScreen {
             }
         } else if (key == client.toggleKey.getKeyCode()) {
             client.leave();
+        } else if (key == client.teamsKey.getKeyCode()) {
+            mc.displayGuiScreen(new GuiTeams(client));
         } else if (key == Keyboard.KEY_Q) {
             camera.turn(-1);
         } else if (key == Keyboard.KEY_E) {
@@ -464,6 +496,14 @@ public final class GuiRts extends GuiScreen {
             }
             return;
         }
+        if (client.lighting) {
+            if (button == 1) {
+                client.stopLighting();
+            } else if (button == 0) {
+                pickLightCorner(px, py);
+            }
+            return;
+        }
         Hit hit = entityAt(px, py);
         if (button == 1) {
             if (!client.selected.isEmpty()) {
@@ -500,6 +540,31 @@ public final class GuiRts extends GuiScreen {
             client.selectedBuilding = 0;
             client.changedSelection();
         }
+    }
+
+    /** The first click picks one corner of the area to light; the second the other, and the workers go. */
+    private void pickLightCorner(int px, int py) {
+        double[] ground = groundUnder(px, py);
+        if (ground == null) {
+            return;
+        }
+        if (client.lightCorner == null) {
+            client.lightCorner = ground;
+            return;
+        }
+        double[] first = client.lightCorner;
+        client.stopLighting();
+        JsonObject body = unitsBody(client.selectedWorkers());
+        body.addProperty("x1", first[0]);
+        body.addProperty("z1", first[2]);
+        body.addProperty("x2", ground[0]);
+        body.addProperty("z2", ground[2]);
+        client.mark((first[0] + ground[0]) / 2, ground[1], (first[2] + ground[2]) / 2, false);
+        client.command("units.light", body, reply -> {
+            int torches = reply.has("torches") ? reply.get("torches")
+                .getAsInt() : 0;
+            client.showToast("Putting up " + torches + (torches == 1 ? " torch" : " torches"), false);
+        });
     }
 
     private void order(int px, int py, Hit hit) {
@@ -709,6 +774,8 @@ public final class GuiRts extends GuiScreen {
                     return "taking " + RtsState.amountsText(unit.carrying) + " to store";
                 }
                 return unit.chopping ? "chopping a tree" : "on the way to a tree";
+            case "light":
+                return "putting up torches, " + unit.torches + " to go";
             default:
                 return unit.isWorker() ? "idle" : "on guard";
         }
@@ -737,6 +804,11 @@ public final class GuiRts extends GuiScreen {
     private Object[] hint(int px, int py) {
         if (state().game == null || client.placing != null) {
             return null;
+        }
+        if (client.lighting) {
+            return new Object[] { new ItemStack(Blocks.torch),
+                client.lightCorner == null ? "Click one corner of the area to light" : "Click the opposite corner",
+                "act" };
         }
         RtsState.TeamInfo team = state().myTeam();
         int fighters = 0;
@@ -873,9 +945,11 @@ public final class GuiRts extends GuiScreen {
         if (mc.gameSettings.hideGUI) {
             return;
         }
+        drawLightArea();
         drawTeamPanel();
         drawBar();
         drawHelp();
+        drawMinimap();
         for (Widget widget : widgets) {
             drawWidget(widget);
         }
@@ -888,6 +962,84 @@ public final class GuiRts extends GuiScreen {
             fontRendererObj.drawStringWithShadow(toast, x + 6, y + 3, 0xFFFFFF);
         }
         drawTips();
+    }
+
+    private int minimapSize() {
+        return Math.max(64, Math.min(120, height / 3));
+    }
+
+    /** The world x, z under a point on the minimap, or null if the point is not on it. */
+    private double[] minimapAt(int gx, int gy) {
+        if (state().game == null || mc.gameSettings.hideGUI) {
+            return null;
+        }
+        int size = minimapSize();
+        return client.minimap.worldAt(gx, gy, width - size - 6, height - size - 6, size);
+    }
+
+    private void drawMinimap() {
+        if (state().game == null) {
+            return;
+        }
+        int size = minimapSize();
+        client.minimap.update(state().game);
+        client.minimap.draw(client, width - size - 6, height - size - 6, size, viewFrame());
+        GL11.glColor4f(1, 1, 1, 1);
+    }
+
+    /** Where the corners of the screen meet the ground around what the camera looks at, as x, z. */
+    private double[][] viewFrame() {
+        RtsCamera camera = camera();
+        int[][] corners = { { 0, 0 }, { mc.displayWidth, 0 }, { mc.displayWidth, mc.displayHeight },
+            { 0, mc.displayHeight } };
+        double[][] frame = new double[4][];
+        for (int i = 0; i < 4; i++) {
+            double[] ray = camera.ray(corners[i][0], corners[i][1], mc.displayWidth, mc.displayHeight);
+            // Rays that miss the ground, toward the horizon, are cut off a few camera distances out.
+            double t = ray[4] < -0.05 ? (camera.focusY - ray[1]) / ray[4] : camera.distance * 4;
+            t = Math.min(t, camera.distance * 4);
+            frame[i] = new double[] { ray[0] + ray[3] * t, ray[2] + ray[5] * t };
+        }
+        return frame;
+    }
+
+    /** The area workers are about to light, from its first corner to the ground under the mouse. */
+    private void drawLightArea() {
+        if (!client.lighting || client.lightCorner == null) {
+            return;
+        }
+        double[] other = groundUnder(mouseX, mouseY);
+        if (other == null) {
+            return;
+        }
+        double[] a = client.lightCorner;
+        double x0 = Math.floor(Math.min(a[0], other[0]));
+        double x1 = Math.floor(Math.max(a[0], other[0])) + 1;
+        double z0 = Math.floor(Math.min(a[2], other[2]));
+        double z1 = Math.floor(Math.max(a[2], other[2])) + 1;
+        double y = Math.max(a[1], other[1]) + 0.05;
+        double[][] corners = { { x0, z0 }, { x1, z0 }, { x1, z1 }, { x0, z1 } };
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glColor4f(1F, 0.85F, 0.3F, 0.9F);
+        GL11.glLineWidth(2F);
+        net.minecraft.client.renderer.Tessellator tessellator = net.minecraft.client.renderer.Tessellator.instance;
+        tessellator.startDrawing(GL11.GL_LINE_LOOP);
+        for (double[] corner : corners) {
+            double[] p = project(corner[0], y, corner[1]);
+            if (p == null) {
+                tessellator.draw();
+                GL11.glEnable(GL11.GL_TEXTURE_2D);
+                GL11.glColor4f(1, 1, 1, 1);
+                return;
+            }
+            tessellator.addVertex(guiX(p[0]), guiY(p[1]), 0);
+        }
+        tessellator.draw();
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glColor4f(1, 1, 1, 1);
+        String size = (int) (x1 - x0) + " × " + (int) (z1 - z0);
+        fontRendererObj.drawStringWithShadow(size, guiX(mouseX) + 12, guiY(mouseY) - 12, 0xFFE9A8);
     }
 
     private void drawTips() {
@@ -1091,7 +1243,7 @@ public final class GuiRts extends GuiScreen {
     }
 
     private void drawHelp() {
-        String help = "V leave · WASD move · Q/E turn · wheel zoom · H town center";
+        String help = "V leave · WASD move · Q/E turn · wheel zoom · H town center · B teams";
         int w = fontRendererObj.getStringWidth(help);
         drawRect(width - w - 12, 4, width - 4, 17, PANEL);
         fontRendererObj.drawStringWithShadow(help, width - w - 8, 7, 0xB0B0B0);
@@ -1122,6 +1274,13 @@ public final class GuiRts extends GuiScreen {
                     shift -> { client.placing.rotation = (client.placing.rotation + 1) % 4; },
                     true));
             actions.add(button("Cancel", "Esc or right-click", shift -> client.stopPlacing(), true));
+        } else if (client.lighting) {
+            actions.add(
+                label(
+                    client.lightCorner == null ? "Torches: click one corner of the area to light"
+                        : "Torches: now click the opposite corner",
+                    0xC8C8C8));
+            actions.add(button("Cancel", "Esc or right-click", shift -> client.stopLighting(), true));
         } else if (building != null) {
             buildingActions(actions, team, building);
         } else if (!client.selectedWorkers()
@@ -1143,6 +1302,12 @@ public final class GuiRts extends GuiScreen {
                     withIcon(build, id);
                     actions.add(build);
                 }
+                actions.add(
+                    button(
+                        "Torches",
+                        "Light up an area so no mobs spawn there: click two corners. Each torch costs wood",
+                        shift -> client.startLighting(),
+                        true));
             } else {
                 RtsState.BuildingInfo hall = state.townHallOf(team.id);
                 if (hall != null) {
@@ -1366,7 +1531,7 @@ public final class GuiRts extends GuiScreen {
         List<Widget> row = new ArrayList<>();
         int x = left;
         for (Widget widget : items) {
-            if (!row.isEmpty() && x + widget.w > width - left) {
+            if (!row.isEmpty() && x + widget.w > width - left - minimapSize() - 10) {
                 rows.add(row);
                 row = new ArrayList<>();
                 x = left;
@@ -1432,6 +1597,10 @@ public final class GuiRts extends GuiScreen {
 
     /** Whether a point is on a panel rather than over the world. */
     private boolean overPanel(int gx, int gy) {
+        int size = minimapSize();
+        if (state().game != null && gx >= width - size - 8 && gy >= height - size - 8) {
+            return true;
+        }
         if (gy >= barTop - 3 && !widgets.isEmpty()) {
             for (Widget widget : widgets) {
                 if (gy >= widget.y - 3 && gy < widget.y + 17 && gx >= 0 && gx < width) {

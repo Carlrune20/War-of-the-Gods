@@ -63,6 +63,10 @@ public final class RtsClient {
         "key.warofthegods.rts",
         Keyboard.KEY_V,
         "key.categories.warofthegods");
+    public final KeyBinding teamsKey = new KeyBinding(
+        "key.warofthegods.teams",
+        Keyboard.KEY_B,
+        "key.categories.warofthegods");
     public final RtsState state = new RtsState();
     public final RtsWorldRenderer worldRenderer = new RtsWorldRenderer(this);
 
@@ -94,6 +98,11 @@ public final class RtsClient {
     public final Set<String> selected = new LinkedHashSet<>();
     /** Id of the viewer's building whose controls the bar shows, or 0. */
     public int selectedBuilding;
+    /** Whether workers wait for two corners of an area to light up with torches. */
+    public boolean lighting;
+    /** The first corner of that area, x, y, z, once clicked; null before. */
+    public double[] lightCorner;
+    final Minimap minimap = new Minimap();
     /** The building being placed, or null. */
     public Placing placing;
     /** The last order's marker: x, y, z, red, green, blue, and when it was given. */
@@ -125,6 +134,7 @@ public final class RtsClient {
     public static void init() {
         instance = new RtsClient();
         ClientRegistry.registerKeyBinding(instance.toggleKey);
+        ClientRegistry.registerKeyBinding(instance.teamsKey);
         FMLCommonHandler.instance()
             .bus()
             .register(instance);
@@ -231,6 +241,9 @@ public final class RtsClient {
         if (placing != null && selectedWorkers().isEmpty()) {
             placing = null;
         }
+        if (lighting && selectedWorkers().isEmpty()) {
+            stopLighting();
+        }
     }
 
     public Set<String> selectedWorkers() {
@@ -242,6 +255,18 @@ public final class RtsClient {
             }
         }
         return workers;
+    }
+
+    /** Workers wait for the corners of an area to put torches in. */
+    public void startLighting() {
+        placing = null;
+        lighting = true;
+        lightCorner = null;
+    }
+
+    public void stopLighting() {
+        lighting = false;
+        lightCorner = null;
     }
 
     public void showToast(String text, boolean bad) {
@@ -338,6 +363,7 @@ public final class RtsClient {
         renderWeights.clear();
         camera = null;
         placing = null;
+        stopLighting();
         if (mc.currentScreen instanceof GuiRts) {
             mc.displayGuiScreen(null);
         }
@@ -347,6 +373,10 @@ public final class RtsClient {
 
     @SubscribeEvent
     public void onKeyInput(InputEvent.KeyInputEvent event) {
+        if (teamsKey.isPressed() && mc.currentScreen == null && mc.thePlayer != null) {
+            mc.displayGuiScreen(new GuiTeams(this));
+            return;
+        }
         if (toggleKey.isPressed() && mc.currentScreen == null) {
             if (active) {
                 leave();
@@ -588,6 +618,7 @@ public final class RtsClient {
     // ---------------------------------------------------------------- placing and selecting
 
     public void startPlacing(String type) {
+        stopLighting();
         placing = new Placing(type, placing == null ? 0 : placing.rotation);
     }
 

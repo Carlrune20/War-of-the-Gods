@@ -9,6 +9,7 @@ import org.apache.logging.log4j.Logger;
 import com.warofthegods.building.BuildingCommands;
 import com.warofthegods.building.Buildings;
 import com.warofthegods.command.CommandRts;
+import com.warofthegods.command.TeamCommands;
 import com.warofthegods.game.PlayerEvents;
 import com.warofthegods.rts.Commanders;
 import com.warofthegods.rts.EntityCommanderBody;
@@ -16,6 +17,7 @@ import com.warofthegods.rts.RtsNetwork;
 import com.warofthegods.unit.Combat;
 import com.warofthegods.unit.EntityTeamArrow;
 import com.warofthegods.unit.EntityUnit;
+import com.warofthegods.unit.Mobs;
 import com.warofthegods.unit.UnitCommands;
 import com.warofthegods.unit.Units;
 import com.warofthegods.web.WebMap;
@@ -86,6 +88,7 @@ public class WarOfTheGods {
             .register(units);
         ForgeChunkManager.setForcedChunkLoadingCallback(this, units.chunkLoadingCallback());
         MinecraftForge.EVENT_BUS.register(new Combat());
+        MinecraftForge.EVENT_BUS.register(new Mobs());
         UnitCommands.register();
         Buildings buildings = new Buildings();
         FMLCommonHandler.instance()
@@ -93,6 +96,7 @@ public class WarOfTheGods {
             .register(buildings);
         MinecraftForge.EVENT_BUS.register(buildings);
         BuildingCommands.register();
+        TeamCommands.register();
         FMLCommonHandler.instance()
             .bus()
             .register(Commanders.get());

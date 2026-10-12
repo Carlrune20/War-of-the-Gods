@@ -1,6 +1,10 @@
 package com.warofthegods.unit;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import net.minecraft.entity.Entity;
@@ -31,6 +35,7 @@ import com.warofthegods.game.Tree;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.Upgrade;
 import com.warofthegods.rts.Commanders;
+import com.warofthegods.web.WebMap;
 
 /**
  * A unit of a team, with the player model and its team's color on dyed leather armor. Soldiers carry an iron sword
@@ -56,7 +61,9 @@ public class EntityUnit extends EntityCreature {
         /** A soldier attacking an enemy building. */
         ATTACK_BUILDING,
         /** A worker chopping a tree, or carrying the wood to a store. */
-        CHOP
+        CHOP,
+        /** A worker putting up torches. */
+        LIGHT
     }
 
     /** Blocks walked per path before planning the next one. */
@@ -76,6 +83,8 @@ public class EntityUnit extends EntityCreature {
     private static final double ARCHER_BUILDING_RANGE = 9;
     /** How close a worker has to be to the foot of a tree to chop it. */
     private static final double CHOP_REACH = 2.2;
+    /** How close a worker has to be to where a torch goes. */
+    private static final double TORCH_REACH = 2.5;
     /** How far a worker looks for the next tree once one falls. */
     private static final int NEXT_TREE_RANGE = 14;
 
@@ -91,6 +100,8 @@ public class EntityUnit extends EntityCreature {
     private int treeY;
     private int treeZ;
     private int chopTicks;
+    /** Where a worker still has to put torches, in order: x, y, z each. */
+    private final List<int[]> torches = new ArrayList<>();
     private Order order = Order.IDLE;
     private double goalX;
     private double goalZ;
@@ -356,6 +367,8 @@ public class EntityUnit extends EntityCreature {
                 return building == null || building.distanceTo(posX, posZ) <= buildingReach() ? null
                     : building.nearestOutside(posX, posZ);
             }
+            case LIGHT:
+                return torches.isEmpty() ? null : new double[] { torches.get(0)[0] + 0.5, torches.get(0)[2] + 0.5 };
             case CHOP: {
                 if (delivering) {
                     Building store = store();
@@ -409,6 +422,23 @@ public class EntityUnit extends EntityCreature {
         targetId = null;
         defending = false;
         startOrder();
+    }
+
+    /** Sends a worker to put torches on the spots, one after another. */
+    void orderLight(List<int[]> spots) {
+        order = Order.LIGHT;
+        torches.clear();
+        torches.addAll(spots);
+        working = false;
+        target = null;
+        targetId = null;
+        defending = false;
+        startOrder();
+    }
+
+    /** How many torches the worker still has to put up. */
+    public int getTorchesLeft() {
+        return order == Order.LIGHT ? torches.size() : 0;
     }
 
     void orderAttackBuilding(Building building) {
@@ -504,6 +534,9 @@ public class EntityUnit extends EntityCreature {
                 break;
             case CHOP:
                 tickChop();
+                break;
+            case LIGHT:
+                tickLight();
                 break;
             default:
                 tickGuard();
@@ -672,6 +705,57 @@ public class EntityUnit extends EntityCreature {
         if (wood[Resource.WOOD.ordinal()] > 0) {
             gather(wood);
         }
+    }
+
+    /**
+     * Walks to each spot in turn and puts a torch there, paying for it in wood, unless the spot has been lit or built
+     * on meanwhile. Out of wood, or out of spots, it stands guard where it is.
+     */
+    private void tickLight() {
+        if (torches.isEmpty()) {
+            getNavigator().clearPathEntity();
+            guardHere();
+            return;
+        }
+        int[] spot = torches.get(0);
+        if (!Torches.stillDark(worldObj, spot[0], spot[1], spot[2])) {
+            torches.remove(0);
+            startOrder();
+            return;
+        }
+        if (distanceTo(spot[0] + 0.5, spot[2] + 0.5) > TORCH_REACH || Math.abs(posY - spot[1]) > 3) {
+            if (getNavigator().noPath() && --planTicks <= 0) {
+                planTicks = 20;
+                walkToward(spot[0] + 0.5, spot[2] + 0.5);
+            }
+            if (!madeProgress()) {
+                // Cannot get there: on to the next one.
+                torches.remove(0);
+                startOrder();
+            }
+            return;
+        }
+        Game game = GameManager.getGame();
+        Team team = game == null ? null : game.getTeam(teamId);
+        if (team == null) {
+            return;
+        }
+        if (Config.torchWood > 0) {
+            Map<Resource, Long> cost = new EnumMap<>(Resource.class);
+            cost.put(Resource.WOOD, (long) Config.torchWood);
+            if (!team.spend(cost)) {
+                getNavigator().clearPathEntity();
+                guardHere();
+                return;
+            }
+        }
+        getLookHelper().setLookPosition(spot[0] + 0.5, spot[1], spot[2] + 0.5, 10, 30);
+        swingItem();
+        worldObj.setBlock(spot[0], spot[1], spot[2], Blocks.torch, 5, 3);
+        worldObj.playSoundEffect(spot[0] + 0.5, spot[1] + 0.5, spot[2] + 0.5, "dig.wood", 0.6F, 1.2F);
+        WebMap.blocksChanged(worldObj, spot[0], spot[2], spot[0], spot[2]);
+        torches.remove(0);
+        startOrder();
     }
 
     /** The nearest town hall or storehouse of the unit's team, or null. */
@@ -1027,6 +1111,11 @@ public class EntityUnit extends EntityCreature {
         tag.setBoolean("Delivering", delivering);
         tag.setInteger("Number", number);
         tag.setIntArray("Tree", new int[] { treeX, treeY, treeZ });
+        int[] spots = new int[torches.size() * 3];
+        for (int i = 0; i < torches.size(); i++) {
+            System.arraycopy(torches.get(i), 0, spots, i * 3, 3);
+        }
+        tag.setIntArray("Torches", spots);
         // A fight picked up while guarding is not worth keeping; the unit is back on guard after a restart.
         tag.setString("Order", defending ? Order.IDLE.name() : order.name());
         tag.setDouble("GoalX", goalX);
@@ -1057,6 +1146,11 @@ public class EntityUnit extends EntityCreature {
             treeX = tree[0];
             treeY = tree[1];
             treeZ = tree[2];
+        }
+        torches.clear();
+        int[] spots = tag.getIntArray("Torches");
+        for (int i = 0; i + 2 < spots.length; i += 3) {
+            torches.add(new int[] { spots[i], spots[i + 1], spots[i + 2] });
         }
         try {
             order = Order.valueOf(tag.getString("Order"));

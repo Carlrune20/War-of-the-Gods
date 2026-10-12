@@ -13,7 +13,7 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | Command | What it does |
 |---|---|
 | `/rts info` | Show the current game: map area, teams, resources, alliances. |
-| `/rts newgame [teams] [mapSize] [seed]` | (op) End the current game and start a new one on a freshly generated map, moving everyone online onto it. Defaults: 2 teams, 1000x1000 map, random seed. Teams are named after their color: Red, Blue, Green... |
+| `/rts newgame [teams] [mapSize] [seed]` | (op) End the current game and start a new one on a freshly generated map, moving everyone online onto it and sharing them out over the teams. Defaults: 2 teams, 1000x1000 map, random seed. Teams are named after their color: Red, Blue, Green... |
 | `/rts endgame` | (op) End the current game. |
 | `/rts spawn [player]` | Go to the middle of the game map (sending someone else needs op). |
 | `/rts team list` | List teams with their members and resources. |
@@ -23,6 +23,7 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts team faction <name> <saradomin\|zamorak>` | (op) Change which god a team follows, and so how its buildings and units look. |
 | `/rts team join <team> [player]` | Join a team (moving someone else needs op). |
 | `/rts team leave [player]` | Leave your team (removing someone else needs op). |
+| `/rts team auto [all]` | (op) Put everyone online who is on no team on the team with the fewest players; with `all`, share everyone out afresh. |
 | `/rts team base <team> [x z]` | (op) Move a team's base to x z or to where you stand; a new town center goes up there. |
 | `/rts ally <team> <team>` / `/rts unally <team> <team>` | (op) Make or break an alliance. |
 | `/rts resources [team]` | Show a team's Food, Wood, Stone and Metal (your own team by default). |
@@ -38,6 +39,8 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts upgrade <building id>` | (op) Take a building up a level at once, for free. |
 | `/rts research <team> <upgrade>` | (op) Give a team an upgrade at once, such as `forged_blades`. |
 | `/rts chop <team>` | (op) Send a team's idle workers to chop the tree nearest its town center. |
+| `/rts light <team> [x1 z1 x2 z2]` | (op) Send a team's idle workers to put torches in the dark parts of an area, or around its town center. |
+| `/rts explode <building id>` | (op) Set off a creeper-sized explosion beside a building, hurting no one, to see what it does to the building. |
 | `/rts finish [team]` | (op) Finish every building site at once. |
 | `/rts damage <building id> <amount>` | (op) Take health off a building; at 0 it is gone. The id is the `#` number `/rts buildings` shows. |
 | `/rts web` | Get a link to the live web map. From the server console it gives an observer link. |
@@ -55,6 +58,15 @@ the map is an island.
 
 An invisible wall at the edge of the playable square stops players and mobs: anything that crosses it is put back
 inside, arrows are removed, mobs do not spawn outside it and blocks outside it cannot be broken or placed.
+
+Every new game starts at sunrise, and it never rains on the game map. Players online when a game starts are shared
+out over the teams, and players who log in later with no team join the team with the fewest players; press **B**
+for the team menu to change.
+
+Hostile mobs keep away from towns: none spawn within 40 blocks of a town center, and fewer the closer they are out to
+96 blocks. Out in the wilderness zombies and skeletons come in groups of two to four, many wear armor and some
+skeletons carry swords. Zombies and skeletons go after units as well as players. Creepers are rare and endermen do
+not spawn. All of this can be changed in the config.
 
 Players who log in while a game is running are moved onto its map (unless they are already on it), and players
 who die on the map respawn in its middle. The overworld is untouched.
@@ -126,7 +138,9 @@ Buildings have health. A building site starts with a tenth of it and gains the r
 loses health it looks it: at three quarters, half and a quarter it shows holes, cracks, cobwebs and rubble. Enemy
 warriors take 10 off with every hit and archers 5 with every arrow: ordered to, or on their own when an enemy building
 is near where they guard. Players cannot break a building's blocks: when an enemy player tries, the block stays and
-the building loses 5 health. Players in creative mode break blocks as usual. At 0 health a building falls to a ruin,
+the building loses 5 health, except for blocks that break in a moment, such as torches, glass, beds, ladders and
+wool, which do it no harm. Explosions, such as creepers going off, break nothing within 2 blocks of a building or
+building site; the building loses up to 120 health instead, the more the closer they go off. Players in creative mode break blocks as usual. At 0 health a building falls to a ruin,
 and units training there are lost. A destroyed town center does not come back.
 
 A team can have as many units as its town center and houses house, up to 50. Buildings need a spot inside the map,
@@ -135,7 +149,12 @@ anything above the building is cleared. The structures are drawn by `tools/struc
 `assets/warofthegods/structures/<faction>`, and the skins and icons by `tools/textures/generate.py`.
 
 A unit that has no orders guards the spot where it stopped: it fights enemies that come within 10 blocks and walks
-back once they are dead or more than 20 blocks from its post. Units also fight back when hit. Enemies are units and
+back once they are dead or more than 20 blocks from its post. Creepers it leaves alone unless ordered to attack one,
+as fighting one up close only sets it off.
+
+Workers put up torches to keep mobs from spawning: select workers, press Torches and click two corners of an area,
+up to 64 blocks each way. They put a torch, for 1 wood, wherever the area is dark enough for mobs, leaving buildings
+alone. Units also fight back when hit. Enemies are units and
 players of teams that are not allied, and hostile mobs. Ordered to attack, a unit chases its target until one of
 them dies.
 
@@ -175,6 +194,7 @@ Commanding units, from the bar at the bottom of the page:
 | Farm / House / Barracks / ... | With workers selected: a see-through copy follows the pointer, green where it fits and red where it does not. R or Rotate turns it a quarter round, click places it (shift-click to place more), right-click or Esc cancels |
 | Right-click one of your building sites, farms or quarries | Send the selected workers to build or work it |
 | Right-click a tree | Send the selected workers to chop it |
+| Torches | With workers selected: click two corners of an area for them to light up against mobs |
 | Click one of your units | Select it; shift-click adds or removes it |
 | Shift-drag, or Box then drag | Select your units inside the box |
 | Double-click one of your units | Select all of your units in view |
@@ -246,6 +266,9 @@ way and goes through the same commands, so the web map and the in-game view can 
 | Right-click | Move, attack (enemies and mobs), build or work, as on the web map |
 | Click one of your buildings | Its controls in the bar, such as Train |
 | H / Space | Go to your town center / to the selected units |
+| Minimap (bottom right) | Click or drag to move the camera there; right-click to send the selected units there. It shows the map as far as your client has seen it, with buildings, units and hostile mobs, and the part in view outlined |
+| Torches | With workers selected: click two corners of an area for them to light up |
+| B | The team menu, in the view or in person: join or leave a team; ops click a player to move them, or fill or shuffle the teams |
 | T or / | Chat, without leaving the view |
 | V, or Esc with nothing selected | Back to playing in person |
 
@@ -255,8 +278,8 @@ armor; the team panel shows your health. If it dies, you die there, drop what yo
 screen. Pressing V again puts you back into it, wherever it was pushed. Meanwhile the real you floats unseen and
 unhurt over the spot the camera looks at, so the world there stays loaded for you, and you see
 in the dark. The view only shows what your client has loaded, so the camera stays within your render distance of the
-spot it looks at; the web map shows the whole map. Hostile mobs such as zombies only go after real players, so they
-leave a commander's body alone for now.
+spot it looks at; the web map shows the whole map. Hostile mobs go after real players and units, but leave a commander's
+body alone for now.
 
 ## Config
 
@@ -266,7 +289,10 @@ section sets what warriors, archers and workers cost, how many a team may have, 
 takes; the `buildings` section sets what each building costs, its health and build time, what going up a level
 costs, how many units the town center and houses house, how far and hard towers shoot, how much wood trees hold and
 how fast workers chop, how much farms and quarries bring in, how much a worker carries and how much damage warriors
-and enemy players do to buildings. The `web`
+and enemy players and explosions do to buildings. The `games` section sets whether players are shared out over the
+teams, whether it rains and the time of day games start at; the `mobs` section how rare creepers are, whether
+endermen spawn, how far from town centers mobs keep, how big wilderness groups get and how often mobs wear armor or
+carry swords. The `web`
 section turns the web map on or off and sets its port, listen address, public address, how long links and logins
 last, and how much of each server tick may go to drawing the map. The `rts` section sets how often players in the in-game
 RTS view get live updates, and, in a player's own client config, the camera's field of view and whether the mouse at

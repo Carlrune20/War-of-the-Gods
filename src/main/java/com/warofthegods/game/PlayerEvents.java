@@ -5,6 +5,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
+import com.warofthegods.Config;
 import com.warofthegods.world.GameWorld;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -22,6 +23,9 @@ public class PlayerEvents {
         game.updatePlayerName(player.getUniqueID(), player.getCommandSenderName());
 
         Team team = game.getTeamOf(player.getUniqueID());
+        if (team == null && Config.autoAssignTeams) {
+            team = GameManager.autoAssign(game, player);
+        }
         String message = team == null
             ? "War of the Gods game #" + game.getNumber() + " is running. Use /rts team list to see the teams."
             : "War of the Gods game #" + game

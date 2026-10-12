@@ -13,6 +13,7 @@ import java.util.UUID;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.monster.EntityCreeper;
 import net.minecraft.entity.monster.IMob;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.AxisAlignedBB;
@@ -361,6 +362,25 @@ public final class Units {
         return sent;
     }
 
+    /**
+     * Shares the spots out among the workers, each taking a stretch of them in order, to put torches on; returns how
+     * many went.
+     */
+    public int orderLight(List<EntityUnit> units, List<int[]> spots) {
+        List<EntityUnit> workers = new ArrayList<>();
+        for (EntityUnit unit : units) {
+            if (unit.isWorker()) {
+                workers.add(unit);
+            }
+        }
+        int sent = Math.min(workers.size(), spots.size());
+        for (int i = 0; i < sent; i++) {
+            workers.get(i)
+                .orderLight(spots.subList(i * spots.size() / sent, (i + 1) * spots.size() / sent));
+        }
+        return sent;
+    }
+
     /** Sends soldiers to attack an enemy building; returns how many went. */
     public int orderAttackBuilding(List<EntityUnit> units, Building building) {
         int sent = 0;
@@ -494,14 +514,17 @@ public final class Units {
         return best;
     }
 
-    /** The nearest enemy the unit can see within range, or null. */
+    /**
+     * The nearest enemy the unit can see within range, or null. Creepers are left alone unless ordered: fighting one
+     * up close only sets it off.
+     */
     EntityLivingBase findEnemyNear(EntityUnit unit, double range) {
         EntityLivingBase best = null;
         double bestDistance = range * range;
         for (Object object : unit.worldObj
             .getEntitiesWithinAABB(EntityLivingBase.class, unit.boundingBox.expand(range, 4, range))) {
             EntityLivingBase other = (EntityLivingBase) object;
-            if (other == unit || !other.isEntityAlive() || !isEnemy(unit, other)) {
+            if (other == unit || !other.isEntityAlive() || other instanceof EntityCreeper || !isEnemy(unit, other)) {
                 continue;
             }
             double distance = unit.getDistanceSqToEntity(other);

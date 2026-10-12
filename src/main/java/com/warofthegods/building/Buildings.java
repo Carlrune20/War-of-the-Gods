@@ -4,18 +4,25 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import net.minecraft.block.Block;
+import net.minecraft.block.material.Material;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.monster.EntityCreeper;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.world.ChunkPosition;
+import net.minecraft.world.Explosion;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.DimensionManager;
 import net.minecraftforge.event.world.BlockEvent;
+import net.minecraftforge.event.world.ExplosionEvent;
 
 import com.warofthegods.Config;
 import com.warofthegods.WarOfTheGods;
@@ -755,7 +762,16 @@ public final class Buildings {
         Team breaker = game.getTeamOf(
             event.getPlayer()
                 .getUniqueID());
-        if (owner != null && breaker != null && game.areEnemies(breaker, owner)) {
+        if (isFlimsy(event.block.getBlockHardness(event.world, event.x, event.y, event.z), event.block)) {
+            // Torches, glass, beds and the like break in a moment; picking at them would knock a building down for
+            // free.
+            event.getPlayer()
+                .addChatMessage(
+                    new ChatComponentText(
+                        EnumChatFormatting.GRAY + "That is part of the "
+                            + building.describe(game)
+                            + "; breaking it does the building no harm."));
+        } else if (owner != null && breaker != null && game.areEnemies(breaker, owner)) {
             damage(
                 building,
                 Config.blockBreakDamage,
@@ -768,6 +784,83 @@ public final class Buildings {
                         EnumChatFormatting.GRAY + "That is part of the "
                             + building.describe(game)
                             + "; only enemies can damage it."));
+        }
+    }
+
+    /** Set while an explosion that should hurt no one goes off. */
+    private boolean harmless;
+
+    /** An explosion that breaks blocks and damages buildings as a creeper's would, but hurts no one: for testing. */
+    public void explodeHarmlessly(WorldServer world, double x, double y, double z, float size) {
+        harmless = true;
+        try {
+            world.createExplosion(null, x, y, z, size, true);
+        } finally {
+            harmless = false;
+        }
+    }
+
+    /** Blocks so quick to break, such as torches, glass and beds, that breaking one does a building no harm. */
+    static boolean isFlimsy(float hardness, Block block) {
+        return hardness < 0.5F || block.getMaterial() == Material.glass
+            || block == Blocks.bed
+            || block == Blocks.ladder
+            || block == Blocks.wool
+            || block == Blocks.carpet;
+    }
+
+    /**
+     * Explosions near buildings, such as creepers going off, take health off them instead of blowing holes in them:
+     * nothing within {@link Config#explosionProtection} blocks of a building or building site breaks.
+     */
+    @SubscribeEvent
+    public void onDetonate(ExplosionEvent.Detonate event) {
+        if (event.world.isRemote || !GameWorld.isGameWorld(event.world)) {
+            return;
+        }
+        if (harmless) {
+            event.getAffectedEntities()
+                .clear();
+        }
+        Game game = GameManager.getGame();
+        if (game == null) {
+            return;
+        }
+        Explosion explosion = event.explosion;
+        int pad = Config.explosionProtection;
+        double reach = explosion.explosionSize * 2 + 1;
+        for (Building building : new ArrayList<>(game.getBuildings())) {
+            if (building.getShown() == null) {
+                continue;
+            }
+            Schematic schematic = schematic(building.type);
+            int top = building.groundY + schematic.height - schematic.ground;
+            Iterator<ChunkPosition> blocks = event.getAffectedBlocks()
+                .iterator();
+            while (blocks.hasNext()) {
+                ChunkPosition block = blocks.next();
+                if (building.covers(block.chunkPosX + 0.5, block.chunkPosZ + 0.5, pad)
+                    && block.chunkPosY >= building.groundY - pad
+                    && block.chunkPosY <= top + pad) {
+                    blocks.remove();
+                }
+            }
+            double dx = Math.max(
+                0,
+                Math.max(building.minX - explosion.explosionX, explosion.explosionX - (building.getMaxX() + 1)));
+            double dz = Math.max(
+                0,
+                Math.max(building.minZ - explosion.explosionZ, explosion.explosionZ - (building.getMaxZ() + 1)));
+            double dy = Math.max(0, Math.max(building.groundY - explosion.explosionY, explosion.explosionY - top));
+            double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (distance < reach) {
+                int amount = (int) Math.round(
+                    Config.explosionBuildingDamage * (1 - distance / reach) * Math.min(2, explosion.explosionSize / 3));
+                if (amount > 0) {
+                    String cause = explosion.exploder instanceof EntityCreeper ? "a creeper exploded" : "an explosion";
+                    damage(building, amount, cause);
+                }
+            }
         }
     }
 }

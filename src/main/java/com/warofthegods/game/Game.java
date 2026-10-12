@@ -173,6 +173,20 @@ public class Game {
         return Team.COLORS[0];
     }
 
+    /** The team with the fewest players, the first such in order on a tie; null when there are no teams. */
+    public Team getSmallestTeam() {
+        Team smallest = null;
+        for (Team team : teams.values()) {
+            if (smallest == null || team.getMembers()
+                .size()
+                < smallest.getMembers()
+                    .size()) {
+                smallest = team;
+            }
+        }
+        return smallest;
+    }
+
     public Team getTeamOf(UUID player) {
         for (Team team : teams.values()) {
             if (team.getMembers()

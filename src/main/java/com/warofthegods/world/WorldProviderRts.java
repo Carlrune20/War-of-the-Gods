@@ -6,6 +6,7 @@ import net.minecraft.world.biome.BiomeGenBase;
 import net.minecraft.world.biome.WorldChunkManagerHell;
 import net.minecraft.world.chunk.IChunkProvider;
 
+import com.warofthegods.Config;
 import com.warofthegods.game.Game;
 
 /**
@@ -37,6 +38,19 @@ public class WorldProviderRts extends WorldProvider {
     @Override
     public String getDimensionName() {
         return "War of the Gods";
+    }
+
+    /** Unless rain is turned on, the game map stays dry whatever the weather does elsewhere. */
+    @Override
+    public void updateWeather() {
+        if (Config.rain) {
+            super.updateWeather();
+            return;
+        }
+        worldObj.prevRainingStrength = 0;
+        worldObj.rainingStrength = 0;
+        worldObj.prevThunderingStrength = 0;
+        worldObj.thunderingStrength = 0;
     }
 
     @Override

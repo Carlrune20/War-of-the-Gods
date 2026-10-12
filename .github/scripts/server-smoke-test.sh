@@ -3,7 +3,7 @@
 # boot checks the game and its map came back from the save intact, then starts a new game to check numbering
 # continues and the old map is replaced by a fresh one. The third checks the web map, units and buildings: town
 # centers, a worker building a farm, working it and carrying the harvest home, a barracks training warriors and
-# archers, a storehouse and building health down to 0, a house, a tower, levels, upgrades and chopping a tree. The fourth checks that units and buildings come back after a restart.
+# archers, a storehouse and building health down to 0, a house, a tower, levels, upgrades, chopping a tree, an explosion and torches. The fourth checks that units and buildings come back after a restart.
 set -uo pipefail
 
 TIMEOUT="${SERVER_TIMEOUT:-600}"
@@ -50,6 +50,7 @@ reject() {
 GAMES_DIR=run/server/world/warofthegods
 
 boot boot-1-setup "rts newgame 3 1000 12345
+rts team auto
 rts team create Zombies dark_green
 rts ally red blue
 rts resources give red wood 50
@@ -63,6 +64,7 @@ expect boot-1-setup.log "Game #1 has started on a 1000x1000 map"
 expect boot-1-setup.log "Created team Zombies"
 expect boot-1-setup.log "Red and Blue are now allies."
 expect boot-1-setup.log "Removed team Zombies"
+expect boot-1-setup.log "Everyone online is on a team already"
 expect boot-1-setup.log "Game world ready in dimension 77"
 expect boot-1-setup.log "World: dimension 77, seed 12345"
 spawn1=$(grep -oE 'Spawn: -?[0-9]+,-?[0-9]+,-?[0-9]+' boot-1-setup.log | head -1)
@@ -137,6 +139,8 @@ wait_for_log "Done (" "$TIMEOUT"
 wait_for_log "Web map listening on 0.0.0.0:$WEB_PORT" 5
 echo "ok: web map listening"
 echo "rts newgame 2 256 4242" >&3
+# Daylight all through, so no hostile mobs come after the units being counted.
+echo "gamerule doDaylightCycle false" >&3
 echo "rts web" >&3
 wait_for_log "Web map observer link" 60
 token=$(grep -oE 'localhost:8124/\?token=[0-9a-f]+' "$WEB_LOG" | tail -1 | cut -d= -f2)
@@ -282,6 +286,31 @@ done
 [ "${wood:-0}" -gt "${wood_before:-0}" ] || web_fail "no wood came in from the tree: $wood_before, then $wood"
 echo "ok: Blue wood went from $wood_before to $wood"
 
+# An explosion beside the tower takes health off it but breaks none of its blocks.
+echo "rts explode 7" >&3
+wait_for_log "The explosion took" 30
+grep -qE "The explosion took [1-9][0-9]* health off Blue tower #7 and broke 0 of its blocks" "$WEB_LOG" \
+    || web_fail "the explosion did not just damage the tower: $(grep -oE 'The explosion took .*' "$WEB_LOG" | tail -1)"
+echo "ok: $(grep -oE 'The explosion took .*' "$WEB_LOG" | tail -1)"
+
+# A worker puts torches up around the town center; afterwards fewer spots are left dark.
+echo "rts units spawn blue 1 worker" >&3
+sleep 2
+echo "rts light blue" >&3
+wait_for_log "torches" 30
+dark_before=$(grep -oE 'workers of Blue to put up [0-9]+ torches' "$WEB_LOG" | tail -1 | grep -oE '[0-9]+ torches' | grep -oE '[0-9]+')
+grep -qE "Sent 1 workers of Blue to put up [1-9][0-9]* torches" "$WEB_LOG" || web_fail "no worker went to put up torches"
+dark_after=$dark_before
+for _ in $(seq 30); do
+    sleep 2
+    echo "rts light blue" >&3
+    sleep 1
+    dark_after=$(grep -oE 'workers of Blue to put up [0-9]+ torches' "$WEB_LOG" | tail -1 | grep -oE '[0-9]+ torches' | grep -oE '[0-9]+')
+    [ "${dark_after:-0}" -lt "${dark_before:-0}" ] && break
+done
+[ "${dark_after:-0}" -lt "${dark_before:-0}" ] || web_fail "no torches went up: $dark_before spots, then $dark_after"
+echo "ok: $dark_before dark spots, then $dark_after"
+
 stop_server
 cat "$WEB_LOG"
 grep -q 'Stopping server' "$WEB_LOG" || fail "boot-3-web: server did not stop cleanly"
@@ -312,7 +341,7 @@ cat "$WEB_LOG"
 if grep -qE 'This crash report has been saved|Encountered an unexpected exception' "$WEB_LOG"; then
     fail "boot-4-units: server crashed"
 fi
-expect "$WEB_LOG" "Units: Red 3, Blue 7"
+expect "$WEB_LOG" "Units: Red 3, Blue 8"
 expect "$WEB_LOG" "Team Red has 3 units, room for 10"
 expect "$WEB_LOG" "Red warrior 1 at "
 expect "$WEB_LOG" "Red town center #1 at"
