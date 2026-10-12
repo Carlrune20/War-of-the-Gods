@@ -108,7 +108,7 @@ server with many units.
 The mod runs a small web server (port 8124 by default) with a live 3D map of the game, drawn the way the beta map
 editor draws worlds: every block as a flat-coloured box, seen from above at an angle through an RTS camera. It shows
 the terrain, the map border, buildings and building sites, every player and unit on the map in their team's colour (units wear a grey
-helmet, workers a straw hat), and each team's resources, members, units and alliances. Players on a team command their units here.
+helmet, workers a straw hat), every mob (hostile ones dark green with red eyes, animals sandy brown), and each team's resources, members, units and alliances. Players on a team command their units here.
 
 Type `/rts web` in game and click the link. Each link works once and for 10 minutes, and logs that browser in for
 72 hours; restarting the server logs everyone out. A new map is read in the background after `/rts newgame` (or a
@@ -130,7 +130,7 @@ Commanding units, from the bar at the bottom of the page:
 | Control | What it does |
 |---|---|
 | Town hall | Select your town hall |
-| Click one of your buildings | Select it and see its health; a site shows how far it is built, a town hall or barracks its Train button (shift-click trains 5) and training progress |
+| Click one of your buildings | Select it and see its health; a site shows how far it is built, a town hall or barracks its Train button and training progress. Each click queues one more, shift-click 5, up to 10 waiting; they train one at a time |
 | Build farm / barracks / storehouse / quarry | With workers selected: a see-through copy follows the pointer, green where it fits and red where it does not. R or Rotate turns it a quarter round, click places it (shift-click to place more), right-click or Esc cancels |
 | Right-click one of your building sites, farms or quarries | Send the selected workers to build or work it |
 | Click one of your units | Select it; shift-click adds or removes it |
@@ -138,7 +138,7 @@ Commanding units, from the bar at the bottom of the page:
 | Double-click one of your units | Select all of your units in view |
 | All / Clear / Esc | Select all your units, or none |
 | Right-click the ground | Send the selected units there, in formation |
-| Right-click an enemy unit, player or building | Attack it (workers stay out of it) |
+| Right-click an enemy unit, player or building, or any mob | Attack it (workers stay out of it) |
 | Hover a unit or building | A tooltip says what it is and what it is doing, or what a right-click would do with the selected units, such as ⚔️ Attack Blue soldier 3 |
 | Stop | Stop and guard where they stand |
 | On a touch screen | Tap your units to select them, then tap the ground or an enemy to give the order |
@@ -187,6 +187,31 @@ web {
 To use another port, change both sides together, for example `"8200:8200"` with `I:port=8200`, or keep the
 container port and map a different host port (`"8200:8124"`) with `publicUrl` ending in `:8200`.
 
+## The in-game RTS view
+
+Players with the mod can command from inside Minecraft too: press **V** on the game map (rebind it under Controls,
+War of the Gods) and the camera lifts above the world, looking down at an angle like the web map. The mouse is free,
+and the same panels, buttons and tooltips as on the web map are drawn over the real world. Everything works the same
+way and goes through the same commands, so the web map and the in-game view can be used side by side.
+
+| Control | What it does |
+|---|---|
+| WASD or the arrow keys, or the mouse at the edge of the window | Move the camera (hold shift for faster) |
+| Q / E | Turn a quarter round |
+| Wheel / Ctrl + wheel | Zoom / tilt |
+| Middle-drag / right-drag | Move the camera / turn and tilt it |
+| Click, shift-click, double-click, drag a box | Select your units, as on the web map |
+| Right-click | Move, attack (enemies and mobs), build or work, as on the web map |
+| Click one of your buildings | Its controls in the bar, such as Train |
+| H / Space | Go to your town hall / to the selected units |
+| T or / | Chat, without leaving the view |
+| V, or Esc with nothing selected | Back to playing in person |
+
+While you command, your body hovers invisible and unhurt over the spot the camera looks at, so the world there stays
+loaded for you, and you see in the dark. Leaving puts you back where you were when you pressed V. Units never attack
+a player who is commanding. The view only shows what your client has loaded, so the camera stays within your render
+distance of the spot it looks at; the web map shows the whole map.
+
 ## Config
 
 `config/warofthegods.cfg`: default map size, default team count, whether players may join teams themselves,
@@ -195,7 +220,9 @@ section sets what soldiers and workers cost, how many a team may have, their hea
 the `buildings` section sets what each building costs, its health and build time, how much farms and quarries bring
 in, how much a worker carries and how much damage soldiers and enemy players do to buildings. The `web`
 section turns the web map on or off and sets its port, listen address, public address, how long links and logins
-last, and how much of each server tick may go to drawing the map.
+last, and how much of each server tick may go to drawing the map. The `rts` section sets how often players in the in-game
+RTS view get live updates, and, in a player's own client config, the camera's field of view and whether the mouse at
+the window's edge moves it.
 
 ## Building
 

@@ -51,7 +51,7 @@ final class SocketHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
         } else if (server.getInbox()
             .size() < MAX_QUEUED) {
                 server.getInbox()
-                    .add(new WebRequest(viewer, ctx.channel(), type, body));
+                    .add(new WebRequest(viewer, message -> WebServer.send(ctx.channel(), message), type, body));
             }
     }
 

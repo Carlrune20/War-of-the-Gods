@@ -5,7 +5,7 @@
 //   {type: "game", game: {number, minX, minZ, maxX, maxZ, margin, tileSize, seaLevel, unitKinds, unitsPerTeam,
 //                         trainSeconds, buildingGap, buildingTypes} | null}
 //   {type: "tiles", tiles: {"x,z": version}}   map tiles to (re)load from /api/tile, see MapTiles.java
-//   {type: "state", teams: [...], players: [...], units: [...], buildings: [...]}
+//   {type: "state", teams: [...], players: [...], units: [...], buildings: [...], mobs: [...]}
 //   {type: "error", error, replyTo}
 // The page sends {type: "hello"} once connected, and commands such as unit orders as {type, id, ...};
 // see command(), UnitCommands.java and BuildingCommands.java.
@@ -23,6 +23,7 @@
         teamsById: {},
         players: new Map(), // uuid -> {name, team, x, y, z, yaw, drawX, drawY, drawZ}
         units: new Map(), // id -> {team, number, x, y, z, health, maxHealth, order, toX, toZ, target, drawX...}
+        mobs: new Map(), // id -> {name, hostile, x, y, z, width, height, health, maxHealth, drawX...}
         selected: new Set(), // ids of the viewer's units that orders go to
         // id -> {type, team, x, z, sizeX, sizeZ, y, rotation, complete, built, builders, health, maxHealth, queue,
         // progress, workers}
@@ -172,6 +173,7 @@
             tileQueue.length = 0;
             state.players.clear();
             state.units.clear();
+            state.mobs.clear();
             state.selected.clear();
             state.buildings.clear();
             state.selectedBuilding = null;
@@ -312,6 +314,20 @@
                 state.units.delete(id);
             }
         }
+        const seenMobs = new Set();
+        for (const m of message.mobs || []) {
+            seenMobs.add(m.id);
+            const old = state.mobs.get(m.id);
+            m.drawX = old ? old.drawX : m.x;
+            m.drawY = old ? old.drawY : m.y;
+            m.drawZ = old ? old.drawZ : m.z;
+            state.mobs.set(m.id, m);
+        }
+        for (const id of [...state.mobs.keys()]) {
+            if (!seenMobs.has(id)) {
+                state.mobs.delete(id);
+            }
+        }
         state.buildings.clear();
         for (const b of message.buildings || []) {
             state.buildings.set(b.id, b);
@@ -442,8 +458,13 @@
     }
 
     // Replaces target's children with those of fresh, unless they would look the same.
+    // Compares with what was put in last time rather than with what is there now, since progress bars are filled
+    // in after the swap: otherwise every update would swap again, replacing a button under the pointer before a
+    // click on it could land.
     function swapIfChanged(target, fresh) {
-        if (target.innerHTML !== fresh.innerHTML) {
+        const html = fresh.innerHTML;
+        if (target.wotgHtml !== html) {
+            target.wotgHtml = html;
             target.replaceChildren(...fresh.childNodes);
         }
     }
@@ -838,7 +859,7 @@
         return Math.max(1, view.cam.zoom / 40);
     }
 
-    // The unit or player under a screen point: {kind: "unit"|"player", thing}, or null.
+    // The unit, player or mob under a screen point: {kind: "unit"|"player"|"mob", thing}, or null.
     function entityAt(px, py) {
         const s = figureScale();
         const pixelsPerBlock = canvas.clientHeight / (2 * view.cam.zoom);
@@ -859,14 +880,21 @@
         for (const p of state.players.values()) {
             consider("player", p);
         }
+        for (const m of state.mobs.values()) {
+            consider("mob", m);
+        }
         return best;
     }
 
     function entityId(hit) {
-        return hit.kind === "unit" ? hit.thing.id : hit.thing.uuid;
+        return hit.kind === "player" ? hit.thing.uuid : hit.thing.id;
     }
 
+    // Whether the selected soldiers would attack what was hit on a right-click: enemies, and any mob.
     function isEnemy(hit) {
+        if (hit.kind === "mob") {
+            return true;
+        }
         if (hit.kind === "player" && state.me && hit.thing.uuid === state.me.uuid) {
             return false;
         }
@@ -1164,6 +1192,8 @@
         storehouse: "\uD83D\uDCE6",
         quarry: "\u26CF\uFE0F",
         site: "\uD83D\uDEA7",
+        mob: "\uD83E\uDDDF",
+        animal: "\uD83D\uDC04",
     };
 
     const RESOURCE_ORDER = ["food", "wood", "stone", "metal"];
@@ -1219,7 +1249,14 @@
         if (hit) {
             if (fighters && isEnemy(hit)) {
                 const name = hit.kind === "unit" ? unitName(hit.thing) : hit.thing.name;
-                return {icon: ICONS.attack, text: "Attack " + name, action: "attack"};
+                return {icon: ICONS.attack, text: "Attack " + name + (hit.kind === "mob"
+                    ? " \u00B7 " + Math.ceil(hit.thing.health) + "/" + Math.ceil(hit.thing.maxHealth) : ""),
+                action: "attack"};
+            }
+            if (hit.kind === "mob") {
+                const m = hit.thing;
+                return {icon: m.hostile ? ICONS.mob : ICONS.animal, text: m.name + (m.hostile ? "" : " (passive)")
+                    + " \u00B7 " + Math.ceil(m.health) + "/" + Math.ceil(m.maxHealth)};
             }
             if (hit.kind === "player") {
                 const t = state.teamsById[hit.thing.team];
@@ -1365,6 +1402,8 @@
     }
 
     const STRAW = [0.86, 0.74, 0.42, 1];
+    const MOB = [0.24, 0.42, 0.25, 1];
+    const ANIMAL = [0.72, 0.6, 0.45, 1];
 
     // Column heights of a building type turned a number of quarter turns clockwise, the way the server turns
     // structures: {sizeX, sizeZ, heights} with heights[x + z * sizeX].
@@ -1437,6 +1476,17 @@
                 figure(u.drawX, u.drawY, u.drawZ, teamColor(u.team), STEEL);
             }
         }
+        // Mobs as a box their own size, hostile ones dark green with red eyes, others a sandy brown.
+        for (const m of state.mobs.values()) {
+            const w = Math.max(0.4, m.width || 0.6) * s;
+            const h = Math.max(0.4, m.height || 1) * s;
+            boxes.push({min: [m.drawX - w / 2, m.drawY, m.drawZ - w / 2], size: [w, h, w],
+                color: m.hostile ? MOB : ANIMAL});
+            if (m.hostile) {
+                boxes.push({min: [m.drawX - w * 0.3, m.drawY + h * 0.78, m.drawZ - w * 0.3], size: [w * 0.6, h * 0.08,
+                    w * 0.6], color: ATTACK});
+            }
+        }
         for (const b of state.buildings.values()) {
             if (!b.complete && buildingType(b.type)) {
                 ghostBoxes(boxes, b.type, b.rotation, b.x, b.z, b.y, teamColor(b.team).slice(0, 3).concat([0.35]));
@@ -1493,7 +1543,8 @@
                 continue;
             }
             ring(lines, u.drawX, u.drawY + 0.05, u.drawZ, 0.7 * s, SELECTED);
-            const target = u.target ? state.units.get(u.target) || state.players.get(u.target) : null;
+            const target = u.target ? state.units.get(u.target) || state.players.get(u.target)
+                || state.mobs.get(u.target) : null;
             if (u.order === "attack" && target) {
                 lines.push([[u.drawX, u.drawY + 0.1, u.drawZ], [target.drawX, target.drawY + 0.1, target.drawZ], ATTACK]);
             } else if (u.order !== "attack" && u.order !== "idle" && u.toX !== undefined) {
@@ -1605,6 +1656,18 @@
             labelCtx.fillStyle = fraction > 0.5 ? "#5fdc6a" : fraction > 0.25 ? "#e8c547" : "#e8553f";
             labelCtx.fillRect(x - width / 2, y - 8, width * fraction, 3);
         }
+        // And over hurt mobs, in red.
+        for (const m of state.mobs.values()) {
+            if (m.health >= m.maxHealth) {
+                continue;
+            }
+            const [x, y] = view.project(m.drawX, m.drawY + (m.height || 1) * s + 0.3, m.drawZ);
+            const width = 20;
+            labelCtx.fillStyle = "rgba(0, 0, 0, 0.75)";
+            labelCtx.fillRect(x - width / 2 - 1, y - 9, width + 2, 5);
+            labelCtx.fillStyle = "#e8553f";
+            labelCtx.fillRect(x - width / 2, y - 8, width * Math.max(0, Math.min(1, m.health / m.maxHealth)), 3);
+        }
         if (selectionBox) {
             const b = selectionBox;
             labelCtx.fillStyle = "rgba(115, 255, 128, 0.12)";
@@ -1642,7 +1705,7 @@
         // Players and units glide toward their latest reported position between updates, which come every
         // server tick (50 ms), so they move smoothly at any frame rate.
         const glide = 1 - Math.exp(-dt * 15);
-        for (const p of [...state.players.values(), ...state.units.values()]) {
+        for (const p of [...state.players.values(), ...state.units.values(), ...state.mobs.values()]) {
             const dx = p.x - p.drawX;
             const dy = p.y - p.drawY;
             const dz = p.z - p.drawZ;

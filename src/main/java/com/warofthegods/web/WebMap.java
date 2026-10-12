@@ -5,6 +5,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import net.minecraft.entity.EntityLiving;
+import net.minecraft.entity.monster.IMob;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.world.WorldServer;
@@ -25,6 +27,7 @@ import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
+import com.warofthegods.rts.Commanders;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Units;
 import com.warofthegods.world.ChunkProviderRts;
@@ -35,7 +38,8 @@ import cpw.mods.fml.common.gameevent.TickEvent;
 
 /**
  * The server-thread side of the web map: keeps the map drawn for the running game, sends browsers the live state of
- * the game a few times a second, and runs the commands they send.
+ * the game a few times a second, and runs the commands they send. Players in the in-game RTS view get the same game
+ * and state messages, through {@link Commanders}.
  */
 public final class WebMap {
 
@@ -45,22 +49,57 @@ public final class WebMap {
     private static final int COMMANDS_PER_TICK = 64;
 
     private MapRenderer renderer;
+    private boolean webAnnounced;
+    /** The game and world the game message last sent to RTS views was for. */
+    private Game announcedGame;
+    private WorldServer announcedWorld;
     private boolean announced;
     private int ticks;
 
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
-        WebServer server = WebServer.get();
-        if (event.phase != TickEvent.Phase.END || server == null) {
+        if (event.phase != TickEvent.Phase.END) {
             return;
         }
+        WebServer server = WebServer.get();
+        Commanders commanders = Commanders.get();
         Game game = GameManager.getGame();
         WorldServer world = DimensionManager.getWorld(GameWorld.dimensionId());
-        if (game == null || world == null) {
-            if (renderer != null || !announced) {
+        Game drawn = world == null ? null : game;
+        if (drawn != announcedGame || world != announcedWorld || !announced) {
+            announcedGame = drawn;
+            announcedWorld = world;
+            announced = true;
+            commanders.setGame(gameMessage(drawn));
+        }
+        if (server != null) {
+            tickWeb(server, drawn, world);
+        } else {
+            renderer = null;
+        }
+        commanders.tick();
+
+        ticks++;
+        boolean toBrowsers = server != null && ticks % Config.webStateTicks == 0;
+        boolean toCommanders = commanders.any() && ticks % Config.rtsStateTicks == 0;
+        if (toBrowsers || toCommanders) {
+            JsonObject state = stateMessage(game, world);
+            if (toBrowsers) {
+                server.setState(state);
+            }
+            if (toCommanders) {
+                commanders.setState(state);
+            }
+        }
+    }
+
+    /** Keeps the map drawn for browsers, sends them changed tiles and runs their commands. */
+    private void tickWeb(WebServer server, Game game, WorldServer world) {
+        if (game == null) {
+            if (renderer != null || !webAnnounced) {
                 renderer = null;
                 server.setGame(null, gameMessage(null));
-                announced = true;
+                webAnnounced = true;
             }
         } else if (renderer == null || renderer.world != world || renderer.gameNumber != game.getNumber()) {
             renderer = new MapRenderer(world, game);
@@ -68,7 +107,7 @@ public final class WebMap {
             message.getAsJsonObject("game")
                 .addProperty("mapId", renderer.tiles.getId());
             server.setGame(renderer.tiles, message);
-            announced = true;
+            webAnnounced = true;
         }
 
         if (renderer != null) {
@@ -80,12 +119,8 @@ public final class WebMap {
         }
         runCommands(server);
 
-        ticks++;
         if (renderer != null && ticks % TILES_INTERVAL == 0) {
             server.tilesChanged(renderer.tiles.takeChanged());
-        }
-        if (ticks % Config.webStateTicks == 0) {
-            server.setState(stateMessage(game, world));
         }
     }
 
@@ -251,7 +286,12 @@ public final class WebMap {
                         "uuid",
                         player.getUniqueID()
                             .toString());
+                    json.addProperty("eid", player.getEntityId());
                     json.addProperty("name", player.getCommandSenderName());
+                    if (Commanders.get()
+                        .isCommanding(player.getUniqueID())) {
+                        json.addProperty("commanding", true);
+                    }
                     if (team != null) {
                         json.addProperty("team", team.getId());
                     }
@@ -267,6 +307,7 @@ public final class WebMap {
         message.add("teams", teams);
         message.add("players", players);
         message.add("units", game == null ? new JsonArray() : unitsJson());
+        message.add("mobs", game == null || world == null ? new JsonArray() : mobsJson(game, world));
         message.add("buildings", game == null ? new JsonArray() : buildingsJson(game));
         return message;
     }
@@ -320,6 +361,7 @@ public final class WebMap {
                 "id",
                 unit.getUniqueID()
                     .toString());
+            json.addProperty("eid", unit.getEntityId());
             json.addProperty("team", unit.getTeamId());
             json.addProperty("kind", unit.getKind().id);
             json.addProperty("number", unit.getNumber());
@@ -366,6 +408,31 @@ public final class WebMap {
             units.add(json);
         }
         return units;
+    }
+
+    /** Every mob on the map, hostile or not; units can be sent to attack any of them. */
+    private static JsonArray mobsJson(Game game, WorldServer world) {
+        JsonArray mobs = new JsonArray();
+        for (EntityLiving mob : Units.get()
+            .getMobs(game, world)) {
+            JsonObject json = new JsonObject();
+            json.addProperty(
+                "id",
+                mob.getUniqueID()
+                    .toString());
+            json.addProperty("eid", mob.getEntityId());
+            json.addProperty("name", mob.getCommandSenderName());
+            json.addProperty("hostile", mob instanceof IMob);
+            json.addProperty("x", round(mob.posX));
+            json.addProperty("y", round(mob.posY));
+            json.addProperty("z", round(mob.posZ));
+            json.addProperty("width", round(mob.width));
+            json.addProperty("height", round(mob.height));
+            json.addProperty("health", round(mob.getHealth()));
+            json.addProperty("maxHealth", round(mob.getMaxHealth()));
+            mobs.add(json);
+        }
+        return mobs;
     }
 
     private static double round(double value) {

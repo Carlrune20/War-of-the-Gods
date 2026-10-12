@@ -4,4 +4,7 @@ package com.warofthegods;
 public class CommonProxy {
 
     public void init() {}
+
+    /** A message for the in-game RTS view arrived from the server; called on a Netty thread. */
+    public void receiveRts(String json) {}
 }

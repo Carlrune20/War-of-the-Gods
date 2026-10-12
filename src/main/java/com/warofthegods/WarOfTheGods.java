@@ -10,6 +10,8 @@ import com.warofthegods.building.BuildingCommands;
 import com.warofthegods.building.Buildings;
 import com.warofthegods.command.CommandRts;
 import com.warofthegods.game.PlayerEvents;
+import com.warofthegods.rts.Commanders;
+import com.warofthegods.rts.RtsNetwork;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.UnitCommands;
 import com.warofthegods.unit.Units;
@@ -52,6 +54,7 @@ public class WarOfTheGods {
         LOG.info("War of the Gods " + Tags.VERSION + " loading");
         GameWorld.register();
         EntityRegistry.registerModEntity(EntityUnit.class, "Unit", 0, this, 96, 3, true);
+        RtsNetwork.register();
     }
 
     @Mod.EventHandler
@@ -84,6 +87,9 @@ public class WarOfTheGods {
             .register(buildings);
         MinecraftForge.EVENT_BUS.register(buildings);
         BuildingCommands.register();
+        FMLCommonHandler.instance()
+            .bus()
+            .register(Commanders.get());
         proxy.init();
     }
 
@@ -99,6 +105,8 @@ public class WarOfTheGods {
 
     @Mod.EventHandler
     public void serverStopping(FMLServerStoppingEvent event) {
+        Commanders.get()
+            .leaveAll();
         WebServer.stop();
     }
 }
