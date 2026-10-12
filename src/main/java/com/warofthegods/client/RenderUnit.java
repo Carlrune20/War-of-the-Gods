@@ -17,7 +17,8 @@ import com.warofthegods.unit.EntityUnit;
 
 /**
  * Draws a unit with the player model in the skin of its kind and its team's faction, with bands round its arms and
- * waist in its team's color. The name above its head is in its team's color too.
+ * waist in its team's color, and any armor its team's upgrades give it. The name above its head is in its team's
+ * color too.
  */
 public class RenderUnit extends RenderBiped {
 
@@ -50,13 +51,16 @@ public class RenderUnit extends RenderBiped {
         return SKINS.get(unit.getWatchedFaction().id + "_" + unit.getWatchedKind().id);
     }
 
-    /** One pass over the model with the team bands, tinted the team's color; no armor. */
+    /**
+     * The first pass draws the team bands over the model, tinted the team's color. The other three draw the armor a
+     * team's upgrades give its fighters: helmet, then chest, then legs.
+     */
     @Override
     protected int shouldRenderPass(EntityLiving entity, int pass, float partialTicks) {
         if (pass != 0) {
-            // The tint would otherwise carry over to the item in its hand.
+            // The tint would otherwise carry over to the armor and the item in its hand.
             GL11.glColor4f(1, 1, 1, 1);
-            return -1;
+            return super.shouldRenderPass(entity, pass - 1, partialTicks);
         }
         int color = ((EntityUnit) entity).getTeamColor();
         bindTexture(OVERLAY);

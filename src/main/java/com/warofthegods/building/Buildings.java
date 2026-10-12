@@ -143,6 +143,34 @@ public final class Buildings {
         research(game);
         shoot(game, world);
         updateLooks(game, world);
+        smoulder(game, world);
+    }
+
+    /**
+     * Badly damaged buildings show it: below half health smoke rises from them, and below a quarter they burn. The
+     * fire is only for show and spreads nowhere.
+     */
+    private void smoulder(Game game, WorldServer world) {
+        for (Building building : game.getBuildings()) {
+            if (!building.isComplete() || building.getHealth() * 2 >= building.getMaxHealth()) {
+                continue;
+            }
+            Schematic schematic = schematic(building.type);
+            double top = building.groundY + schematic.height - schematic.ground;
+            boolean burning = building.getHealth() * 4 < building.getMaxHealth();
+            for (int i = 0; i < (burning ? 3 : 1); i++) {
+                double x = building.minX + world.rand.nextDouble() * building.sizeX;
+                double z = building.minZ + world.rand.nextDouble() * building.sizeZ;
+                double y = Math
+                    .max(building.groundY + 1, world.getHeightValue((int) Math.floor(x), (int) Math.floor(z)));
+                y = Math.min(y, top + 1);
+                world.func_147487_a("largesmoke", x, y, z, 4, 0.3, 0.2, 0.3, 0.02);
+                if (burning) {
+                    world.func_147487_a("flame", x, y, z, 6, 0.4, 0.3, 0.4, 0.01);
+                    world.func_147487_a("lava", x, y, z, 1, 0.3, 0.1, 0.3, 0);
+                }
+            }
+        }
     }
 
     // ---------------------------------------------------------------- town halls
@@ -543,9 +571,9 @@ public final class Buildings {
             return "It is busy";
         }
         Team team = game.getTeam(building.team);
-        Building center = team == null ? null : game.getTownHall(team);
-        if (building.type != BuildingType.TOWN_HALL && (center == null || center.getLevel() < 2)) {
-            return "Your town center has to be at level 2 first";
+        int level = building.getLevel() + 1;
+        if (building.type != BuildingType.TOWN_HALL && (team == null || game.getAge(team) < level)) {
+            return "Your town has to reach " + BuildingType.ageName(level) + " first";
         }
         return null;
     }

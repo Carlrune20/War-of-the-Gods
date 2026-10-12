@@ -380,7 +380,7 @@
             const team = myTeam();
             me.append(el("div", "", state.me.name));
             me.append(el("div", "muted",
-                state.me.observer ? "Observer" : team ? "Team " + team.name : "Not on a team"));
+                state.me.observer ? "Observer" : team ? "Team " + team.name + " \u00B7 " + ageName(team.age) : "Not on a team"));
         }
         if (!state.game) {
             me.append(el("div", "muted", "No game is running."));
@@ -528,6 +528,14 @@
     let placing = null;
     // Workers waiting for the two corners of an area to put torches in: {corner: null, or the first [x, y, z]}.
     let lighting = null;
+    // How units line up where they are sent: box, line or wedge.
+    let formation = "box";
+    const FORMATIONS = [["box", "Box", "A square block"], ["line", "Line", "A wide line, two or three deep"],
+        ["wedge", "Wedge", "A wedge pointing the way they go"]];
+    const STANCES = [["aggressive", "Aggressive", "Look further for enemies and chase them far"],
+        ["defensive", "Defensive", "Fight what comes near, then go back"],
+        ["hold", "Hold", "Never leave the spot: fight only what is in reach"],
+        ["passive", "Passive", "Never fight unless ordered, not even back"]];
 
     function costText(cost) {
         cost = cost || {};
@@ -609,7 +617,11 @@
     }
 
     function roman(level) {
-        return level === 2 ? "II" : level === 3 ? "III" : String(level);
+        return level === 1 ? "I" : level === 2 ? "II" : level === 3 ? "III" : String(level);
+    }
+
+    function ageName(age) {
+        return "Age " + roman(age || 1);
     }
 
     function researchName(research) {
@@ -646,9 +658,11 @@
                 if (!type.buildable) {
                     continue;
                 }
-                const b = iconButton(id, type.name, "Build a " + type.name.toLowerCase() + " for " + costText(type.cost)
-                    + ", then click on the map where it goes", () => startPlacing(id));
-                b.disabled = !canAfford(team, type.cost);
+                const aged = (team.age || 1) >= (type.age || 1);
+                const b = iconButton(id, type.name, aged ? "Build a " + type.name.toLowerCase() + " for "
+                    + costText(type.cost) + ", then click on the map where it goes"
+                    : "Needs " + ageName(type.age) + ": take your town center up a level", () => startPlacing(id));
+                b.disabled = !aged || !canAfford(team, type.cost);
                 actions.append(b);
             }
             actions.append(button("Torches", "Light up an area so no mobs spawn there: click two corners."
@@ -661,6 +675,9 @@
                     focusBuilding(hall);
                 }));
             }
+        }
+        if (!placing && !lighting && !building) {
+            fighterActions(actions);
         }
         swapIfChanged(barActions, actions);
         for (const fill of barActions.querySelectorAll(".progress span")) {
@@ -682,6 +699,36 @@
         document.getElementById("stop-units").disabled = !count;
         document.getElementById("clear-selection").disabled = !count && !building;
         boxButton.classList.toggle("on", boxMode);
+    }
+
+    // With warriors or archers selected: how they line up when sent somewhere, and how they fight.
+    function fighterActions(actions) {
+        const fighters = [...state.selected].map((id) => state.units.get(id)).filter((u) => u && u.kind !== "worker");
+        if (!fighters.length) {
+            return;
+        }
+        const stances = new Set(fighters.map((u) => u.stance || "defensive"));
+        actions.append(el("span", "note", "Formation"));
+        for (const [id, name, tip] of FORMATIONS) {
+            const b = button(name, tip + ", where you send them", () => {
+                formation = id;
+                renderUnitBar();
+            });
+            b.classList.toggle("on", formation === id);
+            actions.append(b);
+        }
+        actions.append(el("span", "note", "Stance"));
+        for (const [id, name, tip] of STANCES) {
+            const b = button(name, tip, () => {
+                send("units.stance", {units: fighters.map((u) => u.id), stance: id}).then((reply) => {
+                    if (reply) {
+                        showToast(name + " stance", false);
+                    }
+                });
+            });
+            b.classList.toggle("on", stances.size === 1 && stances.has(id));
+            actions.append(b);
+        }
     }
 
     function renderBuildingActions(actions, team, building) {
@@ -749,11 +796,12 @@
         }
         const next = type.levelUps ? type.levelUps[building.level + 1] : null;
         if (next) {
-            const center = townHallOf(team.id);
-            const ready = building.type === "town_hall" || (center && center.level >= 2);
-            const up = iconButton("level", "Level " + (building.level + 1) + " (" + costText(next.cost) + ")",
+            const center = building.type === "town_hall";
+            const ready = center || (team.age || 1) > building.level;
+            const up = iconButton("level", (center ? "Advance to " + ageName(building.level + 1)
+                : "Level " + (building.level + 1)) + " (" + costText(next.cost) + ")",
                 ready ? "Takes " + next.seconds + "s; health goes up to " + next.health
-                    : "Your town center has to be at level 2 first", async () => {
+                    : "Your town has to reach " + ageName(building.level + 1) + " first", async () => {
                     if (await send("buildings.upgrade", {building: building.id})) {
                         showToast("Going up a level");
                     }
@@ -1155,7 +1203,7 @@
                 return;
             }
             orderMark = {x: ground[0], y: ground[1], z: ground[2], color: [0.45, 1, 0.5, 1], time: performance.now()};
-            send("units.move", {units, x: ground[0], z: ground[2]});
+            send("units.move", {units, x: ground[0], z: ground[2], formation});
         }
         view.dirty = true;
     }

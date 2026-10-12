@@ -44,6 +44,16 @@ public enum BuildingType {
     /** The units it trains, if any. */
     public final List<UnitKind> trains;
 
+    /** The age a team has to reach, by taking its town center up a level, before it can build this. */
+    public int age() {
+        return this == ARMORY || this == TOWER ? 2 : 1;
+    }
+
+    /** The name of an age, such as "Age II". */
+    public static String ageName(int age) {
+        return "Age " + (age == 2 ? "II" : age == 3 ? "III" : "I");
+    }
+
     BuildingType(String id, String displayName, String configName, int levels, boolean buildable,
         boolean storesResources, UnitKind... trains) {
         this.id = id;

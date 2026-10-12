@@ -317,6 +317,12 @@ public class Game {
     }
 
     /** The team's town hall, or null if it has none. */
+    /** A team's age: the level of its town center, so 1 to 3; 1 without one. */
+    public int getAge(Team team) {
+        Building center = getTownHall(team);
+        return center == null || !center.isComplete() ? 1 : center.getLevel();
+    }
+
     public Building getTownHall(Team team) {
         for (Building building : buildings.values()) {
             if (building.team.equals(team.getId()) && building.type == BuildingType.TOWN_HALL) {

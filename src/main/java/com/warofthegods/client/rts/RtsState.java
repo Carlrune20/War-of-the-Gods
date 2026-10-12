@@ -61,6 +61,8 @@ public final class RtsState {
         public final Map<Integer, LevelInfo> levelUps = new HashMap<>();
         /** Units it houses at each level, from level 1. */
         public int[] population;
+        /** The age a team needs before it can build this. */
+        public int age = 1;
         public final List<String> researches = new ArrayList<>();
         public int width;
         public int length;
@@ -92,6 +94,7 @@ public final class RtsState {
         public final List<String> allies = new ArrayList<>();
         public int units;
         public int population;
+        public int age = 1;
         public String faction;
         public final List<String> upgrades = new ArrayList<>();
     }
@@ -126,6 +129,7 @@ public final class RtsState {
         public boolean chopping;
         /** Torches a worker still has to put up. */
         public int torches;
+        public String stance = "defensive";
 
         public boolean isWorker() {
             return "worker".equals(kind);
@@ -237,6 +241,7 @@ public final class RtsState {
             typeInfo.name = string(type, "name");
             typeInfo.cost = amounts(object(type, "cost"));
             typeInfo.buildable = bool(type, "buildable");
+            typeInfo.age = type.has("age") ? integer(type, "age") : 1;
             typeInfo.health = integer(type, "health");
             typeInfo.workers = integer(type, "workers");
             for (JsonElement kind : array(type, "trains")) {
@@ -325,6 +330,7 @@ public final class RtsState {
             }
             info.units = integer(team, "units");
             info.population = integer(team, "population");
+            info.age = team.has("age") ? integer(team, "age") : 1;
             info.faction = string(team, "faction");
             for (JsonElement upgrade : array(team, "upgrades")) {
                 info.upgrades.add(upgrade.getAsString());
@@ -371,6 +377,8 @@ public final class RtsState {
                 }
             }
             info.chopping = bool(unit, "chopping");
+            info.stance = unit.has("stance") ? unit.get("stance")
+                .getAsString() : "defensive";
             info.torches = unit.has("torches") ? unit.get("torches")
                 .getAsInt() : 0;
             units.put(info.id, info);

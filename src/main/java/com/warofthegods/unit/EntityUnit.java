@@ -251,12 +251,7 @@ public class EntityUnit extends EntityCreature {
                 (byte) team.getFaction()
                     .ordinal());
         }
-        // Units from before skins wore their team's color as leather armor.
-        for (int slot = 1; slot < 5; slot++) {
-            if (getEquipmentInSlot(slot) != null) {
-                setCurrentItemOrArmor(slot, null);
-            }
-        }
+        // Units from before skins wore their team's color as leather armor; applyUpgrades puts on what they wear now.
         applyUpgrades(team);
     }
 
@@ -280,6 +275,36 @@ public class EntityUnit extends EntityCreature {
         if (attack.getBaseValue() != damage) {
             attack.setBaseValue(damage);
         }
+        wearArmor(team);
+    }
+
+    /**
+     * Fighters show their team's armor upgrades: chainmail with padded armor, iron with plate. It is only for show;
+     * the upgrades' extra health is what protects them. Workers wear none.
+     */
+    private void wearArmor(Team team) {
+        Item[] armor = new Item[5];
+        if (kind.fights() && team.has(Upgrade.PLATE_ARMOR)) {
+            armor[4] = Items.iron_helmet;
+            armor[3] = Items.iron_chestplate;
+            armor[2] = Items.iron_leggings;
+        } else if (kind.fights() && team.has(Upgrade.PADDED_ARMOR)) {
+            armor[4] = Items.chainmail_helmet;
+            armor[3] = Items.chainmail_chestplate;
+        }
+        for (int slot = 1; slot < 5; slot++) {
+            ItemStack worn = getEquipmentInSlot(slot);
+            Item wornItem = worn == null ? null : worn.getItem();
+            if (wornItem != armor[slot]) {
+                setCurrentItemOrArmor(slot, armor[slot] == null ? null : new ItemStack(armor[slot]));
+            }
+        }
+    }
+
+    /** Armor on units is only for show. */
+    @Override
+    public int getTotalArmorValue() {
+        return 0;
     }
 
     private Team team() {
