@@ -159,11 +159,6 @@ public class EntityUnit extends EntityCreature {
         return order == Order.ATTACK && target != null ? target.getUniqueID() : null;
     }
 
-    Team getTeam() {
-        Game game = GameManager.getGame();
-        return game == null ? null : game.getTeam(teamId);
-    }
-
     // ---------------------------------------------------------------- orders
 
     void orderMove(double x, double z) {
