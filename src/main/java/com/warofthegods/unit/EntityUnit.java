@@ -426,9 +426,7 @@ public class EntityUnit extends EntityCreature {
         }
         boolean hurt = super.attackEntityFrom(source, amount);
         // Guarding units hit back; units on the move keep going.
-        if (hurt && attacker instanceof EntityLivingBase
-            && attacker != this
-            && (order == Order.IDLE || defending)) {
+        if (hurt && attacker instanceof EntityLivingBase && attacker != this && (order == Order.IDLE || defending)) {
             defend((EntityLivingBase) attacker);
         }
         return hurt;
