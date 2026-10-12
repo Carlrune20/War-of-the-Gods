@@ -103,6 +103,11 @@ def main():
             game = message.get("game")
             if not game or game.get("number") != game_number:
                 fail(f"expected game #{game_number}, got {payload[:200]!r}")
+            types = game.get("buildingTypes", {})
+            for type_id in ("town_hall", "farm", "barracks"):
+                shape = types.get(type_id)
+                if not shape or len(shape["heights"]) != shape["width"] * shape["length"]:
+                    fail(f"game message has no usable {type_id} building type")
             print(f"ok: game #{game['number']} map {game['minX']},{game['minZ']} to {game['maxX']},{game['maxZ']}")
         elif kind == "tiles":
             if not message["tiles"]:
@@ -121,8 +126,11 @@ def main():
                         fail(f"unit without {key}: {unit}")
             if units:
                 unit_id = units[0]["id"]
-            bases = [team["name"] for team in message["teams"] if "base" in team]
-            print(f"ok: live state with teams {names}, {len(units)} units, bases for {bases}")
+            halls = [b["team"] for b in message.get("buildings", []) if b["type"] == "town_hall" and b["complete"]]
+            if len(halls) < len(names):
+                print(f"waiting: town halls for {halls} of {names}")
+                continue
+            print(f"ok: live state with teams {names}, {len(units)} units, town halls for {halls}")
         seen.add(kind)
 
     send_text(sock, json.dumps({"type": "no-such-command", "id": 7}))

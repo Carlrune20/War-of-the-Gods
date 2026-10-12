@@ -2,7 +2,6 @@ package com.warofthegods.unit;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import net.minecraft.entity.EntityLivingBase;
@@ -10,10 +9,10 @@ import net.minecraft.entity.EntityLivingBase;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.warofthegods.Config;
+import com.warofthegods.game.Building;
+import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
-import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
 import com.warofthegods.web.WebCommand;
 import com.warofthegods.web.WebJson;
@@ -25,29 +24,30 @@ import com.warofthegods.world.GameWorld;
  * team's units:
  *
  * <pre>
- *   {type: "units.train", count}                train units at the team's base, paying for each
  *   {type: "units.move", units: [id...], x, z}  walk there
- *   {type: "units.attack", units: [id...], target: id}  attack an enemy unit or player
+ *   {type: "units.attack", units: [id...], target: id}  attack an enemy unit or player; workers do not fight
+ *   {type: "units.build", units: [id...], building: id}  workers raise a building site or work a farm
  *   {type: "units.stop", units: [id...]}        stop and guard where they stand
  * </pre>
+ *
+ * Training and placing buildings are in {@link com.warofthegods.building.BuildingCommands}.
  */
 public final class UnitCommands {
 
     /** Units one order may name, so a request cannot be made arbitrarily large. */
     private static final int MAX_UNITS = 500;
-    private static final int MAX_TRAIN = 10;
 
     private UnitCommands() {}
 
     public static void register() {
-        WebCommand.register("units.train", UnitCommands::train);
         WebCommand.register("units.move", UnitCommands::move);
         WebCommand.register("units.attack", UnitCommands::attack);
+        WebCommand.register("units.build", UnitCommands::build);
         WebCommand.register("units.stop", UnitCommands::stop);
     }
 
     /** The viewer's team, or null after replying with why they cannot command units. */
-    private static Team commander(WebRequest request) {
+    public static Team commander(WebRequest request) {
         Game game = GameManager.getGame();
         if (game == null) {
             request.replyError("No game is running");
@@ -62,41 +62,6 @@ public final class UnitCommands {
             request.replyError("Join a team to command units");
         }
         return team;
-    }
-
-    private static void train(WebRequest request) {
-        Team team = commander(request);
-        if (team == null) {
-            return;
-        }
-        Game game = GameManager.getGame();
-        int count = Math.max(1, Math.min(MAX_TRAIN, intField(request.body, "count", 1)));
-        int room = Config.unitsPerTeam - game.countUnits(team);
-        if (room <= 0) {
-            request.replyError("Your team has the most units it can have (" + Config.unitsPerTeam + ")");
-            return;
-        }
-        count = Math.min(count, room);
-        Map<Resource, Long> cost = Units.unitCost();
-        int affordable = 0;
-        while (affordable < count && team.spend(cost)) {
-            affordable++;
-        }
-        if (affordable == 0) {
-            request.replyError("Not enough resources");
-            return;
-        }
-        List<EntityUnit> spawned = Units.get()
-            .spawn(game, team, affordable);
-        // Refund anything that could not be placed.
-        for (int i = spawned.size(); i < affordable; i++) {
-            for (Map.Entry<Resource, Long> entry : cost.entrySet()) {
-                team.addResource(entry.getKey(), entry.getValue());
-            }
-        }
-        JsonObject reply = WebJson.message("units.trained");
-        reply.addProperty("count", spawned.size());
-        request.reply(reply);
     }
 
     private static void move(WebRequest request) {
@@ -128,6 +93,11 @@ public final class UnitCommands {
         if (units == null) {
             return;
         }
+        units.removeIf(EntityUnit::isWorker);
+        if (units.isEmpty()) {
+            request.replyError("Workers do not fight");
+            return;
+        }
         UUID targetId = uuid(request.body.get("target"));
         EntityLivingBase target = targetId == null ? null
             : Units.get()
@@ -144,6 +114,34 @@ public final class UnitCommands {
         Units.get()
             .orderAttack(units, target);
         ok(request, units.size());
+    }
+
+    private static void build(WebRequest request) {
+        Team team = commander(request);
+        if (team == null) {
+            return;
+        }
+        List<EntityUnit> units = ownUnits(request, team);
+        if (units == null) {
+            return;
+        }
+        Game game = GameManager.getGame();
+        Building building = game.getBuilding(intField(request.body, "building", 0));
+        if (building == null || !building.team.equals(team.getId())) {
+            request.replyError("That is not your building");
+            return;
+        }
+        if (building.isComplete() && building.type != BuildingType.FARM) {
+            request.replyError("That is already built");
+            return;
+        }
+        int sent = Units.get()
+            .orderBuild(units, building);
+        if (sent == 0) {
+            request.replyError("Only workers can build and farm");
+            return;
+        }
+        ok(request, sent);
     }
 
     private static void stop(WebRequest request) {
@@ -167,7 +165,7 @@ public final class UnitCommands {
     }
 
     /** The team's loaded units the request names, or null after replying that there are none. */
-    private static List<EntityUnit> ownUnits(WebRequest request, Team team) {
+    public static List<EntityUnit> ownUnits(WebRequest request, Team team) {
         List<EntityUnit> units = new ArrayList<>();
         JsonElement ids = request.body.get("units");
         if (ids != null && ids.isJsonArray()) {
@@ -190,7 +188,7 @@ public final class UnitCommands {
         return units;
     }
 
-    private static UUID uuid(JsonElement element) {
+    public static UUID uuid(JsonElement element) {
         try {
             return element == null ? null : UUID.fromString(element.getAsString());
         } catch (RuntimeException e) {
@@ -198,7 +196,7 @@ public final class UnitCommands {
         }
     }
 
-    private static Double doubleField(JsonObject body, String name) {
+    public static Double doubleField(JsonObject body, String name) {
         try {
             double value = body.get(name)
                 .getAsDouble();
@@ -208,7 +206,7 @@ public final class UnitCommands {
         }
     }
 
-    private static int intField(JsonObject body, String name, int fallback) {
+    public static int intField(JsonObject body, String name, int fallback) {
         try {
             return body.has(name) ? body.get(name)
                 .getAsInt() : fallback;

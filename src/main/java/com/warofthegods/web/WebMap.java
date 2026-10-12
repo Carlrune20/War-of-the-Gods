@@ -16,10 +16,15 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.warofthegods.Config;
 import com.warofthegods.WarOfTheGods;
+import com.warofthegods.building.Buildings;
+import com.warofthegods.building.Schematic;
+import com.warofthegods.game.Building;
+import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
+import com.warofthegods.game.UnitKind;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Units;
 import com.warofthegods.world.ChunkProviderRts;
@@ -126,18 +131,52 @@ public final class WebMap {
         json.addProperty("margin", Config.mapMargin);
         json.addProperty("tileSize", MapTiles.TILE_SIZE);
         json.addProperty("seaLevel", ChunkProviderRts.SEA_LEVEL);
-        JsonObject cost = new JsonObject();
-        for (Map.Entry<Resource, Long> entry : Units.unitCost()
-            .entrySet()) {
-            cost.addProperty(entry.getKey().id, entry.getValue());
+        JsonObject unitKinds = new JsonObject();
+        for (UnitKind kind : UnitKind.values()) {
+            JsonObject kindJson = new JsonObject();
+            kindJson.addProperty("name", kind.displayName);
+            kindJson.add("cost", costJson(kind.cost()));
+            unitKinds.add(kind.id, kindJson);
         }
-        json.add("unitCost", cost);
+        json.add("unitKinds", unitKinds);
         json.addProperty("unitsPerTeam", Config.unitsPerTeam);
+        json.addProperty("trainSeconds", Config.trainSeconds);
+        json.addProperty("buildingGap", Buildings.GAP);
+        json.addProperty("farmWorkers", Config.farmWorkers);
+        JsonObject buildingTypes = new JsonObject();
+        for (BuildingType type : BuildingType.values()) {
+            Schematic schematic = Buildings.get()
+                .schematic(type);
+            JsonObject typeJson = new JsonObject();
+            typeJson.addProperty("name", type.displayName);
+            typeJson.add("cost", costJson(type.cost()));
+            typeJson.addProperty("buildable", type.buildable);
+            if (type.trains != null) {
+                typeJson.addProperty("trains", type.trains.id);
+            }
+            typeJson.addProperty("width", schematic.width);
+            typeJson.addProperty("length", schematic.length);
+            JsonArray heights = new JsonArray();
+            for (int height : schematic.columnHeights()) {
+                heights.add(new JsonPrimitive(height));
+            }
+            typeJson.add("heights", heights);
+            buildingTypes.add(type.id, typeJson);
+        }
+        json.add("buildingTypes", buildingTypes);
         message.add("game", json);
         return message;
     }
 
-    /** Teams with their resources, alliances and bases, and where every player and unit on the map is. */
+    private static JsonObject costJson(Map<Resource, Long> cost) {
+        JsonObject json = new JsonObject();
+        for (Map.Entry<Resource, Long> entry : cost.entrySet()) {
+            json.addProperty(entry.getKey().id, entry.getValue());
+        }
+        return json;
+    }
+
+    /** Teams with their resources, alliances and bases, and where every player, unit and building on the map is. */
     private static JsonObject stateMessage(Game game, WorldServer world) {
         JsonObject message = WebJson.message("state");
         JsonArray teams = new JsonArray();
@@ -206,7 +245,41 @@ public final class WebMap {
         message.add("teams", teams);
         message.add("players", players);
         message.add("units", game == null ? new JsonArray() : unitsJson());
+        message.add("buildings", game == null ? new JsonArray() : buildingsJson(game));
         return message;
+    }
+
+    /** Every building and building site, with what it is training. */
+    private static JsonArray buildingsJson(Game game) {
+        JsonArray buildings = new JsonArray();
+        double ticksPerUnit = Math.max(1, Config.trainSeconds * 20);
+        for (Building building : game.getBuildings()) {
+            JsonObject json = new JsonObject();
+            json.addProperty("id", building.id);
+            json.addProperty("type", building.type.id);
+            json.addProperty("team", building.team);
+            json.addProperty("x", building.minX);
+            json.addProperty("z", building.minZ);
+            json.addProperty("sizeX", building.sizeX);
+            json.addProperty("sizeZ", building.sizeZ);
+            json.addProperty("y", building.groundY);
+            json.addProperty("rotation", building.rotation);
+            json.addProperty("complete", building.isComplete());
+            if (!building.getQueue()
+                .isEmpty()) {
+                JsonArray queue = new JsonArray();
+                for (UnitKind kind : building.getQueue()) {
+                    queue.add(new JsonPrimitive(kind.id));
+                }
+                json.add("queue", queue);
+                json.addProperty("progress", round(Math.min(1, building.getTrainingTicks() / ticksPerUnit)));
+            }
+            if (building.type == BuildingType.FARM && building.isComplete()) {
+                json.addProperty("workers", Buildings.countWorkers(building));
+            }
+            buildings.add(json);
+        }
+        return buildings;
     }
 
     /** Every loaded unit: where it is, how it is doing and what it is up to. */
@@ -220,6 +293,7 @@ public final class WebMap {
                 unit.getUniqueID()
                     .toString());
             json.addProperty("team", unit.getTeamId());
+            json.addProperty("kind", unit.getKind().id);
             json.addProperty("number", unit.getNumber());
             json.addProperty("x", round(unit.posX));
             json.addProperty("y", round(unit.posY));
@@ -236,6 +310,9 @@ public final class WebMap {
             if (heading != null) {
                 json.addProperty("toX", round(heading[0]));
                 json.addProperty("toZ", round(heading[1]));
+            }
+            if (unit.getBuildingId() != 0) {
+                json.addProperty("building", unit.getBuildingId());
             }
             if (unit.getTargetId() != null) {
                 json.addProperty(

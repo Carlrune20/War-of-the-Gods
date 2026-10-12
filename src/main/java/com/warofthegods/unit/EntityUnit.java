@@ -16,14 +16,20 @@ import net.minecraft.util.MathHelper;
 import net.minecraft.world.World;
 
 import com.warofthegods.Config;
+import com.warofthegods.building.Buildings;
+import com.warofthegods.game.Building;
+import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Team;
+import com.warofthegods.game.UnitKind;
+import com.warofthegods.world.GameWorld;
 
 /**
- * A soldier of a team, with the player model, its team's color on dyed leather armor and an iron sword. Units follow
- * orders from the web map: walk somewhere, attack something, or stand guard, in which case they fight enemies that
- * come close and walk back to their post afterwards.
+ * A unit of a team, with the player model and its team's color on dyed leather armor. Soldiers carry an iron sword
+ * and follow orders from the web map: walk somewhere, attack something, or stand guard, in which case they fight
+ * enemies that come close and walk back to their post afterwards. Workers carry an axe and never fight: they walk,
+ * raise buildings at building sites and work farms.
  *
  * <p>
  * Walking uses vanilla pathfinding in legs of at most {@link #LEG} blocks toward the goal, since vanilla paths only
@@ -34,7 +40,11 @@ public class EntityUnit extends EntityCreature {
     public enum Order {
         IDLE,
         MOVE,
-        ATTACK
+        ATTACK,
+        /** A worker on its way to a building site; the building goes up when it gets there. */
+        BUILD,
+        /** A worker working at a farm. */
+        WORK
     }
 
     /** Blocks walked per path before planning the next one. */
@@ -50,6 +60,7 @@ public class EntityUnit extends EntityCreature {
     private static final double SPEED = 1.0;
 
     private String teamId = "";
+    private UnitKind kind = UnitKind.SOLDIER;
     private int number;
     private int armorColor = -1;
     private Order order = Order.IDLE;
@@ -63,6 +74,10 @@ public class EntityUnit extends EntityCreature {
     private EntityLivingBase target;
     /** Whether the target was picked up while guarding rather than ordered. */
     private boolean defending;
+    /** The building a build or work order is for. */
+    private int buildingId;
+    /** Whether a worker is at the farm it was sent to, working. */
+    private boolean working;
 
     private int attackCooldown;
     private int planTicks;
@@ -96,18 +111,19 @@ public class EntityUnit extends EntityCreature {
             .setBaseValue(1);
     }
 
-    /** Makes a new unit a member of the team, with its name, armor and sword. */
-    void setTeam(Team team, int number) {
+    /** Makes a new unit a member of the team, with its name, armor and tool. */
+    void setTeam(Team team, UnitKind kind, int number) {
         this.teamId = team.getId();
+        this.kind = kind;
         this.number = number;
-        setCurrentItemOrArmor(0, new ItemStack(Items.iron_sword));
+        setCurrentItemOrArmor(0, new ItemStack(kind == UnitKind.WORKER ? Items.iron_axe : Items.iron_sword));
         updateTeam(team);
         setHealth(getMaxHealth());
     }
 
     /** Keeps name and armor in step with the team's name and color. */
     void updateTeam(Team team) {
-        String name = team.getColor() + team.getName() + " " + number;
+        String name = team.getColor() + team.getName() + (kind == UnitKind.WORKER ? " worker " : " ") + number;
         if (!name.equals(getCustomNameTag())) {
             setCustomNameTag(name);
             setAlwaysRenderNameTag(true);
@@ -139,6 +155,24 @@ public class EntityUnit extends EntityCreature {
         return number;
     }
 
+    public UnitKind getKind() {
+        return kind;
+    }
+
+    public boolean isWorker() {
+        return kind == UnitKind.WORKER;
+    }
+
+    /** The building a build or work order is for, or 0. */
+    public int getBuildingId() {
+        return order == Order.BUILD || order == Order.WORK ? buildingId : 0;
+    }
+
+    /** Whether the unit is a worker working at the farm with that id. */
+    public boolean isWorkingAt(int farmId) {
+        return order == Order.WORK && working && buildingId == farmId;
+    }
+
     public Order getOrder() {
         return order;
     }
@@ -150,6 +184,11 @@ public class EntityUnit extends EntityCreature {
                 return new double[] { goalX, goalZ };
             case ATTACK:
                 return target == null ? null : new double[] { target.posX, target.posZ };
+            case BUILD:
+            case WORK: {
+                Building building = building();
+                return building == null || working ? null : building.nearestOutside(posX, posZ);
+            }
             default:
                 return hasPost && distanceTo(postX, postZ) > 2 ? new double[] { postX, postZ } : null;
         }
@@ -165,6 +204,17 @@ public class EntityUnit extends EntityCreature {
         order = Order.MOVE;
         goalX = x;
         goalZ = z;
+        target = null;
+        targetId = null;
+        defending = false;
+        startOrder();
+    }
+
+    /** Sends a worker to a building site to raise it, or to a farm to work it. */
+    void orderBuild(Building building) {
+        order = building.isComplete() ? Order.WORK : Order.BUILD;
+        buildingId = building.id;
+        working = false;
         target = null;
         targetId = null;
         defending = false;
@@ -196,6 +246,7 @@ public class EntityUnit extends EntityCreature {
 
     private void guardHere() {
         order = Order.IDLE;
+        working = false;
         target = null;
         targetId = null;
         defending = false;
@@ -207,6 +258,7 @@ public class EntityUnit extends EntityCreature {
     /** Goes back to guarding its post, if it has one. */
     private void backToPost() {
         order = Order.IDLE;
+        working = false;
         target = null;
         targetId = null;
         defending = false;
@@ -240,6 +292,12 @@ public class EntityUnit extends EntityCreature {
             case ATTACK:
                 tickAttack();
                 break;
+            case BUILD:
+                tickBuild();
+                break;
+            case WORK:
+                tickWork();
+                break;
             default:
                 tickGuard();
         }
@@ -254,6 +312,76 @@ public class EntityUnit extends EntityCreature {
         if (getNavigator().noPath() && --planTicks <= 0) {
             planTicks = 20;
             walkToward(goalX, goalZ);
+        }
+        if (!madeProgress()) {
+            guardHere();
+        }
+    }
+
+    private Building building() {
+        Game game = GameManager.getGame();
+        Building building = game == null ? null : game.getBuilding(buildingId);
+        return building != null && building.team.equals(teamId) ? building : null;
+    }
+
+    private void tickBuild() {
+        Building site = building();
+        if (site == null) {
+            getNavigator().clearPathEntity();
+            guardHere();
+            return;
+        }
+        if (!site.isComplete() && site.distanceTo(posX, posZ) <= Buildings.REACH) {
+            getNavigator().clearPathEntity();
+            Buildings.get()
+                .raise(GameWorld.getWorld(), site);
+        }
+        if (site.isComplete()) {
+            // Built, by this worker or another: farmers stay to work the farm.
+            if (site.type == BuildingType.FARM) {
+                orderBuild(site);
+            } else {
+                getNavigator().clearPathEntity();
+                guardHere();
+            }
+            return;
+        }
+        walkTo(site);
+    }
+
+    private void tickWork() {
+        Building farm = building();
+        if (farm == null || farm.type != BuildingType.FARM) {
+            getNavigator().clearPathEntity();
+            guardHere();
+            return;
+        }
+        if (!farm.isComplete()) {
+            order = Order.BUILD;
+            return;
+        }
+        if (farm.distanceTo(posX, posZ) <= Buildings.REACH) {
+            if (!working) {
+                working = true;
+                getNavigator().clearPathEntity();
+            }
+            getLookHelper().setLookPosition(farm.getCenterX(), farm.groundY + 1, farm.getCenterZ(), 10, 30);
+            if (ticksExisted % 30 == 0) {
+                swingItem();
+            }
+            progressTicks = 0;
+            return;
+        }
+        working = false;
+        walkTo(farm);
+    }
+
+    /** Walks toward the nearest side of a building; gives up and guards when stuck too long. */
+    private void walkTo(Building building) {
+        if (getNavigator().noPath() && --planTicks <= 0) {
+            planTicks = 20;
+            double[] spot = building.nearestOutside(posX, posZ);
+            walkToward(spot[0], spot[1]);
         }
         if (!madeProgress()) {
             guardHere();
@@ -307,7 +435,7 @@ public class EntityUnit extends EntityCreature {
             postZ = posZ;
             hasPost = true;
         }
-        if (--scanTicks <= 0) {
+        if (!isWorker() && --scanTicks <= 0) {
             scanTicks = 10 + rand.nextInt(5);
             EntityLivingBase enemy = Units.get()
                 .findEnemyNear(this, GUARD_RANGE);
@@ -426,7 +554,10 @@ public class EntityUnit extends EntityCreature {
         }
         boolean hurt = super.attackEntityFrom(source, amount);
         // Guarding units hit back; units on the move keep going.
-        if (hurt && attacker instanceof EntityLivingBase && attacker != this && (order == Order.IDLE || defending)) {
+        if (hurt && !isWorker()
+            && attacker instanceof EntityLivingBase
+            && attacker != this
+            && (order == Order.IDLE || defending)) {
             defend((EntityLivingBase) attacker);
         }
         return hurt;
@@ -447,6 +578,8 @@ public class EntityUnit extends EntityCreature {
     public void writeEntityToNBT(NBTTagCompound tag) {
         super.writeEntityToNBT(tag);
         tag.setString("Team", teamId);
+        tag.setString("Kind", kind.id);
+        tag.setInteger("Building", buildingId);
         tag.setInteger("Number", number);
         tag.setInteger("ArmorColor", armorColor);
         // A fight picked up while guarding is not worth keeping; the unit is back on guard after a restart.
@@ -465,6 +598,9 @@ public class EntityUnit extends EntityCreature {
     public void readEntityFromNBT(NBTTagCompound tag) {
         super.readEntityFromNBT(tag);
         teamId = tag.getString("Team");
+        UnitKind savedKind = UnitKind.byId(tag.getString("Kind"));
+        kind = savedKind == null ? UnitKind.SOLDIER : savedKind;
+        buildingId = tag.getInteger("Building");
         number = tag.getInteger("Number");
         armorColor = tag.getInteger("ArmorColor");
         try {

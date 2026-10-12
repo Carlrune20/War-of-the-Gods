@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Boots the dev dedicated server four times. The first boot sets up a game through /rts and saves it; the second
 # boot checks the game and its map came back from the save intact, then starts a new game to check numbering
-# continues and the old map is replaced by a fresh one. The third checks the web map and units, and the fourth
-# that units come back after a restart.
+# continues and the old map is replaced by a fresh one. The third checks the web map, units and buildings: town
+# halls, a worker building a farm and working it, a barracks, and training. The fourth checks that units and
+# buildings come back after a restart.
 set -uo pipefail
 
 TIMEOUT="${SERVER_TIMEOUT:-600}"
@@ -162,6 +163,8 @@ echo "ok: login with a one-time link"
 
 wait_for_log "Web map of game #3 drawn" 300
 echo "ok: map drawn"
+wait_for_log "Built Red town hall #1" 30
+wait_for_log "Built Blue town hall #2" 30
 curl -sf -b "$jar" "$WEB/api/tile?x=0&z=0&v=1" -o run/tile.bin || web_fail "tile 0,0 not served"
 python3 .github/scripts/map-tile-check.py run/tile.bin || web_fail "tile 0,0 does not hold the blocks of the map"
 curl -sf "$WEB/blocks.js" > /dev/null && curl -sf "$WEB/render.js" > /dev/null || web_fail "map scripts not served"
@@ -189,6 +192,34 @@ red1_after=$(grep -oE 'Red 1 at -?[0-9]+,-?[0-9]+,-?[0-9]+' "$WEB_LOG" | tail -1
 [ -n "$red1_before" ] && [ "$red1_before" != "$red1_after" ] || web_fail "Red 1 did not move: $red1_before, then $red1_after"
 echo "ok: $red1_before, then $red1_after"
 
+# Buildings: a worker walks to a farm site, the farm goes up when it gets there, and it stays to work it. A
+# worker trained at the town hall builds a barracks, which trains a soldier.
+echo "rts units spawn blue 1 worker" >&3
+wait_for_log "Spawned 1 units for Blue" 30
+echo "rts build blue farm" >&3
+wait_for_log "Laid out Blue farm #3" 30
+expect "$WEB_LOG" "1 workers on the way"
+wait_for_log "Built Blue farm #3" 120
+echo "rts train blue worker 1" >&3
+wait_for_log "trained Blue worker 4" 60
+for _ in $(seq 30); do
+    echo "rts buildings blue" >&3
+    sleep 2
+    grep -qF "Blue farm #3 at" "$WEB_LOG" && grep -q "Blue farm #3 at .*, 1 working" "$WEB_LOG" && break
+done
+grep -q "Blue farm #3 at .*, 1 working" "$WEB_LOG" || web_fail "the worker is not working the farm"
+echo "ok: the worker works the farm"
+echo "rts build blue barracks" >&3
+wait_for_log "Laid out Blue barracks #4" 30
+wait_for_log "Built Blue barracks #4" 120
+echo "rts train blue soldier 1" >&3
+wait_for_log "trained Blue 5" 60
+echo "rts resources blue" >&3
+wait_for_log "Team Blue resources" 30
+food=$(grep -oE 'Team Blue resources: Food [0-9]+' "$WEB_LOG" | tail -1 | grep -oE '[0-9]+$')
+[ "$food" -gt 200 ] || web_fail "the farm brought in no food: $food"
+echo "ok: Blue has $food food from the farm"
+
 stop_server
 cat "$WEB_LOG"
 grep -q 'Stopping server' "$WEB_LOG" || fail "boot-3-web: server did not stop cleanly"
@@ -210,6 +241,7 @@ wait_for_log "Done (" "$TIMEOUT"
 sleep 10
 echo "rts units" >&3
 echo "rts units red" >&3
+echo "rts buildings" >&3
 wait_for_log "Team Red has" 30
 sleep 2
 stop_server
@@ -217,8 +249,12 @@ cat "$WEB_LOG"
 if grep -qE 'This crash report has been saved|Encountered an unexpected exception' "$WEB_LOG"; then
     fail "boot-4-units: server crashed"
 fi
-expect "$WEB_LOG" "Units: Red 3, Blue 2"
+expect "$WEB_LOG" "Units: Red 3, Blue 5"
 expect "$WEB_LOG" "Team Red has 3 of 50 units"
 expect "$WEB_LOG" "Red 1 at "
+expect "$WEB_LOG" "Red town hall #1 at"
+expect "$WEB_LOG" "Blue barracks #4 at"
+grep -q "Blue farm #3 at .*, 1 working" "$WEB_LOG" || fail "boot-4-units: the farm lost its worker"
+echo "ok: buildings and the farm worker came back"
 
 echo "Server smoke test passed"

@@ -19,6 +19,16 @@ public class Config {
     public static final long[] unitCost = { 50, 20, 0, 0 };
     public static int unitsPerTeam = 50;
     public static int unitHealth = 20;
+    /** Food, Wood, Stone and Metal one worker costs to train at the town hall. */
+    public static final long[] workerCost = { 50, 0, 0, 0 };
+    public static int trainSeconds = 5;
+
+    public static final long[] farmCost = { 0, 75, 0, 0 };
+    public static final long[] barracksCost = { 0, 150, 50, 0 };
+    public static int farmWorkers = 3;
+    public static int farmYieldSeconds = 5;
+    public static int farmFood = 5;
+    public static int farmWood = 3;
 
     public static boolean webEnabled = true;
     public static String webBindAddress = "0.0.0.0";
@@ -77,7 +87,9 @@ public class Config {
         }
 
         String units = "units";
-        configuration.setCategoryComment(units, "Soldiers teams train and command from the web map.");
+        configuration.setCategoryComment(
+            units,
+            "Units teams train and command from the web map: soldiers at a barracks, workers at the town hall.");
         for (Resource resource : Resource.values()) {
             unitCost[resource.ordinal()] = configuration.getInt(
                 "cost" + resource.displayName,
@@ -85,11 +97,52 @@ public class Config {
                 (int) unitCost[resource.ordinal()],
                 0,
                 Integer.MAX_VALUE,
-                resource.displayName + " a unit costs to train.");
+                resource.displayName + " a soldier costs to train.");
+            workerCost[resource.ordinal()] = configuration.getInt(
+                "workerCost" + resource.displayName,
+                units,
+                (int) workerCost[resource.ordinal()],
+                0,
+                Integer.MAX_VALUE,
+                resource.displayName + " a worker costs to train.");
         }
-        unitsPerTeam = configuration
-            .getInt("perTeam", units, unitsPerTeam, 0, 1000, "Most units a team can have at once.");
+        unitsPerTeam = configuration.getInt(
+            "perTeam",
+            units,
+            unitsPerTeam,
+            0,
+            1000,
+            "Most units, soldiers and workers together, a team can have at once.");
         unitHealth = configuration.getInt("health", units, unitHealth, 1, 1000, "Health of a unit; 20 is a player's.");
+        trainSeconds = configuration
+            .getInt("trainSeconds", units, trainSeconds, 0, 3600, "Seconds it takes to train one unit.");
+
+        String buildings = "buildings";
+        configuration.setCategoryComment(buildings, "Buildings workers build: farms and barracks.");
+        for (Resource resource : Resource.values()) {
+            farmCost[resource.ordinal()] = configuration.getInt(
+                "farmCost" + resource.displayName,
+                buildings,
+                (int) farmCost[resource.ordinal()],
+                0,
+                Integer.MAX_VALUE,
+                resource.displayName + " a farm costs.");
+            barracksCost[resource.ordinal()] = configuration.getInt(
+                "barracksCost" + resource.displayName,
+                buildings,
+                (int) barracksCost[resource.ordinal()],
+                0,
+                Integer.MAX_VALUE,
+                resource.displayName + " a barracks costs.");
+        }
+        farmWorkers = configuration
+            .getInt("farmWorkers", buildings, farmWorkers, 1, 64, "Most workers that can work one farm at a time.");
+        farmYieldSeconds = configuration
+            .getInt("farmYieldSeconds", buildings, farmYieldSeconds, 1, 3600, "Seconds between a farm's harvests.");
+        farmFood = configuration
+            .getInt("farmFood", buildings, farmFood, 0, 100000, "Food each worker at a farm brings in per harvest.");
+        farmWood = configuration
+            .getInt("farmWood", buildings, farmWood, 0, 100000, "Wood each worker at a farm brings in per harvest.");
 
         String web = "web";
         configuration.setCategoryComment(web, "The web map players open in a browser with a link from /rts web.");

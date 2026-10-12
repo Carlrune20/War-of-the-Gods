@@ -22,15 +22,18 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts team color <name> <color>` | (op) Change a team's color. |
 | `/rts team join <team> [player]` | Join a team (moving someone else needs op). |
 | `/rts team leave [player]` | Leave your team (removing someone else needs op). |
-| `/rts team base <team> [x z]` | (op) Move a team's base, where its units are trained, to x z or to where you stand. |
+| `/rts team base <team> [x z]` | (op) Move a team's base to x z or to where you stand; a new town hall goes up there. |
 | `/rts ally <team> <team>` / `/rts unally <team> <team>` | (op) Make or break an alliance. |
 | `/rts resources [team]` | Show a team's Food, Wood, Stone and Metal (your own team by default). |
 | `/rts resources <give\|take\|set> <team> <resource> <amount>` | (op) Change a team's resources. |
 | `/rts units [team]` | List a team's units with where they are and what they are doing (your own team by default), or every team's unit count. |
-| `/rts units spawn <team> [count]` | (op) Spawn units for a team at its base, for free. |
+| `/rts units spawn <team> [count] [soldier\|worker]` | (op) Spawn units for a team at its town hall, for free. |
 | `/rts units move <team> <x> <z>` | (op) Send all of a team's units somewhere. |
 | `/rts units stop <team>` | (op) Make a team's units stop and guard where they stand. |
 | `/rts units kill <team\|all>` | (op) Remove units. |
+| `/rts buildings [team]` | List buildings and building sites, with how many workers work each farm. |
+| `/rts build <team> <farm\|barracks> [x z] [rotation]` | (op) Lay out a building site for free, near the town hall unless x z is given, and send the team's idle workers to build it. |
+| `/rts train <team> <worker\|soldier> [count]` | (op) Queue units for free at the team's town hall or barracks. |
 | `/rts web` | Get a link to the live web map. From the server console it gives an observer link. |
 | `/rts web <player>` | (op) Send a player their own web map link. |
 | `/rts web observer` | (op) Get a link that shows the map without being on a team. |
@@ -56,11 +59,26 @@ game starts.
 The game state is saved with the overworld (`world/data/warofthegods.dat`) and survives restarts. Only one game runs
 at a time; it lasts until an op starts a new one.
 
-## Units
+## Buildings and units
 
-Units are soldiers in their team's colours with an iron sword, trained at their team's base from the web map and
-commanded from there. Each team gets a base when a game starts, spread around the middle of the map. Training a unit
-costs 50 Food and 20 Wood by default, and a team can have up to 50.
+Each team gets a town hall when a game starts, spread around the middle of the map and facing it. The town hall
+trains workers. Workers build farms and barracks: pick the building, place it on the web map, and the selected
+workers walk to the site; the building goes up as soon as the first of them gets there. A farm brings in food and
+wood while workers work at it (5 Food and 3 Wood per worker every 5 seconds, up to 3 workers); a worker that built a
+farm stays to work it. A barracks trains soldiers. Training takes 5 seconds per unit, one at a time per building.
+
+| | Costs (default) |
+|---|---|
+| Worker | 50 Food |
+| Soldier | 50 Food, 20 Wood |
+| Farm | 75 Wood |
+| Barracks | 150 Wood, 50 Stone |
+
+A team can have up to 50 units, soldiers and workers together. Buildings need a spot inside the map, two blocks
+clear of other buildings, on ground that is mostly dry and not too steep; foundations fill in dips and anything
+above the building is cleared. The structures come from the beta map editor (`assets/warofthegods/structures`).
+
+Soldiers are in their team's colours with an iron sword; workers carry an axe and never fight.
 
 A unit that has no orders guards the spot where it stopped: it fights enemies that come within 10 blocks and walks
 back once they are dead or more than 20 blocks from its post. Units also fight back when hit. Enemies are units and
@@ -74,8 +92,8 @@ server with many units.
 
 The mod runs a small web server (port 8124 by default) with a live 3D map of the game, drawn the way the beta map
 editor draws worlds: every block as a flat-coloured box, seen from above at an angle through an RTS camera. It shows
-the terrain, the map border, team bases, every player and unit on the map in their team's colour (units wear a grey
-helmet), and each team's resources, members, units and alliances. Players on a team command their units here.
+the terrain, the map border, buildings and building sites, every player and unit on the map in their team's colour (units wear a grey
+helmet, workers a straw hat), and each team's resources, members, units and alliances. Players on a team command their units here.
 
 Type `/rts web` in game and click the link. Each link works once and for 10 minutes, and logs that browser in for
 72 hours; restarting the server logs everyone out. A new map is read in the background after `/rts newgame` (or a
@@ -96,13 +114,16 @@ Commanding units, from the bar at the bottom of the page:
 
 | Control | What it does |
 |---|---|
-| Train unit | Train a unit at your base (shift-click trains 5) |
+| Town hall | Select your town hall |
+| Click one of your buildings | Select it; a town hall or barracks shows its Train button (shift-click trains 5) and training progress |
+| Build farm / Build barracks | With workers selected: a see-through copy follows the pointer, green where it fits and red where it does not. R or Rotate turns it a quarter round, click places it (shift-click to place more), right-click or Esc cancels |
+| Right-click one of your building sites or farms | Send the selected workers to build or work it |
 | Click one of your units | Select it; shift-click adds or removes it |
 | Shift-drag, or Box then drag | Select your units inside the box |
 | Double-click one of your units | Select all of your units in view |
 | All / Clear / Esc | Select all your units, or none |
 | Right-click the ground | Send the selected units there, in formation |
-| Right-click an enemy unit or player | Attack it |
+| Right-click an enemy unit or player | Attack it (workers stay out of it) |
 | Stop | Stop and guard where they stand |
 | On a touch screen | Tap your units to select them, then tap the ground or an enemy to give the order |
 
@@ -154,7 +175,8 @@ container port and map a different host port (`"8200:8124"`) with `publicUrl` en
 
 `config/warofthegods.cfg`: default map size, default team count, whether players may join teams themselves,
 starting resources per team, the game dimension id and the width of the terrain margin around the map. The `units`
-section sets what a unit costs, how many a team may have and their health. The `web`
+section sets what soldiers and workers cost, how many a team may have, their health and how long training takes;
+the `buildings` section sets what farms and barracks cost and how much a farm brings in. The `web`
 section turns the web map on or off and sets its port, listen address, public address, how long links and logins
 last, and how much of each server tick may go to drawing the map.
 
@@ -171,5 +193,6 @@ Built with the [GTNH ExampleMod](https://github.com/GTNewHorizons/ExampleMod1.7.
 
 CI builds the mod and boots a dedicated server three times to check that a game set up with `/rts` comes back from
 the save intact with the same map, that a new game replaces the old map, and that the web map serves its page,
-logs in with a one-time link, serves the map's blocks and streams live state over its WebSocket
+logs in with a one-time link, serves the map's blocks and streams live state over its WebSocket, and that
+workers build a farm and a barracks, the farm pays out, and units train
 (`.github/scripts/server-smoke-test.sh`).

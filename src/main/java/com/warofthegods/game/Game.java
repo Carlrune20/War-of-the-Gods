@@ -32,6 +32,9 @@ public class Game {
     private final TreeSet<String> alliances = new TreeSet<>();
     /** Every unit of the game by its entity UUID, with the chunk it was last seen in. */
     private final Map<UUID, UnitRecord> units = new LinkedHashMap<>();
+    /** Every building and building site by id. */
+    private final Map<Integer, Building> buildings = new LinkedHashMap<>();
+    private int lastBuildingId;
     private Runnable changeListener = () -> {};
 
     public Game(int number, long startedAt, int centerX, int centerZ, int size, long seed) {
@@ -146,6 +149,8 @@ public class Game {
             return false;
         }
         alliances.removeIf(pair -> pair.startsWith(team.getId() + "|") || pair.endsWith("|" + team.getId()));
+        buildings.values()
+            .removeIf(building -> building.team.equals(team.getId()));
         changed();
         return true;
     }
@@ -275,6 +280,83 @@ public class Game {
         return count;
     }
 
+    public Collection<Building> getBuildings() {
+        return Collections.unmodifiableCollection(buildings.values());
+    }
+
+    public Building getBuilding(int id) {
+        return buildings.get(id);
+    }
+
+    public List<Building> getBuildings(Team team) {
+        List<Building> result = new ArrayList<>();
+        for (Building building : buildings.values()) {
+            if (building.team.equals(team.getId())) {
+                result.add(building);
+            }
+        }
+        return result;
+    }
+
+    /** The team's town hall, or null if it has none. */
+    public Building getTownHall(Team team) {
+        for (Building building : buildings.values()) {
+            if (building.team.equals(team.getId()) && building.type == BuildingType.TOWN_HALL) {
+                return building;
+            }
+        }
+        return null;
+    }
+
+    /** The building whose footprint holds x, z, or null. */
+    public Building getBuildingAt(double x, double z) {
+        for (Building building : buildings.values()) {
+            if (building.covers(x, z, 0)) {
+                return building;
+            }
+        }
+        return null;
+    }
+
+    /** Adds a building or building site with the next free id. */
+    public Building addBuilding(BuildingType type, Team team, int minX, int minZ, int sizeX, int sizeZ, int groundY,
+        int rotation, boolean complete) {
+        lastBuildingId++;
+        Building building = new Building(
+            this,
+            lastBuildingId,
+            type,
+            team.getId(),
+            minX,
+            minZ,
+            sizeX,
+            sizeZ,
+            groundY,
+            rotation,
+            complete);
+        buildings.put(building.id, building);
+        changed();
+        return building;
+    }
+
+    public void removeBuilding(Building building) {
+        if (buildings.remove(building.id) != null) {
+            changed();
+        }
+    }
+
+    /** Units the team has waiting in training queues. */
+    public int countQueued(Team team) {
+        int count = 0;
+        for (Building building : buildings.values()) {
+            if (building.team.equals(team.getId())) {
+                count += building.getQueue()
+                    .size();
+            }
+        }
+        return count;
+    }
+
     NBTTagCompound writeToNBT() {
         NBTTagCompound tag = new NBTTagCompound();
         tag.setInteger("number", number);
@@ -301,6 +383,13 @@ public class Game {
             unitList.appendTag(unit.writeToNBT());
         }
         tag.setTag("units", unitList);
+
+        NBTTagList buildingList = new NBTTagList();
+        for (Building building : buildings.values()) {
+            buildingList.appendTag(building.writeToNBT());
+        }
+        tag.setTag("buildings", buildingList);
+        tag.setInteger("lastBuildingId", lastBuildingId);
         return tag;
     }
 
@@ -333,6 +422,15 @@ public class Game {
             UnitRecord unit = UnitRecord.readFromNBT(unitList.getCompoundTagAt(i));
             game.units.put(unit.id, unit);
         }
+
+        NBTTagList buildingList = tag.getTagList("buildings", 10);
+        for (int i = 0; i < buildingList.tagCount(); i++) {
+            Building building = Building.readFromNBT(game, buildingList.getCompoundTagAt(i));
+            if (building != null && game.teams.containsKey(building.team)) {
+                game.buildings.put(building.id, building);
+            }
+        }
+        game.lastBuildingId = tag.getInteger("lastBuildingId");
         return game;
     }
 }
