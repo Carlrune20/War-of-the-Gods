@@ -56,6 +56,7 @@ public class CommandRts extends CommandBase {
         "buildings",
         "build",
         "train",
+        "damage",
         "web");
     private static final List<String> TEAM_SUBCOMMANDS = Arrays
         .asList("list", "create", "remove", "color", "join", "leave", "base");
@@ -71,7 +72,7 @@ public class CommandRts extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/rts <help|info|newgame|endgame|spawn|team|ally|unally|resources|units|buildings|build|train|web>";
+        return "/rts <help|info|newgame|endgame|spawn|team|ally|unally|resources|units|buildings|build|train|damage|web>";
     }
 
     /** Everyone may run /rts; subcommands that change the game check for op themselves. */
@@ -133,6 +134,9 @@ public class CommandRts extends CommandBase {
             case "train":
                 train(sender, rest);
                 break;
+            case "damage":
+                damage(sender, rest);
+                break;
             case "web":
                 web(sender, rest);
                 break;
@@ -164,8 +168,12 @@ public class CommandRts extends CommandBase {
         send(sender, "/rts units stop <team> - make a team's units stop and guard (op)");
         send(sender, "/rts units kill <team|all> - remove units (op)");
         send(sender, "/rts buildings [team] - list buildings and building sites");
-        send(sender, "/rts build <team> <farm|barracks> [x z] [rotation] - lay out a site for the team's workers (op)");
+        send(
+            sender,
+            "/rts build <team> <farm|barracks|storehouse|quarry> [x z] [rotation] - lay out a site for the team's"
+                + " workers (op)");
         send(sender, "/rts train <team> <worker|soldier> [count] - queue units for free at a building (op)");
+        send(sender, "/rts damage <building id> <amount> - take health off a building; at 0 it is gone (op)");
         send(sender, "/rts web - get a link to the live web map");
         send(sender, "/rts web <player> - send a player a web map link (op)");
         send(sender, "/rts web observer - get a link that views the map without a team (op)");
@@ -455,7 +463,18 @@ public class CommandRts extends CommandBase {
                         building.getQueue()
                             .size());
             }
-            if (building.type == BuildingType.FARM && building.isComplete()) {
+            line.append(", health ")
+                .append(building.getHealth())
+                .append("/")
+                .append(building.getMaxHealth());
+            if (!building.isComplete()) {
+                line.append(", ")
+                    .append((int) Math.floor(building.getBuildProgress() * 100))
+                    .append("% built by ")
+                    .append(Buildings.countBuilders(building))
+                    .append(" workers");
+            }
+            if (building.type.isWorkplace() && building.isComplete()) {
                 line.append(", ")
                     .append(Buildings.countWorkers(building))
                     .append(" working");
@@ -474,11 +493,11 @@ public class CommandRts extends CommandBase {
     private void build(ICommandSender sender, String[] args) {
         requireOp(sender);
         Game game = requireGame();
-        requireArgs(args, 2, "/rts build <team> <farm|barracks> [x z] [rotation]");
+        requireArgs(args, 2, "/rts build <team> <farm|barracks|storehouse|quarry> [x z] [rotation]");
         Team team = requireTeam(game, args[0]);
         BuildingType type = BuildingType.byId(args[1]);
         if (type == null || !type.buildable) {
-            throw new CommandException("Workers can build a farm or a barracks");
+            throw new CommandException("Workers can build a farm, barracks, storehouse or quarry");
         }
         WorldServer world = GameWorld.getWorld();
         Buildings.Plan plan;
@@ -510,6 +529,41 @@ public class CommandRts extends CommandBase {
         int sent = Units.get()
             .orderBuild(idle, site);
         send(sender, "Laid out " + site.describe(game) + ", " + sent + " workers on the way");
+    }
+
+    private static String unitActivity(EntityUnit unit) {
+        if (!unit.isWorker()) {
+            return "";
+        }
+        String carrying = unit.getCarried() > 0 ? " carrying " + unit.getCarried() : "";
+        if (unit.isDelivering()) {
+            return " (delivering" + carrying + ")";
+        }
+        if (unit.isBuildingAt(unit.getBuildingId())) {
+            return " (building)";
+        }
+        if (unit.isWorkingAt(unit.getBuildingId())) {
+            return " (working" + carrying + ")";
+        }
+        return carrying.isEmpty() ? "" : " (" + carrying.trim() + ")";
+    }
+
+    private void damage(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        Game game = requireGame();
+        requireArgs(args, 2, "/rts damage <building id> <amount>");
+        Building building = game.getBuilding(parseIntBounded(sender, args[0], 1, Integer.MAX_VALUE));
+        if (building == null) {
+            throw new CommandException("There is no building #%s", args[0]);
+        }
+        int amount = parseIntBounded(sender, args[1], 1, Integer.MAX_VALUE);
+        String name = building.describe(game);
+        Buildings.get()
+            .damage(building, amount, sender.getCommandSenderName() + " used /rts damage");
+        send(
+            sender,
+            game.getBuilding(building.id) == null ? "Destroyed " + name
+                : name + " has " + building.getHealth() + "/" + building.getMaxHealth() + " health");
     }
 
     private void train(ICommandSender sender, String[] args) {
@@ -589,7 +643,7 @@ public class CommandRts extends CommandBase {
                     + unit.getOrder()
                         .name()
                         .toLowerCase()
-                    + (unit.isWorker() && unit.isWorkingAt(unit.getBuildingId()) ? " (working)" : ""));
+                    + unitActivity(unit));
         }
     }
 

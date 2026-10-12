@@ -27,6 +27,8 @@ public class Team {
     private final EnumMap<Resource, Long> resources = new EnumMap<>(Resource.class);
     /** Where the team's units are trained, or null until one is chosen. */
     private int[] base;
+    /** Whether a town hall is still to go up at the base; once it is destroyed, it stays gone. */
+    private boolean townHallDue;
     private int lastUnitNumber;
 
     Team(Game game, String name, EnumChatFormatting color) {
@@ -65,8 +67,19 @@ public class Team {
         return base == null ? null : base.clone();
     }
 
+    /** Moves the base; a new town hall goes up there. */
     public void setBase(int x, int z) {
         base = new int[] { x, z };
+        townHallDue = true;
+        game.changed();
+    }
+
+    public boolean isTownHallDue() {
+        return townHallDue;
+    }
+
+    public void setTownHallDue(boolean due) {
+        townHallDue = due;
         game.changed();
     }
 
@@ -209,6 +222,7 @@ public class Team {
         if (base != null) {
             tag.setIntArray("base", base);
         }
+        tag.setBoolean("townHallDue", townHallDue);
         tag.setInteger("lastUnitNumber", lastUnitNumber);
         return tag;
     }
@@ -230,6 +244,7 @@ public class Team {
         }
         int[] base = tag.getIntArray("base");
         team.base = base.length == 2 ? base : null;
+        team.townHallDue = tag.getBoolean("townHallDue");
         team.lastUnitNumber = tag.getInteger("lastUnitNumber");
         return team;
     }

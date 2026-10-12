@@ -9,9 +9,13 @@ import java.util.Map;
 
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.init.Blocks;
 import net.minecraft.util.AxisAlignedBB;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.DimensionManager;
+import net.minecraftforge.event.world.BlockEvent;
 
 import com.warofthegods.Config;
 import com.warofthegods.WarOfTheGods;
@@ -19,7 +23,6 @@ import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
-import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.unit.EntityUnit;
@@ -31,7 +34,11 @@ import cpw.mods.fml.common.gameevent.TickEvent;
 
 /**
  * Runs the buildings of the running game on the server thread: puts a town hall at every team's base, checks where
- * new buildings may go, raises them when a worker reaches the site, trains units and pays out farm harvests.
+ * new buildings may go, raises them once workers have built the site, trains units, hands out harvests to the
+ * workers at farms and quarries, and takes buildings down when enemies destroy them.
+ *
+ * <p>
+ * Enemy players cannot break a building's blocks: the block stays and the building loses health instead.
  */
 public final class Buildings {
 
@@ -45,7 +52,7 @@ public final class Buildings {
     private static final int MAX_SLOPE = 12;
     /** Units one building may have waiting to train. */
     public static final int MAX_QUEUE = 10;
-    /** How close a worker has to come to a site to build it, or to a farm to work it. */
+    /** How close a worker has to come to a site to build it, to a farm to work it, or a soldier to hit a building. */
     public static final double REACH = 2.5;
 
     private static Buildings instance;
@@ -81,6 +88,7 @@ public final class Buildings {
             return;
         }
         placeTownHalls(game, world);
+        construct(game, world);
         train(game);
         harvest(game);
     }
@@ -91,7 +99,11 @@ public final class Buildings {
     private void placeTownHalls(Game game, WorldServer world) {
         for (Team team : game.getTeams()) {
             int[] base = team.getBase();
-            if (base == null || game.getTownHall(team) != null) {
+            if (base == null || !team.isTownHallDue()) {
+                continue;
+            }
+            if (game.getTownHall(team) != null) {
+                team.setTownHallDue(false);
                 continue;
             }
             // Face the middle of the map.
@@ -107,6 +119,7 @@ public final class Buildings {
             Building hall = game
                 .addBuilding(BuildingType.TOWN_HALL, team, minX, minZ, sizeX, sizeZ, site.groundY, rotation, false);
             raise(world, hall);
+            team.setTownHallDue(false);
             return;
         }
     }
@@ -259,6 +272,33 @@ public final class Buildings {
         return null;
     }
 
+    // ---------------------------------------------------------------- building
+
+    /** Workers at the building site, building it. */
+    public static int countBuilders(Building site) {
+        int count = 0;
+        for (EntityUnit unit : Units.get()
+            .getLoaded()) {
+            if (unit.isBuildingAt(site.id)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** Puts the work of the workers at each building site in, and raises the sites that are done. */
+    private void construct(Game game, WorldServer world) {
+        for (Building site : new ArrayList<>(game.getBuildings())) {
+            if (site.isComplete()) {
+                continue;
+            }
+            int builders = countBuilders(site);
+            if (builders > 0 && site.build(INTERVAL * builders)) {
+                raise(world, site);
+            }
+        }
+    }
+
     // ---------------------------------------------------------------- raising
 
     /**
@@ -329,42 +369,150 @@ public final class Buildings {
         }
     }
 
-    // ---------------------------------------------------------------- farming
+    // ---------------------------------------------------------------- gathering
 
-    /** Workers working at the farm, up to how many it has work for. */
-    public static int countWorkers(Building farm) {
-        int count = 0;
-        for (EntityUnit unit : Units.get()
-            .getLoaded()) {
-            if (unit.isWorkingAt(farm.id)) {
-                count++;
-            }
-        }
-        return Math.min(count, Config.farmWorkers);
+    /** Workers working at a farm or quarry, up to how many it has work for. */
+    public static int countWorkers(Building workplace) {
+        return Math.min(workersAt(workplace).size(), workplace.type.maxWorkers());
     }
 
+    private static List<EntityUnit> workersAt(Building workplace) {
+        List<EntityUnit> workers = new ArrayList<>();
+        for (EntityUnit unit : Units.get()
+            .getLoaded()) {
+            if (unit.isWorkingAt(workplace.id)) {
+                workers.add(unit);
+            }
+        }
+        // The first to come keep their place when more come than there is work for.
+        workers.sort((a, b) -> Integer.compare(a.getEntityId(), b.getEntityId()));
+        return workers;
+    }
+
+    /** Hands each harvest to the workers at farms and quarries, who carry it to a town hall or storehouse. */
     private void harvest(Game game) {
         int ticksPerHarvest = Config.farmYieldSeconds * 20;
-        for (Building farm : game.getBuildings()) {
-            if (farm.type != BuildingType.FARM || !farm.isComplete()) {
+        for (Building workplace : game.getBuildings()) {
+            if (!workplace.type.isWorkplace() || !workplace.isComplete()) {
                 continue;
             }
-            int workers = countWorkers(farm);
-            if (workers == 0) {
-                harvestTicks.remove(farm.id);
+            List<EntityUnit> workers = workersAt(workplace);
+            if (workers.isEmpty()) {
+                harvestTicks.remove(workplace.id);
                 continue;
             }
-            int elapsed = harvestTicks.getOrDefault(farm.id, 0) + INTERVAL;
+            int elapsed = harvestTicks.getOrDefault(workplace.id, 0) + INTERVAL;
             if (elapsed < ticksPerHarvest) {
-                harvestTicks.put(farm.id, elapsed);
+                harvestTicks.put(workplace.id, elapsed);
                 continue;
             }
-            harvestTicks.put(farm.id, 0);
-            Team team = game.getTeam(farm.team);
-            if (team != null) {
-                team.addResource(Resource.FOOD, (long) Config.farmFood * workers);
-                team.addResource(Resource.WOOD, (long) Config.farmWood * workers);
+            harvestTicks.put(workplace.id, 0);
+            long[] yield = workplace.type.yield();
+            for (EntityUnit worker : workers.subList(0, Math.min(workers.size(), workplace.type.maxWorkers()))) {
+                worker.gather(yield);
             }
+        }
+    }
+
+    /** The nearest finished town hall or storehouse of the team, or null. */
+    public static Building nearestStore(Game game, String team, double x, double z) {
+        Building best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (Building building : game.getBuildings()) {
+            if (building.team.equals(team) && building.type.storesResources && building.isComplete()) {
+                double distance = building.distanceTo(x, z);
+                if (distance < bestDistance) {
+                    best = building;
+                    bestDistance = distance;
+                }
+            }
+        }
+        return best;
+    }
+
+    // ---------------------------------------------------------------- damage
+
+    /**
+     * Takes health off a building; at 0 it is gone: its blocks above ground are cleared, the ground layer turns back
+     * to grass, and units training there are lost. Foundations stay in the ground.
+     */
+    public void damage(Building building, int amount, String cause) {
+        Game game = GameManager.getGame();
+        if (game == null || game.getBuilding(building.id) != building || !building.damage(amount)) {
+            return;
+        }
+        WorldServer world = DimensionManager.getWorld(GameWorld.dimensionId());
+        if (world != null) {
+            tearDown(world, building);
+        }
+        game.removeBuilding(building);
+        harvestTicks.remove(building.id);
+        WarOfTheGods.LOG.info("Destroyed {} ({})", building.describe(game), cause);
+    }
+
+    private void tearDown(WorldServer world, Building building) {
+        Schematic schematic = schematic(building.type);
+        int top = building.groundY - schematic.ground + schematic.height;
+        for (int x = building.minX; x <= building.getMaxX(); x++) {
+            for (int z = building.minZ; z <= building.getMaxZ(); z++) {
+                // Top down, so nothing hanging on a wall drops as an item.
+                for (int y = Math.min(255, top); y > building.groundY; y--) {
+                    if (!world.isAirBlock(x, y, z)) {
+                        world.setBlock(x, y, z, Blocks.air, 0, 2);
+                    }
+                }
+                if (world.getBlock(x, building.groundY, z) != Blocks.grass) {
+                    world.setBlock(x, building.groundY, z, Blocks.grass, 0, 2);
+                }
+            }
+        }
+    }
+
+    /** The building whose blocks hold x, y, z, or null. */
+    public Building buildingWithBlock(Game game, int x, int y, int z) {
+        for (Building building : game.getBuildings()) {
+            Schematic schematic = schematic(building.type);
+            if (building.isComplete() && building.holds(x, y, z, schematic.height - schematic.ground)) {
+                return building;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Players cannot break buildings' blocks in the game world. When an enemy tries, the block stays and the
+     * building loses health; players in creative mode, such as ops shaping the map, break blocks as usual.
+     */
+    @SubscribeEvent
+    public void onBlockBreak(BlockEvent.BreakEvent event) {
+        if (event.world.isRemote || event.world.provider.dimensionId != GameWorld.dimensionId()
+            || event.getPlayer() == null
+            || event.getPlayer().capabilities.isCreativeMode) {
+            return;
+        }
+        Game game = GameManager.getGame();
+        Building building = game == null ? null : buildingWithBlock(game, event.x, event.y, event.z);
+        if (building == null) {
+            return;
+        }
+        event.setCanceled(true);
+        Team owner = game.getTeam(building.team);
+        Team breaker = game.getTeamOf(
+            event.getPlayer()
+                .getUniqueID());
+        if (owner != null && breaker != null && game.areEnemies(breaker, owner)) {
+            damage(
+                building,
+                Config.blockBreakDamage,
+                event.getPlayer()
+                    .getCommandSenderName() + " broke a block");
+        } else {
+            event.getPlayer()
+                .addChatMessage(
+                    new ChatComponentText(
+                        EnumChatFormatting.GRAY + "That is part of the "
+                            + building.describe(game)
+                            + "; only enemies can damage it."));
         }
     }
 }

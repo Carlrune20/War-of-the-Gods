@@ -78,9 +78,11 @@ public class WarOfTheGods {
             .register(units);
         ForgeChunkManager.setForcedChunkLoadingCallback(this, units.chunkLoadingCallback());
         UnitCommands.register();
+        Buildings buildings = new Buildings();
         FMLCommonHandler.instance()
             .bus()
-            .register(new Buildings());
+            .register(buildings);
+        MinecraftForge.EVENT_BUS.register(buildings);
         BuildingCommands.register();
         proxy.init();
     }

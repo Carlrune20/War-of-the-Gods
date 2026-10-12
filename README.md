@@ -31,9 +31,10 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts units move <team> <x> <z>` | (op) Send all of a team's units somewhere. |
 | `/rts units stop <team>` | (op) Make a team's units stop and guard where they stand. |
 | `/rts units kill <team\|all>` | (op) Remove units. |
-| `/rts buildings [team]` | List buildings and building sites, with how many workers work each farm. |
-| `/rts build <team> <farm\|barracks> [x z] [rotation]` | (op) Lay out a building site for free, near the town hall unless x z is given, and send the team's idle workers to build it. |
+| `/rts buildings [team]` | List buildings and building sites with their health, how far each site is built and how many workers work each farm or quarry. |
+| `/rts build <team> <farm\|barracks\|storehouse\|quarry> [x z] [rotation]` | (op) Lay out a building site for free, near the town hall unless x z is given, and send the team's idle workers to build it. |
 | `/rts train <team> <worker\|soldier> [count]` | (op) Queue units for free at the team's town hall or barracks. |
+| `/rts damage <building id> <amount>` | (op) Take health off a building; at 0 it is gone. The id is the `#` number `/rts buildings` shows. |
 | `/rts web` | Get a link to the live web map. From the server console it gives an observer link. |
 | `/rts web <player>` | (op) Send a player their own web map link. |
 | `/rts web observer` | (op) Get a link that shows the map without being on a team. |
@@ -62,17 +63,31 @@ at a time; it lasts until an op starts a new one.
 ## Buildings and units
 
 Each team gets a town hall when a game starts, spread around the middle of the map and facing it. The town hall
-trains workers. Workers build farms and barracks: pick the building, place it on the web map, and the selected
-workers walk to the site; the building goes up as soon as the first of them gets there. A farm brings in food and
-wood while workers work at it (5 Food and 3 Wood per worker every 5 seconds, up to 3 workers); a worker that built a
-farm stays to work it. A barracks trains soldiers. Training takes 5 seconds per unit, one at a time per building.
+trains workers. Workers build farms, barracks, storehouses and quarries: pick the building, place it on the web map,
+and the selected workers walk to the site and build it. Building takes time, shown as a progress bar; more workers
+build faster. The building goes up in the world once the site is finished.
 
-| | Costs (default) |
-|---|---|
-| Worker | 50 Food |
-| Soldier | 50 Food, 20 Wood |
-| Farm | 75 Wood |
-| Barracks | 150 Wood, 50 Stone |
+Workers at a farm gather food and wood (5 Food and 3 Wood per worker every 5 seconds, up to 3 workers); workers at a
+quarry gather stone and a little metal (4 Stone and 1 Metal per worker every 5 seconds, up to 3 workers). A worker
+carries up to 20 and then walks it to the nearest town hall or storehouse, where it goes to the team, and walks back
+to work. Workers hold what they carry most of in their hands. A worker that built a farm or quarry stays to work it.
+A barracks trains soldiers. Training takes 5 seconds per unit, one at a time per building.
+
+| | Costs (default) | Health | Build time (one worker) |
+|---|---|---|---|
+| Worker | 50 Food | | |
+| Soldier | 50 Food, 20 Wood | | |
+| Town hall | | 1500 | |
+| Farm | 75 Wood | 300 | 15 s |
+| Barracks | 150 Wood, 50 Stone | 800 | 25 s |
+| Storehouse | 100 Wood | 600 | 20 s |
+| Quarry | 100 Wood | 500 | 20 s |
+
+Buildings have health. A building site starts with a tenth of it and gains the rest as it is built. Enemy soldiers
+take 10 off with every hit: ordered to, or on their own when an enemy building is within 10 blocks of where they
+guard. Players cannot break a building's blocks: when an enemy player tries, the block stays and the building loses
+5 health. Players in creative mode break blocks as usual. At 0 health a building is gone: its blocks are cleared down
+to the ground, and units training there are lost. A destroyed town hall does not come back.
 
 A team can have up to 50 units, soldiers and workers together. Buildings need a spot inside the map, two blocks
 clear of other buildings, on ground that is mostly dry and not too steep; foundations fill in dips and anything
@@ -97,7 +112,7 @@ helmet, workers a straw hat), and each team's resources, members, units and alli
 
 Type `/rts web` in game and click the link. Each link works once and for 10 minutes, and logs that browser in for
 72 hours; restarting the server logs everyone out. A new map is read in the background after `/rts newgame` (or a
-server start) and fills in on the page as it goes; after that, changes to the world show up within a few seconds.
+server start) and fills in on the page as it goes; after that, changes to the world show up within a few seconds. Units, players and buildings update every server tick, 20 times a second.
 
 | Control | What it does |
 |---|---|
@@ -115,15 +130,16 @@ Commanding units, from the bar at the bottom of the page:
 | Control | What it does |
 |---|---|
 | Town hall | Select your town hall |
-| Click one of your buildings | Select it; a town hall or barracks shows its Train button (shift-click trains 5) and training progress |
-| Build farm / Build barracks | With workers selected: a see-through copy follows the pointer, green where it fits and red where it does not. R or Rotate turns it a quarter round, click places it (shift-click to place more), right-click or Esc cancels |
-| Right-click one of your building sites or farms | Send the selected workers to build or work it |
+| Click one of your buildings | Select it and see its health; a site shows how far it is built, a town hall or barracks its Train button (shift-click trains 5) and training progress |
+| Build farm / barracks / storehouse / quarry | With workers selected: a see-through copy follows the pointer, green where it fits and red where it does not. R or Rotate turns it a quarter round, click places it (shift-click to place more), right-click or Esc cancels |
+| Right-click one of your building sites, farms or quarries | Send the selected workers to build or work it |
 | Click one of your units | Select it; shift-click adds or removes it |
 | Shift-drag, or Box then drag | Select your units inside the box |
 | Double-click one of your units | Select all of your units in view |
 | All / Clear / Esc | Select all your units, or none |
 | Right-click the ground | Send the selected units there, in formation |
-| Right-click an enemy unit or player | Attack it (workers stay out of it) |
+| Right-click an enemy unit, player or building | Attack it (workers stay out of it) |
+| Hover a unit or building | A tooltip says what it is and what it is doing, or what a right-click would do with the selected units, such as ⚔️ Attack Blue soldier 3 |
 | Stop | Stop and guard where they stand |
 | On a touch screen | Tap your units to select them, then tap the ground or an enemy to give the order |
 
@@ -176,7 +192,8 @@ container port and map a different host port (`"8200:8124"`) with `publicUrl` en
 `config/warofthegods.cfg`: default map size, default team count, whether players may join teams themselves,
 starting resources per team, the game dimension id and the width of the terrain margin around the map. The `units`
 section sets what soldiers and workers cost, how many a team may have, their health and how long training takes;
-the `buildings` section sets what farms and barracks cost and how much a farm brings in. The `web`
+the `buildings` section sets what each building costs, its health and build time, how much farms and quarries bring
+in, how much a worker carries and how much damage soldiers and enemy players do to buildings. The `web`
 section turns the web map on or off and sets its port, listen address, public address, how long links and logins
 last, and how much of each server tick may go to drawing the map.
 
@@ -194,5 +211,6 @@ Built with the [GTNH ExampleMod](https://github.com/GTNewHorizons/ExampleMod1.7.
 CI builds the mod and boots a dedicated server three times to check that a game set up with `/rts` comes back from
 the save intact with the same map, that a new game replaces the old map, and that the web map serves its page,
 logs in with a one-time link, serves the map's blocks and streams live state over its WebSocket, and that
-workers build a farm and a barracks, the farm pays out, and units train
+workers build a farm, a barracks and a storehouse, the farm worker carries food home, units train, and a building
+is destroyed at 0 health
 (`.github/scripts/server-smoke-test.sh`).
