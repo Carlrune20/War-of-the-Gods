@@ -39,6 +39,15 @@ public final class Building {
     private final List<UnitKind> queue = new ArrayList<>();
     /** Ticks spent training the first unit in the queue. */
     private int trainingTicks;
+    private int level = 1;
+    /** What it is researching: an upgrade, or {@link #LEVEL_UP} when the building itself goes up a level. */
+    private String research;
+    private int researchTicks;
+    /** The structure last put into the world for it, such as house_l1_d2; null before the first. */
+    private String shown;
+
+    /** What {@link #getResearch()} is while the building goes up a level. */
+    public static final String LEVEL_UP = "level";
 
     Building(Game game, int id, BuildingType type, String team, int minX, int minZ, int sizeX, int sizeZ, int groundY,
         int rotation, boolean complete) {
@@ -53,11 +62,11 @@ public final class Building {
         this.groundY = groundY;
         this.rotation = rotation & 3;
         this.complete = complete;
-        this.health = complete ? type.maxHealth() : siteHealth(0);
+        this.health = complete ? getMaxHealth() : siteHealth(0);
     }
 
     private int siteHealth(int ticks) {
-        int max = type.maxHealth();
+        int max = getMaxHealth();
         return Math.max(1, max / 10 + (int) ((long) (max - max / 10) * ticks / type.buildTicks()));
     }
 
@@ -84,7 +93,7 @@ public final class Building {
     /** Finishes the building, at full health less what it lost while a site. */
     public void setComplete() {
         if (!complete) {
-            health = Math.max(1, type.maxHealth() - (siteHealth(buildTicks) - health));
+            health = Math.max(1, getMaxHealth() - (siteHealth(buildTicks) - health));
         }
         complete = true;
         buildTicks = 0;
@@ -103,7 +112,7 @@ public final class Building {
         }
         int before = siteHealth(buildTicks);
         buildTicks = Math.min(type.buildTicks(), buildTicks + ticks);
-        health = Math.min(type.maxHealth(), health + siteHealth(buildTicks) - before);
+        health = Math.min(getMaxHealth(), health + siteHealth(buildTicks) - before);
         game.changed();
         return buildTicks >= type.buildTicks();
     }
@@ -112,8 +121,81 @@ public final class Building {
         return health;
     }
 
+    /** Health at its level, a fifth more once its team has researched masonry. */
     public int getMaxHealth() {
-        return type.maxHealth();
+        int max = type.maxHealth(level);
+        Team owner = game.getTeam(team);
+        return owner != null && owner.has(Upgrade.MASONRY) ? max + max / 5 : max;
+    }
+
+    /** Raises health by as much as the most it can have went up, as when it gains a level or masonry. */
+    public void addMaxHealth(int before) {
+        health = Math.max(1, Math.min(getMaxHealth(), health + getMaxHealth() - before));
+        game.changed();
+    }
+
+    /** Health back to full, as when an op repairs it. */
+    public void repair() {
+        health = getMaxHealth();
+        game.changed();
+    }
+
+    public int getLevel() {
+        return level;
+    }
+
+    /** Goes up a level, keeping the health it lost. */
+    public void levelUp() {
+        int before = getMaxHealth();
+        level = Math.min(type.levels, level + 1);
+        addMaxHealth(before);
+    }
+
+    /** What it is researching, an upgrade id or {@link #LEVEL_UP}, or null. */
+    public String getResearch() {
+        return research;
+    }
+
+    public int getResearchTicks() {
+        return researchTicks;
+    }
+
+    public void startResearch(String what) {
+        research = what;
+        researchTicks = 0;
+        game.changed();
+    }
+
+    /** Adds ticks to what it researches; returns it once done, and stops. */
+    public String research(int ticks, int needed) {
+        if (research == null) {
+            return null;
+        }
+        researchTicks += ticks;
+        game.changed();
+        if (researchTicks < needed) {
+            return null;
+        }
+        String done = research;
+        research = null;
+        researchTicks = 0;
+        return done;
+    }
+
+    /** Takes what it researches off, as when it was destroyed or the research no longer applies. */
+    public void cancelResearch() {
+        research = null;
+        researchTicks = 0;
+        game.changed();
+    }
+
+    public String getShown() {
+        return shown;
+    }
+
+    public void setShown(String shown) {
+        this.shown = shown;
+        game.changed();
     }
 
     /** Takes health off; returns whether that brought it to 0. */
@@ -227,6 +309,7 @@ public final class Building {
         Team owner = game.getTeam(team);
         return (owner == null ? team : owner.getName()) + " "
             + type.displayName.toLowerCase()
+            + (level > 1 ? " (level " + level + ")" : "")
             + " #"
             + id
             + " at "
@@ -251,6 +334,14 @@ public final class Building {
         }
         tag.setTag("queue", queueList);
         tag.setInteger("trainingTicks", trainingTicks);
+        tag.setInteger("level", level);
+        if (research != null) {
+            tag.setString("research", research);
+            tag.setInteger("researchTicks", researchTicks);
+        }
+        if (shown != null) {
+            tag.setString("shown", shown);
+        }
         return tag;
     }
 
@@ -282,8 +373,15 @@ public final class Building {
         }
         building.trainingTicks = tag.getInteger("trainingTicks");
         building.buildTicks = tag.getInteger("buildTicks");
+        building.level = Math.max(1, Math.min(type.levels, tag.getInteger("level")));
+        if (tag.hasKey("research")) {
+            building.research = tag.getString("research");
+            building.researchTicks = tag.getInteger("researchTicks");
+        }
+        building.shown = tag.hasKey("shown") ? tag.getString("shown") : null;
         if (tag.hasKey("health")) {
-            building.health = Math.max(1, Math.min(type.maxHealth(), tag.getInteger("health")));
+            // Teams are read first, so masonry counts.
+            building.health = Math.max(1, Math.min(building.getMaxHealth(), tag.getInteger("health")));
         }
         return building;
     }

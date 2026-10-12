@@ -1,6 +1,7 @@
 package com.warofthegods.client.rts;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -13,9 +14,9 @@ import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.MathHelper;
+import net.minecraft.util.ResourceLocation;
 
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
@@ -46,6 +47,23 @@ public final class GuiRts extends GuiScreen {
     /** Pixels around a unit, player or mob as drawn that still count as pointing at it. */
     private static final double PICK_SLACK = 3;
     private static final double PICK_MIN = 4;
+    /** The building and unit icons, one 16 pixel square each, in the order of {@link #ICON_NAMES}. */
+    private static final ResourceLocation ICONS = new ResourceLocation("warofthegods", "textures/gui/icons.png");
+    private static final List<String> ICON_NAMES = Arrays.asList(
+        "town_hall",
+        "house",
+        "barracks",
+        "storehouse",
+        "quarry",
+        "farm",
+        "armory",
+        "tower",
+        "worker",
+        "soldier",
+        "archer",
+        "tree",
+        "upgrade",
+        "level");
 
     private final RtsClient client;
     private final List<Widget> widgets = new ArrayList<>();
@@ -80,6 +98,8 @@ public final class GuiRts extends GuiScreen {
         int color = 0xFFFFFFFF;
         boolean enabled = true;
         Consumer<Boolean> action;
+        /** An icon drawn before the text, or null. */
+        String icon;
         /** For a progress bar, how full it is; NaN otherwise. */
         double fill = Double.NaN;
         int fillColor = GREEN;
@@ -490,7 +510,7 @@ public final class GuiRts extends GuiScreen {
             client.command("units.attack", body, null);
             return;
         }
-        if (hit == null && (orderBuild(px, py) || orderAttackBuilding(px, py))) {
+        if (hit == null && (orderBuild(px, py) || orderAttackBuilding(px, py) || orderChop(px, py))) {
             return;
         }
         double[] ground = groundUnder(px, py);
@@ -541,6 +561,53 @@ public final class GuiRts extends GuiScreen {
         body.addProperty("building", building.id);
         client.command("units.build", body, null);
         return true;
+    }
+
+    /** Right-clicking a tree sends the selected workers to chop it. */
+    private boolean orderChop(int px, int py) {
+        int[] tree = treeUnder(px, py);
+        Set<String> workers = client.selectedWorkers();
+        if (tree == null || workers.isEmpty()) {
+            return false;
+        }
+        client.mark(tree[0] + 0.5, tree[1] + 0.5, tree[2] + 0.5, false);
+        JsonObject body = unitsBody(workers);
+        body.addProperty("x", tree[0] + 0.5);
+        body.addProperty("y", tree[1]);
+        body.addProperty("z", tree[2] + 0.5);
+        client.command("units.gather", body, null);
+        return true;
+    }
+
+    /** The log or leaves under a screen point, off any building, as x, y, z; null if it is no tree. */
+    private int[] treeUnder(int px, int py) {
+        double[] ground = groundUnder(px, py);
+        if (ground == null) {
+            return null;
+        }
+        double[] ray = camera().ray(px, py, mc.displayWidth, mc.displayHeight);
+        int x = MathHelper.floor_double(ground[0] + ray[3] * 0.05);
+        int y = MathHelper.floor_double(ground[1] + ray[4] * 0.05);
+        int z = MathHelper.floor_double(ground[2] + ray[5] * 0.05);
+        Block block = mc.theWorld.getBlock(x, y, z);
+        boolean tree = block == Blocks.log || block == Blocks.log2 || block.getMaterial() == Material.leaves;
+        return tree && state().buildingAt(x + 0.5, z + 0.5) == null ? new int[] { x, y, z } : null;
+    }
+
+    /** The tracked tree nearest a block of a tree, within a few blocks across; null if none is tracked. */
+    private RtsState.TreeInfo trackedTreeNear(int[] block) {
+        RtsState.TreeInfo best = null;
+        int bestDistance = Integer.MAX_VALUE;
+        for (RtsState.TreeInfo tree : state().trees) {
+            int dx = tree.x - block[0];
+            int dz = tree.z - block[2];
+            int distance = dx * dx + dz * dz;
+            if (distance <= 9 && block[1] >= tree.y - 1 && block[1] <= tree.top + 4 && distance < bestDistance) {
+                best = tree;
+                bestDistance = distance;
+            }
+        }
+        return best;
     }
 
     private static JsonObject unitsBody(Iterable<String> ids) {
@@ -637,6 +704,11 @@ public final class GuiRts extends GuiScreen {
                     return "taking " + RtsState.amountsText(unit.carrying) + " to store";
                 }
                 return headed ? "on the way to " + where : "working at " + where;
+            case "chop":
+                if (unit.delivering) {
+                    return "taking " + RtsState.amountsText(unit.carrying) + " to store";
+                }
+                return unit.chopping ? "chopping a tree" : "on the way to a tree";
             default:
                 return unit.isWorker() ? "idle" : "on guard";
         }
@@ -644,13 +716,17 @@ public final class GuiRts extends GuiScreen {
 
     private String unitName(RtsState.UnitInfo unit) {
         RtsState.TeamInfo team = state().teamsById.get(unit.team);
-        return (team != null ? team.name + " " : "") + (unit.isWorker() ? "worker " : "soldier ") + unit.number;
+        RtsState.UnitKindInfo kind = state().unitKind(unit.kind);
+        return (team != null ? team.name + " " : "") + (kind != null ? kind.name.toLowerCase() : unit.kind)
+            + " "
+            + unit.number;
     }
 
     private String buildingName(RtsState.BuildingInfo building) {
         RtsState.TeamInfo team = state().teamsById.get(building.team);
         RtsState.BuildingTypeInfo type = state().buildingType(building.type);
-        return (team != null ? team.name + " " : "") + (type != null ? type.name.toLowerCase() : building.type);
+        return (team != null ? team.name + " " : "") + (type != null ? type.name.toLowerCase() : building.type)
+            + (building.level > 1 ? " (level " + building.level + ")" : "");
     }
 
     private static String healthText(double health, double max) {
@@ -682,7 +758,7 @@ public final class GuiRts extends GuiScreen {
                     : hit.thing instanceof RtsState.PlayerInfo ? ((RtsState.PlayerInfo) hit.thing).name
                         : ((RtsState.MobInfo) hit.thing).name + " · "
                             + healthText(hit.thing.health, hit.thing.maxHealth);
-                return new Object[] { new ItemStack(Items.iron_sword), "Attack " + name, "attack" };
+                return new Object[] { "soldier", "Attack " + name, "attack" };
             }
             if (hit.thing instanceof RtsState.MobInfo) {
                 RtsState.MobInfo mob = (RtsState.MobInfo) hit.thing;
@@ -701,12 +777,20 @@ public final class GuiRts extends GuiScreen {
             if (!unit.carrying.isEmpty() && !unit.delivering) {
                 text += " · carrying " + RtsState.amountsText(unit.carrying);
             }
-            return new Object[] { new ItemStack(unit.isWorker() ? Items.iron_axe : Items.iron_sword),
-                text + " · " + healthText(unit.health, unit.maxHealth), null };
+            return new Object[] { unit.kind, text + " · " + healthText(unit.health, unit.maxHealth), null };
         }
         RtsState.BuildingInfo b = buildingAt(px, py);
         if (b == null) {
-            return null;
+            int[] block = treeUnder(px, py);
+            if (block == null) {
+                return null;
+            }
+            RtsState.TreeInfo tree = trackedTreeNear(block);
+            String wood = tree == null ? "" : " · " + tree.wood + "/" + tree.maxWood + " wood";
+            if (workers > 0) {
+                return new Object[] { "tree", "Chop tree" + wood, "act" };
+            }
+            return new Object[] { "tree", "Tree" + wood + (team != null ? " · select workers to chop it" : ""), null };
         }
         RtsState.BuildingTypeInfo type = state().buildingType(b.type);
         if (type == null) {
@@ -714,15 +798,15 @@ public final class GuiRts extends GuiScreen {
         }
         boolean mine = team != null && b.team.equals(team.id);
         if (fighters > 0 && state().isEnemyTeam(b.team)) {
-            return new Object[] { new ItemStack(Items.iron_sword),
-                "Attack " + buildingName(b) + " · " + b.health + "/" + b.maxHealth, "attack" };
+            return new Object[] { "soldier", "Attack " + buildingName(b) + " · " + b.health + "/" + b.maxHealth,
+                "attack" };
         }
         if (mine && workers > 0 && !b.complete) {
-            return new Object[] { new ItemStack(Items.iron_axe),
+            return new Object[] { "worker",
                 "Build " + type.name.toLowerCase() + " · " + (int) Math.floor(100 * b.built) + "% built", "act" };
         }
         if (mine && workers > 0 && type.workers > 0) {
-            return new Object[] { buildingIcon(b.type),
+            return new Object[] { b.type,
                 "Work at " + type.name.toLowerCase() + " (" + b.workers + " of " + type.workers + " workers)", "act" };
         }
         String text = buildingName(b);
@@ -730,28 +814,35 @@ public final class GuiRts extends GuiScreen {
             text += " · building site, " + (int) Math.floor(100 * b.built) + "% built";
         } else if (!b.queue.isEmpty()) {
             text += " · training " + b.queue.size();
+        } else if (b.research != null) {
+            text += " · " + researchName(b.research).toLowerCase() + " " + (int) Math.floor(100 * b.researched) + "%";
         } else if (type.workers > 0) {
             text += " · " + b.workers + " working";
         }
         text += " · " + b.health + "/" + b.maxHealth;
-        return new Object[] { b.complete ? buildingIcon(b.type) : new ItemStack(Blocks.fence), text, null };
+        return new Object[] { b.complete ? b.type : new ItemStack(Blocks.fence), text, null };
     }
 
-    private static ItemStack buildingIcon(String type) {
-        switch (type) {
-            case "town_hall":
-                return new ItemStack(Blocks.bookshelf);
-            case "farm":
-                return new ItemStack(Items.wheat);
-            case "barracks":
-                return new ItemStack(Items.iron_sword);
-            case "storehouse":
-                return new ItemStack(Blocks.chest);
-            case "quarry":
-                return new ItemStack(Items.iron_pickaxe);
-            default:
-                return new ItemStack(Item.getItemFromBlock(Blocks.planks));
+    /** What a building researches, by name: an upgrade, or going up a level. */
+    private String researchName(String research) {
+        if ("level".equals(research)) {
+            return "Going up a level";
         }
+        RtsState.UpgradeInfo upgrade = state().upgrade(research);
+        return upgrade == null ? research : upgrade.name;
+    }
+
+    /** Draws one of the icons, 16 pixels square, scaled to size. */
+    private void drawIcon(String name, int x, int y, int size) {
+        int index = ICON_NAMES.indexOf(name);
+        if (index < 0) {
+            return;
+        }
+        mc.getTextureManager()
+            .bindTexture(ICONS);
+        GL11.glColor4f(1, 1, 1, 1);
+        GL11.glEnable(GL11.GL_BLEND);
+        func_152125_a(x, y, index * 16, 0, 16, 16, size, size, ICON_NAMES.size() * 16, 16);
     }
 
     // ---------------------------------------------------------------- drawing
@@ -814,19 +905,21 @@ public final class GuiRts extends GuiScreen {
         Object[] hint = hint(mouseX, mouseY);
         if (hint != null) {
             int color = "attack".equals(hint[2]) ? 0xFF8A80 : "act".equals(hint[2]) ? 0xA8FFB0 : 0xFFFFFF;
-            drawTip((ItemStack) hint[0], (String) hint[1], gx, gy, color);
+            drawTip(hint[0], (String) hint[1], gx, gy, color);
         }
     }
 
-    private void drawTip(ItemStack icon, String text, int gx, int gy, int color) {
+    private void drawTip(Object icon, String text, int gx, int gy, int color) {
         int iconWidth = icon == null ? 0 : 18;
         int w = fontRendererObj.getStringWidth(text) + 8 + iconWidth;
         int h = icon == null ? 14 : 20;
         int x = Math.min(gx + 10, width - w - 2);
         int y = gy + 14 + h > height ? gy - h - 4 : gy + 14;
         drawRect(x, y, x + w, y + h, 0xE0000000);
-        if (icon != null) {
-            drawItem(icon, x + 3, y + 2);
+        if (icon instanceof ItemStack) {
+            drawItem((ItemStack) icon, x + 3, y + 2);
+        } else if (icon instanceof String) {
+            drawIcon((String) icon, x + 3, y + 2, 16);
         }
         fontRendererObj.drawStringWithShadow(text, x + 4 + iconWidth, y + (h - 8) / 2, color);
     }
@@ -854,6 +947,7 @@ public final class GuiRts extends GuiScreen {
                 || (!"town_hall".equals(b.type) && b.id != client.selectedBuilding
                     && b.complete
                     && b.queue.isEmpty()
+                    && b.research == null
                     && !hurt)) {
                 continue;
             }
@@ -864,7 +958,9 @@ public final class GuiRts extends GuiScreen {
             }
             int x = guiX(p[0]);
             int y = guiY(p[1]);
-            String text = team.name + " " + type.name.toLowerCase() + (b.complete ? "" : " (site)");
+            String text = team.name + " "
+                + type.name.toLowerCase()
+                + (b.complete ? b.level > 1 ? " " + roman(b.level) : "" : " (site)");
             fontRendererObj
                 .drawStringWithShadow(text, x - fontRendererObj.getStringWidth(text) / 2, y - 12, team.color);
             int row = 0;
@@ -873,9 +969,21 @@ public final class GuiRts extends GuiScreen {
             } else if (!b.queue.isEmpty()) {
                 bar(x, y + row++ * 5, 40, b.progress, GREEN);
             }
+            if (b.research != null) {
+                bar(x, y + row++ * 5, 40, b.researched, 0xFF6FA8FF);
+            }
             if (hurt) {
                 double health = b.health / (double) b.maxHealth;
                 bar(x, y + row * 5, 40, health, health > 0.5 ? GREEN : health > 0.25 ? AMBER : RED);
+            }
+        }
+        for (RtsState.TreeInfo tree : state.trees) {
+            if (tree.wood >= tree.maxWood) {
+                continue;
+            }
+            double[] p = project(tree.x + 0.5, tree.top + 2, tree.z + 0.5);
+            if (p != null) {
+                bar(guiX(p[0]), guiY(p[1]), 20, tree.wood / (double) Math.max(1, tree.maxWood), 0xFFC8963C);
             }
         }
         for (RtsState.UnitInfo unit : state.units.values()) {
@@ -921,6 +1029,10 @@ public final class GuiRts extends GuiScreen {
         }
     }
 
+    private static String roman(int level) {
+        return level == 2 ? "II" : level == 3 ? "III" : String.valueOf(level);
+    }
+
     private void bar(int cx, int y, int w, double fraction, int color) {
         int x = cx - w / 2;
         drawRect(x - 1, y - 1, x + w + 1, y + 3, 0xC0000000);
@@ -954,7 +1066,11 @@ public final class GuiRts extends GuiScreen {
             }
             lines.add(resources.toString());
             colors.add(0xFFE9A8);
-            lines.add("Units " + team.units + " of " + state.game.unitsPerTeam);
+            lines.add(
+                "Units " + team.units
+                    + " of "
+                    + team.population
+                    + (team.population < state.game.unitsPerTeam ? " · build houses for more" : ""));
             colors.add(0xC8C8C8);
         }
         // The body left standing can be attacked while commanding.
@@ -975,7 +1091,7 @@ public final class GuiRts extends GuiScreen {
     }
 
     private void drawHelp() {
-        String help = "V leave · WASD move · Q/E turn · wheel zoom · H town hall";
+        String help = "V leave · WASD move · Q/E turn · wheel zoom · H town center";
         int w = fontRendererObj.getStringWidth(help);
         drawRect(width - w - 12, 4, width - 4, 17, PANEL);
         fontRendererObj.drawStringWithShadow(help, width - w - 8, 7, 0xB0B0B0);
@@ -1016,22 +1132,28 @@ public final class GuiRts extends GuiScreen {
                         continue;
                     }
                     String id = entry.getKey();
-                    actions.add(
-                        button(
-                            "Build " + type.name.toLowerCase() + " (" + RtsState.costText(type.cost) + ")",
-                            "Then click where it goes",
-                            shift -> client.startPlacing(id),
-                            RtsState.canAfford(team, type.cost)));
+                    Widget build = button(
+                        type.name,
+                        "Build a " + type.name.toLowerCase()
+                            + " for "
+                            + RtsState.costText(type.cost)
+                            + ", then click where it goes",
+                        shift -> client.startPlacing(id),
+                        RtsState.canAfford(team, type.cost));
+                    withIcon(build, id);
+                    actions.add(build);
                 }
             } else {
                 RtsState.BuildingInfo hall = state.townHallOf(team.id);
                 if (hall != null) {
                     actions.add(
-                        button(
-                            "Town hall",
-                            "Select your town hall to train workers (H)",
-                            shift -> goToTownHall(),
-                            true));
+                        withIcon(
+                            button(
+                                "Town center",
+                                "Select your town center to train workers (H)",
+                                shift -> goToTownHall(),
+                                true),
+                            "town_hall"));
                 }
             }
 
@@ -1101,42 +1223,106 @@ public final class GuiRts extends GuiScreen {
             actions.add(label(note, 0xC8C8C8));
             return;
         }
-        actions.add(label(type.name, 0xFFFFFF));
+        actions.add(
+            withIcon(
+                label(type.name + (building.level > 1 ? " " + roman(building.level) : ""), 0xFFFFFF),
+                building.type));
         actions.add(label("Health " + building.health + "/" + building.maxHealth, 0xC8C8C8));
         if (type.workers > 0) {
             actions.add(label(building.workers + " of " + type.workers + " workers", 0xC8C8C8));
         }
-        if (type.trains == null) {
-            return;
-        }
-        RtsState.UnitKindInfo kind = state.unitKind(type.trains);
-        if (kind == null) {
-            return;
-        }
-        boolean full = state.teamUnitCount(team) >= state.game.unitsPerTeam;
+        boolean full = state.teamUnitCount(team) >= team.population;
         // Each click queues one more (shift-click five), up to ten waiting; training goes on one at a time.
-        actions.add(
-            button(
-                "Train " + kind.name.toLowerCase() + " (" + RtsState.costText(kind.cost) + ")",
-                full ? "Your team has the most units it can have" : "Shift-click to train 5",
-                shift -> {
-                    JsonObject body = new JsonObject();
-                    body.addProperty("building", building.id);
-                    body.addProperty("count", shift ? 5 : 1);
-                    client.command("buildings.train", body, reply -> {
-                        int queued = reply.has("count") ? reply.get("count")
-                            .getAsInt() : 1;
-                        client.showToast(
-                            queued == 1 ? "Training a " + kind.name.toLowerCase()
-                                : "Training " + queued + " " + kind.name.toLowerCase() + "s",
-                            false);
-                    });
-                },
-                !full && RtsState.canAfford(team, kind.cost) && building.queue.size() < 10));
+        for (String kindId : type.trains) {
+            RtsState.UnitKindInfo kind = state.unitKind(kindId);
+            if (kind == null) {
+                continue;
+            }
+            actions.add(
+                withIcon(
+                    button(
+                        kind.name + " (" + RtsState.costText(kind.cost) + ")",
+                        full ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
+                            : "Your team has the most units it can have")
+                            : "Train a " + kind.name.toLowerCase() + "; shift-click for 5",
+                        shift -> {
+                            JsonObject body = new JsonObject();
+                            body.addProperty("building", building.id);
+                            body.addProperty("unit", kindId);
+                            body.addProperty("count", shift ? 5 : 1);
+                            client.command("buildings.train", body, reply -> {
+                                int queued = reply.has("count") ? reply.get("count")
+                                    .getAsInt() : 1;
+                                client.showToast(
+                                    queued == 1 ? "Training a " + kind.name.toLowerCase()
+                                        : "Training " + queued + " " + kind.name.toLowerCase() + "s",
+                                    false);
+                            });
+                        },
+                        !full && RtsState.canAfford(team, kind.cost) && building.queue.size() < 10),
+                    kindId));
+        }
         if (!building.queue.isEmpty()) {
             actions.add(progress(building.progress, GREEN));
             actions.add(label(building.queue.size() + " in training", 0xC8C8C8));
         }
+        if (building.research != null) {
+            actions.add(progress(building.researched, 0xFF6FA8FF));
+            actions.add(label(researchName(building.research), 0xC8C8C8));
+            return;
+        }
+        RtsState.LevelInfo next = type.levelUps.get(building.level + 1);
+        if (next != null) {
+            RtsState.BuildingInfo center = state.townHallOf(team.id);
+            boolean centerReady = "town_hall".equals(building.type) || center != null && center.level >= 2;
+            actions.add(
+                withIcon(
+                    button(
+                        "Level " + (building.level + 1) + " (" + RtsState.costText(next.cost) + ")",
+                        centerReady ? "Takes " + next.seconds + "s; health goes up to " + next.health
+                            : "Your town center has to be at level 2 first",
+                        shift -> {
+                            JsonObject body = new JsonObject();
+                            body.addProperty("building", building.id);
+                            client.command(
+                                "buildings.upgrade",
+                                body,
+                                reply -> client.showToast("Going up a level", false));
+                        },
+                        centerReady && RtsState.canAfford(team, next.cost)),
+                    "level"));
+        }
+        for (String upgradeId : type.researches) {
+            RtsState.UpgradeInfo upgrade = state.upgrade(upgradeId);
+            if (upgrade == null || team.upgrades.contains(upgradeId)) {
+                continue;
+            }
+            boolean busy = state.isResearching(team, upgradeId);
+            boolean levelOk = building.level >= upgrade.level;
+            actions.add(
+                withIcon(
+                    button(
+                        upgrade.name + " (" + RtsState.costText(upgrade.cost) + ")",
+                        !levelOk ? "Needs a level " + upgrade.level + " " + type.name.toLowerCase()
+                            : busy ? "Being researched" : upgrade.description + "; takes " + upgrade.seconds + "s",
+                        shift -> {
+                            JsonObject body = new JsonObject();
+                            body.addProperty("building", building.id);
+                            body.addProperty("upgrade", upgradeId);
+                            client.command(
+                                "buildings.research",
+                                body,
+                                reply -> client.showToast("Researching " + upgrade.name.toLowerCase(), false));
+                        },
+                        levelOk && !busy && RtsState.canAfford(team, upgrade.cost)),
+                    "upgrade"));
+        }
+    }
+
+    private Widget withIcon(Widget widget, String icon) {
+        widget.icon = icon;
+        widget.w += 13;
+        return widget;
     }
 
     private Widget button(String text, String tip, Consumer<Boolean> action, boolean enabled) {
@@ -1218,16 +1404,23 @@ public final class GuiRts extends GuiScreen {
                 widget.fillColor);
             return;
         }
+        int textX = widget.x + (widget.action == null ? 2 : 5);
+        if (widget.icon != null) {
+            drawIcon(widget.icon, widget.x + (widget.action == null ? 1 : 3), widget.y + 1, 12);
+            textX += 13;
+        }
         if (widget.action == null) {
-            fontRendererObj.drawStringWithShadow(widget.text, widget.x + 2, widget.y + 3, widget.color);
+            fontRendererObj.drawStringWithShadow(widget.text, textX, widget.y + 3, widget.color);
             return;
         }
         boolean hover = widget.enabled && widget.contains(gx, gy);
         int background = !widget.enabled ? 0xC0303030 : hover ? 0xE0506070 : 0xE0384450;
         drawRect(widget.x, widget.y, widget.x + widget.w, widget.y + widget.h, background);
         drawOutline(widget.x, widget.y, widget.x + widget.w, widget.y + widget.h, hover ? 0xFFA0B4C8 : 0xFF5A6A78);
-        fontRendererObj
-            .drawStringWithShadow(widget.text, widget.x + 5, widget.y + 3, widget.enabled ? 0xFFFFFF : 0x808080);
+        if (widget.icon != null) {
+            drawIcon(widget.icon, widget.x + 3, widget.y + 1, 12);
+        }
+        fontRendererObj.drawStringWithShadow(widget.text, textX, widget.y + 3, widget.enabled ? 0xFFFFFF : 0x808080);
     }
 
     private void drawOutline(int x0, int y0, int x1, int y1, int color) {

@@ -21,8 +21,10 @@ public class Config {
     public static final long[] unitCost = { 50, 20, 0, 0 };
     public static int unitsPerTeam = 50;
     public static int unitHealth = 20;
-    /** Food, Wood, Stone and Metal one worker costs to train at the town hall. */
+    /** Food, Wood, Stone and Metal one worker costs to train at the town center. */
     public static final long[] workerCost = { 50, 0, 0, 0 };
+    /** Food, Wood, Stone and Metal one archer costs to train at a barracks. */
+    public static final long[] archerCost = { 40, 40, 0, 0 };
     public static int trainSeconds = 5;
 
     /** Food, Wood, Stone and Metal each kind of building costs. */
@@ -37,7 +39,28 @@ public class Config {
         defaults(BuildingType.BARRACKS, new long[] { 0, 150, 50, 0 }, 800, 25);
         defaults(BuildingType.STOREHOUSE, new long[] { 0, 100, 0, 0 }, 600, 20);
         defaults(BuildingType.QUARRY, new long[] { 0, 100, 0, 0 }, 500, 20);
+        defaults(BuildingType.HOUSE, new long[] { 0, 60, 0, 0 }, 300, 12);
+        defaults(BuildingType.ARMORY, new long[] { 0, 120, 60, 0 }, 700, 25);
+        defaults(BuildingType.TOWER, new long[] { 0, 50, 100, 0 }, 900, 25);
     }
+
+    /** Food, Wood, Stone and Metal the town center costs to go up to level 2, and to level 3. */
+    public static final long[] townCenterLevel2Cost = { 200, 200, 150, 0 };
+    public static final long[] townCenterLevel3Cost = { 400, 300, 300, 100 };
+    /** Seconds going up from level 1 to 2 takes; from 2 to 3 takes twice as long. */
+    public static int upgradeSeconds = 30;
+    public static int townCenterPopulation = 10;
+    public static int housePopulation = 5;
+    public static int towerRange = 16;
+    public static int towerDamage = 3;
+    public static int towerShotTicks = 30;
+    /** Wood one log of a tree holds; a tree holds between treeWoodMin and treeWoodMax in all. */
+    public static int woodPerLog = 25;
+    public static int treeWoodMin = 100;
+    public static int treeWoodMax = 200;
+    /** Wood a worker chops per chopSeconds. */
+    public static int chopWood = 4;
+    public static int chopSeconds = 3;
 
     private static void defaults(BuildingType type, long[] cost, int health, int seconds) {
         buildingCost.put(type, cost);
@@ -48,13 +71,12 @@ public class Config {
     public static int farmWorkers = 3;
     public static int farmYieldSeconds = 5;
     public static int farmFood = 5;
-    public static int farmWood = 3;
     public static int quarryWorkers = 3;
     public static int quarryStone = 4;
     public static int quarryMetal = 1;
-    /** Most a worker carries before taking it to the town hall or a storehouse. */
+    /** Most a worker carries before taking it to the town center or a storehouse. */
     public static int carryCapacity = 20;
-    /** Health a building loses to one hit of a soldier. */
+    /** Health a building loses to one hit of a warrior. */
     public static int unitBuildingDamage = 10;
     /** Health a building loses when an enemy player breaks one of its blocks. */
     public static int blockBreakDamage = 5;
@@ -123,7 +145,7 @@ public class Config {
         String units = "units";
         configuration.setCategoryComment(
             units,
-            "Units teams train and command from the web map: soldiers at a barracks, workers at the town hall.");
+            "Units teams train and command: warriors and archers at a barracks, workers at the town center.");
         for (Resource resource : Resource.values()) {
             unitCost[resource.ordinal()] = configuration.getInt(
                 "cost" + resource.displayName,
@@ -131,7 +153,7 @@ public class Config {
                 (int) unitCost[resource.ordinal()],
                 0,
                 Integer.MAX_VALUE,
-                resource.displayName + " a soldier costs to train.");
+                resource.displayName + " a warrior costs to train.");
             workerCost[resource.ordinal()] = configuration.getInt(
                 "workerCost" + resource.displayName,
                 units,
@@ -139,6 +161,13 @@ public class Config {
                 0,
                 Integer.MAX_VALUE,
                 resource.displayName + " a worker costs to train.");
+            archerCost[resource.ordinal()] = configuration.getInt(
+                "archerCost" + resource.displayName,
+                units,
+                (int) archerCost[resource.ordinal()],
+                0,
+                Integer.MAX_VALUE,
+                resource.displayName + " an archer costs to train.");
         }
         unitsPerTeam = configuration.getInt(
             "perTeam",
@@ -146,7 +175,7 @@ public class Config {
             unitsPerTeam,
             0,
             1000,
-            "Most units, soldiers and workers together, a team can have at once.");
+            "Most units a team can have at once, however many houses it builds.");
         unitHealth = configuration.getInt("health", units, unitHealth, 1, 1000, "Health of a unit; 20 is a player's.");
         trainSeconds = configuration
             .getInt("trainSeconds", units, trainSeconds, 0, 3600, "Seconds it takes to train one unit.");
@@ -154,8 +183,8 @@ public class Config {
         String buildings = "buildings";
         configuration.setCategoryComment(
             buildings,
-            "Buildings: the town hall every team starts with, and the farms, barracks, storehouses and quarries"
-                + " workers build.");
+            "Buildings: the town center every team starts with, and the farms, barracks, storehouses, quarries,"
+                + " houses, armories and towers workers build.");
         for (BuildingType type : BuildingType.values()) {
             String name = type.displayName.toLowerCase();
             if (type.buildable) {
@@ -195,8 +224,68 @@ public class Config {
             .getInt("farmYieldSeconds", buildings, farmYieldSeconds, 1, 3600, "Seconds between a farm's harvests.");
         farmFood = configuration
             .getInt("farmFood", buildings, farmFood, 0, 100000, "Food each worker at a farm gathers per harvest.");
-        farmWood = configuration
-            .getInt("farmWood", buildings, farmWood, 0, 100000, "Wood each worker at a farm gathers per harvest.");
+        townCenterPopulation = configuration.getInt(
+            "townCenterPopulation",
+            buildings,
+            townCenterPopulation,
+            0,
+            1000,
+            "Units a town center houses; each level above the first houses half as many again.");
+        housePopulation = configuration.getInt(
+            "housePopulation",
+            buildings,
+            housePopulation,
+            0,
+            1000,
+            "Units a house houses; its second level houses half as many again.");
+        upgradeSeconds = configuration.getInt(
+            "upgradeSeconds",
+            buildings,
+            upgradeSeconds,
+            0,
+            3600,
+            "Seconds a building takes to go up to level 2; level 3 takes twice as long.");
+        for (Resource resource : Resource.values()) {
+            townCenterLevel2Cost[resource.ordinal()] = configuration.getInt(
+                "townCenterLevel2Cost" + resource.displayName,
+                buildings,
+                (int) townCenterLevel2Cost[resource.ordinal()],
+                0,
+                Integer.MAX_VALUE,
+                resource.displayName + " the town center costs to go up to level 2.");
+            townCenterLevel3Cost[resource.ordinal()] = configuration.getInt(
+                "townCenterLevel3Cost" + resource.displayName,
+                buildings,
+                (int) townCenterLevel3Cost[resource.ordinal()],
+                0,
+                Integer.MAX_VALUE,
+                resource.displayName + " the town center costs to go up to level 3.");
+        }
+        towerRange = configuration.getInt(
+            "towerRange",
+            buildings,
+            towerRange,
+            1,
+            64,
+            "Blocks a tower shoots at enemies; level 2 towers and town centers from level 2 shoot 4 farther.");
+        towerDamage = configuration
+            .getInt("towerDamage", buildings, towerDamage, 0, 1000, "Damage of a tower's arrow, before upgrades.");
+        towerShotTicks = configuration.getInt(
+            "towerShotTicks",
+            buildings,
+            towerShotTicks,
+            5,
+            1200,
+            "Ticks between a tower's shots; level 2 shoots a third faster.");
+        woodPerLog = configuration
+            .getInt("woodPerLog", buildings, woodPerLog, 1, 10000, "Wood each log of a tree is worth.");
+        treeWoodMin = configuration
+            .getInt("treeWoodMin", buildings, treeWoodMin, 1, 100000, "Least wood a tree holds.");
+        treeWoodMax = configuration.getInt("treeWoodMax", buildings, treeWoodMax, 1, 100000, "Most wood a tree holds.");
+        chopWood = configuration
+            .getInt("chopWood", buildings, chopWood, 1, 10000, "Wood a worker chops off a tree at a time.");
+        chopSeconds = configuration
+            .getInt("chopSeconds", buildings, chopSeconds, 1, 3600, "Seconds a worker takes to chop that much.");
         quarryWorkers = configuration.getInt(
             "quarryWorkers",
             buildings,
@@ -224,14 +313,14 @@ public class Config {
             carryCapacity,
             1,
             100000,
-            "Resources a worker carries before taking them to the town hall or a storehouse.");
+            "Resources a worker carries before taking them to the town center or a storehouse.");
         unitBuildingDamage = configuration.getInt(
             "unitDamage",
             buildings,
             unitBuildingDamage,
             0,
             100000,
-            "Health a building loses to one hit of an enemy soldier.");
+            "Health a building loses to one hit of an enemy warrior; an archer's arrow does half.");
         blockBreakDamage = configuration.getInt(
             "blockBreakDamage",
             buildings,

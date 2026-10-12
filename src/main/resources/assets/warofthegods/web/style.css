@@ -289,6 +289,28 @@ button.on {
     background: #f0b43c;
 }
 
+#bar-actions .progress.research span {
+    background: #6fa8ff;
+}
+
+/* An icon from icons.png, drawn at twice its size with its pixels kept sharp. */
+.sprite {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    background-image: url(icons.png);
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+    vertical-align: middle;
+    transform: scale(1.25);
+    margin: 0 5px 0 1px;
+}
+
+button.with-icon {
+    display: inline-flex;
+    align-items: center;
+}
+
 #selection-info {
     min-width: 88px;
     text-align: center;

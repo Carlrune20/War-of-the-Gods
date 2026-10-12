@@ -8,6 +8,7 @@ import net.minecraft.entity.EntityCreature;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.ai.EntityAISwimming;
+import net.minecraft.entity.ai.attributes.IAttributeInstance;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
@@ -21,11 +22,14 @@ import net.minecraft.world.World;
 import com.warofthegods.Config;
 import com.warofthegods.building.Buildings;
 import com.warofthegods.game.Building;
+import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
+import com.warofthegods.game.Tree;
 import com.warofthegods.game.UnitKind;
+import com.warofthegods.game.Upgrade;
 import com.warofthegods.rts.Commanders;
 
 /**
@@ -50,7 +54,9 @@ public class EntityUnit extends EntityCreature {
         /** A worker working at a farm or quarry, or carrying what it gathered there to a store. */
         WORK,
         /** A soldier attacking an enemy building. */
-        ATTACK_BUILDING
+        ATTACK_BUILDING,
+        /** A worker chopping a tree, or carrying the wood to a store. */
+        CHOP
     }
 
     /** Blocks walked per path before planning the next one. */
@@ -64,11 +70,27 @@ public class EntityUnit extends EntityCreature {
     /** Times in a row a unit may fail to make progress before it gives up on an order. */
     private static final int MAX_STALLS = 6;
     private static final double SPEED = 1.0;
+    /** How far archers shoot, before upgrades. */
+    public static final double ARCHER_RANGE = 14;
+    /** How far archers shoot at buildings. */
+    private static final double ARCHER_BUILDING_RANGE = 9;
+    /** How close a worker has to be to the foot of a tree to chop it. */
+    private static final double CHOP_REACH = 2.2;
+    /** How far a worker looks for the next tree once one falls. */
+    private static final int NEXT_TREE_RANGE = 14;
+
+    private static final int WATCH_COLOR = 20;
+    private static final int WATCH_KIND = 21;
+    private static final int WATCH_FACTION = 22;
 
     private String teamId = "";
     private UnitKind kind = UnitKind.SOLDIER;
     private int number;
-    private int armorColor = -1;
+    /** The foot of the trunk of the tree a worker chops. */
+    private int treeX;
+    private int treeY;
+    private int treeZ;
+    private int chopTicks;
     private Order order = Order.IDLE;
     private double goalX;
     private double goalZ;
@@ -112,6 +134,31 @@ public class EntityUnit extends EntityCreature {
     }
 
     @Override
+    protected void entityInit() {
+        super.entityInit();
+        dataWatcher.addObject(WATCH_COLOR, 0xFFFFFF);
+        dataWatcher.addObject(WATCH_KIND, (byte) 0);
+        dataWatcher.addObject(WATCH_FACTION, (byte) 0);
+    }
+
+    /** The RGB color of its team, for drawing its team sash; known on clients too. */
+    public int getTeamColor() {
+        return dataWatcher.getWatchableObjectInt(WATCH_COLOR);
+    }
+
+    /** Its kind, as clients know it, for picking its skin. */
+    public UnitKind getWatchedKind() {
+        int ordinal = dataWatcher.getWatchableObjectByte(WATCH_KIND);
+        return ordinal >= 0 && ordinal < UnitKind.values().length ? UnitKind.values()[ordinal] : UnitKind.SOLDIER;
+    }
+
+    /** Its team's faction, as clients know it, for picking its skin. */
+    public Faction getWatchedFaction() {
+        int ordinal = dataWatcher.getWatchableObjectByte(WATCH_FACTION);
+        return ordinal >= 0 && ordinal < Faction.values().length ? Faction.values()[ordinal] : Faction.SARADOMIN;
+    }
+
+    @Override
     protected void applyEntityAttributes() {
         super.applyEntityAttributes();
         getEntityAttribute(SharedMonsterAttributes.maxHealth).setBaseValue(Config.unitHealth);
@@ -121,40 +168,80 @@ public class EntityUnit extends EntityCreature {
             .setBaseValue(1);
     }
 
-    /** Makes a new unit a member of the team, with its name, armor and tool. */
+    /** Makes a new unit a member of the team, with its name, skin and tool. */
     void setTeam(Team team, UnitKind kind, int number) {
         this.teamId = team.getId();
         this.kind = kind;
         this.number = number;
-        setCurrentItemOrArmor(0, new ItemStack(kind == UnitKind.WORKER ? Items.iron_axe : Items.iron_sword));
+        setCurrentItemOrArmor(0, new ItemStack(tool()));
         updateTeam(team);
         setHealth(getMaxHealth());
     }
 
-    /** Keeps name and armor in step with the team's name and color. */
+    /** What it holds when its hands are free: a worker's axe, a warrior's sword, an archer's bow. */
+    private Item tool() {
+        return kind == UnitKind.WORKER ? Items.iron_axe : kind == UnitKind.ARCHER ? Items.bow : Items.iron_sword;
+    }
+
+    /** Keeps name, skin and strength in step with the team's name, color, faction and upgrades. */
     void updateTeam(Team team) {
-        String name = team.getColor() + team.getName() + (kind == UnitKind.WORKER ? " worker " : " ") + number;
+        String name = team.getColor() + team.getName() + " " + kind.displayName.toLowerCase() + " " + number;
         if (!name.equals(getCustomNameTag())) {
             setCustomNameTag(name);
             setAlwaysRenderNameTag(true);
         }
-        int color = team.getRgb();
-        if (color != armorColor) {
-            armorColor = color;
-            setCurrentItemOrArmor(1, dyed(Items.leather_boots, color));
-            setCurrentItemOrArmor(2, dyed(Items.leather_leggings, color));
-            setCurrentItemOrArmor(3, dyed(Items.leather_chestplate, color));
+        if (getTeamColor() != team.getRgb()) {
+            dataWatcher.updateObject(WATCH_COLOR, team.getRgb());
+        }
+        if (getWatchedKind() != kind) {
+            dataWatcher.updateObject(WATCH_KIND, (byte) kind.ordinal());
+        }
+        if (getWatchedFaction() != team.getFaction()) {
+            dataWatcher.updateObject(
+                WATCH_FACTION,
+                (byte) team.getFaction()
+                    .ordinal());
+        }
+        // Units from before skins wore their team's color as leather armor.
+        for (int slot = 1; slot < 5; slot++) {
+            if (getEquipmentInSlot(slot) != null) {
+                setCurrentItemOrArmor(slot, null);
+            }
+        }
+        applyUpgrades(team);
+    }
+
+    /** Sets its health and strength by its kind and the team's upgrades, healing what it gains. */
+    public void applyUpgrades(Team team) {
+        double health = Config.unitHealth;
+        double damage = 1;
+        if (kind.fights()) {
+            health += (team.has(Upgrade.PADDED_ARMOR) ? 6 : 0) + (team.has(Upgrade.PLATE_ARMOR) ? 8 : 0);
+        }
+        if (kind == UnitKind.SOLDIER) {
+            damage += (team.has(Upgrade.FORGED_BLADES) ? 2 : 0) + (team.has(Upgrade.TEMPERED_STEEL) ? 2 : 0);
+        }
+        IAttributeInstance maxHealth = getEntityAttribute(SharedMonsterAttributes.maxHealth);
+        double gained = health - maxHealth.getBaseValue();
+        if (gained != 0) {
+            maxHealth.setBaseValue(health);
+            setHealth((float) Math.max(1, Math.min(health, getHealth() + Math.max(0, gained))));
+        }
+        IAttributeInstance attack = getEntityAttribute(SharedMonsterAttributes.attackDamage);
+        if (attack.getBaseValue() != damage) {
+            attack.setBaseValue(damage);
         }
     }
 
-    private static ItemStack dyed(Item item, int color) {
-        ItemStack stack = new ItemStack(item);
-        NBTTagCompound display = new NBTTagCompound();
-        display.setInteger("color", color);
-        NBTTagCompound tag = new NBTTagCompound();
-        tag.setTag("display", display);
-        stack.setTagCompound(tag);
-        return stack;
+    private Team team() {
+        Game game = GameManager.getGame();
+        return game == null ? null : game.getTeam(teamId);
+    }
+
+    /** Most a worker carries before taking it to a store. */
+    private int capacity() {
+        Team team = team();
+        return Config.carryCapacity + (team != null && team.has(Upgrade.BASKETS) ? 10 : 0);
     }
 
     public String getTeamId() {
@@ -171,6 +258,16 @@ public class EntityUnit extends EntityCreature {
 
     public boolean isWorker() {
         return kind == UnitKind.WORKER;
+    }
+
+    /** The foot of the tree a worker chops, as x, y, z, or null when it chops none. */
+    public int[] getTree() {
+        return order == Order.CHOP ? new int[] { treeX, treeY, treeZ } : null;
+    }
+
+    /** Whether the unit is a worker at a tree, chopping it. */
+    public boolean isChopping() {
+        return order == Order.CHOP && working && !delivering;
     }
 
     /** The building a build, work or attack order is for, or 0. */
@@ -190,7 +287,7 @@ public class EntityUnit extends EntityCreature {
 
     /** Whether a worker is on its way to a store with what it carries. */
     public boolean isDelivering() {
-        return order == Order.WORK && delivering;
+        return (order == Order.WORK || order == Order.CHOP) && delivering;
     }
 
     /** What the worker carries, in all. */
@@ -212,7 +309,7 @@ public class EntityUnit extends EntityCreature {
         for (int i = 0; i < carrying.length; i++) {
             carrying[i] += amounts[i];
         }
-        if (getCarried() >= Config.carryCapacity) {
+        if (getCarried() >= capacity()) {
             delivering = true;
             working = false;
             startOrder();
@@ -228,7 +325,7 @@ public class EntityUnit extends EntityCreature {
                 most = i;
             }
         }
-        Item item = most < 0 ? (isWorker() ? Items.iron_axe : Items.iron_sword) : CARRIED_ITEMS[most];
+        Item item = most < 0 ? tool() : CARRIED_ITEMS[most];
         ItemStack held = getHeldItem();
         if (held == null || held.getItem() != item) {
             setCurrentItemOrArmor(0, new ItemStack(item));
@@ -256,8 +353,15 @@ public class EntityUnit extends EntityCreature {
             }
             case ATTACK_BUILDING: {
                 Building building = targetBuilding();
-                return building == null || building.distanceTo(posX, posZ) <= Buildings.REACH ? null
+                return building == null || building.distanceTo(posX, posZ) <= buildingReach() ? null
                     : building.nearestOutside(posX, posZ);
+            }
+            case CHOP: {
+                if (delivering) {
+                    Building store = store();
+                    return store == null ? null : store.nearestOutside(posX, posZ);
+                }
+                return working ? null : new double[] { treeX + 0.5, treeZ + 0.5 };
             }
             default:
                 return hasPost && distanceTo(postX, postZ) > 2 ? new double[] { postX, postZ } : null;
@@ -285,7 +389,22 @@ public class EntityUnit extends EntityCreature {
         order = building.isComplete() ? Order.WORK : Order.BUILD;
         buildingId = building.id;
         working = false;
-        delivering = order == Order.WORK && getCarried() >= Config.carryCapacity;
+        delivering = order == Order.WORK && getCarried() >= capacity();
+        target = null;
+        targetId = null;
+        defending = false;
+        startOrder();
+    }
+
+    /** Sends a worker to chop the tree with its trunk's foot at x, y, z. */
+    void orderChop(int x, int y, int z) {
+        order = Order.CHOP;
+        treeX = x;
+        treeY = y;
+        treeZ = z;
+        working = false;
+        chopTicks = 0;
+        delivering = getCarried() >= capacity();
         target = null;
         targetId = null;
         defending = false;
@@ -383,6 +502,9 @@ public class EntityUnit extends EntityCreature {
             case ATTACK_BUILDING:
                 tickAttackBuilding();
                 break;
+            case CHOP:
+                tickChop();
+                break;
             default:
                 tickGuard();
         }
@@ -475,6 +597,83 @@ public class EntityUnit extends EntityCreature {
         walkTo(workplace);
     }
 
+    /**
+     * Chops the tree, carrying the wood to a store whenever its hands are full. When the tree falls it goes on to
+     * the nearest tree around; when there is none, it takes home what it has and waits there.
+     */
+    private void tickChop() {
+        if (delivering) {
+            deliver();
+            return;
+        }
+        Game game = GameManager.getGame();
+        if (game == null) {
+            return;
+        }
+        if (!Trees.isLog(worldObj.getBlock(treeX, treeY, treeZ))) {
+            // Felled, by this worker or another: on to the next.
+            int[] next = Trees.nearest(worldObj, game, treeX + 0.5, treeY, treeZ + 0.5, NEXT_TREE_RANGE);
+            if (next != null) {
+                orderChop(next[0], next[1], next[2]);
+            } else if (getCarried() > 0) {
+                delivering = true;
+                working = false;
+                startOrder();
+            } else {
+                getNavigator().clearPathEntity();
+                guardHere();
+            }
+            return;
+        }
+        double dx = treeX + 0.5 - posX;
+        double dz = treeZ + 0.5 - posZ;
+        if (Math.sqrt(dx * dx + dz * dz) > CHOP_REACH) {
+            working = false;
+            if (getNavigator().noPath() && --planTicks <= 0) {
+                planTicks = 20;
+                // To the side of the trunk facing the worker; the trunk itself is solid.
+                double distance = Math.max(0.01, Math.sqrt(dx * dx + dz * dz));
+                walkToward(treeX + 0.5 - dx / distance * 1.2, treeZ + 0.5 - dz / distance * 1.2);
+            }
+            if (!madeProgress()) {
+                guardHere();
+            }
+            return;
+        }
+        if (!working) {
+            working = true;
+            getNavigator().clearPathEntity();
+        }
+        progressTicks = 0;
+        getLookHelper().setLookPosition(treeX + 0.5, treeY + 1, treeZ + 0.5, 10, 30);
+        if (ticksExisted % 12 == 0) {
+            swingItem();
+            worldObj.playSoundAtEntity(this, "dig.wood", 0.5F, 0.8F + rand.nextFloat() * 0.4F);
+        }
+        Team team = game.getTeam(teamId);
+        int needed = Config.chopSeconds * 20;
+        if (team != null && team.has(Upgrade.SHARP_AXES)) {
+            needed = needed * 2 / 3;
+        }
+        if (++chopTicks < Math.max(1, needed)) {
+            return;
+        }
+        chopTicks = 0;
+        Tree tree = Trees.track(worldObj, game, treeX, treeY, treeZ);
+        long[] wood = new long[carrying.length];
+        wood[Resource.WOOD.ordinal()] = game.chopTree(tree, Config.chopWood);
+        // Cracks spread up the trunk as it is chopped.
+        int stage = (int) (10 * (1 - tree.getWood() / (double) tree.maxWood));
+        worldObj.destroyBlockInWorldPartially((int) (tree.key() & 0x7FFFFFFF), treeX, treeY, treeZ, Math.min(9, stage));
+        if (tree.getWood() <= 0) {
+            worldObj.destroyBlockInWorldPartially((int) (tree.key() & 0x7FFFFFFF), treeX, treeY, treeZ, -1);
+            Trees.fell(worldObj, game, tree);
+        }
+        if (wood[Resource.WOOD.ordinal()] > 0) {
+            gather(wood);
+        }
+    }
+
     /** The nearest town hall or storehouse of the unit's team, or null. */
     private Building store() {
         Game game = GameManager.getGame();
@@ -537,25 +736,58 @@ public class EntityUnit extends EntityCreature {
         if (defending && --scanTicks <= 0) {
             scanTicks = 10 + rand.nextInt(5);
             EntityLivingBase enemy = Units.get()
-                .findEnemyNear(this, GUARD_RANGE);
+                .findEnemyNear(this, guardRange());
             if (enemy != null) {
                 defend(enemy);
                 return;
             }
         }
-        if (building.distanceTo(posX, posZ) <= Buildings.REACH) {
+        if (building.distanceTo(posX, posZ) <= buildingReach()) {
             getNavigator().clearPathEntity();
             getLookHelper().setLookPosition(building.getCenterX(), building.groundY + 1, building.getCenterZ(), 30, 30);
             if (attackCooldown <= 0) {
-                attackCooldown = 20;
-                swingItem();
+                int damage = Config.unitBuildingDamage;
+                if (kind == UnitKind.ARCHER) {
+                    attackCooldown = 30;
+                    damage /= 2;
+                    EntityTeamArrow arrow = new EntityTeamArrow(worldObj, this);
+                    arrow.aimAt(building.getCenterX(), building.groundY + 2, building.getCenterZ(), 0);
+                    worldObj.spawnEntityInWorld(arrow);
+                    playSound("random.bow", 1.0F, 1.0F / (rand.nextFloat() * 0.4F + 0.8F));
+                } else {
+                    attackCooldown = 20;
+                    swingItem();
+                }
                 Buildings.get()
-                    .damage(building, Config.unitBuildingDamage, getCommandSenderName().replaceAll("\u00a7.", ""));
+                    .damage(building, damage, getCommandSenderName().replaceAll("\u00a7.", ""));
             }
             progressTicks = 0;
             return;
         }
         walkTo(building);
+    }
+
+    private double buildingReach() {
+        return kind == UnitKind.ARCHER ? ARCHER_BUILDING_RANGE : Buildings.REACH;
+    }
+
+    /** How far an archer shoots, with its team's upgrades. */
+    private double archerRange() {
+        Team team = team();
+        return ARCHER_RANGE + (team != null && team.has(Upgrade.FLETCHING) ? 4 : 0);
+    }
+
+    /** Range at which a guarding unit notices enemies: farther for archers, who shoot from where they stand. */
+    private double guardRange() {
+        return kind == UnitKind.ARCHER ? archerRange() : GUARD_RANGE;
+    }
+
+    private void shoot(EntityLivingBase victim) {
+        Team team = team();
+        EntityTeamArrow arrow = new EntityTeamArrow(worldObj, this);
+        arrow.aim(victim, 3 + (team != null && team.has(Upgrade.FLETCHING) ? 1 : 0));
+        worldObj.spawnEntityInWorld(arrow);
+        playSound("random.bow", 1.0F, 1.0F / (rand.nextFloat() * 0.4F + 0.8F));
     }
 
     /** Walks toward the nearest side of a building; gives up and guards when stuck too long. */
@@ -585,9 +817,19 @@ public class EntityUnit extends EntityCreature {
             return;
         }
         getLookHelper().setLookPositionWithEntity(current, 30, 30);
-        double reach = width * 2 * width * 2 + current.width;
         double distanceSq = getDistanceSq(current.posX, current.boundingBox.minY, current.posZ);
-        if (distanceSq <= reach) {
+        if (kind == UnitKind.ARCHER && distanceSq <= archerRange() * archerRange()
+            && getEntitySenses().canSee(current)) {
+            getNavigator().clearPathEntity();
+            if (attackCooldown <= 0) {
+                attackCooldown = 30;
+                shoot(current);
+            }
+            progressTicks = 0;
+            return;
+        }
+        double reach = width * 2 * width * 2 + current.width;
+        if (kind != UnitKind.ARCHER && distanceSq <= reach) {
             if (attackCooldown <= 0 && getEntitySenses().canSee(current)) {
                 attackCooldown = 20;
                 swingItem();
@@ -620,13 +862,13 @@ public class EntityUnit extends EntityCreature {
         if (!isWorker() && --scanTicks <= 0) {
             scanTicks = 10 + rand.nextInt(5);
             EntityLivingBase enemy = Units.get()
-                .findEnemyNear(this, GUARD_RANGE);
+                .findEnemyNear(this, guardRange());
             if (enemy != null) {
                 defend(enemy);
                 return;
             }
             Building building = Units.get()
-                .findEnemyBuildingNear(this, GUARD_RANGE);
+                .findEnemyBuildingNear(this, kind == UnitKind.ARCHER ? ARCHER_BUILDING_RANGE : GUARD_RANGE);
             if (building != null) {
                 order = Order.ATTACK_BUILDING;
                 buildingId = building.id;
@@ -784,7 +1026,7 @@ public class EntityUnit extends EntityCreature {
         tag.setIntArray("Carrying", carried);
         tag.setBoolean("Delivering", delivering);
         tag.setInteger("Number", number);
-        tag.setInteger("ArmorColor", armorColor);
+        tag.setIntArray("Tree", new int[] { treeX, treeY, treeZ });
         // A fight picked up while guarding is not worth keeping; the unit is back on guard after a restart.
         tag.setString("Order", defending ? Order.IDLE.name() : order.name());
         tag.setDouble("GoalX", goalX);
@@ -810,7 +1052,12 @@ public class EntityUnit extends EntityCreature {
         }
         delivering = tag.getBoolean("Delivering");
         number = tag.getInteger("Number");
-        armorColor = tag.getInteger("ArmorColor");
+        int[] tree = tag.getIntArray("Tree");
+        if (tree.length == 3) {
+            treeX = tree[0];
+            treeY = tree[1];
+            treeZ = tree[2];
+        }
         try {
             order = Order.valueOf(tag.getString("Order"));
         } catch (IllegalArgumentException e) {

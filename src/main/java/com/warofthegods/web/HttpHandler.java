@@ -52,6 +52,8 @@ final class HttpHandler extends ChannelInboundHandlerAdapter {
         STATIC_FILES.put("/blocks.js", "blocks.js");
         STATIC_FILES.put("/render.js", "render.js");
         STATIC_FILES.put("/style.css", "style.css");
+        // The same icons the RTS view draws.
+        STATIC_FILES.put("/icons.png", "/assets/warofthegods/textures/gui/icons.png");
     }
 
     private final WebServer server;
@@ -284,7 +286,7 @@ final class HttpHandler extends ChannelInboundHandlerAdapter {
         if (cached != null) {
             return cached;
         }
-        try (InputStream in = HttpHandler.class.getResourceAsStream(STATIC_ROOT + name)) {
+        try (InputStream in = HttpHandler.class.getResourceAsStream(name.startsWith("/") ? name : STATIC_ROOT + name)) {
             if (in == null) {
                 throw new IOException("Missing web file " + name);
             }
@@ -305,6 +307,9 @@ final class HttpHandler extends ChannelInboundHandlerAdapter {
         }
         if (file.endsWith(".css")) {
             return "text/css; charset=utf-8";
+        }
+        if (file.endsWith(".png")) {
+            return "image/png";
         }
         return "text/html; charset=utf-8";
     }

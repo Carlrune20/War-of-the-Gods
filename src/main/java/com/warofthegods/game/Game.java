@@ -14,6 +14,8 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraft.nbt.NBTTagString;
 import net.minecraft.util.EnumChatFormatting;
 
+import com.warofthegods.Config;
+
 /**
  * One RTS game: its map area and terrain seed, its teams and the alliances between them. Only one game runs at a time;
  * it lasts until an op starts a new one or ends it.
@@ -35,6 +37,8 @@ public class Game {
     /** Every building and building site by id. */
     private final Map<Integer, Building> buildings = new LinkedHashMap<>();
     private int lastBuildingId;
+    /** Trees workers have started chopping, by {@link Tree#key()}. */
+    private final Map<Long, Tree> trees = new LinkedHashMap<>();
     private Runnable changeListener = () -> {};
 
     public Game(int number, long startedAt, int centerX, int centerZ, int size, long seed) {
@@ -345,6 +349,49 @@ public class Game {
         }
     }
 
+    /** Units the team's finished buildings house, up to the most any team may have. */
+    public int getPopulationCap(Team team) {
+        int cap = 0;
+        for (Building building : buildings.values()) {
+            if (building.team.equals(team.getId()) && building.isComplete()) {
+                cap += building.type.population(building.getLevel());
+            }
+        }
+        return Math.min(cap, Config.unitsPerTeam);
+    }
+
+    public Collection<Tree> getTrees() {
+        return Collections.unmodifiableCollection(trees.values());
+    }
+
+    public Tree getTree(int x, int y, int z) {
+        return trees.get(Tree.key(x, y, z));
+    }
+
+    /** The tree with its trunk's foot at x, y, z, tracked from now on if it was not yet. */
+    public Tree trackTree(int x, int y, int z, int top, int wood) {
+        Tree tree = trees.get(Tree.key(x, y, z));
+        if (tree == null) {
+            tree = new Tree(x, y, z, top, wood);
+            trees.put(tree.key(), tree);
+            changed();
+        }
+        return tree;
+    }
+
+    /** Takes wood out of a tree; returns how much it gave. */
+    public int chopTree(Tree tree, int amount) {
+        int taken = tree.take(amount);
+        changed();
+        return taken;
+    }
+
+    public void removeTree(Tree tree) {
+        if (trees.remove(tree.key()) != null) {
+            changed();
+        }
+    }
+
     /** Units the team has waiting in training queues. */
     public int countQueued(Team team) {
         int count = 0;
@@ -390,6 +437,11 @@ public class Game {
         }
         tag.setTag("buildings", buildingList);
         tag.setInteger("lastBuildingId", lastBuildingId);
+        NBTTagList treeList = new NBTTagList();
+        for (Tree tree : trees.values()) {
+            treeList.appendTag(tree.writeToNBT());
+        }
+        tag.setTag("trees", treeList);
         return tag;
     }
 
@@ -431,6 +483,13 @@ public class Game {
             }
         }
         game.lastBuildingId = tag.getInteger("lastBuildingId");
+        NBTTagList treeList = tag.getTagList("trees", 10);
+        for (int i = 0; i < treeList.tagCount(); i++) {
+            Tree tree = Tree.readFromNBT(treeList.getCompoundTagAt(i));
+            if (tree != null) {
+                game.trees.put(tree.key(), tree);
+            }
+        }
         return game;
     }
 }
