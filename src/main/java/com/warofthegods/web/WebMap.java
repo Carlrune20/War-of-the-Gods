@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.monster.IMob;
 import net.minecraft.entity.player.EntityPlayer;
@@ -286,7 +287,11 @@ public final class WebMap {
                         "uuid",
                         player.getUniqueID()
                             .toString());
-                    json.addProperty("eid", player.getEntityId());
+                    // A commanding player is where their body stands, not where they hover.
+                    Entity body = Commanders.get()
+                        .lastBodyOf(player.getUniqueID());
+                    Entity at = body == null ? player : body;
+                    json.addProperty("eid", at.getEntityId());
                     json.addProperty("name", player.getCommandSenderName());
                     if (Commanders.get()
                         .isCommanding(player.getUniqueID())) {
@@ -295,11 +300,12 @@ public final class WebMap {
                     if (team != null) {
                         json.addProperty("team", team.getId());
                     }
-                    json.addProperty("x", round(player.posX));
-                    json.addProperty("y", round(player.posY));
-                    json.addProperty("z", round(player.posZ));
-                    json.addProperty("yaw", round(player.rotationYaw));
+                    json.addProperty("x", round(at.posX));
+                    json.addProperty("y", round(at.posY));
+                    json.addProperty("z", round(at.posZ));
+                    json.addProperty("yaw", round(at.rotationYaw));
                     json.addProperty("health", round(player.getHealth()));
+                    json.addProperty("maxHealth", round(player.getMaxHealth()));
                     players.add(json);
                 }
             }

@@ -1,6 +1,7 @@
 package com.warofthegods.client.rts;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Queue;
@@ -65,6 +66,8 @@ public final class RtsClient {
     private final Queue<String> inbox = new ConcurrentLinkedQueue<>();
     private final Map<Integer, Consumer<JsonObject>> pending = new HashMap<>();
     private final Map<Entity, Double> renderWeights = new WeakHashMap<>();
+    /** Players commanding from the RTS view, who hover unseen; told to every client, in the view or not. */
+    private final Set<String> commanders = new HashSet<>();
     private int nextCommandId = 1;
     private int enterId = -1;
 
@@ -199,6 +202,12 @@ public final class RtsClient {
                 break;
             case "rts.left":
                 stop();
+                break;
+            case "rts.commanders":
+                commanders.clear();
+                for (JsonElement id : message.getAsJsonArray("ids")) {
+                    commanders.add(id.getAsString());
+                }
                 break;
             default:
         }
@@ -357,6 +366,7 @@ public final class RtsClient {
                 stop();
             }
             pending.clear();
+            commanders.clear();
             entering = false;
             return;
         }
@@ -364,7 +374,9 @@ public final class RtsClient {
             return;
         }
         ticks++;
-        if (camera.worldObj != mc.theWorld || mc.thePlayer.dimension != GameWorld.dimensionId()) {
+        // Dead: the death screen takes over.
+        if (camera.worldObj != mc.theWorld || mc.thePlayer.dimension != GameWorld.dimensionId()
+            || mc.thePlayer.getHealth() <= 0) {
             stop();
             return;
         }
@@ -380,7 +392,7 @@ public final class RtsClient {
                 entity.renderDistanceWeight = 4;
             }
         }
-        // The body follows the camera, so that what it looks at is loaded.
+        // The player hovers where the camera looks, so that what it looks at is loaded.
         double dx = camera.focusX - sentX;
         double dz = camera.focusZ - sentZ;
         if (dx * dx + dz * dz > 36 && ticks - lastSentTick >= 4) {
@@ -546,18 +558,16 @@ public final class RtsClient {
         }
     }
 
-    /** The player's own body hovers over the camera's focus; it and other commanders' bodies are not drawn. */
+    /**
+     * Commanders hover over what they look at, the viewer too when in the view, and are not drawn there: not even
+     * their armor and what they hold, which vanilla draws on the invisible. Their bodies, drawn like any entity, show
+     * where they are.
+     */
     @SubscribeEvent
     public void onRenderPlayer(RenderPlayerEvent.Pre event) {
-        if (!active) {
-            return;
-        }
-        if (event.entityPlayer == mc.thePlayer) {
-            event.setCanceled(true);
-            return;
-        }
-        RtsState.Thing thing = state.byEntityId.get(event.entityPlayer.getEntityId());
-        if (thing instanceof RtsState.PlayerInfo && ((RtsState.PlayerInfo) thing).commanding) {
+        if (active && event.entityPlayer == mc.thePlayer || commanders.contains(
+            event.entityPlayer.getUniqueID()
+                .toString())) {
             event.setCanceled(true);
         }
     }

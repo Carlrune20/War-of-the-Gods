@@ -31,6 +31,7 @@ import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.UnitRecord;
 import com.warofthegods.rts.Commanders;
+import com.warofthegods.rts.EntityCommanderBody;
 import com.warofthegods.world.GameWorld;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -187,6 +188,12 @@ public final class Units {
         if (unit != null) {
             return unit;
         }
+        // A commanding player is where their body is.
+        EntityCommanderBody body = Commanders.get()
+            .bodyOf(id);
+        if (body != null) {
+            return body;
+        }
         EntityPlayer player = world.func_152378_a(id);
         if (player != null) {
             return player;
@@ -200,9 +207,10 @@ public final class Units {
         return null;
     }
 
-    /** Whether the entity is a mob: a living thing that is neither a unit nor a player. */
+    /** Whether the entity is a mob: a living thing that is neither a unit nor a player, nor a commander's body. */
     public static boolean isMob(Entity entity) {
-        return entity instanceof EntityLiving && !(entity instanceof EntityUnit);
+        return entity instanceof EntityLiving && !(entity instanceof EntityUnit)
+            && !(entity instanceof EntityCommanderBody);
     }
 
     /** The living mobs on the game's map, hostile or not. */
@@ -388,7 +396,7 @@ public final class Units {
         if (entity instanceof EntityUnit) {
             return game.getTeam(((EntityUnit) entity).getTeamId());
         }
-        if (entity instanceof EntityPlayer) {
+        if (entity instanceof EntityPlayer || entity instanceof EntityCommanderBody) {
             return game.getTeamOf(entity.getUniqueID());
         }
         return null;
@@ -405,18 +413,27 @@ public final class Units {
         return team != null && otherTeam != null && game.areAllied(team, otherTeam);
     }
 
-    /** Whether a guarding unit attacks the entity: units and players of enemy teams, and hostile mobs. */
+    /**
+     * Whether a guarding unit attacks the entity: units and players of enemy teams, and hostile mobs. A commanding
+     * player is fought through their body, not where they hover.
+     */
     public boolean isEnemy(EntityUnit unit, Entity other) {
         if (other instanceof EntityPlayer && (((EntityPlayer) other).capabilities.isCreativeMode || Commanders.get()
             .isCommanding(other.getUniqueID()))) {
             return false;
+        }
+        if (other instanceof EntityCommanderBody) {
+            EntityPlayer owner = ((EntityCommanderBody) other).getOwner();
+            if (owner == null || owner.capabilities.isCreativeMode) {
+                return false;
+            }
         }
         Game game = GameManager.getGame();
         if (game == null) {
             return false;
         }
         Team team = game.getTeam(unit.getTeamId());
-        if (other instanceof EntityUnit || other instanceof EntityPlayer) {
+        if (other instanceof EntityUnit || other instanceof EntityPlayer || other instanceof EntityCommanderBody) {
             Team otherTeam = teamOf(game, other);
             return team != null && otherTeam != null && game.areEnemies(team, otherTeam);
         }

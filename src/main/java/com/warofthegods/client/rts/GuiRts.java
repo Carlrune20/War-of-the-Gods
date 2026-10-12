@@ -296,7 +296,8 @@ public final class GuiRts extends GuiScreen {
             candidates.add(new Object[] { "unit", unit });
         }
         for (RtsState.PlayerInfo player : state().players.values()) {
-            if (!player.commanding && !player.id.equals(state().me)) {
+            // A commanding player is picked by their body, which stays where they stood.
+            if (!player.id.equals(state().me)) {
                 candidates.add(new Object[] { "player", player });
             }
         }
@@ -889,11 +890,16 @@ public final class GuiRts extends GuiScreen {
             }
         }
         for (RtsState.PlayerInfo player : state.players.values()) {
+            double[] at = client.positionOf(player, partialTicks);
+            double[] p = project(at[0], at[1] + 2.2, at[2]);
+            // Anyone hurt shows it, the viewer's own body too; commanders' bodies carry their own names.
+            if (p != null && player.health < player.maxHealth) {
+                double health = player.health / Math.max(1, player.maxHealth);
+                bar(guiX(p[0]), guiY(p[1]) + 2, 16, health, health > 0.5 ? GREEN : health > 0.25 ? AMBER : RED);
+            }
             if (player.commanding || player.id.equals(state.me)) {
                 continue;
             }
-            double[] at = client.positionOf(player, partialTicks);
-            double[] p = project(at[0], at[1] + 2.2, at[2]);
             if (p != null) {
                 fontRendererObj.drawStringWithShadow(
                     player.name,
@@ -939,6 +945,13 @@ public final class GuiRts extends GuiScreen {
             colors.add(0xFFE9A8);
             lines.add("Units " + team.units + " of " + state.game.unitsPerTeam);
             colors.add(0xC8C8C8);
+        }
+        // The body left standing can be attacked while commanding.
+        if (mc.thePlayer != null && state.game != null) {
+            float health = mc.thePlayer.getHealth();
+            float max = mc.thePlayer.getMaxHealth();
+            lines.add(String.format("Your health %.0f of %.0f", Math.ceil(health), max));
+            colors.add(health >= max ? 0xC8C8C8 : health > max / 2 ? 0xFFE9A8 : 0xFF6A5A);
         }
         int w = 0;
         for (String line : lines) {
