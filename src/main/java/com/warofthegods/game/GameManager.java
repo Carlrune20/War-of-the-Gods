@@ -23,8 +23,11 @@ public final class GameManager {
         return data;
     }
 
-    /** The running game, or null if none has been started. */
+    /** The running game, or null if none has been started or there is no server here (a client on a server). */
     public static Game getGame() {
+        if (MinecraftServer.getServer() == null) {
+            return null;
+        }
         return getData().getGame();
     }
 

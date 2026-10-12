@@ -416,14 +416,17 @@ public class EntityUnit extends EntityCreature {
     @Override
     public boolean attackEntityFrom(DamageSource source, float amount) {
         Entity attacker = source.getEntity();
+        // Only the server knows the teams; on a client the hit is just shown, and the server decides.
+        if (worldObj.isRemote) {
+            return super.attackEntityFrom(source, amount);
+        }
         if (attacker != null && Units.get()
             .isAlly(this, attacker)) {
             return false;
         }
         boolean hurt = super.attackEntityFrom(source, amount);
         // Guarding units hit back; units on the move keep going.
-        if (hurt && !worldObj.isRemote
-            && attacker instanceof EntityLivingBase
+        if (hurt && attacker instanceof EntityLivingBase
             && attacker != this
             && (order == Order.IDLE || defending)) {
             defend((EntityLivingBase) attacker);
