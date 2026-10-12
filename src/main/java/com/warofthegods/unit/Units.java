@@ -22,10 +22,12 @@ import net.minecraftforge.common.DimensionManager;
 import net.minecraftforge.common.ForgeChunkManager;
 
 import com.warofthegods.Config;
+import com.warofthegods.game.Building;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
+import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.UnitRecord;
 import com.warofthegods.world.GameWorld;
 
@@ -190,7 +192,7 @@ public final class Units {
 
     /**
      * Gives teams without a base one, spread evenly on a circle around the middle of the map, on dry land. One team
-     * per scan, since finding dry land may load chunks.
+     * per scan, since finding dry land may load chunks. The team's town hall goes up there.
      */
     private static void assignBases(Game game, WorldServer world) {
         List<Team> teams = new ArrayList<>(game.getTeams());
@@ -211,36 +213,42 @@ public final class Units {
 
     // ---------------------------------------------------------------- training
 
-    /** What training one unit costs. */
+    /** What training one soldier costs. */
     public static Map<Resource, Long> unitCost() {
-        Map<Resource, Long> cost = new LinkedHashMap<>();
-        for (Resource resource : Resource.values()) {
-            long amount = Config.unitCost[resource.ordinal()];
-            if (amount > 0) {
-                cost.put(resource, amount);
-            }
-        }
-        return cost;
+        return UnitKind.SOLDIER.cost();
     }
 
-    /** Spawns units for the team next to its base, up to its unit limit; returns them. */
-    public List<EntityUnit> spawn(Game game, Team team, int count) {
-        WorldServer world = GameWorld.getWorld();
-        List<EntityUnit> spawned = new ArrayList<>();
+    /**
+     * Spawns units for the team in front of its town hall, or at its base if it has none yet, up to its unit
+     * limit; returns them.
+     */
+    public List<EntityUnit> spawn(Game game, Team team, UnitKind kind, int count) {
+        Building hall = game.getTownHall(team);
+        if (hall != null) {
+            double[] door = hall.getDoorstep();
+            return spawn(game, team, kind, count, door[0], door[1]);
+        }
         int[] base = team.getBase();
         if (base == null) {
-            assignBases(game, world);
+            assignBases(game, GameWorld.getWorld());
             base = team.getBase();
         }
         if (base == null) {
-            return spawned;
+            return new ArrayList<>();
         }
+        return spawn(game, team, kind, count, base[0] + 0.5, base[1] + 0.5);
+    }
+
+    /** Spawns units for the team near x, z, up to its unit limit; returns them. */
+    public List<EntityUnit> spawn(Game game, Team team, UnitKind kind, int count, double x, double z) {
+        WorldServer world = GameWorld.getWorld();
+        List<EntityUnit> spawned = new ArrayList<>();
         count = Math.min(count, Config.unitsPerTeam - game.countUnits(team));
         for (int i = 0; i < count; i++) {
-            double[] spot = spawnSpot(world, game, base[0], base[1]);
+            double[] spot = spawnSpot(world, game, MathHelper.floor_double(x), MathHelper.floor_double(z));
             EntityUnit unit = new EntityUnit(world);
             unit.setLocationAndAngles(spot[0], spot[1], spot[2], world.rand.nextFloat() * 360, 0);
-            unit.setTeam(team, team.nextUnitNumber());
+            unit.setTeam(team, kind, team.nextUnitNumber());
             world.spawnEntityInWorld(unit);
             loaded.put(unit.getUniqueID(), unit);
             remember(game, unit);
@@ -250,13 +258,13 @@ public final class Units {
         return spawned;
     }
 
-    /** A spot on dry ground within a few blocks of the base, if there is one. */
+    /** A spot on dry ground within a few blocks of x, z, off any building, if there is one. */
     private static double[] spawnSpot(WorldServer world, Game game, int baseX, int baseZ) {
         double[] fallback = null;
         for (int attempt = 0; attempt < 10; attempt++) {
             int x = baseX + world.rand.nextInt(9) - 4;
             int z = baseZ + world.rand.nextInt(9) - 4;
-            if (!game.isInside(x, z)) {
+            if (!game.isInside(x, z) || game.getBuildingAt(x + 0.5, z + 0.5) != null) {
                 continue;
             }
             int y = world.getTopSolidOrLiquidBlock(x, z);
@@ -291,6 +299,18 @@ public final class Units {
             units.get(i)
                 .orderMove(slotX, slotZ);
         }
+    }
+
+    /** Sends workers to raise a building site or work a farm; returns how many went. */
+    public int orderBuild(List<EntityUnit> units, Building building) {
+        int sent = 0;
+        for (EntityUnit unit : units) {
+            if (unit.isWorker()) {
+                unit.orderBuild(building);
+                sent++;
+            }
+        }
+        return sent;
     }
 
     public void orderAttack(List<EntityUnit> units, EntityLivingBase target) {

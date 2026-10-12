@@ -772,7 +772,8 @@ void main() { o_color = v_c; }`;
         }
 
         // Draws the map, then boxes ({min: [x,y,z], size: [x,y,z], color: [r,g,b,a]}) and lines
-        // ([[x,y,z], [x,y,z], [r,g,b,a]]).
+        // ([[x,y,z], [x,y,z], [r,g,b,a]]). Boxes with an alpha below 1 are see-through and drawn after
+        // everything solid.
         draw(boxes, lines) {
             const gl = this.gl;
             this.resize();
@@ -824,17 +825,23 @@ void main() { o_color = v_c; }`;
             };
             drawMeshes(false);
 
-            // Units and players.
-            gl.bindVertexArray(this.boxVao);
-            const xp = this.boxProgram;
-            gl.useProgram(xp.program);
-            gl.uniformMatrix4fv(xp.uniforms.u_mvp, false, vp);
-            for (const box of boxes) {
-                gl.uniform3fv(xp.uniforms.u_min, box.min);
-                gl.uniform3fv(xp.uniforms.u_size, box.size);
-                gl.uniform4fv(xp.uniforms.u_color, box.color);
-                gl.drawArrays(gl.TRIANGLES, 0, 36);
-            }
+            // Units and players, then see-through boxes such as building sites.
+            const drawBoxes = (seeThrough) => {
+                gl.bindVertexArray(this.boxVao);
+                const xp = this.boxProgram;
+                gl.useProgram(xp.program);
+                gl.uniformMatrix4fv(xp.uniforms.u_mvp, false, vp);
+                for (const box of boxes) {
+                    if ((box.color[3] < 1) !== seeThrough) {
+                        continue;
+                    }
+                    gl.uniform3fv(xp.uniforms.u_min, box.min);
+                    gl.uniform3fv(xp.uniforms.u_size, box.size);
+                    gl.uniform4fv(xp.uniforms.u_color, box.color);
+                    gl.drawArrays(gl.TRIANGLES, 0, 36);
+                }
+            };
+            drawBoxes(false);
 
             gl.enable(gl.BLEND);
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -844,6 +851,7 @@ void main() { o_color = v_c; }`;
             drawMeshes(true);
             gl.vertexAttribDivisor(0, 0);
             gl.vertexAttribDivisor(1, 0);
+            drawBoxes(true);
 
             if (lines.length) {
                 const v = new Float32Array(lines.length * 14);

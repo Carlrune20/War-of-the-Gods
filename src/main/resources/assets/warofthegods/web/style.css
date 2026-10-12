@@ -260,6 +260,31 @@ button.on {
     border-radius: 8px;
 }
 
+#bar-actions {
+    display: contents;
+}
+
+#bar-actions .note {
+    color: var(--muted);
+}
+
+#bar-actions .progress {
+    display: inline-block;
+    width: 64px;
+    height: 6px;
+    margin: 0 4px;
+    background: #2a2e36;
+    border-radius: 3px;
+    overflow: hidden;
+    vertical-align: middle;
+}
+
+#bar-actions .progress span {
+    display: block;
+    height: 100%;
+    background: var(--good);
+}
+
 #selection-info {
     min-width: 88px;
     text-align: center;

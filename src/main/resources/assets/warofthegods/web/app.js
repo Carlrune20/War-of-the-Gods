@@ -2,12 +2,13 @@
 // render.js draws the map in 3D, and this file runs the page.
 //
 // The server sends JSON messages over a WebSocket at /ws:
-//   {type: "game", game: {number, minX, minZ, maxX, maxZ, margin, tileSize, seaLevel, unitCost, unitsPerTeam} | null}
+//   {type: "game", game: {number, minX, minZ, maxX, maxZ, margin, tileSize, seaLevel, unitKinds, unitsPerTeam,
+//                         trainSeconds, buildingGap, buildingTypes} | null}
 //   {type: "tiles", tiles: {"x,z": version}}   map tiles to (re)load from /api/tile, see MapTiles.java
-//   {type: "state", teams: [...], players: [...], units: [...]}
+//   {type: "state", teams: [...], players: [...], units: [...], buildings: [...]}
 //   {type: "error", error, replyTo}
 // The page sends {type: "hello"} once connected, and commands such as unit orders as {type, id, ...};
-// see command() and UnitCommands.java.
+// see command(), UnitCommands.java and BuildingCommands.java.
 "use strict";
 
 (function () {
@@ -23,6 +24,8 @@
         players: new Map(), // uuid -> {name, team, x, y, z, yaw, drawX, drawY, drawZ}
         units: new Map(), // id -> {team, number, x, y, z, health, maxHealth, order, toX, toZ, target, drawX...}
         selected: new Set(), // ids of the viewer's units that orders go to
+        buildings: new Map(), // id -> {type, team, x, z, sizeX, sizeZ, y, rotation, complete, queue, progress, workers}
+        selectedBuilding: null, // id of the viewer's building whose controls the bar shows
         tiles: new Map(), // "x,z" -> {version, loaded}
         tilesExpected: 0,
     };
@@ -165,6 +168,9 @@
             state.players.clear();
             state.units.clear();
             state.selected.clear();
+            state.buildings.clear();
+            state.selectedBuilding = null;
+            placing = null;
             view.setGame(game);
             if (game) {
                 view.fitMap();
@@ -297,13 +303,21 @@
                 state.units.delete(id);
             }
         }
-        // Dead units, and units of a team the viewer has left, drop out of the selection.
+        state.buildings.clear();
+        for (const b of message.buildings || []) {
+            state.buildings.set(b.id, b);
+        }
+        // Dead units, and units of a team the viewer has left, drop out of the selection, as do lost buildings.
         const team = myTeam();
         for (const id of [...state.selected]) {
             const u = state.units.get(id);
             if (!u || !team || u.team !== team.id) {
                 state.selected.delete(id);
             }
+        }
+        const building = state.buildings.get(state.selectedBuilding);
+        if (!building || !team || building.team !== team.id) {
+            state.selectedBuilding = null;
         }
         renderPanel();
         renderUnitBar();
@@ -345,8 +359,8 @@
             me.append(el("div", "muted", "No game is running."));
         }
 
-        const teams = document.getElementById("teams");
-        teams.replaceChildren();
+        // Built aside and swapped in only when it changed, so links do not move under the pointer mid-click.
+        const teams = el("div");
         for (const team of state.teams) {
             const box = el("div", "team");
             const name = el("div", "team-name");
@@ -365,14 +379,13 @@
 
             if (state.game && team.units !== undefined) {
                 const units = el("div", "muted", "Units " + team.units + " of " + state.game.unitsPerTeam);
-                if (team.base) {
-                    const link = el("a", "", "base");
+                const hall = townHallOf(team.id);
+                if (hall) {
+                    const link = el("a", "", "town hall");
                     link.href = "#";
                     link.addEventListener("click", (event) => {
                         event.preventDefault();
-                        setFollow(false);
-                        view.focus(team.base.x + 0.5, surfaceY(team.base.x, team.base.z), team.base.z + 0.5);
-                        view.cam.zoom = Math.min(view.cam.zoom, 40);
+                        focusBuilding(hall);
                     });
                     units.append(document.createTextNode(", "), link);
                 }
@@ -415,6 +428,14 @@
         }
         if (!state.teams.length && state.game) {
             teams.append(el("div", "muted", "No teams."));
+        }
+        swapIfChanged(document.getElementById("teams"), teams);
+    }
+
+    // Replaces target's children with those of fresh, unless they would look the same.
+    function swapIfChanged(target, fresh) {
+        if (target.innerHTML !== fresh.innerHTML) {
+            target.replaceChildren(...fresh.childNodes);
         }
     }
 
@@ -459,41 +480,174 @@
     // order; the Box button makes the next drag select instead of pan.
 
     const unitBar = document.getElementById("unit-bar");
-    const trainButton = document.getElementById("train");
+    const barActions = document.getElementById("bar-actions");
     const boxButton = document.getElementById("box-select");
     const toast = document.getElementById("toast");
     let boxMode = false;
     let selectionBox = null; // {x0, y0, x1, y1} in CSS pixels while dragging one
     let orderMark = null; // {x, y, z, color, time} where the last order went
     let lastClick = {time: 0, id: null};
+    // A building being placed: {type, rotation, cx, cz} with the footprint centred on cx, cz under the pointer.
+    let placing = null;
 
-    function costText() {
-        const cost = state.game && state.game.unitCost ? state.game.unitCost : {};
+    function costText(cost) {
+        cost = cost || {};
         const parts = RESOURCES.filter(([id]) => cost[id]).map(([id, label]) => cost[id] + " " + label.toLowerCase());
         return parts.length ? parts.join(", ") : "free";
     }
 
-    function canAfford(team) {
-        const cost = state.game && state.game.unitCost ? state.game.unitCost : {};
+    function canAfford(team, cost) {
+        cost = cost || {};
         return RESOURCES.every(([id]) => !cost[id] || team.resources[id] >= cost[id]);
     }
 
+    function buildingType(id) {
+        return state.game && state.game.buildingTypes ? state.game.buildingTypes[id] : null;
+    }
+
+    function unitKind(id) {
+        return state.game && state.game.unitKinds ? state.game.unitKinds[id] : null;
+    }
+
+    function townHallOf(teamId) {
+        for (const b of state.buildings.values()) {
+            if (b.team === teamId && b.type === "town_hall") {
+                return b;
+            }
+        }
+        return null;
+    }
+
+    function focusBuilding(b) {
+        setFollow(false);
+        view.focus(b.x + b.sizeX / 2, b.y + 1, b.z + b.sizeZ / 2);
+        view.cam.zoom = Math.min(view.cam.zoom, 40);
+    }
+
+    function selectedWorkers() {
+        return [...state.selected].filter((id) => {
+            const u = state.units.get(id);
+            return u && u.kind === "worker";
+        });
+    }
+
+    // Units the team has, plus the ones waiting in training queues.
+    function teamUnitCount(team) {
+        let queued = 0;
+        for (const b of state.buildings.values()) {
+            if (b.team === team.id && b.queue) {
+                queued += b.queue.length;
+            }
+        }
+        return team.units + queued;
+    }
+
+    function button(label, title, onClick) {
+        const b = el("button", "", label);
+        b.type = "button";
+        if (title) {
+            b.title = title;
+        }
+        b.addEventListener("click", onClick);
+        return b;
+    }
+
+    // The left of the bar changes with what is going on: placing a building, a building selected, workers
+    // selected, or nothing in particular.
     function renderUnitBar() {
         const team = myTeam();
         unitBar.hidden = !(team && state.game);
         if (unitBar.hidden) {
             return;
         }
-        const full = team.units >= state.game.unitsPerTeam;
-        trainButton.textContent = "Train unit (" + costText() + ")";
-        trainButton.disabled = full || !canAfford(team);
-        trainButton.title = full ? "Your team has the most units it can have" : "Shift-click to train 5";
+        const actions = el("span");
+        const building = state.buildings.get(state.selectedBuilding);
+        if (placing) {
+            const type = buildingType(placing.type);
+            actions.append(el("span", "note", "Place " + type.name.toLowerCase() + ": click to place, R to rotate"));
+            actions.append(button("Rotate", "Turn it a quarter round (R)", () => rotatePlacing()));
+            actions.append(button("Cancel", "Esc or right-click", () => stopPlacing()));
+        } else if (building) {
+            renderBuildingActions(actions, team, building);
+        } else if (selectedWorkers().length) {
+            for (const [id, type] of Object.entries(state.game.buildingTypes || {})) {
+                if (!type.buildable) {
+                    continue;
+                }
+                const b = button("Build " + type.name.toLowerCase() + " (" + costText(type.cost) + ")",
+                    "Then click on the map where it goes", () => startPlacing(id));
+                b.disabled = !canAfford(team, type.cost);
+                actions.append(b);
+            }
+        } else {
+            const hall = townHallOf(team.id);
+            if (hall) {
+                actions.append(button("Town hall", "Select your town hall to train workers", () => {
+                    selectBuilding(hall.id);
+                    focusBuilding(hall);
+                }));
+            }
+        }
+        swapIfChanged(barActions, actions);
+        const fill = barActions.querySelector(".progress span");
+        if (fill && building) {
+            fill.style.width = Math.round(100 * (building.progress || 0)) + "%";
+        }
         const count = state.selected.size;
-        document.getElementById("selection-info").textContent =
-            count ? count + " selected" : team.units ? "None selected" : "No units yet";
+        const workers = selectedWorkers().length;
+        let info = team.units ? "None selected" : "No units yet";
+        if (count) {
+            info = count + " selected" + (workers === count ? (count === 1 ? ", a worker" : ", all workers")
+                : workers ? ", " + workers + " workers" : "");
+        }
+        document.getElementById("selection-info").textContent = info;
         document.getElementById("stop-units").disabled = !count;
-        document.getElementById("clear-selection").disabled = !count;
+        document.getElementById("clear-selection").disabled = !count && !building;
         boxButton.classList.toggle("on", boxMode);
+    }
+
+    function renderBuildingActions(actions, team, building) {
+        const type = buildingType(building.type);
+        if (!building.complete) {
+            const builders = [...state.units.values()].filter((u) => u.building === building.id && u.order === "build");
+            actions.append(el("span", "note", type.name + " site: " + (builders.length
+                ? builders.length + (builders.length === 1 ? " worker on the way" : " workers on the way")
+                : "select a worker and right-click it to build")));
+            return;
+        }
+        actions.append(el("span", "", type.name));
+        if (building.type === "farm") {
+            actions.append(el("span", "note", (building.workers || 0) + " of " + (state.game.farmWorkers || 3)
+                + " workers"));
+        }
+        if (!type.trains) {
+            return;
+        }
+        const kind = unitKind(type.trains);
+        const full = teamUnitCount(team) >= state.game.unitsPerTeam;
+        const train = button("Train " + kind.name.toLowerCase() + " (" + costText(kind.cost) + ")",
+            full ? "Your team has the most units it can have" : "Shift-click to train 5", async (event) => {
+                const reply = await send("buildings.train", {building: building.id, count: event.shiftKey ? 5 : 1});
+                if (reply) {
+                    showToast(reply.count === 1 ? "Training a " + kind.name.toLowerCase()
+                        : "Training " + reply.count + " " + kind.name.toLowerCase() + "s");
+                }
+            });
+        train.dataset.building = building.id;
+        train.disabled = full || !canAfford(team, kind.cost) || (building.queue || []).length >= 10;
+        actions.append(train);
+        if (building.queue && building.queue.length) {
+            const bar = el("span", "progress");
+            bar.append(el("span"));
+            actions.append(bar);
+            actions.append(el("span", "note", building.queue.length + " in training"));
+        }
+    }
+
+    function selectBuilding(id) {
+        state.selectedBuilding = id;
+        state.selected.clear();
+        changedSelection();
     }
 
     let toastTimer = 0;
@@ -515,12 +669,95 @@
         });
     }
 
-    trainButton.addEventListener("click", async (event) => {
-        const reply = await send("units.train", {count: event.shiftKey ? 5 : 1});
-        if (reply) {
-            showToast(reply.count === 1 ? "Trained a unit" : "Trained " + reply.count + " units");
+    // ---------------------------------------------------------------- placing buildings
+    //
+    // RTS style: pick a building from the bar with workers selected, and a see-through copy of it follows the
+    // pointer, green where it fits and red where it does not. R or the Rotate button turns it a quarter round;
+    // a click places it and sends the selected workers, shift-click places more; right-click or Esc cancels.
+
+    function startPlacing(type) {
+        placing = {type, rotation: placing ? placing.rotation : 0, cx: null, cz: null};
+        renderUnitBar();
+        view.dirty = true;
+    }
+
+    function stopPlacing() {
+        placing = null;
+        renderUnitBar();
+        view.dirty = true;
+    }
+
+    function rotatePlacing() {
+        if (placing) {
+            placing.rotation = (placing.rotation + 1) % 4;
+            view.dirty = true;
         }
-    });
+    }
+
+    function footprintSize(type, rotation) {
+        return rotation % 2 === 0 ? [type.width, type.length] : [type.length, type.width];
+    }
+
+    // Where the footprint of the building being placed goes and whether it fits: inside the map and clear of
+    // other buildings. The server also checks the ground is dry and level enough.
+    function placingFootprint() {
+        if (!placing || placing.cx === null) {
+            return null;
+        }
+        const type = buildingType(placing.type);
+        const [sizeX, sizeZ] = footprintSize(type, placing.rotation);
+        const x = placing.cx - Math.floor(sizeX / 2);
+        const z = placing.cz - Math.floor(sizeZ / 2);
+        const g = state.game;
+        let ok = x >= g.minX && z >= g.minZ && x + sizeX - 1 <= g.maxX && z + sizeZ - 1 <= g.maxZ;
+        const gap = g.buildingGap || 0;
+        for (const b of state.buildings.values()) {
+            if (x < b.x + b.sizeX + gap && b.x < x + sizeX + gap && z < b.z + b.sizeZ + gap && b.z < z + sizeZ + gap) {
+                ok = false;
+            }
+        }
+        return {x, z, sizeX, sizeZ, ok, y: surfaceY(placing.cx, placing.cz) - 1};
+    }
+
+    function movePlacing(px, py) {
+        const ground = groundUnder(px, py);
+        if (!ground) {
+            return;
+        }
+        const cx = Math.floor(ground[0]);
+        const cz = Math.floor(ground[2]);
+        if (cx !== placing.cx || cz !== placing.cz) {
+            placing.cx = cx;
+            placing.cz = cz;
+            view.dirty = true;
+        }
+    }
+
+    async function place(px, py, keep) {
+        movePlacing(px, py);
+        const spot = placingFootprint();
+        if (!spot) {
+            return;
+        }
+        if (!spot.ok) {
+            showToast("It does not fit there", true);
+            return;
+        }
+        const workers = selectedWorkers();
+        if (!workers.length) {
+            showToast("Select a worker to build with", true);
+            stopPlacing();
+            return;
+        }
+        const {type, rotation, cx, cz} = placing;
+        if (!keep) {
+            stopPlacing();
+        }
+        const reply = await send("buildings.place", {building: type, x: cx, z: cz, rotation, units: workers});
+        if (reply) {
+            showToast(buildingType(type).name + " site laid out");
+        }
+    }
 
     document.getElementById("select-all").addEventListener("click", () => {
         const team = myTeam();
@@ -541,6 +778,7 @@
 
     document.getElementById("clear-selection").addEventListener("click", () => {
         state.selected.clear();
+        state.selectedBuilding = null;
         changedSelection();
     });
 
@@ -550,6 +788,12 @@
     });
 
     function changedSelection() {
+        if (state.selected.size) {
+            state.selectedBuilding = null;
+        }
+        if (placing && !selectedWorkers().length) {
+            placing = null;
+        }
         renderUnitBar();
         view.dirty = true;
     }
@@ -616,9 +860,31 @@
         return state.game ? view.groundAt(px, py, state.game.seaLevel + 1) : null;
     }
 
+    // The building or building site under a screen point, or null.
+    function buildingAt(px, py) {
+        const ground = groundUnder(px, py);
+        if (!ground) {
+            return null;
+        }
+        for (const b of state.buildings.values()) {
+            if (ground[0] >= b.x && ground[0] < b.x + b.sizeX && ground[2] >= b.z && ground[2] < b.z + b.sizeZ) {
+                return b;
+            }
+        }
+        return null;
+    }
+
     // Selects or orders for a click (or tap) that did not drag.
     function click(px, py, button, shift, touch) {
         if (!myTeam()) {
+            return;
+        }
+        if (placing) {
+            if (button === 2) {
+                stopPlacing();
+            } else if (button === 0) {
+                place(px, py, shift);
+            }
             return;
         }
         const hit = entityAt(px, py);
@@ -649,8 +915,14 @@
             }
             lastClick = {time: now, id};
             changedSelection();
-        } else if (!shift && !touch && state.selected.size) {
+            return;
+        }
+        const building = hit ? null : buildingAt(px, py);
+        if (building && building.team === myTeam().id) {
+            selectBuilding(building.id);
+        } else if (!shift && !touch && (state.selected.size || state.selectedBuilding !== null)) {
             state.selected.clear();
+            state.selectedBuilding = null;
             changedSelection();
         }
     }
@@ -661,6 +933,8 @@
             const t = hit.thing;
             orderMark = {x: t.drawX, y: t.drawY, z: t.drawZ, color: [1, 0.3, 0.25, 1], time: performance.now()};
             send("units.attack", {units, target: entityId(hit)});
+        } else if (!hit && orderBuild(px, py)) {
+            return;
         } else {
             const ground = groundUnder(px, py);
             if (!ground) {
@@ -670,6 +944,21 @@
             send("units.move", {units, x: ground[0], z: ground[2]});
         }
         view.dirty = true;
+    }
+
+    // Right-clicking one of the team's building sites, or a farm, sends the selected workers to build or work it.
+    function orderBuild(px, py) {
+        const building = buildingAt(px, py);
+        const workers = selectedWorkers();
+        if (!building || building.team !== myTeam().id || !workers.length
+            || (building.complete && building.type !== "farm")) {
+            return false;
+        }
+        orderMark = {x: building.x + building.sizeX / 2, y: building.y + 1, z: building.z + building.sizeZ / 2,
+            color: [0.45, 1, 0.5, 1], time: performance.now()};
+        send("units.build", {units: workers, building: building.id});
+        view.dirty = true;
+        return true;
     }
 
     function selectInView() {
@@ -723,7 +1012,7 @@
         };
         if (!pointers.size) {
             multiTouch = false;
-            point.box = event.button === 0 && (event.shiftKey || boxMode) && Boolean(myTeam());
+            point.box = event.button === 0 && (event.shiftKey || boxMode) && Boolean(myTeam()) && !placing;
         }
         pointers.set(event.pointerId, point);
         canvas.classList.add("dragging");
@@ -736,6 +1025,9 @@
 
     canvas.addEventListener("pointermove", (event) => {
         updateCursor(event.offsetX, event.offsetY);
+        if (placing) {
+            movePlacing(event.offsetX, event.offsetY);
+        }
         const last = pointers.get(event.pointerId);
         if (!last) {
             return;
@@ -835,8 +1127,13 @@
             view.turn(-1);
         } else if (key === "e") {
             view.turn(1);
-        } else if (key === "escape" && state.selected.size) {
+        } else if (key === "r" && placing) {
+            rotatePlacing();
+        } else if (key === "escape" && placing) {
+            stopPlacing();
+        } else if (key === "escape" && (state.selected.size || state.selectedBuilding !== null)) {
             state.selected.clear();
+            state.selectedBuilding = null;
             changedSelection();
         }
     });
@@ -878,8 +1175,58 @@
         return team ? hexColor(team.color, 1) : [0.8, 0.8, 0.8, 1];
     }
 
-    // Players as a body in their team's colour with a bare head on top; units the same with a steel helmet, so
-    // the two tell apart. Both are drawn larger when zoomed out so they stay visible.
+    const STRAW = [0.86, 0.74, 0.42, 1];
+
+    // Column heights of a building type turned a number of quarter turns clockwise, the way the server turns
+    // structures: {sizeX, sizeZ, heights} with heights[x + z * sizeX].
+    const turnedShapes = new Map();
+
+    function turnedShape(typeId, rotation) {
+        const key = typeId + "/" + rotation;
+        if (turnedShapes.has(key)) {
+            return turnedShapes.get(key);
+        }
+        const type = buildingType(typeId);
+        let w = type.width;
+        let l = type.length;
+        let heights = type.heights;
+        for (let r = 0; r < rotation; r++) {
+            const turned = new Array(w * l);
+            for (let z = 0; z < l; z++) {
+                for (let x = 0; x < w; x++) {
+                    turned[(l - 1 - z) + x * l] = heights[x + z * w];
+                }
+            }
+            heights = turned;
+            [w, l] = [l, w];
+        }
+        const shape = {sizeX: w, sizeZ: l, heights};
+        turnedShapes.set(key, shape);
+        return shape;
+    }
+
+    // See-through boxes in the shape of a building: one per run of equal-height columns along x.
+    function ghostBoxes(boxes, typeId, rotation, minX, minZ, groundY, color) {
+        const shape = turnedShape(typeId, rotation);
+        for (let z = 0; z < shape.sizeZ; z++) {
+            let x = 0;
+            while (x < shape.sizeX) {
+                const h = shape.heights[x + z * shape.sizeX];
+                let run = 1;
+                while (x + run < shape.sizeX && shape.heights[x + run + z * shape.sizeX] === h) {
+                    run++;
+                }
+                if (h > 0) {
+                    boxes.push({min: [minX + x, groundY + 1, minZ + z], size: [run, Math.max(0.2, h - 1), 1], color});
+                }
+                x += run;
+            }
+        }
+    }
+
+    // Players as a body in their team's colour with a bare head on top; soldiers the same with a steel helmet
+    // and workers with a straw hat, so they tell apart. All are drawn larger when zoomed out so they stay
+    // visible. Building sites and the building being placed are see-through copies of the building.
     function figureBoxes() {
         const boxes = [];
         const s = figureScale();
@@ -893,14 +1240,23 @@
             figure(p.drawX, p.drawY, p.drawZ, teamColor(p.team), SKIN);
         }
         for (const u of state.units.values()) {
-            figure(u.drawX, u.drawY, u.drawZ, teamColor(u.team), STEEL);
-        }
-        for (const team of state.teams) {
-            if (team.base) {
-                // A flag on the pole baseLines() draws.
-                const y = surfaceY(team.base.x, team.base.z) + 9 * s;
-                boxes.push({min: [team.base.x + 0.5, y, team.base.z + 0.45], size: [3 * s, 2 * s, 0.1], color: hexColor(team.color, 1)});
+            if (u.kind === "worker") {
+                figure(u.drawX, u.drawY, u.drawZ, teamColor(u.team), SKIN);
+                const hw = 0.8 * s;
+                boxes.push({min: [u.drawX - hw / 2, u.drawY + 1.8 * s, u.drawZ - hw / 2], size: [hw, 0.12 * s, hw], color: STRAW});
+            } else {
+                figure(u.drawX, u.drawY, u.drawZ, teamColor(u.team), STEEL);
             }
+        }
+        for (const b of state.buildings.values()) {
+            if (!b.complete && buildingType(b.type)) {
+                ghostBoxes(boxes, b.type, b.rotation, b.x, b.z, b.y, teamColor(b.team).slice(0, 3).concat([0.35]));
+            }
+        }
+        const spot = placingFootprint();
+        if (spot) {
+            const color = spot.ok ? [0.45, 1, 0.5, 0.4] : [1, 0.3, 0.25, 0.4];
+            ghostBoxes(boxes, placing.type, placing.rotation, spot.x, spot.z, spot.y, color);
         }
         return boxes;
     }
@@ -932,7 +1288,13 @@
     const SELECTED = [0.45, 1, 0.5, 1];
     const ATTACK = [1, 0.3, 0.25, 1];
 
-    // Rings under selected units with a line to where each is headed, the last order's marker and team bases.
+    function rect(lines, x0, z0, x1, z1, y, color) {
+        lines.push([[x0, y, z0], [x1, y, z0], color], [[x1, y, z0], [x1, y, z1], color],
+            [[x1, y, z1], [x0, y, z1], color], [[x0, y, z1], [x0, y, z0], color]);
+    }
+
+    // Rings under selected units with a line to where each is headed, the last order's marker, and the outlines
+    // of buildings in their team's colour.
     function unitLines(now) {
         const lines = [];
         const s = figureScale();
@@ -945,7 +1307,7 @@
             const target = u.target ? state.units.get(u.target) || state.players.get(u.target) : null;
             if (u.order === "attack" && target) {
                 lines.push([[u.drawX, u.drawY + 0.1, u.drawZ], [target.drawX, target.drawY + 0.1, target.drawZ], ATTACK]);
-            } else if (u.order === "move" && u.toX !== undefined) {
+            } else if (u.order !== "attack" && u.order !== "idle" && u.toX !== undefined) {
                 const y = surfaceY(Math.floor(u.toX), Math.floor(u.toZ));
                 lines.push([[u.drawX, u.drawY + 0.1, u.drawZ], [u.toX, y + 0.1, u.toZ], SELECTED]);
             }
@@ -959,15 +1321,14 @@
                 ring(lines, orderMark.x, orderMark.y + 0.1, orderMark.z, (0.5 + 1.5 * age) * s, color);
             }
         }
-        for (const team of state.teams) {
-            if (team.base) {
-                const x = team.base.x + 0.5;
-                const z = team.base.z + 0.5;
-                const y = surfaceY(team.base.x, team.base.z);
-                const color = hexColor(team.color, 1);
-                lines.push([[x, y, z], [x, y + 11 * s, z], [0.9, 0.85, 0.7, 1]]);
-                ring(lines, x, y + 0.1, z, 4, color);
-            }
+        for (const b of state.buildings.values()) {
+            const color = b.id === state.selectedBuilding ? SELECTED : teamColor(b.team);
+            rect(lines, b.x - 0.5, b.z - 0.5, b.x + b.sizeX + 0.5, b.z + b.sizeZ + 0.5, b.y + 1.1, color);
+        }
+        const spot = placingFootprint();
+        if (spot) {
+            const color = spot.ok ? SELECTED : ATTACK;
+            rect(lines, spot.x, spot.z, spot.x + spot.sizeX, spot.z + spot.sizeZ, spot.y + 1.1, color);
         }
         return lines;
     }
@@ -1003,14 +1364,28 @@
         labelCtx.font = "600 12px system-ui, sans-serif";
         labelCtx.textAlign = "center";
         const s = figureScale();
-        for (const team of state.teams) {
-            if (team.base) {
-                const [x, y] = view.project(team.base.x + 0.5, surfaceY(team.base.x, team.base.z) + 11 * s, team.base.z + 0.5);
-                labelCtx.lineWidth = 3;
-                labelCtx.strokeStyle = "rgba(0, 0, 0, 0.8)";
-                labelCtx.strokeText(team.name + " base", x, y - 6);
-                labelCtx.fillStyle = team.color;
-                labelCtx.fillText(team.name + " base", x, y - 6);
+        // Town halls are always named; other buildings when selected, still a site or training.
+        for (const b of state.buildings.values()) {
+            const type = buildingType(b.type);
+            const team = state.teamsById[b.team];
+            if (!type || !team || (b.type !== "town_hall" && b.id !== state.selectedBuilding && b.complete && !b.queue)) {
+                continue;
+            }
+            const shape = turnedShape(b.type, b.rotation);
+            const top = b.y + Math.max(...shape.heights) + 1;
+            const [x, y] = view.project(b.x + b.sizeX / 2, top, b.z + b.sizeZ / 2);
+            const text = team.name + " " + type.name.toLowerCase() + (b.complete ? "" : " (site)");
+            labelCtx.lineWidth = 3;
+            labelCtx.strokeStyle = "rgba(0, 0, 0, 0.8)";
+            labelCtx.strokeText(text, x, y - 6);
+            labelCtx.fillStyle = team.color;
+            labelCtx.fillText(text, x, y - 6);
+            if (b.queue && b.queue.length) {
+                const width = 40;
+                labelCtx.fillStyle = "rgba(0, 0, 0, 0.75)";
+                labelCtx.fillRect(x - width / 2 - 1, y - 2, width + 2, 6);
+                labelCtx.fillStyle = "#5fdc6a";
+                labelCtx.fillRect(x - width / 2, y - 1, width * (b.progress || 0), 4);
             }
         }
         // Health bars over units that are hurt or selected.

@@ -6,6 +6,8 @@ import net.minecraftforge.common.MinecraftForge;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.warofthegods.building.BuildingCommands;
+import com.warofthegods.building.Buildings;
 import com.warofthegods.command.CommandRts;
 import com.warofthegods.game.PlayerEvents;
 import com.warofthegods.unit.EntityUnit;
@@ -76,6 +78,10 @@ public class WarOfTheGods {
             .register(units);
         ForgeChunkManager.setForcedChunkLoadingCallback(this, units.chunkLoadingCallback());
         UnitCommands.register();
+        FMLCommonHandler.instance()
+            .bus()
+            .register(new Buildings());
+        BuildingCommands.register();
         proxy.init();
     }
 
