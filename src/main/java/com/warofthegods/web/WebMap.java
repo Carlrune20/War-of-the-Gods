@@ -39,8 +39,8 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  */
 public final class WebMap {
 
-    /** Ticks between live state updates sent to browsers. */
-    private static final int STATE_INTERVAL = 10;
+    /** Ticks between sending browsers the changed map tiles. */
+    private static final int TILES_INTERVAL = 10;
     /** Commands from browsers run per tick at most, so a flood cannot stall the server. */
     private static final int COMMANDS_PER_TICK = 64;
 
@@ -64,7 +64,10 @@ public final class WebMap {
             }
         } else if (renderer == null || renderer.world != world || renderer.gameNumber != game.getNumber()) {
             renderer = new MapRenderer(world, game);
-            server.setGame(renderer.tiles, gameMessage(game));
+            JsonObject message = gameMessage(game);
+            message.getAsJsonObject("game")
+                .addProperty("mapId", renderer.tiles.getId());
+            server.setGame(renderer.tiles, message);
             announced = true;
         }
 
@@ -77,10 +80,11 @@ public final class WebMap {
         }
         runCommands(server);
 
-        if (++ticks % STATE_INTERVAL == 0) {
-            if (renderer != null) {
-                server.tilesChanged(renderer.tiles.takeChanged());
-            }
+        ticks++;
+        if (renderer != null && ticks % TILES_INTERVAL == 0) {
+            server.tilesChanged(renderer.tiles.takeChanged());
+        }
+        if (ticks % Config.webStateTicks == 0) {
             server.setState(stateMessage(game, world));
         }
     }

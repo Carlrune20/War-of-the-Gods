@@ -189,13 +189,20 @@ final class HttpHandler extends ChannelInboundHandlerAdapter {
         MapTiles tiles = server.getTiles();
         Integer x = intParam(query, "x");
         Integer z = intParam(query, "z");
-        byte[] blob = tiles == null || x == null || z == null ? null : tiles.blob(x, z);
+        List<String> map = query.parameters()
+            .get("m");
+        // A tile of a map that is no longer shown, asked for by a page that has not caught up yet.
+        boolean stale = tiles != null && map != null
+            && !map.isEmpty()
+            && !tiles.getId()
+                .equals(map.get(0));
+        byte[] blob = tiles == null || stale || x == null || z == null ? null : tiles.blob(x, z);
         if (blob == null) {
             send(ctx, request, text(HttpResponseStatus.NOT_FOUND, "Not read yet"));
             return;
         }
         FullHttpResponse response = bytes(HttpResponseStatus.OK, blob, "application/octet-stream");
-        // Browsers ask with the tile's version in the address, so a given address never changes.
+        // Browsers ask with the map id and the tile's version in the address, so a given address never changes.
         response.headers()
             .set(HttpHeaders.Names.CACHE_CONTROL, "private, max-age=86400");
         send(ctx, request, response);

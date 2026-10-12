@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.DeflaterOutputStream;
 
@@ -32,6 +33,12 @@ public final class MapTiles {
     private static final byte FORMAT = 1;
 
     private final int gameNumber;
+    /**
+     * Names this map for as long as the server runs. Tile versions count up from 1 again for every map, after a new
+     * game and after a server restart alike, so browsers ask for tiles with the map id in the address too: a tile
+     * they cached from an older map then never stands in for one of this map.
+     */
+    private final String id;
     private final Map<Long, Tile> tiles = new ConcurrentHashMap<>();
     private final Set<Long> changed = ConcurrentHashMap.newKeySet();
     private final AtomicInteger versions = new AtomicInteger();
@@ -46,6 +53,15 @@ public final class MapTiles {
 
     public MapTiles(int gameNumber) {
         this.gameNumber = gameNumber;
+        this.id = gameNumber + "-"
+            + Long.toString(
+                ThreadLocalRandom.current()
+                    .nextLong() & Long.MAX_VALUE,
+                36);
+    }
+
+    public String getId() {
+        return id;
     }
 
     public int getGameNumber() {
