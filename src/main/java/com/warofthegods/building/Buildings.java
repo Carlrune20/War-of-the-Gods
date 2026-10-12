@@ -434,7 +434,8 @@ public final class Buildings {
 
     /**
      * Takes health off a building; at 0 it is gone: its blocks above ground are cleared, the ground layer turns back
-     * to grass, and units training there are lost. Foundations stay in the ground.
+     * to grass, and units training there are lost. Foundations stay in the ground. A destroyed building site just
+     * goes away.
      */
     public void damage(Building building, int amount, String cause) {
         Game game = GameManager.getGame();
@@ -442,7 +443,8 @@ public final class Buildings {
             return;
         }
         WorldServer world = DimensionManager.getWorld(GameWorld.dimensionId());
-        if (world != null) {
+        // A building site has nothing standing yet; leave the ground as it is.
+        if (world != null && building.isComplete()) {
             tearDown(world, building);
         }
         game.removeBuilding(building);
