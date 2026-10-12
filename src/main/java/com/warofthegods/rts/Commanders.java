@@ -1,8 +1,10 @@
 package com.warofthegods.rts;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
@@ -15,10 +17,13 @@ import net.minecraft.potion.Potion;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.MathHelper;
 import net.minecraft.world.WorldServer;
+import net.minecraftforge.event.entity.living.LivingDeathEvent;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 import com.warofthegods.WarOfTheGods;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
@@ -33,10 +38,11 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.PlayerEvent;
 
 /**
- * Players in the in-game RTS view, on the server thread. While a player commands from above, their body hovers
- * invisible and unhurt over the spot the camera looks at, so the chunks and entities there load for their client.
+ * Players in the in-game RTS view, on the server thread. While a player commands from above, they hover invisible and
+ * unhurt over the spot the camera looks at, so the chunks and entities there load for their client, and an
+ * {@link EntityCommanderBody} stands in for them where they were: everyone sees it, and whatever hurts it hurts them.
  * They get the same game and live state messages as browsers, and their commands run through the same
- * {@link WebCommand}s. Leaving puts them back where they were, as they were.
+ * {@link WebCommand}s. Leaving puts them back into their body, as they were.
  *
  * <p>
  * Besides the web map's commands a client sends:
@@ -63,6 +69,7 @@ public final class Commanders {
 
     private final Queue<Incoming> inbox = new ConcurrentLinkedQueue<>();
     private final Set<UUID> commanding = new HashSet<>();
+    private final Map<UUID, EntityCommanderBody> bodies = new HashMap<>();
     private String gameMessage = WebJson.message("game")
         .toString();
     private String stateMessage;
@@ -145,6 +152,11 @@ public final class Commanders {
                 EntityPlayerMP player = find(id);
                 if (player == null) {
                     commanding.remove(id);
+                    EntityCommanderBody body = bodies.remove(id);
+                    if (body != null) {
+                        body.setDead();
+                    }
+                    tellCommanders();
                 } else if (GameManager.getGame() == null || player.dimension != GameWorld.dimensionId()
                     || !player.getEntityData()
                         .hasKey(SAVED_KEY)) {
@@ -156,6 +168,7 @@ public final class Commanders {
                                     .toString());
                         } else {
                             applyCommanding(player);
+                            keepBody(player);
                         }
             }
         }
@@ -228,6 +241,10 @@ public final class Commanders {
             if (player.ridingEntity != null) {
                 player.mountEntity(null);
             }
+            EntityCommanderBody body = new EntityCommanderBody(player.worldObj, player);
+            player.worldObj.spawnEntityInWorld(body);
+            bodies.put(player.getUniqueID(), body);
+            tellCommanders();
             applyCommanding(player);
             hoverOver(player, player.posX, player.posZ);
             WarOfTheGods.LOG.info("{} is commanding from the RTS view", player.getCommandSenderName());
@@ -284,7 +301,13 @@ public final class Commanders {
 
     /** Puts the player back as they were before commanding, if they were. */
     public void leave(EntityPlayerMP player) {
-        commanding.remove(player.getUniqueID());
+        if (commanding.remove(player.getUniqueID())) {
+            tellCommanders();
+        }
+        EntityCommanderBody body = bodies.remove(player.getUniqueID());
+        if (body != null) {
+            body.setDead();
+        }
         NBTTagCompound data = player.getEntityData();
         if (!data.hasKey(SAVED_KEY)) {
             return;
@@ -296,15 +319,23 @@ public final class Commanders {
         player.capabilities.disableDamage = saved.getBoolean("disableDamage");
         player.sendPlayerAbilities();
         player.setInvisible(player.isPotionActive(Potion.invisibility));
-        if (player.dimension == saved.getInteger("dimension") && player.playerNetServerHandler != null) {
+        if (body != null && body.worldObj == player.worldObj && player.playerNetServerHandler != null) {
+            // Back into the body, wherever it was pushed.
+            player.playerNetServerHandler
+                .setPlayerLocation(body.posX, body.posY, body.posZ, body.rotationYaw, body.rotationPitch);
+            player.fallDistance = body.fallDistance;
+            if (body.isBurning()) {
+                player.setFire(1);
+            }
+        } else if (player.dimension == saved.getInteger("dimension") && player.playerNetServerHandler != null) {
             player.playerNetServerHandler.setPlayerLocation(
                 saved.getDouble("x"),
                 saved.getDouble("y"),
                 saved.getDouble("z"),
                 saved.getFloat("yaw"),
                 saved.getFloat("pitch"));
+            player.fallDistance = 0;
         }
-        player.fallDistance = 0;
         WarOfTheGods.LOG.info("{} left the RTS view", player.getCommandSenderName());
     }
 
@@ -314,6 +345,7 @@ public final class Commanders {
             leave(player);
         }
         commanding.clear();
+        bodies.clear();
         inbox.clear();
     }
 
@@ -330,18 +362,43 @@ public final class Commanders {
     public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.player instanceof EntityPlayerMP) {
             leave((EntityPlayerMP) event.player);
+            if (any()) {
+                tellCommanders();
+            }
         }
     }
 
     /** A player who died, which only /kill can do while commanding, comes back in person. */
     @SubscribeEvent
     public void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
+        EntityCommanderBody body = bodies.remove(event.player.getUniqueID());
+        if (body != null) {
+            body.setDead();
+        }
         if (event.player instanceof EntityPlayerMP && commanding.remove(event.player.getUniqueID())) {
+            tellCommanders();
             RtsNetwork.sendTo(
                 (EntityPlayerMP) event.player,
                 WebJson.message("rts.left")
                     .toString());
         }
+    }
+
+    /**
+     * A commanding player killed through their body steps back into it to die, so they fall and drop what they carry
+     * there, and their client shows the death screen.
+     */
+    @SubscribeEvent
+    public void onLivingDeath(LivingDeathEvent event) {
+        if (!(event.entityLiving instanceof EntityPlayerMP) || !commanding.contains(event.entityLiving.getUniqueID())) {
+            return;
+        }
+        EntityPlayerMP player = (EntityPlayerMP) event.entityLiving;
+        leave(player);
+        RtsNetwork.sendTo(
+            player,
+            WebJson.message("rts.left")
+                .toString());
     }
 
     @SubscribeEvent
@@ -355,6 +412,63 @@ public final class Commanders {
         }
     }
 
+    /** Tells every client who is commanding, so they do not draw them where they hover. */
+    private void tellCommanders() {
+        JsonObject message = WebJson.message("rts.commanders");
+        JsonArray ids = new JsonArray();
+        for (UUID id : commanding) {
+            ids.add(new JsonPrimitive(id.toString()));
+        }
+        message.add("ids", ids);
+        String json = message.toString();
+        MinecraftServer server = MinecraftServer.getServer();
+        if (server == null) {
+            return;
+        }
+        for (Object object : server.getConfigurationManager().playerEntityList) {
+            EntityPlayerMP player = (EntityPlayerMP) object;
+            if (player.playerNetServerHandler != null) {
+                RtsNetwork.sendTo(player, json);
+            }
+        }
+    }
+
+    /** The body of a commanding player, while it is in the world; null for anyone else. */
+    public EntityCommanderBody bodyOf(UUID player) {
+        EntityCommanderBody body = bodies.get(player);
+        return body != null && body.isEntityAlive() && isInWorld(body) ? body : null;
+    }
+
+    /** The body of a commanding player, or where it was if its chunk is unloaded; null for anyone else. */
+    public EntityCommanderBody lastBodyOf(UUID player) {
+        return commanding.contains(player) ? bodies.get(player) : null;
+    }
+
+    /** Puts a new body where the old one was if its chunk unloaded and is back, as when the owner flew off and back. */
+    private void keepBody(EntityPlayerMP player) {
+        EntityCommanderBody body = bodies.get(player.getUniqueID());
+        if (body == null || isInWorld(body) || body.worldObj != player.worldObj || player.getHealth() <= 0) {
+            return;
+        }
+        int chunkX = MathHelper.floor_double(body.posX) >> 4;
+        int chunkZ = MathHelper.floor_double(body.posZ) >> 4;
+        if (!body.worldObj.getChunkProvider()
+            .chunkExists(chunkX, chunkZ)) {
+            return;
+        }
+        EntityCommanderBody fresh = new EntityCommanderBody(body.worldObj, player);
+        fresh.setLocationAndAngles(body.posX, body.posY, body.posZ, body.rotationYaw, body.rotationPitch);
+        fresh.rotationYawHead = body.rotationYawHead;
+        fresh.renderYawOffset = body.renderYawOffset;
+        fresh.fallDistance = 0;
+        body.worldObj.spawnEntityInWorld(fresh);
+        bodies.put(player.getUniqueID(), fresh);
+    }
+
+    private static boolean isInWorld(EntityCommanderBody body) {
+        return !body.isDead && body.worldObj.getEntityByID(body.getEntityId()) == body;
+    }
+
     private List<EntityPlayerMP> online() {
         List<EntityPlayerMP> players = new ArrayList<>();
         for (UUID id : commanding) {
@@ -366,7 +480,7 @@ public final class Commanders {
         return players;
     }
 
-    private static EntityPlayerMP find(UUID id) {
+    static EntityPlayerMP find(UUID id) {
         MinecraftServer server = MinecraftServer.getServer();
         if (server == null) {
             return null;

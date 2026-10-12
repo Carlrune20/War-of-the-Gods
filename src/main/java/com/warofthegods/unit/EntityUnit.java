@@ -8,6 +8,7 @@ import net.minecraft.entity.EntityCreature;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.ai.EntityAISwimming;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
@@ -25,6 +26,7 @@ import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
+import com.warofthegods.rts.Commanders;
 
 /**
  * A unit of a team, with the player model and its team's color on dyed leather armor. Soldiers carry an iron sword
@@ -650,6 +652,12 @@ public class EntityUnit extends EntityCreature {
     private EntityLivingBase resolveTarget() {
         if (target != null && (!target.isEntityAlive() || target.worldObj != worldObj)) {
             target = null;
+        }
+        if (target instanceof EntityPlayer && Commanders.get()
+            .isCommanding(target.getUniqueID())) {
+            // They went up to command; their body stayed here.
+            target = Commanders.get()
+                .bodyOf(target.getUniqueID());
         }
         if (target == null && targetId != null) {
             target = Units.get()

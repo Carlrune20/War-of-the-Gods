@@ -207,10 +207,14 @@ way and goes through the same commands, so the web map and the in-game view can 
 | T or / | Chat, without leaving the view |
 | V, or Esc with nothing selected | Back to playing in person |
 
-While you command, your body hovers invisible and unhurt over the spot the camera looks at, so the world there stays
-loaded for you, and you see in the dark. Leaving puts you back where you were when you pressed V. Units never attack
-a player who is commanding. The view only shows what your client has loaded, so the camera stays within your render
-distance of the spot it looks at; the web map shows the whole map.
+While you command, your body stays where you stood, in your skin, armor and gear, and everyone sees it, in the
+view, in person and on the web map. Enemy units and players can attack it, and what hurts it hurts you, through your
+armor; the team panel shows your health. If it dies, you die there, drop what you carry there and get the death
+screen. Pressing V again puts you back into it, wherever it was pushed. Meanwhile the real you floats unseen and
+unhurt over the spot the camera looks at, so the world there stays loaded for you, and you see
+in the dark. The view only shows what your client has loaded, so the camera stays within your render distance of the
+spot it looks at; the web map shows the whole map. Hostile mobs such as zombies only go after real players, so they
+leave a commander's body alone for now.
 
 ## Config
 

@@ -11,6 +11,7 @@ import com.warofthegods.building.Buildings;
 import com.warofthegods.command.CommandRts;
 import com.warofthegods.game.PlayerEvents;
 import com.warofthegods.rts.Commanders;
+import com.warofthegods.rts.EntityCommanderBody;
 import com.warofthegods.rts.RtsNetwork;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.UnitCommands;
@@ -54,6 +55,7 @@ public class WarOfTheGods {
         LOG.info("War of the Gods " + Tags.VERSION + " loading");
         GameWorld.register();
         EntityRegistry.registerModEntity(EntityUnit.class, "Unit", 0, this, 96, 3, true);
+        EntityRegistry.registerModEntity(EntityCommanderBody.class, "CommanderBody", 1, this, 160, 3, true);
         RtsNetwork.register();
     }
 
@@ -90,6 +92,7 @@ public class WarOfTheGods {
         FMLCommonHandler.instance()
             .bus()
             .register(Commanders.get());
+        MinecraftForge.EVENT_BUS.register(Commanders.get());
         proxy.init();
     }
 
