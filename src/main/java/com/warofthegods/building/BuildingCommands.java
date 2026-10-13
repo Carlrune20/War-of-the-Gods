@@ -121,6 +121,13 @@ public final class BuildingCommands {
             request.replyError("Workers cannot build that");
             return;
         }
+        if (GameManager.getGame()
+            .getAge(team) < type.age()) {
+            request.replyError(
+                "Your town has to reach " + BuildingType.ageName(type.age())
+                    + " first: take the town center up a level");
+            return;
+        }
         Double x = UnitCommands.doubleField(request.body, "x");
         Double z = UnitCommands.doubleField(request.body, "z");
         if (x == null || z == null) {

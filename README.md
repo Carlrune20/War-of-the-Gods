@@ -30,7 +30,9 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts resources <give\|take\|set> <team> <resource> <amount>` | (op) Change a team's resources. |
 | `/rts units [team]` | List a team's units with where they are and what they are doing (your own team by default), or every team's unit count. |
 | `/rts units spawn <team> [count] [warrior\|archer\|worker]` | (op) Spawn units for a team at its town center, for free, even with no room for them. |
-| `/rts units move <team> <x> <z>` | (op) Send all of a team's units somewhere. |
+| `/rts units move <team> <x> <z> [box\|line\|wedge]` | (op) Send all of a team's units somewhere, in formation. |
+| `/rts units stance <team> <aggressive\|defensive\|hold\|passive>` | (op) Set how a team's units fight when not ordered to. |
+| `/rts route <x1> <z1> <x2> <z2>` | (op) Show the way a unit would walk between two points, as waypoints. |
 | `/rts units stop <team>` | (op) Make a team's units stop and guard where they stand. |
 | `/rts units kill <team\|all>` | (op) Remove units. |
 | `/rts buildings [team]` | List buildings and building sites with their health, how far each site is built and how many workers work each farm or quarry. |
@@ -98,8 +100,8 @@ is built, and the finished building stands once the site is done; more workers b
 | Quarry | A pit with ore in its walls; workers there gather 4 stone and 1 metal every 5 s, up to 3 workers | 100 Wood | 500 | 20 s |
 | Storehouse | Takes in what workers gather; researches economic upgrades | 100 Wood | 600 | 20 s |
 | Barracks | Trains warriors and archers | 150 Wood, 50 Stone | 800 | 25 s |
-| Armory | Researches military upgrades | 120 Wood, 60 Stone | 700 | 25 s |
-| Tower | Shoots arrows at enemies within 16 blocks | 50 Wood, 100 Stone | 900 | 25 s |
+| Armory | Researches military upgrades; needs Age II | 120 Wood, 60 Stone | 700 | 25 s |
+| Tower | Shoots arrows at enemies within 16 blocks; needs Age II | 50 Wood, 100 Stone | 900 | 25 s |
 
 | Unit | Costs (default) | |
 |---|---|---|
@@ -114,9 +116,10 @@ or storehouse, where it goes to the team, and walks back to work. Workers hold w
 hands. A worker that built a farm or quarry stays to work it. Training takes 5 seconds per unit, one at a time per
 building.
 
-Buildings go up levels: select one and click Level, which costs half again its price per level and takes 30 seconds,
-or 60 for a third level. The town center goes up to level 3, for 200 Food, 200 Wood and 150 Stone and then 400 Food,
-300 Wood, 300 Stone and 100 Metal; every other building to level 2, once the town center is at level 2. Each level
+A team's town center sets its age: taking it up a level advances the whole town from Age I to Age II, for 200 Food,
+200 Wood and 150 Stone, and then to Age III, for 400 Food, 300 Wood, 300 Stone and 100 Metal. Armories and towers
+need Age II. Other buildings go up levels too: select one and click Level, which costs half again its price per level
+and takes 30 seconds, or 60 for a third level; a building can only go up to the town's age, so level 2 needs Age II. Each level
 looks grander, has half as much health again and does more: a level 2 town center houses 5 more units and shoots, a
 level 2 house houses 7, a farm or quarry yields a third more, a tower shoots farther and faster, and an armory or
 storehouse can research its second row of upgrades.
@@ -125,9 +128,9 @@ storehouse can research its second row of upgrades.
 |---|---|---|
 | Forged blades | Armory | Warriors hit 2 harder |
 | Fletching | Armory | Archers and towers shoot 1 harder and 4 farther |
-| Padded armor | Armory | Warriors and archers have 6 more health |
+| Padded armor | Armory | Warriors and archers have 6 more health, and wear chainmail |
 | Tempered steel | Armory, level 2 | Warriors hit 2 harder again |
-| Plate armor | Armory, level 2 | Warriors and archers have 8 more health |
+| Plate armor | Armory, level 2 | Warriors and archers have 8 more health, and wear iron |
 | Bigger baskets | Storehouse | Workers carry 10 more |
 | Sharp axes | Storehouse | Workers chop half again as fast |
 | Ploughs | Storehouse | Farms yield half again as much |
@@ -140,7 +143,8 @@ warriors take 10 off with every hit and archers 5 with every arrow: ordered to, 
 is near where they guard. Players cannot break a building's blocks: when an enemy player tries, the block stays and
 the building loses 5 health, except for blocks that break in a moment, such as torches, glass, beds, ladders and
 wool, which do it no harm. Explosions, such as creepers going off, break nothing within 2 blocks of a building or
-building site; the building loses up to 120 health instead, the more the closer they go off. Players in creative mode break blocks as usual. At 0 health a building falls to a ruin,
+building site; the building loses up to 120 health instead, the more the closer they go off. Below half health a
+building smokes, and below a quarter it burns, though the fire spreads nowhere. Players in creative mode break blocks as usual. At 0 health a building falls to a ruin,
 and units training there are lost. A destroyed town center does not come back.
 
 A team can have as many units as its town center and houses house, up to 50. Buildings need a spot inside the map,
@@ -148,8 +152,19 @@ two blocks clear of other buildings, on ground that is mostly dry and not too st
 anything above the building is cleared. The structures are drawn by `tools/structures/generate.py` into
 `assets/warofthegods/structures/<faction>`, and the skins and icons by `tools/textures/generate.py`.
 
-A unit that has no orders guards the spot where it stopped: it fights enemies that come within 10 blocks and walks
-back once they are dead or more than 20 blocks from its post. Creepers it leaves alone unless ordered to attack one,
+A unit that has no orders guards the spot where it stopped. How it fights depends on its stance, set from the bar
+with warriors or archers selected:
+
+| Stance | What a unit does when not ordered to fight |
+|---|---|
+| Aggressive | Looks for enemies half again as far and chases them up to 40 blocks from its post |
+| Defensive (the default) | Fights enemies that come within 10 blocks (archers within their range), and walks back once they are dead or more than 20 blocks from its post |
+| Hold | Never leaves its spot: fights only what it can reach from there |
+| Passive | Never fights, not even back |
+
+Units sent somewhere line up there in the formation picked on the bar, facing the way they went, with warriors in
+front, archers behind them and workers at the back: a box (the default), a wide line, or a wedge. Units going far
+plan their whole way first, around lakes, cliffs, trees and buildings, and walk it a stretch at a time. Creepers it leaves alone unless ordered to attack one,
 as fighting one up close only sets it off.
 
 Workers put up torches to keep mobs from spawning: select workers, press Torches and click two corners of an area,
@@ -190,7 +205,7 @@ Commanding units, from the bar at the bottom of the page:
 | Control | What it does |
 |---|---|
 | Town center | Select your town center |
-| Click one of your buildings | Select it and see its health; a site shows how far it is built, a town center or barracks its Train buttons and training progress. Each click queues one more, shift-click 5, up to 10 waiting; they train one at a time. Level takes it up a level, and an armory or storehouse shows the upgrades it researches |
+| Click one of your buildings | Select it and see its health; a site shows how far it is built, a town center or barracks its Train buttons and training progress. Each click queues one more, shift-click 5, up to 10 waiting; they train one at a time. Level takes it up a level (on the town center, Advance takes the town to the next age), and an armory or storehouse shows the upgrades it researches |
 | Farm / House / Barracks / ... | With workers selected: a see-through copy follows the pointer, green where it fits and red where it does not. R or Rotate turns it a quarter round, click places it (shift-click to place more), right-click or Esc cancels |
 | Right-click one of your building sites, farms or quarries | Send the selected workers to build or work it |
 | Right-click a tree | Send the selected workers to chop it |
@@ -199,7 +214,8 @@ Commanding units, from the bar at the bottom of the page:
 | Shift-drag, or Box then drag | Select your units inside the box |
 | Double-click one of your units | Select all of your units in view |
 | All / Clear / Esc | Select all your units, or none |
-| Right-click the ground | Send the selected units there, in formation |
+| Right-click the ground | Send the selected units there, in the formation picked on the bar |
+| Formation / Stance | With warriors or archers selected: how they line up where they are sent (box, line, wedge), and how they fight on their own (aggressive, defensive, hold, passive) |
 | Right-click an enemy unit, player or building, or any mob | Attack it (workers stay out of it) |
 | Hover a unit or building | A tooltip says what it is and what it is doing, or what a right-click would do with the selected units, such as Attack Blue warrior 3 |
 | Stop | Stop and guard where they stand |

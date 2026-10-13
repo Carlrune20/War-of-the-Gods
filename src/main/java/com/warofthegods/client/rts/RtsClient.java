@@ -103,6 +103,8 @@ public final class RtsClient {
     /** The first corner of that area, x, y, z, once clicked; null before. */
     public double[] lightCorner;
     final Minimap minimap = new Minimap();
+    /** How units line up where they are sent: box, line or wedge. */
+    public String formation = "box";
     /** The building being placed, or null. */
     public Placing placing;
     /** The last order's marker: x, y, z, red, green, blue, and when it was given. */

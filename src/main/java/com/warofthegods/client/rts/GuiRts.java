@@ -206,6 +206,7 @@ public final class GuiRts extends GuiScreen {
                 JsonObject body = unitsBody(client.selected);
                 body.addProperty("x", onMap[0]);
                 body.addProperty("z", onMap[1]);
+                body.addProperty("formation", client.formation);
                 client.command("units.move", body, null);
             }
             return;
@@ -586,6 +587,7 @@ public final class GuiRts extends GuiScreen {
         JsonObject body = unitsBody(client.selected);
         body.addProperty("x", ground[0]);
         body.addProperty("z", ground[2]);
+        body.addProperty("formation", client.formation);
         client.command("units.move", body, null);
     }
 
@@ -1181,8 +1183,12 @@ public final class GuiRts extends GuiScreen {
         }
     }
 
+    static String ageName(int age) {
+        return "Age " + roman(age);
+    }
+
     private static String roman(int level) {
-        return level == 2 ? "II" : level == 3 ? "III" : String.valueOf(level);
+        return level == 1 ? "I" : level == 2 ? "II" : level == 3 ? "III" : String.valueOf(level);
     }
 
     private void bar(int cx, int y, int w, double fraction, int color) {
@@ -1203,7 +1209,7 @@ public final class GuiRts extends GuiScreen {
             lines.add("Watching: join a team to command");
             colors.add(0xFFFFFF);
         } else {
-            lines.add("Team " + team.name);
+            lines.add("Team " + team.name + " · " + ageName(team.age));
             colors.add(team.color);
             StringBuilder resources = new StringBuilder();
             for (String resource : RtsState.RESOURCES) {
@@ -1291,14 +1297,16 @@ public final class GuiRts extends GuiScreen {
                         continue;
                     }
                     String id = entry.getKey();
+                    boolean aged = team.age >= type.age;
                     Widget build = button(
                         type.name,
-                        "Build a " + type.name.toLowerCase()
+                        aged ? "Build a " + type.name.toLowerCase()
                             + " for "
                             + RtsState.costText(type.cost)
-                            + ", then click where it goes",
+                            + ", then click where it goes"
+                            : "Needs " + ageName(type.age) + ": take your town center up a level",
                         shift -> client.startPlacing(id),
-                        RtsState.canAfford(team, type.cost));
+                        aged && RtsState.canAfford(team, type.cost));
                     withIcon(build, id);
                     actions.add(build);
                 }
@@ -1322,6 +1330,9 @@ public final class GuiRts extends GuiScreen {
                 }
             }
 
+        if (client.placing == null && !client.lighting && building == null) {
+            fighterActions(actions);
+        }
         int count = client.selected.size();
         int workers = client.selectedWorkers()
             .size();
@@ -1357,6 +1368,55 @@ public final class GuiRts extends GuiScreen {
         barTop = layoutRows(controls, height - 22);
         if (!actions.isEmpty()) {
             barTop = layoutRows(actions, barTop - 18);
+        }
+    }
+
+    private static final String[][] FORMATIONS = { { "box", "Box", "A square block" },
+        { "line", "Line", "A wide line, two or three deep" },
+        { "wedge", "Wedge", "A wedge pointing the way they go" } };
+    private static final String[][] STANCES = {
+        { "aggressive", "Aggressive", "Look further for enemies and chase them far" },
+        { "defensive", "Defensive", "Fight what comes near, then go back" },
+        { "hold", "Hold", "Never leave the spot: fight only what is in reach" },
+        { "passive", "Passive", "Never fight unless ordered, not even back" } };
+
+    /** With warriors or archers selected: how they line up when sent somewhere, and how they fight. */
+    private void fighterActions(List<Widget> actions) {
+        List<String> fighters = new ArrayList<>();
+        String common = null;
+        boolean mixed = false;
+        for (String id : client.selected) {
+            RtsState.UnitInfo unit = state().units.get(id);
+            if (unit != null && !unit.isWorker()) {
+                fighters.add(id);
+                if (common == null) {
+                    common = unit.stance;
+                } else if (!common.equals(unit.stance)) {
+                    mixed = true;
+                }
+            }
+        }
+        if (fighters.isEmpty()) {
+            return;
+        }
+        actions.add(label("Formation", 0xC8C8C8));
+        for (String[] formation : FORMATIONS) {
+            boolean on = formation[0].equals(client.formation);
+            actions.add(
+                button(
+                    (on ? "» " : "") + formation[1],
+                    formation[2] + ", where you send them",
+                    shift -> client.formation = formation[0],
+                    true));
+        }
+        actions.add(label("Stance", 0xC8C8C8));
+        for (String[] stance : STANCES) {
+            boolean on = !mixed && stance[0].equals(common);
+            actions.add(button((on ? "» " : "") + stance[1], stance[2], shift -> {
+                JsonObject body = unitsBody(fighters);
+                body.addProperty("stance", stance[0]);
+                client.command("units.stance", body, reply -> client.showToast(stance[1] + " stance", false));
+            }, true));
         }
     }
 
@@ -1438,14 +1498,16 @@ public final class GuiRts extends GuiScreen {
         }
         RtsState.LevelInfo next = type.levelUps.get(building.level + 1);
         if (next != null) {
-            RtsState.BuildingInfo center = state.townHallOf(team.id);
-            boolean centerReady = "town_hall".equals(building.type) || center != null && center.level >= 2;
+            boolean center = "town_hall".equals(building.type);
+            boolean centerReady = center || team.age > building.level;
             actions.add(
                 withIcon(
                     button(
-                        "Level " + (building.level + 1) + " (" + RtsState.costText(next.cost) + ")",
+                        (center ? "Advance to " + ageName(building.level + 1) : "Level " + (building.level + 1)) + " ("
+                            + RtsState.costText(next.cost)
+                            + ")",
                         centerReady ? "Takes " + next.seconds + "s; health goes up to " + next.health
-                            : "Your town center has to be at level 2 first",
+                            : "Your town has to reach " + ageName(building.level + 1) + " first",
                         shift -> {
                             JsonObject body = new JsonObject();
                             body.addProperty("building", building.id);

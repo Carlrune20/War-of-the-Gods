@@ -24,7 +24,8 @@ import com.warofthegods.world.GameWorld;
  * team's units:
  *
  * <pre>
- *   {type: "units.move", units: [id...], x, z}  walk there
+ *   {type: "units.move", units: [id...], x, z, formation?}  walk there, in a box, line or wedge
+ *   {type: "units.stance", units: [id...], stance}  aggressive, defensive, hold or passive
  *   {type: "units.attack", units: [id...], target: id}  attack an enemy unit or player, or a mob; workers do not
  *                                                       fight
  *   {type: "units.attack", units: [id...], building: id}  attack an enemy building
@@ -50,6 +51,7 @@ public final class UnitCommands {
         WebCommand.register("units.stop", UnitCommands::stop);
         WebCommand.register("units.gather", UnitCommands::gather);
         WebCommand.register("units.light", UnitCommands::light);
+        WebCommand.register("units.stance", UnitCommands::stance);
     }
 
     /** The viewer's team, or null after replying with why they cannot command units. */
@@ -85,8 +87,12 @@ public final class UnitCommands {
             request.replyError("Where to?");
             return;
         }
+        Units.Formation formation = request.body.has("formation") ? Units.Formation.byId(
+            request.body.get("formation")
+                .getAsString())
+            : null;
         Units.get()
-            .orderMove(units, x, z);
+            .orderMove(units, x, z, formation == null ? Units.Formation.BOX : formation);
         ok(request, units.size());
     }
 
@@ -246,6 +252,28 @@ public final class UnitCommands {
         reply.addProperty("units", sent);
         reply.addProperty("torches", spots.size());
         request.reply(reply);
+    }
+
+    private static void stance(WebRequest request) {
+        Team team = commander(request);
+        if (team == null) {
+            return;
+        }
+        List<EntityUnit> units = ownUnits(request, team);
+        if (units == null) {
+            return;
+        }
+        EntityUnit.Stance stance = request.body.has("stance") ? EntityUnit.Stance.byId(
+            request.body.get("stance")
+                .getAsString())
+            : null;
+        if (stance == null) {
+            request.replyError("Unknown stance");
+            return;
+        }
+        Units.get()
+            .orderStance(units, stance);
+        ok(request, units.size());
     }
 
     private static void stop(WebRequest request) {

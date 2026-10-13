@@ -2,6 +2,7 @@ package com.warofthegods.unit;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -321,20 +322,140 @@ public final class Units {
 
     // ---------------------------------------------------------------- orders
 
-    /** Sends the units to x, z, standing in a square block around it. */
-    public void orderMove(List<EntityUnit> units, double x, double z) {
-        Game game = GameManager.getGame();
-        int columns = (int) Math.ceil(Math.sqrt(units.size()));
-        int rows = (int) Math.ceil(units.size() / (double) Math.max(1, columns));
-        for (int i = 0; i < units.size(); i++) {
-            double slotX = x + (i % columns - (columns - 1) / 2.0) * SPACING;
-            double slotZ = z + (i / columns - (rows - 1) / 2.0) * SPACING;
-            if (game != null) {
-                slotX = Math.max(game.getMinX() + 0.5, Math.min(game.getMaxX() + 0.5, slotX));
-                slotZ = Math.max(game.getMinZ() + 0.5, Math.min(game.getMaxZ() + 0.5, slotZ));
+    /** How units line up where they are sent, facing the way they went: warriors in front, archers behind them. */
+    public enum Formation {
+
+        /** A square block. */
+        BOX("box", "Box"),
+        /** A wide line, two or three deep. */
+        LINE("line", "Line"),
+        /** A wedge pointing the way they went. */
+        WEDGE("wedge", "Wedge");
+
+        public final String id;
+        public final String displayName;
+
+        Formation(String id, String displayName) {
+            this.id = id;
+            this.displayName = displayName;
+        }
+
+        public static Formation byId(String id) {
+            for (Formation formation : values()) {
+                if (formation.id.equalsIgnoreCase(id)) {
+                    return formation;
+                }
             }
-            units.get(i)
-                .orderMove(slotX, slotZ);
+            return null;
+        }
+    }
+
+    /** Sends the units to x, z in a square block around it. */
+    public void orderMove(List<EntityUnit> units, double x, double z) {
+        orderMove(units, x, z, Formation.BOX);
+    }
+
+    /**
+     * Sends the units to x, z in formation, facing from where they are now toward it. Warriors take the front rows,
+     * archers the ones behind and workers the back; within a row each goes to the slot on its own side, so the
+     * group does not cross over itself on the way.
+     */
+    public void orderMove(List<EntityUnit> units, double x, double z, Formation formation) {
+        if (units.isEmpty()) {
+            return;
+        }
+        Game game = GameManager.getGame();
+        double cx = 0;
+        double cz = 0;
+        for (EntityUnit unit : units) {
+            cx += unit.posX;
+            cz += unit.posZ;
+        }
+        cx /= units.size();
+        cz /= units.size();
+        double fx = x - cx;
+        double fz = z - cz;
+        double length = Math.sqrt(fx * fx + fz * fz);
+        if (length < 1) {
+            fx = 0;
+            fz = 1;
+        } else {
+            fx /= length;
+            fz /= length;
+        }
+        // To the right of facing forward.
+        double rx = -fz;
+        double rz = fx;
+        List<List<double[]>> rows = rows(formation, units.size());
+        List<EntityUnit> ranked = new ArrayList<>(units);
+        ranked.sort(Comparator.comparingInt(Units::rank));
+        int next = 0;
+        for (int r = 0; r < rows.size() && next < ranked.size(); r++) {
+            List<double[]> slots = rows.get(r);
+            List<EntityUnit> row = new ArrayList<>(ranked.subList(next, Math.min(ranked.size(), next + slots.size())));
+            next += row.size();
+            final double sideX = rx;
+            final double sideZ = rz;
+            row.sort(Comparator.comparingDouble(unit -> unit.posX * sideX + unit.posZ * sideZ));
+            // A short last row stands in the middle.
+            int offset = (slots.size() - row.size()) / 2;
+            for (int i = 0; i < row.size(); i++) {
+                double[] slot = slots.get(offset + i);
+                double slotX = x + rx * slot[0] * SPACING + fx * slot[1] * SPACING;
+                double slotZ = z + rz * slot[0] * SPACING + fz * slot[1] * SPACING;
+                if (game != null) {
+                    slotX = Math.max(game.getMinX() + 0.5, Math.min(game.getMaxX() + 0.5, slotX));
+                    slotZ = Math.max(game.getMinZ() + 0.5, Math.min(game.getMaxZ() + 0.5, slotZ));
+                }
+                row.get(i)
+                    .orderMove(slotX, slotZ);
+            }
+        }
+    }
+
+    /** Warriors first, then archers, then workers. */
+    private static int rank(EntityUnit unit) {
+        return unit.isWorker() ? 2 : unit.getKind() == UnitKind.ARCHER ? 1 : 0;
+    }
+
+    /**
+     * Slots for count units, front row first, each row left to right, as {across, ahead} in spacings from the
+     * point they were sent to; the formation is centred on it.
+     */
+    static List<List<double[]>> rows(Formation formation, int count) {
+        List<Integer> widths = new ArrayList<>();
+        int left = count;
+        if (formation == Formation.WEDGE) {
+            for (int width = 1; left > 0; width += 2) {
+                widths.add(width);
+                left -= width;
+            }
+        } else {
+            int columns = formation == Formation.LINE ? Math.max(1, Math.min(count, Math.max(6, (count + 2) / 3)))
+                : (int) Math.ceil(Math.sqrt(count));
+            while (left > 0) {
+                widths.add(columns);
+                left -= columns;
+            }
+        }
+        List<List<double[]>> rows = new ArrayList<>();
+        int depth = widths.size();
+        for (int r = 0; r < depth; r++) {
+            int width = widths.get(r);
+            double ahead = (depth - 1) / 2.0 - r;
+            List<double[]> row = new ArrayList<>();
+            for (int c = 0; c < width; c++) {
+                row.add(new double[] { c - (width - 1) / 2.0, ahead });
+            }
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    /** Sets how the units fight when not ordered to. */
+    public void orderStance(List<EntityUnit> units, EntityUnit.Stance stance) {
+        for (EntityUnit unit : units) {
+            unit.setStance(stance);
         }
     }
 

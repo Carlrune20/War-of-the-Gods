@@ -251,6 +251,7 @@ public final class WebMap {
                 typeJson.add("trains", trains);
             }
             typeJson.addProperty("levels", type.levels);
+            typeJson.addProperty("age", type.age());
             JsonObject upgradeCosts = new JsonObject();
             JsonArray population = new JsonArray();
             JsonArray ranges = new JsonArray();
@@ -354,6 +355,7 @@ public final class WebMap {
                 }
                 json.addProperty("units", game.countUnits(team));
                 json.addProperty("population", game.getPopulationCap(team));
+                json.addProperty("age", game.getAge(team));
                 json.addProperty("faction", team.getFaction().id);
                 JsonArray upgrades = new JsonArray();
                 for (Upgrade upgrade : team.getUpgrades()) {
@@ -490,6 +492,7 @@ public final class WebMap {
                 unit.getOrder()
                     .name()
                     .toLowerCase());
+            json.addProperty("stance", unit.getStance().id);
             double[] heading = unit.getHeading();
             if (heading != null) {
                 json.addProperty("toX", round(heading[0]));
