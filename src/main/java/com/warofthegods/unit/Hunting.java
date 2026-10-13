@@ -8,13 +8,16 @@ import java.util.Map;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLiving;
+import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.passive.EntityChicken;
 import net.minecraft.entity.passive.EntityCow;
 import net.minecraft.entity.passive.EntityPig;
 import net.minecraft.entity.passive.EntitySheep;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
+import net.minecraft.util.DamageSource;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.living.LivingDropsEvent;
 
 import com.warofthegods.Config;
 import com.warofthegods.world.GameWorld;
@@ -23,7 +26,8 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
 /**
  * Hunting: workers kill cows, pigs, chickens and sheep, and the carcass holds food they carve off and carry home,
- * the way they chop wood off a tree. A carcass lasts until it is eaten up, or until the server stops.
+ * the way they chop wood off a tree. Animals units kill drop nothing and lie where they fell, as a dead pig and so on,
+ * until the carcass is eaten up, or until the server stops.
  */
 public final class Hunting {
 
@@ -37,10 +41,15 @@ public final class Hunting {
         /** What workers carry off it, for show. */
         public final Item meat;
         public final String name;
+        /** What it lies there as, one of {@link EntityCarcass#KINDS}. */
+        public final int kind;
+        /** The carcass entity drawn for it, or 0. */
+        public int entityId;
         private int food;
 
-        Carcass(int id, double x, double y, double z, Item meat, String name, int food) {
+        Carcass(int id, double x, double y, double z, Item meat, String name, int kind, int food) {
             this.id = id;
+            this.kind = kind;
             this.x = x;
             this.y = y;
             this.z = z;
@@ -51,6 +60,11 @@ public final class Hunting {
 
         public int getFood() {
             return food;
+        }
+
+        /** What it is called while it lies there, such as Dead pig. */
+        public String displayName() {
+            return "Dead " + EntityCarcass.KINDS[kind];
         }
 
         /** Takes up to amount of food off it; returns how much it gave. */
@@ -129,19 +143,46 @@ public final class Hunting {
         carcasses.clear();
     }
 
-    /** An animal killed by a unit or its arrow leaves a carcass that workers can carve food off. */
+    /** Whether units killed the animal, which then leaves a carcass instead of what it would drop. */
+    private static boolean huntedDown(EntityLivingBase animal, DamageSource source) {
+        return !animal.worldObj.isRemote && GameWorld.isGameWorld(animal.worldObj)
+            && animal instanceof EntityLiving
+            && foodOf(animal) > 0
+            && (source.getEntity() instanceof EntityUnit || source.getSourceOfDamage() instanceof EntityTeamArrow);
+    }
+
+    /** What the animal is drawn as once dead, one of {@link EntityCarcass#KINDS}. */
+    private static int kindOf(Entity entity) {
+        if (entity instanceof EntityPig) {
+            return 1;
+        }
+        if (entity instanceof EntitySheep) {
+            return 2;
+        }
+        if (entity instanceof EntityChicken) {
+            return 3;
+        }
+        return 0;
+    }
+
+    /** An animal units killed drops nothing: the food is in its carcass. */
+    @SubscribeEvent
+    public void onDrops(LivingDropsEvent event) {
+        if (huntedDown(event.entityLiving, event.source)) {
+            event.setCanceled(true);
+        }
+    }
+
+    /**
+     * An animal killed by a unit or its arrow leaves a carcass that workers can carve food off, lying on its side
+     * where it fell.
+     */
     @SubscribeEvent
     public void onDeath(LivingDeathEvent event) {
-        if (event.entity.worldObj.isRemote || !GameWorld.isGameWorld(event.entity.worldObj)
-            || !(event.entityLiving instanceof EntityLiving)) {
+        if (!huntedDown(event.entityLiving, event.source)) {
             return;
         }
         int food = foodOf(event.entityLiving);
-        Entity killer = event.source.getEntity();
-        if (food <= 0
-            || !(killer instanceof EntityUnit || event.source.getSourceOfDamage() instanceof EntityTeamArrow)) {
-            return;
-        }
         // Old carcasses nobody came for give way, so they cannot pile up without end.
         if (carcasses.size() >= 200) {
             Iterator<Carcass> oldest = carcasses.values()
@@ -160,6 +201,19 @@ public final class Hunting {
                 animal.posZ,
                 meatOf(animal),
                 animal.getCommandSenderName(),
+                kindOf(animal),
                 food));
+        // The carcass takes its place at once, rather than after the animal's own fall and puff of smoke.
+        animal.setDead();
+        EntityCarcass body = new EntityCarcass(
+            animal.worldObj,
+            lastId,
+            kindOf(animal),
+            animal.posX,
+            animal.posY,
+            animal.posZ,
+            animal.renderYawOffset);
+        animal.worldObj.spawnEntityInWorld(body);
+        carcasses.get(lastId).entityId = body.getEntityId();
     }
 }

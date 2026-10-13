@@ -1106,7 +1106,9 @@
         if (!keep) {
             stopPlacing();
         }
-        const reply = await send("buildings.place", {building: type, x: cx, z: cz, rotation, units: workers});
+        // Shift lays out more sites, which the workers build one after another.
+        const reply = await send("buildings.place", {building: type, x: cx, z: cz, rotation, units: workers,
+            queue: Boolean(keep)});
         if (reply) {
             showToast(buildingType(type).name + " site laid out");
         }
@@ -1228,7 +1230,7 @@
     // Whether the selected soldiers would attack what was hit on a right-click: enemies, and any mob.
     function isEnemy(hit) {
         if (hit.kind === "mob") {
-            return true;
+            return !hit.thing.carcass;
         }
         if (hit.kind === "player" && state.me && hit.thing.uuid === state.me.uuid) {
             return false;
@@ -1284,7 +1286,7 @@
         const ordering = button === 2 || (touch && state.selected.size && !(hit && hit.kind === "unit" && isMine(hit.thing)));
         if (ordering) {
             if (state.selected.size) {
-                order(px, py, hit);
+                order(px, py, hit, shift);
             } else if (button === 2 && state.selectedBuildings.size) {
                 setRally(px, py, hit);
             }
@@ -1336,7 +1338,7 @@
         }
     }
 
-    function order(px, py, hit) {
+    function order(px, py, hit, shift) {
         const units = [...state.selected];
         const team = myTeam();
         if (hit && hit.kind === "player" && team && hit.thing.team === team.id) {
@@ -1348,11 +1350,16 @@
                     showToast("Following " + t.name);
                 }
             });
+        } else if (hit && hit.kind === "mob" && hit.thing.carcass && selectedWorkers().length) {
+            // Workers carve a carcass; anyone else just goes there.
+            const t = hit.thing;
+            orderMark = {x: t.drawX, y: t.drawY, z: t.drawZ, color: [0.45, 1, 0.5, 1], time: performance.now()};
+            send("units.attack", {units: selectedWorkers(), target: t.id});
         } else if (hit && isEnemy(hit)) {
             const t = hit.thing;
             orderMark = {x: t.drawX, y: t.drawY, z: t.drawZ, color: [1, 0.3, 0.25, 1], time: performance.now()};
             send("units.attack", {units, target: entityId(hit)});
-        } else if (!hit && (orderBuild(px, py) || orderAttackBuilding(px, py) || orderChop(px, py))) {
+        } else if (!hit && (orderBuild(px, py, shift) || orderAttackBuilding(px, py) || orderChop(px, py))) {
             return;
         } else {
             const ground = groundUnder(px, py);
@@ -1570,7 +1577,7 @@
 
     // Right-clicking one of the team's building sites, or a farm or quarry, sends the selected workers to build or
     // work it.
-    function orderBuild(px, py) {
+    function orderBuild(px, py, queue) {
         const building = buildingAt(px, py);
         const workers = selectedWorkers();
         const type = building && buildingType(building.type);
@@ -1580,7 +1587,7 @@
         }
         orderMark = {x: building.x + building.sizeX / 2, y: building.y + 1, z: building.z + building.sizeZ / 2,
             color: [0.45, 1, 0.5, 1], time: performance.now()};
-        send("units.build", {units: workers, building: building.id});
+        send("units.build", {units: workers, building: building.id, queue: Boolean(queue)});
         view.dirty = true;
         return true;
     }
@@ -1853,7 +1860,8 @@
             case "attack_building":
                 return "attacking " + (b ? buildingName(b) : "a building");
             case "build":
-                return u.toX === undefined ? "building " + where : "on the way to build " + where;
+                return (u.toX === undefined ? "building " + where : "on the way to build " + where)
+                    + (u.queued ? ", " + u.queued + " more queued" : "");
             case "work":
                 if (u.delivering) {
                     return "taking " + amountsText(u.carrying || {}) + " to store";
@@ -1921,6 +1929,10 @@
             return {icon: "\u2691", text: n !== null ? "New units join group " + n : "Set rally point", action: "act"};
         }
         if (hit) {
+            if (hit.kind === "mob" && hit.thing.carcass) {
+                return {icon: "food", text: (workers ? "Carve " + hit.thing.name.toLowerCase() : hit.thing.name)
+                    + " \u00B7 " + hit.thing.food + " food", action: workers ? "build" : undefined};
+            }
             if (workers && !fighters && hit.kind === "mob" && hit.thing.food) {
                 return {icon: "sword", text: "Hunt " + hit.thing.name + " \u00B7 " + hit.thing.food + " food",
                     action: "attack"};
@@ -2123,6 +2135,7 @@
     const STRAW = [0.86, 0.74, 0.42, 1];
     const MOB = [0.24, 0.42, 0.25, 1];
     const ANIMAL = [0.72, 0.6, 0.45, 1];
+    const CARCASS = [0.62, 0.36, 0.32, 1];
 
     // Column heights of a building type turned a number of quarter turns clockwise, the way the server turns
     // structures: {sizeX, sizeZ, heights} with heights[x + z * sizeX].
@@ -2199,6 +2212,13 @@
         }
         // Mobs as a box their own size, hostile ones dark green with red eyes, others a sandy brown.
         for (const m of dots ? [] : state.mobs.values()) {
+            if (m.carcass) {
+                // Lying on its side.
+                const l = 0.9 * s;
+                boxes.push({min: [m.drawX - l / 2, m.drawY, m.drawZ - l / 4], size: [l, 0.4 * s, l / 2],
+                    color: CARCASS});
+                continue;
+            }
             const w = Math.max(0.4, m.width || 0.6) * s;
             const h = Math.max(0.4, m.height || 1) * s;
             boxes.push({min: [m.drawX - w / 2, m.drawY, m.drawZ - w / 2], size: [w, h, w],
@@ -2211,7 +2231,8 @@
         // Building sites need no see-through copy: their scaffolding stands in the world.
         const spot = placingFootprint();
         if (spot) {
-            const color = spot.ok ? [0.45, 1, 0.5, 0.4] : [1, 0.3, 0.25, 0.4];
+            // As the building will look, see-through, or red where it does not fit.
+            const color = spot.ok ? [0.93, 0.91, 0.86, 0.35] : [1, 0.3, 0.25, 0.4];
             ghostBoxes(boxes, placing.type, placing.rotation, spot.x, spot.z, spot.y, color);
         }
         return boxes;

@@ -513,7 +513,7 @@ public final class GuiRts extends GuiScreen {
 
     private boolean isEnemy(Hit hit) {
         if ("mob".equals(hit.kind)) {
-            return true;
+            return !((RtsState.MobInfo) hit.thing).carcass;
         }
         String team = hit.thing instanceof RtsState.UnitInfo ? ((RtsState.UnitInfo) hit.thing).team
             : ((RtsState.PlayerInfo) hit.thing).team;
@@ -637,6 +637,17 @@ public final class GuiRts extends GuiScreen {
             client.command("units.follow", body, reply -> client.showToast("Following " + name, false));
             return;
         }
+        if (hit != null && hit.thing instanceof RtsState.MobInfo
+            && ((RtsState.MobInfo) hit.thing).carcass
+            && !client.selectedWorkers()
+                .isEmpty()) {
+            // Workers carve a carcass; anyone else just goes there.
+            client.mark(hit.position[0], hit.position[1], hit.position[2], false);
+            JsonObject body = unitsBody(client.selectedWorkers());
+            body.addProperty("target", hit.thing.id);
+            client.command("units.attack", body, null);
+            return;
+        }
         if (hit != null && isEnemy(hit)) {
             client.mark(hit.position[0], hit.position[1], hit.position[2], true);
             JsonObject body = unitsBody(client.selected);
@@ -694,6 +705,7 @@ public final class GuiRts extends GuiScreen {
         client.mark(building.x + building.sizeX / 2.0, building.y + 1, building.z + building.sizeZ / 2.0, false);
         JsonObject body = unitsBody(workers);
         body.addProperty("building", building.id);
+        body.addProperty("queue", isShiftKeyDown());
         client.command("units.build", body, null);
         return true;
     }
@@ -1046,6 +1058,8 @@ public final class GuiRts extends GuiScreen {
         body.addProperty("x", placing.cx);
         body.addProperty("z", placing.cz);
         body.addProperty("rotation", placing.rotation);
+        // Shift lays out more sites, which the workers build one after another.
+        body.addProperty("queue", keep);
         RtsState.BuildingTypeInfo type = state().buildingType(placing.type);
         client.command("buildings.place", body, reply -> client.showToast(type.name + " site laid out", false));
     }
@@ -1066,7 +1080,8 @@ public final class GuiRts extends GuiScreen {
             case "attack_building":
                 return "attacking " + (building != null ? buildingName(building) : "a building");
             case "build":
-                return headed ? "on the way to build " + where : "building " + where;
+                return (headed ? "on the way to build " + where : "building " + where)
+                    + (unit.queued > 0 ? ", " + unit.queued + " more queued" : "");
             case "work":
                 if (unit.delivering) {
                     return "taking " + RtsState.amountsText(unit.carrying) + " to store";
@@ -1150,6 +1165,14 @@ public final class GuiRts extends GuiScreen {
                 "act" };
         }
         if (hit != null) {
+            if (hit.thing instanceof RtsState.MobInfo && ((RtsState.MobInfo) hit.thing).carcass) {
+                RtsState.MobInfo carcass = (RtsState.MobInfo) hit.thing;
+                return new Object[] { "food",
+                    (workers > 0 ? "Carve " + carcass.name.toLowerCase() : carcass.name) + " · "
+                        + carcass.food
+                        + " food",
+                    workers > 0 ? "act" : null };
+            }
             if (workers > 0 && fighters == 0
                 && hit.thing instanceof RtsState.MobInfo
                 && ((RtsState.MobInfo) hit.thing).food > 0) {

@@ -35,11 +35,16 @@ import com.warofthegods.world.GameWorld;
  *   {type: "units.light", units: [id...], x1, z1, x2, z2}  workers put torches in the dark parts of that area
  *   {type: "units.stop", units: [id...]}        stop and guard where they stand
  *   {type: "units.follow", units: [id...], target: uuid, formation?}  follow a player of their team in formation
+ *   target may also be "carcass-" and a carcass's number: workers carve it
+ *   units.build takes queue: true to build it after the sites the workers are on
  * </pre>
  *
  * Training and placing buildings are in {@link com.warofthegods.building.BuildingCommands}.
  */
 public final class UnitCommands {
+
+    /** Carcasses go by this and their number, where living things go by their UUID. */
+    private static final String CARCASS = "carcass-";
 
     /** Units one order may name, so a request cannot be made arbitrarily large. */
     private static final int MAX_UNITS = 500;
@@ -131,7 +136,14 @@ public final class UnitCommands {
                     .orderAttackBuilding(units, building));
             return;
         }
-        UUID targetId = uuid(request.body.get("target"));
+        JsonElement targetField = request.body.get("target");
+        if (targetField != null && targetField.isJsonPrimitive()
+            && targetField.getAsString()
+                .startsWith(CARCASS)) {
+            carve(request, units, targetField.getAsString());
+            return;
+        }
+        UUID targetId = uuid(targetField);
         EntityLivingBase target = targetId == null ? null
             : Units.get()
                 .findLiving(GameWorld.getWorld(), targetId);
@@ -188,7 +200,7 @@ public final class UnitCommands {
             return;
         }
         int sent = Units.get()
-            .orderBuild(units, building);
+            .orderBuild(units, building, boolField(request.body, "queue"));
         if (sent == 0) {
             request.replyError("Only workers can build and gather");
             return;
@@ -336,6 +348,27 @@ public final class UnitCommands {
         ok(request, units.size());
     }
 
+    /** Workers sent to a carcass carve it; nobody else has anything to do there. */
+    private static void carve(WebRequest request, List<EntityUnit> units, String target) {
+        Hunting.Carcass carcass;
+        try {
+            carcass = Hunting.get(Integer.parseInt(target.substring(CARCASS.length())));
+        } catch (NumberFormatException e) {
+            carcass = null;
+        }
+        if (carcass == null || carcass.getFood() <= 0) {
+            request.replyError("Nothing is left of it");
+            return;
+        }
+        int sent = Units.get()
+            .orderCarve(units, carcass);
+        if (sent == 0) {
+            request.replyError("Only workers carve food");
+            return;
+        }
+        ok(request, sent);
+    }
+
     private static void ok(WebRequest request, int count) {
         JsonObject reply = WebJson.message("ok");
         reply.addProperty("units", count);
@@ -382,6 +415,12 @@ public final class UnitCommands {
         } catch (RuntimeException e) {
             return null;
         }
+    }
+
+    /** A true or false field, false when missing. */
+    public static boolean boolField(JsonObject body, String name) {
+        JsonElement field = body.get(name);
+        return field != null && field.isJsonPrimitive() && field.getAsBoolean();
     }
 
     public static int intField(JsonObject body, String name, int fallback) {

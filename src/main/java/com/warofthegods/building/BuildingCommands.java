@@ -27,7 +27,8 @@ import com.warofthegods.world.GameWorld;
  * team:
  *
  * <pre>
- *   {type: "buildings.place", building: type, x, z, rotation, units: [id...]}
+ *   {type: "buildings.place", building: type, x, z, rotation, units: [id...], queue?}  with queue, the workers
+ *       build it after the sites they are on
  *       lay out a building site centred on x, z, paying for it, and send the workers among the units to build it
  *   {type: "buildings.train", building: id, unit: kind, count}  queue units at a town center or barracks,
  *       paying for each; unit may be left out where the building trains one kind
@@ -166,7 +167,7 @@ public final class BuildingCommands {
         Building site = Buildings.get()
             .startSite(game, team, plan);
         Units.get()
-            .orderBuild(units, site);
+            .orderBuild(units, site, UnitCommands.boolField(request.body, "queue"));
         JsonObject reply = WebJson.message("buildings.placed");
         reply.addProperty("building", site.id);
         request.reply(reply);

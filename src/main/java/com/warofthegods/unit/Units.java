@@ -573,10 +573,34 @@ public final class Units {
 
     /** Sends workers to raise a building site or work a farm; returns how many went. */
     public int orderBuild(List<EntityUnit> units, Building building) {
+        return orderBuild(units, building, false);
+    }
+
+    /**
+     * Sends workers to raise a building site or work a farm, or with queue, to raise it once they have raised the
+     * sites they are on and were given before; returns how many went.
+     */
+    public int orderBuild(List<EntityUnit> units, Building building, boolean queue) {
         int sent = 0;
         for (EntityUnit unit : units) {
             if (unit.isWorker()) {
-                unit.orderBuild(building);
+                if (queue) {
+                    unit.queueBuild(building);
+                } else {
+                    unit.orderBuild(building);
+                }
+                sent++;
+            }
+        }
+        return sent;
+    }
+
+    /** Sends workers to carve food off a carcass and carry it home; returns how many went. */
+    public int orderCarve(List<EntityUnit> units, Hunting.Carcass carcass) {
+        int sent = 0;
+        for (EntityUnit unit : units) {
+            if (unit.isWorker()) {
+                unit.orderCarve(carcass);
                 sent++;
             }
         }

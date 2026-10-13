@@ -5,12 +5,13 @@ import net.minecraft.client.renderer.entity.RenderArrow;
 import com.warofthegods.CommonProxy;
 import com.warofthegods.client.rts.RtsClient;
 import com.warofthegods.rts.EntityCommanderBody;
+import com.warofthegods.unit.EntityCarcass;
 import com.warofthegods.unit.EntityTeamArrow;
 import com.warofthegods.unit.EntityUnit;
 
 import cpw.mods.fml.client.registry.RenderingRegistry;
 
-/** Client setup: how units and commanders' bodies are drawn, and the in-game RTS view. */
+/** Client setup: how units, commanders' bodies and carcasses are drawn, and the in-game RTS view. */
 public class ClientProxy extends CommonProxy {
 
     @Override
@@ -18,6 +19,7 @@ public class ClientProxy extends CommonProxy {
         RenderingRegistry.registerEntityRenderingHandler(EntityUnit.class, new RenderUnit());
         RenderingRegistry.registerEntityRenderingHandler(EntityCommanderBody.class, new RenderCommanderBody());
         RenderingRegistry.registerEntityRenderingHandler(EntityTeamArrow.class, new RenderArrow());
+        RenderingRegistry.registerEntityRenderingHandler(EntityCarcass.class, new RenderCarcass());
         RtsClient.init();
     }
 

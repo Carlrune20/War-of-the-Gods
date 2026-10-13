@@ -15,6 +15,7 @@ import com.warofthegods.rts.Commanders;
 import com.warofthegods.rts.EntityCommanderBody;
 import com.warofthegods.rts.RtsNetwork;
 import com.warofthegods.unit.Combat;
+import com.warofthegods.unit.EntityCarcass;
 import com.warofthegods.unit.EntityTeamArrow;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Hunting;
@@ -62,6 +63,7 @@ public class WarOfTheGods {
         EntityRegistry.registerModEntity(EntityUnit.class, "Unit", 0, this, 96, 3, true);
         EntityRegistry.registerModEntity(EntityCommanderBody.class, "CommanderBody", 1, this, 160, 3, true);
         EntityRegistry.registerModEntity(EntityTeamArrow.class, "TeamArrow", 2, this, 64, 20, true);
+        EntityRegistry.registerModEntity(EntityCarcass.class, "Carcass", 3, this, 80, 40, false);
         RtsNetwork.register();
     }
 

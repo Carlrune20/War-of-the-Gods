@@ -1,13 +1,23 @@
 package com.warofthegods.client.rts;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import net.minecraft.block.Block;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.RenderBlocks;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.entity.RenderManager;
+import net.minecraft.client.renderer.texture.TextureMap;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL14;
+
+import com.warofthegods.building.Schematic;
 
 /**
  * What the RTS view draws into the world, after Minecraft has drawn it: building outlines in their team's colour,
- * see-through copies of building sites and of the building being placed, rings under selected units with a line to
+ * a see-through copy of the building being placed, rings under selected units with a line to
  * where each is headed, the last order's marker and the edge of the map. Lines show faintly through what is in front
  * of them, so selected units stay visible behind a hill.
  */
@@ -17,12 +27,77 @@ public final class RtsWorldRenderer {
     private static final float[] ATTACK = { 1, 0.3F, 0.25F };
     private static final float[] RANGE = { 1, 0.85F, 0.35F };
     private static final float[] BORDER = { 1, 0.32F, 0.24F };
+    private static final float[] GHOST = { 0.93F, 0.91F, 0.86F };
+    /** How solid the building being placed looks. */
+    private static final float GHOST_ALPHA = 0.55F;
 
     private final RtsClient client;
     private Tessellator tessellator;
 
+    /** The building being placed, as blocks, and what it was made for, so it is only made again on a change. */
+    private GhostBlocks ghostBlocks;
+    private String ghostKey;
+    private final Map<String, Schematic> looks = new HashMap<>();
+
     RtsWorldRenderer(RtsClient client) {
         this.client = client;
+    }
+
+    /**
+     * Draws the building being placed block by block, as it will look at the team's age, see-through; false when its
+     * look cannot be had, to draw boxes instead.
+     */
+    private boolean blockGhost(RtsState.BuildingTypeInfo type, int rotation, RtsClient.Footprint spot,
+        float partialTicks) {
+        RtsState.TeamInfo team = client.state.myTeam();
+        if (type == null || team == null) {
+            return false;
+        }
+        String faction = team.faction == null || team.faction.isEmpty() ? "saradomin" : team.faction;
+        String look = faction + "/" + type.id + "_l" + Math.max(1, Math.min(type.levels, team.age));
+        String key = look + "@" + rotation + "," + spot.x + "," + spot.z + "," + spot.y;
+        if (!key.equals(ghostKey)) {
+            Schematic schematic = looks.get(look);
+            if (schematic == null && !looks.containsKey(look)) {
+                try {
+                    schematic = Schematic.load(look);
+                } catch (RuntimeException e) {
+                    schematic = null;
+                }
+                looks.put(look, schematic);
+            }
+            ghostKey = key;
+            ghostBlocks = schematic == null ? null : new GhostBlocks(schematic, rotation, spot.x, spot.z, spot.y);
+        }
+        if (ghostBlocks == null) {
+            return false;
+        }
+        Minecraft mc = Minecraft.getMinecraft();
+        mc.entityRenderer.enableLightmap(partialTicks);
+        mc.getTextureManager()
+            .bindTexture(TextureMap.locationBlocksTexture);
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_ALPHA_TEST);
+        GL11.glAlphaFunc(GL11.GL_GREATER, 0.1F);
+        // Blocks draw themselves opaque; the blend makes the whole building see-through alike.
+        GL14.glBlendColor(1, 1, 1, GHOST_ALPHA);
+        GL11.glBlendFunc(GL11.GL_CONSTANT_ALPHA, GL11.GL_ONE_MINUS_CONSTANT_ALPHA);
+        RenderBlocks renderer = new RenderBlocks(ghostBlocks);
+        tessellator.startDrawingQuads();
+        for (int[] at : ghostBlocks.positions()) {
+            Block block = ghostBlocks.getBlock(at[0], at[1], at[2]);
+            try {
+                renderer.renderBlockByRenderType(block, at[0], at[1], at[2]);
+            } catch (RuntimeException e) {
+                // A block that needs more of a world than this to draw is left out.
+            }
+        }
+        tessellator.draw();
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDisable(GL11.GL_ALPHA_TEST);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        mc.entityRenderer.disableLightmap(partialTicks);
+        return true;
     }
 
     void render(float partialTicks) {
@@ -42,22 +117,17 @@ public final class RtsWorldRenderer {
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDisable(GL11.GL_ALPHA_TEST);
 
-        // The see-through building being placed first, without writing depth, so lines show through it.
+        // The see-through building being placed first, without writing depth, so lines show through it: as it will
+        // look where it fits, red where it does not. Building sites need no copy: their scaffolding stands in the
+        // world.
         GL11.glDepthMask(false);
-        tessellator.startDrawingQuads();
-        // Building sites need no see-through copy: their scaffolding stands in the world.
         RtsClient.Footprint spot = client.footprint();
-        if (spot != null) {
-            ghost(
-                state.buildingType(client.placing.type),
-                client.placing.rotation,
-                spot.x,
-                spot.z,
-                spot.y,
-                spot.ok ? SELECTED : ATTACK,
-                0.4F);
+        RtsState.BuildingTypeInfo placingType = spot == null ? null : state.buildingType(client.placing.type);
+        if (spot != null && (!spot.ok || !blockGhost(placingType, client.placing.rotation, spot, partialTicks))) {
+            tessellator.startDrawingQuads();
+            ghost(placingType, client.placing.rotation, spot.x, spot.z, spot.y, spot.ok ? GHOST : ATTACK, 0.4F);
+            tessellator.draw();
         }
-        tessellator.draw();
         GL11.glDepthMask(true);
 
         GL11.glLineWidth(2.5F);

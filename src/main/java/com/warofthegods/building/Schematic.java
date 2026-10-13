@@ -114,6 +114,16 @@ public final class Schematic {
         return heights;
     }
 
+    /** Where a structure cell lands turned rotation quarter turns, as x, z offsets from the footprint's corner. */
+    public int[] turned(int x, int z, int rotation) {
+        return rotate(x, z, rotation);
+    }
+
+    /** The metadata of the block at x, y, z as it is placed turned rotation quarter turns. */
+    public int turnedMeta(int x, int y, int z, int rotation) {
+        return rotateMeta(Block.getBlockById(blockId(x, y, z)), meta(x, y, z), rotation);
+    }
+
     /** Where a structure cell lands, as x, z offsets from the footprint's north-west corner. */
     private int[] rotate(int x, int z, int rotation) {
         int w = width;

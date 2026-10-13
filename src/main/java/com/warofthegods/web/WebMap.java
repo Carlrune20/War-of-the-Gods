@@ -514,6 +514,9 @@ public final class WebMap {
             }
             if (unit.getBuildingId() != 0) {
                 json.addProperty("building", unit.getBuildingId());
+                if (unit.getQueuedBuilds() > 0) {
+                    json.addProperty("queued", unit.getQueuedBuilds());
+                }
             }
             if (unit.getTrainedAt() != 0) {
                 json.addProperty("from", unit.getTrainedAt());
@@ -585,6 +588,24 @@ public final class WebMap {
             json.addProperty("height", round(mob.height));
             json.addProperty("health", round(mob.getHealth()));
             json.addProperty("maxHealth", round(mob.getMaxHealth()));
+            mobs.add(json);
+        }
+        // Carcasses lie among them, for workers to be sent to carve.
+        for (Hunting.Carcass carcass : Hunting.getCarcasses()) {
+            JsonObject json = new JsonObject();
+            json.addProperty("id", "carcass-" + carcass.id);
+            json.addProperty("eid", carcass.entityId);
+            json.addProperty("name", carcass.displayName());
+            json.addProperty("carcass", true);
+            json.addProperty("hostile", false);
+            json.addProperty("food", carcass.getFood());
+            json.addProperty("x", round(carcass.x));
+            json.addProperty("y", round(carcass.y));
+            json.addProperty("z", round(carcass.z));
+            json.addProperty("width", 0.9);
+            json.addProperty("height", 0.5);
+            json.addProperty("health", 1);
+            json.addProperty("maxHealth", 1);
             mobs.add(json);
         }
         return mobs;
