@@ -445,6 +445,11 @@ public final class WebMap {
             json.addProperty("health", building.getHealth());
             json.addProperty("maxHealth", building.getMaxHealth());
             json.addProperty("level", building.getLevel());
+            double[] rally = building.getRally();
+            if (rally != null) {
+                json.addProperty("rallyX", round(rally[0]));
+                json.addProperty("rallyZ", round(rally[1]));
+            }
             int range = building.isComplete() ? Buildings.rangeOf(game.getTeam(building.team), building) : 0;
             if (range > 0) {
                 json.addProperty("range", range);
@@ -509,6 +514,9 @@ public final class WebMap {
             }
             if (unit.getBuildingId() != 0) {
                 json.addProperty("building", unit.getBuildingId());
+            }
+            if (unit.getTrainedAt() != 0) {
+                json.addProperty("from", unit.getTrainedAt());
             }
             int[] tree = unit.getTree();
             if (tree != null) {

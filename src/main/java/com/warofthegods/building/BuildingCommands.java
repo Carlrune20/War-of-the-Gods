@@ -33,6 +33,8 @@ import com.warofthegods.world.GameWorld;
  *       paying for each; unit may be left out where the building trains one kind
  *   {type: "buildings.upgrade", building: id}  take the building up a level, paying for it
  *   {type: "buildings.research", building: id, upgrade: id}  research an upgrade at an armory or storehouse
+ *   {type: "buildings.rally", buildings: [id...], x?, z?}  send the units they train to x, z; with no x, z, keep
+ *       them at the door
  * </pre>
  */
 public final class BuildingCommands {
@@ -46,6 +48,7 @@ public final class BuildingCommands {
         WebCommand.register("buildings.train", BuildingCommands::train);
         WebCommand.register("buildings.upgrade", BuildingCommands::upgrade);
         WebCommand.register("buildings.research", BuildingCommands::research);
+        WebCommand.register("buildings.rally", BuildingCommands::rally);
     }
 
     /** The viewer's own building the request names, or null after replying why not. */
@@ -166,6 +169,39 @@ public final class BuildingCommands {
             .orderBuild(units, site);
         JsonObject reply = WebJson.message("buildings.placed");
         reply.addProperty("building", site.id);
+        request.reply(reply);
+    }
+
+    private static void rally(WebRequest request) {
+        Team team = UnitCommands.commander(request);
+        if (team == null) {
+            return;
+        }
+        Game game = GameManager.getGame();
+        Double x = UnitCommands.doubleField(request.body, "x");
+        Double z = UnitCommands.doubleField(request.body, "z");
+        double[] rally = null;
+        if (x != null && z != null) {
+            rally = new double[] { Math.max(game.getMinX() + 0.5, Math.min(game.getMaxX() + 0.5, x)),
+                Math.max(game.getMinZ() + 0.5, Math.min(game.getMaxZ() + 0.5, z)) };
+        }
+        int count = 0;
+        JsonElement ids = request.body.get("buildings");
+        if (ids != null && ids.isJsonArray()) {
+            for (JsonElement id : ids.getAsJsonArray()) {
+                Building building = id.isJsonPrimitive() ? game.getBuilding(id.getAsInt()) : null;
+                if (building != null && building.team.equals(team.getId()) && !building.type.trains.isEmpty()) {
+                    building.setRally(rally);
+                    count++;
+                }
+            }
+        }
+        if (count == 0) {
+            request.replyError("Select a town center or barracks");
+            return;
+        }
+        JsonObject reply = WebJson.message("ok");
+        reply.addProperty("buildings", count);
         request.reply(reply);
     }
 

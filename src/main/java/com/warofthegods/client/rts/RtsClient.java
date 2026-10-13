@@ -40,9 +40,11 @@ import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 import com.warofthegods.Config;
 import com.warofthegods.rts.RtsNetwork;
 import com.warofthegods.world.GameWorld;
@@ -106,6 +108,25 @@ public final class RtsClient {
     public final Set<Integer> selectedBuildings = new LinkedHashSet<>();
     /** Id of the shooting building under the mouse, whose range shows, or 0. */
     public int hoverBuilding;
+    /** Control groups by number: the units in each, and the buildings. */
+    public final Map<Integer, Group> groups = new HashMap<>();
+    /** The control group each building's new units join, by building id. */
+    public final Map<Integer, Integer> rallyGroups = new HashMap<>();
+    /** Ids of the viewer's units seen so far, to spot new ones. */
+    private final Set<String> knownUnits = new HashSet<>();
+    private boolean knownReady;
+
+    /** A control group: units and buildings picked together with a number key. */
+    public static final class Group {
+
+        public final Set<String> units = new LinkedHashSet<>();
+        public final Set<Integer> buildings = new LinkedHashSet<>();
+
+        public boolean isEmpty() {
+            return units.isEmpty() && buildings.isEmpty();
+        }
+    }
+
     /** Whether workers wait for two corners of an area to light up with torches. */
     public boolean lighting;
     /** The first corner of that area, x, y, z, once clicked; null before. */
@@ -222,6 +243,7 @@ public final class RtsClient {
                 break;
             case "state":
                 state.setState(message);
+                joinRallyGroups();
                 tidySelection();
                 break;
             case "rts.left":
@@ -237,8 +259,67 @@ public final class RtsClient {
         }
     }
 
+    /** New units from a building that rallies to a control group join it and walk over to it. */
+    private void joinRallyGroups() {
+        RtsState.TeamInfo team = state.myTeam();
+        List<RtsState.UnitInfo> fresh = new ArrayList<>();
+        for (RtsState.UnitInfo unit : state.units.values()) {
+            if (team != null && unit.team.equals(team.id) && knownUnits.add(unit.id)) {
+                fresh.add(unit);
+            }
+        }
+        if (!knownReady) {
+            knownReady = true;
+            return;
+        }
+        for (RtsState.UnitInfo unit : fresh) {
+            Integer number = rallyGroups.get(unit.from);
+            if (number == null) {
+                continue;
+            }
+            Group group = groups.computeIfAbsent(number, n -> new Group());
+            double x = 0;
+            double z = 0;
+            int others = 0;
+            for (String id : group.units) {
+                RtsState.UnitInfo other = state.units.get(id);
+                if (other != null) {
+                    x += other.x;
+                    z += other.z;
+                    others++;
+                }
+            }
+            group.units.add(unit.id);
+            if (others > 0) {
+                JsonObject body = new JsonObject();
+                JsonArray ids = new JsonArray();
+                ids.add(new JsonPrimitive(unit.id));
+                body.add("units", ids);
+                body.addProperty("x", x / others);
+                body.addProperty("z", z / others);
+                body.addProperty("formation", formation);
+                command("units.move", body, null);
+            }
+        }
+    }
+
+    /** The control group a unit is in, or null. */
+    public Integer groupOf(String unitId) {
+        for (Map.Entry<Integer, Group> entry : groups.entrySet()) {
+            Group group = entry.getValue();
+            if (group.units.contains(unitId)) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
     /** Dead units, and units of a team the viewer has left, drop out of the selection, as do lost buildings. */
     private void tidySelection() {
+        for (Group group : groups.values()) {
+            group.units.removeIf(id -> !state.units.containsKey(id));
+            group.buildings.removeIf(id -> !state.buildings.containsKey(id));
+        }
         RtsState.TeamInfo team = state.myTeam();
         selected.removeIf(id -> {
             RtsState.UnitInfo unit = state.units.get(id);

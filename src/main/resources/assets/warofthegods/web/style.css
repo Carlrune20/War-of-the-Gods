@@ -322,6 +322,11 @@ button.with-icon {
     color: #ffd76a;
 }
 
+#selection-info button.group {
+    color: #8fd3ff;
+    font-variant-numeric: tabular-nums;
+}
+
 button:disabled {
     opacity: 0.45;
     cursor: default;

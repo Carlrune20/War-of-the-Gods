@@ -73,7 +73,9 @@ public class EntityUnit extends EntityCreature {
         /** A worker putting up torches. */
         LIGHT,
         /** A worker hunting an animal, carving food off its carcass, or carrying the food to a store. */
-        HUNT
+        HUNT,
+        /** Keeping its place in formation behind a player. */
+        FOLLOW
     }
 
     /** How a unit fights when it has no orders to: how far it looks for enemies and how far it chases them. */
@@ -185,6 +187,12 @@ public class EntityUnit extends EntityCreature {
     private boolean defending;
     /** The building a build, work or attack order is for. */
     private int buildingId;
+    /** The building that trained it, or 0. */
+    private int trainedAt;
+    /** The player it follows, and its place behind them: blocks to their right and behind them. */
+    private UUID leaderId;
+    private double followAcross;
+    private double followBehind;
     /** Whether a worker is at the building site or workplace it was sent to, working. */
     private boolean working;
     /** What a worker carries, by resource ordinal. */
@@ -576,12 +584,27 @@ public class EntityUnit extends EntityCreature {
                 }
                 return working ? null : new double[] { treeX + 0.5, treeZ + 0.5 };
             }
+            case FOLLOW: {
+                double[] slot = followSlot();
+                return slot == null || distanceTo(slot[0], slot[1]) <= ARRIVED ? null : slot;
+            }
             default:
                 return hasPost && distanceTo(postX, postZ) > 2 ? new double[] { postX, postZ } : null;
         }
     }
 
+    public int getTrainedAt() {
+        return trainedAt;
+    }
+
+    public void setTrainedAt(int buildingId) {
+        trainedAt = buildingId;
+    }
+
     public UUID getTargetId() {
+        if (order == Order.FOLLOW) {
+            return leaderId;
+        }
         if (order == Order.HUNT) {
             return carcassId == 0 && prey != null ? prey.getUniqueID() : null;
         }
@@ -707,6 +730,57 @@ public class EntityUnit extends EntityCreature {
         }
     }
 
+    /**
+     * Follows a player, keeping a place in formation behind them: across blocks to their right and behind blocks
+     * behind them, as they go.
+     */
+    void orderFollow(Entity leader, double across, double behind) {
+        order = Order.FOLLOW;
+        leaderId = leader.getUniqueID();
+        followAcross = across;
+        followBehind = behind;
+        target = null;
+        targetId = null;
+        defending = false;
+        working = false;
+        delivering = false;
+        planTicks = 0;
+        getNavigator().clearPathEntity();
+        showHeld();
+    }
+
+    /** Where it stands while following, as x, z; null when the player it follows is gone. */
+    private double[] followSlot() {
+        Entity leader = Units.leader(worldObj, leaderId);
+        if (leader == null) {
+            return null;
+        }
+        double[] heading = Units.followHeading(leader);
+        // To the right of the way they go.
+        double rx = -heading[1];
+        double rz = heading[0];
+        return new double[] { leader.posX - heading[0] * followBehind + rx * followAcross,
+            leader.posZ - heading[1] * followBehind + rz * followAcross };
+    }
+
+    private void tickFollow() {
+        double[] slot = followSlot();
+        if (slot == null) {
+            getNavigator().clearPathEntity();
+            guardHere();
+            return;
+        }
+        if (distanceTo(slot[0], slot[1]) < 0.8) {
+            getNavigator().clearPathEntity();
+            return;
+        }
+        // The place moves with the player, so the way there is planned often.
+        if (--planTicks <= 0 || getNavigator().noPath()) {
+            planTicks = 10;
+            walkToward(slot[0], slot[1]);
+        }
+    }
+
     private void guardHere() {
         order = Order.IDLE;
         hasSpot = false;
@@ -822,6 +896,9 @@ public class EntityUnit extends EntityCreature {
                 break;
             case HUNT:
                 tickHunt();
+                break;
+            case FOLLOW:
+                tickFollow();
                 break;
             default:
                 tickGuard();
@@ -1624,7 +1701,9 @@ public class EntityUnit extends EntityCreature {
         tag.setIntArray("Torches", spots);
         // A fight picked up while guarding is not worth keeping; the unit is back on guard after a restart.
         tag.setString("Stance", stance.id);
-        tag.setString("Order", defending ? Order.IDLE.name() : order.name());
+        // Nor is following someone, who may not be online when the server starts again.
+        tag.setString("Order", defending || order == Order.FOLLOW ? Order.IDLE.name() : order.name());
+        tag.setInteger("TrainedAt", trainedAt);
         tag.setDouble("GoalX", goalX);
         tag.setDouble("GoalZ", goalZ);
         tag.setBoolean("HasPost", hasPost);
@@ -1647,6 +1726,7 @@ public class EntityUnit extends EntityCreature {
         UnitKind savedKind = UnitKind.byId(tag.getString("Kind"));
         kind = savedKind == null ? UnitKind.SOLDIER : savedKind;
         buildingId = tag.getInteger("Building");
+        trainedAt = tag.getInteger("TrainedAt");
         int[] carried = tag.getIntArray("Carrying");
         for (int i = 0; i < carrying.length; i++) {
             carrying[i] = i < carried.length ? carried[i] : 0;

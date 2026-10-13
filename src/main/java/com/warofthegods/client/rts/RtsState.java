@@ -123,6 +123,8 @@ public final class RtsState {
         public double toX = Double.NaN;
         public double toZ = Double.NaN;
         public int building;
+        /** The building that trained it, or 0. */
+        public int from;
         public final Map<String, Long> carrying = new HashMap<>();
         public boolean delivering;
         public String target;
@@ -178,6 +180,9 @@ public final class RtsState {
         public int maxHealth;
         /** How far it shoots, with its team's upgrades; 0 if it does not. */
         public int range;
+        /** Where units it trains walk to, or NaN. */
+        public double rallyX = Double.NaN;
+        public double rallyZ = Double.NaN;
         public final List<String> queue = new ArrayList<>();
         public double progress;
         public int workers;
@@ -370,6 +375,7 @@ public final class RtsState {
                 info.toZ = number(unit, "toZ");
             }
             info.building = integer(unit, "building");
+            info.from = integer(unit, "from");
             info.carrying.putAll(amounts(object(unit, "carrying")));
             info.delivering = bool(unit, "delivering");
             info.target = unit.has("target") ? string(unit, "target") : null;
@@ -423,6 +429,10 @@ public final class RtsState {
             info.health = integer(building, "health");
             info.maxHealth = integer(building, "maxHealth");
             info.range = integer(building, "range");
+            if (building.has("rallyX") && building.has("rallyZ")) {
+                info.rallyX = number(building, "rallyX");
+                info.rallyZ = number(building, "rallyZ");
+            }
             for (JsonElement kind : array(building, "queue")) {
                 info.queue.add(kind.getAsString());
             }

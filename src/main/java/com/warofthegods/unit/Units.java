@@ -422,6 +422,109 @@ public final class Units {
         }
     }
 
+    /**
+     * Blocks from a player to the front row of the units following them, middle to middle: a block of space between
+     * them, as both are 0.6 wide.
+     */
+    private static final double FOLLOW_GAP = 1.6;
+    /** Which way each followed player is going, as x, z of a unit vector and where they were when it was taken. */
+    private static final Map<UUID, double[]> followHeadings = new HashMap<>();
+
+    /**
+     * Has the units follow a player in formation, the front row a block of space behind them, the formation facing
+     * the way the player goes.
+     */
+    public void orderFollow(List<EntityUnit> units, Entity leader, Formation formation) {
+        if (units.isEmpty()) {
+            return;
+        }
+        double cx = 0;
+        double cz = 0;
+        for (EntityUnit unit : units) {
+            cx += unit.posX;
+            cz += unit.posZ;
+        }
+        cx /= units.size();
+        cz /= units.size();
+        // Until the player moves on, they face away from the units, which line up behind them.
+        double fx = leader.posX - cx;
+        double fz = leader.posZ - cz;
+        double length = Math.sqrt(fx * fx + fz * fz);
+        if (length < 1) {
+            float yaw = leader.rotationYaw * (float) Math.PI / 180;
+            fx = -Math.sin(yaw);
+            fz = Math.cos(yaw);
+        } else {
+            fx /= length;
+            fz /= length;
+        }
+        followHeadings.put(leader.getUniqueID(), new double[] { fx, fz, leader.posX, leader.posZ });
+        double rx = -fz;
+        double rz = fx;
+        List<List<double[]>> rows = rows(formation, units.size());
+        double front = rows.isEmpty() || rows.get(0)
+            .isEmpty() ? 0
+                : rows.get(0)
+                    .get(0)[1];
+        List<EntityUnit> ranked = new ArrayList<>(units);
+        ranked.sort(Comparator.comparingInt(Units::rank));
+        int next = 0;
+        for (int r = 0; r < rows.size() && next < ranked.size(); r++) {
+            List<double[]> slots = rows.get(r);
+            List<EntityUnit> row = new ArrayList<>(ranked.subList(next, Math.min(ranked.size(), next + slots.size())));
+            next += row.size();
+            row.sort(Comparator.comparingDouble(unit -> unit.posX * rx + unit.posZ * rz));
+            int offset = (slots.size() - row.size()) / 2;
+            for (int i = 0; i < row.size(); i++) {
+                double[] slot = slots.get(offset + i);
+                row.get(i)
+                    .orderFollow(leader, slot[0] * SPACING, FOLLOW_GAP + (front - slot[1]) * SPACING);
+            }
+        }
+    }
+
+    /**
+     * Which way a followed player is going, as x, z of a unit vector. It turns only once they have gone a couple
+     * of blocks, so the units behind them do not swing about as they look around.
+     */
+    static double[] followHeading(Entity leader) {
+        double[] heading = followHeadings.get(leader.getUniqueID());
+        if (heading == null) {
+            float yaw = leader.rotationYaw * (float) Math.PI / 180;
+            heading = new double[] { -Math.sin(yaw), Math.cos(yaw), leader.posX, leader.posZ };
+            followHeadings.put(leader.getUniqueID(), heading);
+        }
+        double dx = leader.posX - heading[2];
+        double dz = leader.posZ - heading[3];
+        double moved = Math.sqrt(dx * dx + dz * dz);
+        if (moved >= 2) {
+            heading[0] = dx / moved;
+            heading[1] = dz / moved;
+            heading[2] = leader.posX;
+            heading[3] = leader.posZ;
+        }
+        return new double[] { heading[0], heading[1] };
+    }
+
+    /**
+     * The player with this UUID as units following them see them: their body while they command from above, else
+     * themselves; null when they are not in this world or are dead.
+     */
+    public static Entity leader(World world, UUID id) {
+        if (id == null || world == null) {
+            return null;
+        }
+        Entity body = Commanders.get()
+            .bodyOf(id);
+        if (body != null && body.worldObj == world) {
+            return body;
+        }
+        EntityPlayer player = world.func_152378_a(id);
+        return player == null || player.isDead
+            || Commanders.get()
+                .isCommanding(id) ? null : player;
+    }
+
     /** Warriors first, then archers, then workers. */
     private static int rank(EntityUnit unit) {
         return unit.isWorker() ? 2 : unit.getKind() == UnitKind.ARCHER ? 1 : 0;

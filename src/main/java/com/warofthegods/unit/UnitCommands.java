@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.world.WorldServer;
 
@@ -33,6 +34,7 @@ import com.warofthegods.world.GameWorld;
  *   {type: "units.gather", units: [id...], x, y, z}  workers chop the tree at or near that block
  *   {type: "units.light", units: [id...], x1, z1, x2, z2}  workers put torches in the dark parts of that area
  *   {type: "units.stop", units: [id...]}        stop and guard where they stand
+ *   {type: "units.follow", units: [id...], target: uuid, formation?}  follow a player of their team in formation
  * </pre>
  *
  * Training and placing buildings are in {@link com.warofthegods.building.BuildingCommands}.
@@ -52,6 +54,7 @@ public final class UnitCommands {
         WebCommand.register("units.gather", UnitCommands::gather);
         WebCommand.register("units.light", UnitCommands::light);
         WebCommand.register("units.stance", UnitCommands::stance);
+        WebCommand.register("units.follow", UnitCommands::follow);
     }
 
     /** The viewer's team, or null after replying with why they cannot command units. */
@@ -305,6 +308,31 @@ public final class UnitCommands {
         }
         Units.get()
             .orderStop(units);
+        ok(request, units.size());
+    }
+
+    private static void follow(WebRequest request) {
+        Team team = commander(request);
+        if (team == null) {
+            return;
+        }
+        List<EntityUnit> units = ownUnits(request, team);
+        if (units == null) {
+            return;
+        }
+        UUID leaderId = uuid(request.body.get("target"));
+        Game game = GameManager.getGame();
+        Entity leader = Units.leader(GameWorld.getWorld(), leaderId);
+        if (leader == null || game.getTeamOf(leaderId) != team) {
+            request.replyError("Units follow only players of their own team who are on the map");
+            return;
+        }
+        Units.Formation formation = request.body.has("formation") ? Units.Formation.byId(
+            request.body.get("formation")
+                .getAsString())
+            : null;
+        Units.get()
+            .orderFollow(units, leader, formation == null ? Units.Formation.BOX : formation);
         ok(request, units.size());
     }
 

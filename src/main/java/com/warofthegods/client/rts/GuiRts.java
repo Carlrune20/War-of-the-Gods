@@ -300,6 +300,17 @@ public final class GuiRts extends GuiScreen {
             } else {
                 client.leave();
             }
+        } else if (key >= Keyboard.KEY_1 && key <= Keyboard.KEY_0 && state().myTeam() != null) {
+            // Ctrl and a number makes the selection that control group, shift and the number adds to it, and the
+            // number alone selects it, or goes to it when it is already selected.
+            int number = key == Keyboard.KEY_0 ? 0 : key - Keyboard.KEY_1 + 1;
+            if (isCtrlKeyDown()) {
+                setGroup(number, false);
+            } else if (isShiftKeyDown()) {
+                setGroup(number, true);
+            } else {
+                recallGroup(number);
+            }
         } else if (key == client.toggleKey.getKeyCode()) {
             client.leave();
         } else if (key == client.teamsKey.getKeyCode()) {
@@ -517,6 +528,8 @@ public final class GuiRts extends GuiScreen {
         if (button == 1) {
             if (!client.selected.isEmpty()) {
                 order(px, py, hit);
+            } else if (!client.selectedBuildings.isEmpty()) {
+                setRally(px, py, hit);
             }
             return;
         }
@@ -594,6 +607,19 @@ public final class GuiRts extends GuiScreen {
     }
 
     private void order(int px, int py, Hit hit) {
+        RtsState.TeamInfo team = state().myTeam();
+        if (hit != null && hit.thing instanceof RtsState.PlayerInfo
+            && team != null
+            && team.id.equals(((RtsState.PlayerInfo) hit.thing).team)) {
+            // Right-clicking a player of the team, such as yourself, has the units follow them in formation.
+            String name = ((RtsState.PlayerInfo) hit.thing).name;
+            client.mark(hit.position[0], hit.position[1], hit.position[2], false);
+            JsonObject body = unitsBody(client.selected);
+            body.addProperty("target", hit.thing.id);
+            body.addProperty("formation", client.formation);
+            client.command("units.follow", body, reply -> client.showToast("Following " + name, false));
+            return;
+        }
         if (hit != null && isEnemy(hit)) {
             client.mark(hit.position[0], hit.position[1], hit.position[2], true);
             JsonObject body = unitsBody(client.selected);
@@ -700,6 +726,116 @@ public final class GuiRts extends GuiScreen {
             }
         }
         return best;
+    }
+
+    // ---------------------------------------------------------------- control groups and rally points
+
+    private void setGroup(int number, boolean add) {
+        if (client.selected.isEmpty() && client.selectedBuildings.isEmpty()) {
+            return;
+        }
+        RtsClient.Group group = client.groups.computeIfAbsent(number, n -> new RtsClient.Group());
+        if (!add) {
+            group.units.clear();
+            group.buildings.clear();
+        }
+        group.units.addAll(client.selected);
+        group.buildings.addAll(client.selectedBuildings);
+        client.showToast((add ? "Added to group " : "Made group ") + number, false);
+    }
+
+    private void recallGroup(int number) {
+        RtsClient.Group group = client.groups.get(number);
+        if (group == null || group.isEmpty()) {
+            return;
+        }
+        if (client.selected.equals(group.units) && client.selectedBuildings.equals(group.buildings)) {
+            focusGroup(group);
+            return;
+        }
+        client.selected.clear();
+        client.selected.addAll(group.units);
+        client.selectBuildings(new ArrayList<>(group.buildings), 0);
+        if (!group.units.isEmpty()) {
+            client.changedSelection();
+        }
+    }
+
+    private void focusGroup(RtsClient.Group group) {
+        double x = 0;
+        double z = 0;
+        int count = 0;
+        for (String id : group.units) {
+            RtsState.UnitInfo unit = state().units.get(id);
+            if (unit != null) {
+                x += unit.x;
+                z += unit.z;
+                count++;
+            }
+        }
+        for (int id : group.buildings) {
+            RtsState.BuildingInfo building = state().buildings.get(id);
+            if (building != null) {
+                x += building.x + building.sizeX / 2.0;
+                z += building.z + building.sizeZ / 2.0;
+                count++;
+            }
+        }
+        if (count > 0) {
+            client.focusOn(x / count, z / count);
+        }
+    }
+
+    /** The selected buildings that train units. */
+    private List<RtsState.BuildingInfo> selectedTrainers() {
+        List<RtsState.BuildingInfo> trainers = new ArrayList<>();
+        for (RtsState.BuildingInfo building : client.selectedBuildingList()) {
+            RtsState.BuildingTypeInfo type = state().buildingType(building.type);
+            if (type != null && !type.trains.isEmpty()) {
+                trainers.add(building);
+            }
+        }
+        return trainers;
+    }
+
+    private static JsonObject buildingsBody(List<RtsState.BuildingInfo> buildings) {
+        JsonArray ids = new JsonArray();
+        for (RtsState.BuildingInfo building : buildings) {
+            ids.add(new JsonPrimitive(building.id));
+        }
+        JsonObject body = new JsonObject();
+        body.add("buildings", ids);
+        return body;
+    }
+
+    /** Right-click with buildings selected: their new units go there, or join the control group of the unit. */
+    private void setRally(int px, int py, Hit hit) {
+        List<RtsState.BuildingInfo> trainers = selectedTrainers();
+        if (trainers.isEmpty()) {
+            return;
+        }
+        Integer number = hit != null && hit.thing instanceof RtsState.UnitInfo
+            && state().isMine((RtsState.UnitInfo) hit.thing) ? client.groupOf(hit.thing.id) : null;
+        if (number != null) {
+            for (RtsState.BuildingInfo building : trainers) {
+                client.rallyGroups.put(building.id, number);
+            }
+            client.command("buildings.rally", buildingsBody(trainers), null);
+            client.showToast("New units join group " + number, false);
+            return;
+        }
+        double[] ground = hit != null ? hit.position : groundUnder(px, py);
+        if (ground == null) {
+            return;
+        }
+        for (RtsState.BuildingInfo building : trainers) {
+            client.rallyGroups.remove(building.id);
+        }
+        client.mark(ground[0], ground[1], ground[2], false);
+        JsonObject body = buildingsBody(trainers);
+        body.addProperty("x", ground[0]);
+        body.addProperty("z", ground[2]);
+        client.command("buildings.rally", body, reply -> client.showToast("Rally point set", false));
     }
 
     private static JsonObject unitsBody(Iterable<String> ids) {
@@ -926,6 +1062,10 @@ public final class GuiRts extends GuiScreen {
                 return unit.chopping ? "chopping a tree" : "on the way to a tree";
             case "light":
                 return "putting up torches, " + unit.torches + " to go";
+            case "follow": {
+                RtsState.PlayerInfo leader = unit.target == null ? null : state().players.get(unit.target);
+                return "following " + (leader != null ? leader.name : "a player");
+            }
             case "hunt":
                 if (unit.delivering) {
                     return "taking " + RtsState.amountsText(unit.carrying) + " to store";
@@ -979,6 +1119,19 @@ public final class GuiRts extends GuiScreen {
             }
         }
         Hit hit = entityAt(px, py);
+        if (hit != null && workers + fighters > 0
+            && hit.thing instanceof RtsState.PlayerInfo
+            && team != null
+            && team.id.equals(((RtsState.PlayerInfo) hit.thing).team)) {
+            return new Object[] { "soldier", "Follow " + ((RtsState.PlayerInfo) hit.thing).name + " in formation",
+                "act" };
+        }
+        if (workers + fighters == 0 && !selectedTrainers().isEmpty()) {
+            Integer number = hit != null && hit.thing instanceof RtsState.UnitInfo
+                && state().isMine((RtsState.UnitInfo) hit.thing) ? client.groupOf(hit.thing.id) : null;
+            return new Object[] { "level", number != null ? "New units join group " + number : "Set rally point",
+                "act" };
+        }
         if (hit != null) {
             if (workers > 0 && fighters == 0
                 && hit.thing instanceof RtsState.MobInfo
@@ -1506,6 +1659,18 @@ public final class GuiRts extends GuiScreen {
         }
         int count = client.selected.size();
         List<Widget> controls = new ArrayList<>();
+        for (int number = 0; number <= 9; number++) {
+            RtsClient.Group group = client.groups.get(number);
+            if (group != null && !group.isEmpty()) {
+                int recalled = number;
+                controls.add(
+                    button(
+                        number + "·" + (group.units.size() + group.buildings.size()),
+                        "Control group " + number + ": press " + number + " to select it, again to go to it",
+                        shift -> recallGroup(recalled),
+                        true));
+            }
+        }
         int idle = idleWorkers().size();
         if (idle > 0) {
             Widget idleButton = button(
@@ -1701,6 +1866,24 @@ public final class GuiRts extends GuiScreen {
                             shift -> trainSpread(trainers, kindId, kind.name.toLowerCase(), shift ? 5 : 1),
                             !full && RtsState.canAfford(team, kind.cost) && room),
                         kindId));
+        }
+        if (!type.trains.isEmpty()) {
+            Integer number = client.rallyGroups.get(building.id);
+            boolean rallied = number != null || !Double.isNaN(building.rallyX);
+            actions.add(
+                label(
+                    number != null ? "New units join group " + number
+                        : rallied ? "Rally point set" : "Right-click to set a rally point",
+                    0xC8C8C8));
+            if (rallied) {
+                actions.add(button("Clear rally", "New units stay at the door", shift -> {
+                    List<RtsState.BuildingInfo> trainers = selectedTrainers();
+                    for (RtsState.BuildingInfo trainer : trainers) {
+                        client.rallyGroups.remove(trainer.id);
+                    }
+                    client.command("buildings.rally", buildingsBody(trainers), null);
+                }, true));
+            }
         }
         if (!building.queue.isEmpty()) {
             actions.add(progress(building.progress, GREEN));

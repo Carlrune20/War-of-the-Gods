@@ -84,6 +84,12 @@ public final class RtsWorldRenderer {
             if (b.range > 0 && (chosen || b.id == client.hoverBuilding)) {
                 rangeRing(b.x + b.sizeX / 2.0, b.z + b.sizeZ / 2.0, b.range, alpha);
             }
+            // Where the new units of a selected building go.
+            if (chosen && !Double.isNaN(b.rallyX)) {
+                double rallyY = client.groundHeight(b.rallyX, b.rallyZ) + 0.15;
+                line(b.x + b.sizeX / 2.0, b.y + 1.1, b.z + b.sizeZ / 2.0, b.rallyX, rallyY, b.rallyZ, SELECTED, alpha);
+                ring(b.rallyX, rallyY, b.rallyZ, 0.6, SELECTED, alpha);
+            }
         }
         RtsClient.Footprint spot = client.footprint();
         if (spot != null) {
