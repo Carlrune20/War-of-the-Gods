@@ -243,7 +243,7 @@ Commanding units, from the bar at the bottom of the page:
 | Shift + number | Add the selection to that control group |
 | Number | Select that control group; press it again to move the camera to it. The groups also show on the bar |
 | Right-click with only buildings selected | Set a rally point: units they train walk there. Right-click one of your units that is in a control group and new units join that group instead. Clear rally on the bar removes it |
-| Right-click a player of your team, such as yourself | The selected units follow them, keeping the formation they were in, two blocks behind |
+| Right-click a player of your team, such as yourself | The selected units follow them, keeping the formation they were in, with a block of space between you and the front row |
 | All / Clear / Esc | Select all your units, or none |
 | Right-click the ground | Send the selected units there, in the formation picked on the bar |
 | Formation / Stance | With warriors or archers selected: how they line up where they are sent (box, line, wedge), and how they fight on their own (aggressive, defensive, hold, passive) |

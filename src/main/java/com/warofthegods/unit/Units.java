@@ -422,13 +422,16 @@ public final class Units {
         }
     }
 
-    /** Blocks between a player and the front row of the units following them. */
-    private static final double FOLLOW_GAP = 2;
+    /**
+     * Blocks from a player to the front row of the units following them, middle to middle: a block of space between
+     * them, as both are 0.6 wide.
+     */
+    private static final double FOLLOW_GAP = 1.6;
     /** Which way each followed player is going, as x, z of a unit vector and where they were when it was taken. */
     private static final Map<UUID, double[]> followHeadings = new HashMap<>();
 
     /**
-     * Has the units follow a player in formation, the front row a block clear of them, the formation facing the way
+     * Has the units follow a player in formation, the front row a block of space behind them, the formation facing the way
      * the player goes.
      */
     public void orderFollow(List<EntityUnit> units, Entity leader, Formation formation) {
