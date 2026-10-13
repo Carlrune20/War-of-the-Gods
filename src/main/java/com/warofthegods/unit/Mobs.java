@@ -8,6 +8,7 @@ import net.minecraft.block.material.Material;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityCreature;
 import net.minecraft.entity.EntityLiving;
+import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.ai.EntityAIAttackOnCollide;
 import net.minecraft.entity.ai.EntityAINearestAttackableTarget;
@@ -16,6 +17,7 @@ import net.minecraft.entity.monster.EntityMob;
 import net.minecraft.entity.monster.EntitySkeleton;
 import net.minecraft.entity.monster.EntityZombie;
 import net.minecraft.entity.monster.IMob;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBow;
@@ -26,6 +28,7 @@ import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.DimensionManager;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.event.entity.living.LivingEvent;
+import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.event.entity.living.LivingSpawnEvent;
 
 import com.warofthegods.Config;
@@ -153,6 +156,30 @@ public final class Mobs {
                 follow.setBaseValue(range);
             }
         }
+    }
+
+    /**
+     * A zombie or skeleton a player or a fighting unit hurts goes after them, from as far as it would chase them, so
+     * archers and bows cannot pick it off from beyond where it notices enemies.
+     */
+    @SubscribeEvent
+    public void onLivingHurt(LivingHurtEvent event) {
+        Entity entity = event.entity;
+        if (entity.worldObj.isRemote || !(entity instanceof EntityZombie || entity instanceof EntitySkeleton)
+            || !GameWorld.isGameWorld(entity.worldObj)) {
+            return;
+        }
+        Entity attacker = event.source.getEntity();
+        boolean fighter = attacker instanceof EntityPlayer
+            || attacker instanceof EntityUnit && !((EntityUnit) attacker).isWorker();
+        if (!fighter || !attacker.isEntityAlive() || attacker == entity) {
+            return;
+        }
+        EntityMob mob = (EntityMob) entity;
+        mob.getEntityAttribute(SharedMonsterAttributes.followRange)
+            .setBaseValue(Config.mobChaseRange);
+        mob.setRevengeTarget((EntityLivingBase) attacker);
+        mob.setAttackTarget((EntityLivingBase) attacker);
     }
 
     // ---------------------------------------------------------------- spawning

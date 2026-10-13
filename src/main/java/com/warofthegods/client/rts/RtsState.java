@@ -134,6 +134,8 @@ public final class RtsState {
         public boolean carving;
         /** Torches a worker still has to put up. */
         public int torches;
+        /** Building sites a worker builds after the one it is on. */
+        public int queued;
         public String stance = "defensive";
 
         public boolean isWorker() {
@@ -156,8 +158,10 @@ public final class RtsState {
 
         public String name;
         public boolean hostile;
-        /** Food it leaves for workers who hunt it; 0 when it cannot be hunted. */
+        /** Food it leaves for workers who hunt it, or a carcass has left; 0 when it cannot be hunted. */
         public int food;
+        /** Whether it is the carcass of an animal units killed, such as a dead pig, for workers to carve. */
+        public boolean carcass;
         public double width;
         public double height;
     }
@@ -396,6 +400,7 @@ public final class RtsState {
                 .getAsString() : "defensive";
             info.torches = unit.has("torches") ? unit.get("torches")
                 .getAsInt() : 0;
+            info.queued = unit.has("queued") ? integer(unit, "queued") : 0;
             units.put(info.id, info);
             byEntityId.put(info.eid, info);
         }
@@ -406,6 +411,7 @@ public final class RtsState {
             info.name = string(mob, "name");
             info.hostile = bool(mob, "hostile");
             info.food = integer(mob, "food");
+            info.carcass = bool(mob, "carcass");
             info.width = number(mob, "width");
             info.height = number(mob, "height");
             mobs.put(info.id, info);

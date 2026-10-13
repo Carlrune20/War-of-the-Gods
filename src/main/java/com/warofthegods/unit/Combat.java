@@ -14,7 +14,7 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 /**
  * Hits from units, and arrows from archers and towers. They land however recently the victim was last hurt, so
  * several archers or warriors on one enemy all count. Arrows fly on past their own team and its allies, so archers
- * behind one another can all shoot.
+ * behind one another can all shoot, and never hurt them or set them alight.
  */
 public final class Combat {
 
@@ -36,6 +36,10 @@ public final class Combat {
         }
         if (arrow instanceof EntityTeamArrow || event.source.getEntity() instanceof EntityUnit) {
             event.entityLiving.hurtResistantTime = 0;
+        }
+        // A fire arrow sets alight only enemies, and anything else that is no friend, such as mobs.
+        if (arrow instanceof EntityTeamArrow && ((EntityTeamArrow) arrow).isFlaming()) {
+            event.entityLiving.setFire(5);
         }
     }
 

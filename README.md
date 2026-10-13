@@ -70,7 +70,7 @@ three may turn up somewhere out of sight of players and units, mostly among tree
 to 16 on the whole map. None spawn within 40 blocks of a town center, fewer the closer they are out to 96 blocks, and
 none on or right next to a building; no zombie villagers or baby zombies, and hurt zombies call no friends. They do
 not burn in daylight. They notice players and units only within 10 blocks, but once they have, they follow them up
-to 32. Many wear armor and some skeletons carry swords. Nothing else hostile spawns. All of this can be changed in
+to 32. One a player, warrior or archer hurts goes after them from up to 32 blocks away. Many wear armor and some skeletons carry swords. Nothing else hostile spawns. All of this can be changed in
 the config.
 
 Players who log in while a game is running are moved onto its map (unless they are already on it), in front of their
@@ -128,7 +128,9 @@ shoot at buildings too, taking 5 off with each arrow.
 Food also comes from hunting. Select workers and right-click a cow, pig, sheep or chicken: they run it down, then
 carve food off the carcass, 6 every 3 seconds, and carry it home 20 at a time, coming back until it is gone. A cow
 gives 300 food, a pig 250, a sheep 200 and a chicken 100. Then they go after the nearest animal around. Animals
-warriors and archers kill leave carcasses too. Carcasses are not kept when the server restarts.
+warriors and archers kill leave carcasses too. An animal units kill drops nothing: it lies on its side where it fell,
+as a dead cow, dead pig, dead sheep or dead chicken, until its food is carved off; right-click one with workers to send
+them to carve it. Carcasses are not kept when the server restarts.
 
 Wood comes from trees. Select workers and right-click a tree to chop it from as far as a player reaches, or from
 anywhere in among its leaves: a tree holds 25 wood per log, between 100 and 200, and a bar over it shows how much is left as cracks spread up its trunk. When it is chopped out it falls, and
@@ -149,7 +151,7 @@ An upgrade that needs another one first only shows up once the team has that one
 | Iron swords | Armory | Warriors carry iron swords and hit 2 harder |
 | Diamond swords | Armory, Age III, after iron swords | Warriors carry diamond swords and hit 2 harder again |
 | Fletching | Armory | Archers and towers shoot 1 harder and 4 farther |
-| Fire arrows | Armory, Age II, after fletching | Archers' arrows set what they hit on fire for a few seconds |
+| Fire arrows | Armory, Age II, after fletching | Archers' arrows set enemies they hit on fire for a few seconds; they never set the team or its allies alight |
 | Padded armor | Armory | Warriors and archers have 6 more health, and wear chainmail |
 | Plate armor | Armory, Age II, after padded armor | Warriors and archers have 8 more health, and wear iron |
 | Bigger baskets | Storehouse | Workers carry 10 more |
@@ -228,7 +230,7 @@ Commanding units, from the bar at the bottom of the page:
 |---|---|
 | Town center | Select your town center |
 | Click one of your buildings | Select it and see its health; a site shows how far it is built, a town center or barracks its Train buttons and training progress. Each click queues one more, shift-click 5, up to 10 waiting; they train one at a time. Level takes it up a level (on the town center, Advance takes the town to the next age), and an armory or storehouse shows the upgrades it researches |
-| Farm / House / Barracks / ... | With workers selected: a see-through copy follows the pointer, green where it fits and red where it does not. R or Rotate turns it a quarter round, click places it (shift-click to place more), right-click or Esc cancels |
+| Farm / House / Barracks / ... | With workers selected: a see-through copy follows the pointer, pale where it fits and red where it does not (in the in-game view it shows the building's own blocks). R or Rotate turns it a quarter round, click places it, right-click or Esc cancels. Shift-click places more, and the workers build them one after another in the order they were placed; shift-right-click a building site to add it to their list |
 | Right-click one of your building sites, farms or quarries | Send the selected workers to build or work it |
 | Right-click a tree | Send the selected workers to chop it |
 | Torches | With workers selected: click two corners of an area for them to light up against mobs |

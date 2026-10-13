@@ -7,7 +7,8 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.World;
 
 /**
- * An arrow shot by an archer or a tower, which remembers its team so it never hurts the team's allies. It flies as
+ * An arrow shot by an archer or a tower, which remembers its team so it never hurts the team or its allies, nor sets
+ * them alight. It flies as
  * fast as from a player's fully drawn bow, trailing the same crit sparks. It cannot be picked up and is gone a few
  * seconds after it lands.
  */
@@ -18,6 +19,9 @@ public class EntityTeamArrow extends EntityArrow {
      * when it hits.
      */
     private static final float SPEED = 3.0F;
+
+    /** Whether it is a fire arrow, kept where the client sees it to draw the flames. */
+    private static final int FLAMING = 17;
 
     private String teamId = "";
 
@@ -45,6 +49,29 @@ public class EntityTeamArrow extends EntityArrow {
 
     public String getTeamId() {
         return teamId;
+    }
+
+    @Override
+    protected void entityInit() {
+        super.entityInit();
+        dataWatcher.addObject(FLAMING, (byte) 0);
+    }
+
+    /**
+     * A fire arrow flies in flames and sets what it hurts alight. It is not itself on fire, since a burning arrow sets
+     * whatever it touches alight, friends it flies past included; {@link Combat} lights only enemies it hurts.
+     */
+    public void setFlaming(boolean flaming) {
+        dataWatcher.updateObject(FLAMING, (byte) (flaming ? 1 : 0));
+    }
+
+    public boolean isFlaming() {
+        return dataWatcher.getWatchableObjectByte(FLAMING) != 0;
+    }
+
+    @Override
+    public boolean canRenderOnFire() {
+        return isFlaming() || super.canRenderOnFire();
     }
 
     /**
@@ -86,9 +113,7 @@ public class EntityTeamArrow extends EntityArrow {
         arrow.motionZ = motionZ;
         arrow.setDamage(getDamage());
         arrow.setIsCritical(getIsCritical());
-        if (isBurning()) {
-            arrow.setFire(100);
-        }
+        arrow.setFlaming(isFlaming());
         return arrow;
     }
 
@@ -105,11 +130,13 @@ public class EntityTeamArrow extends EntityArrow {
     public void writeEntityToNBT(NBTTagCompound tag) {
         super.writeEntityToNBT(tag);
         tag.setString("Team", teamId);
+        tag.setBoolean("Flaming", isFlaming());
     }
 
     @Override
     public void readEntityFromNBT(NBTTagCompound tag) {
         super.readEntityFromNBT(tag);
         teamId = tag.getString("Team");
+        setFlaming(tag.getBoolean("Flaming"));
     }
 }

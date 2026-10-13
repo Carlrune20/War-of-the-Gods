@@ -187,6 +187,8 @@ public class EntityUnit extends EntityCreature {
     private boolean defending;
     /** The building a build, work or attack order is for. */
     private int buildingId;
+    /** Building sites a worker builds next, one after another, once done with the one it is on. */
+    private final List<Integer> buildQueue = new ArrayList<>();
     /** The building that trained it, or 0. */
     private int trainedAt;
     /** The player it follows, and its place behind them: blocks to their right and behind them. */
@@ -632,6 +634,40 @@ public class EntityUnit extends EntityCreature {
         startOrder();
     }
 
+    /**
+     * Has a worker build the site once it has built the one it is on and those queued before; one doing anything else
+     * starts on it now.
+     */
+    void queueBuild(Building building) {
+        if (order != Order.BUILD || building.isComplete()) {
+            orderBuild(building);
+            return;
+        }
+        if (building.id != buildingId && !buildQueue.contains(building.id)) {
+            buildQueue.add(building.id);
+        }
+    }
+
+    /** Building sites still queued after the one the worker is on. */
+    public int getQueuedBuilds() {
+        return order == Order.BUILD ? buildQueue.size() : 0;
+    }
+
+    /** Starts on the next queued site that still stands unfinished; false when there is none. */
+    private boolean buildNext() {
+        Game game = GameManager.getGame();
+        while (game != null && !buildQueue.isEmpty()) {
+            Building next = game.getBuilding(buildQueue.remove(0));
+            if (next != null && next.team.equals(teamId) && !next.isComplete()) {
+                List<Integer> rest = new ArrayList<>(buildQueue);
+                orderBuild(next);
+                buildQueue.addAll(rest);
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Sends a worker to chop the tree with its trunk's foot at x, y, z. */
     void orderChop(int x, int y, int z) {
         order = Order.CHOP;
@@ -709,13 +745,33 @@ public class EntityUnit extends EntityCreature {
         startOrder();
     }
 
+    /** Sends a worker to carve food off a carcass and carry it home, then hunt on around there. */
+    void orderCarve(Hunting.Carcass carcass) {
+        order = Order.HUNT;
+        prey = null;
+        preyId = null;
+        preyX = carcass.x;
+        preyZ = carcass.z;
+        carcassId = carcass.id;
+        carveTicks = 0;
+        working = false;
+        delivering = getCarried() >= capacity();
+        target = null;
+        targetId = null;
+        defending = false;
+        startOrder();
+    }
+
     /** Stops and guards the spot the unit is standing on. */
     void orderStop() {
+        buildQueue.clear();
         guardHere();
         getNavigator().clearPathEntity();
     }
 
     private void startOrder() {
+        // A new order drops the queued building sites; buildNext puts the rest back.
+        buildQueue.clear();
         stalls = 0;
         planTicks = 0;
         progressTicks = 0;
@@ -926,12 +982,17 @@ public class EntityUnit extends EntityCreature {
     private void tickBuild() {
         Building site = building();
         if (site == null) {
-            getNavigator().clearPathEntity();
-            guardHere();
+            if (!buildNext()) {
+                getNavigator().clearPathEntity();
+                guardHere();
+            }
             return;
         }
         if (site.isComplete()) {
-            // Built, by this worker and others: farmers and quarrymen stay to work it.
+            // Built, by this worker and others: on to the next queued site, or farmers and quarrymen stay to work it.
+            if (buildNext()) {
+                return;
+            }
             if (site.type.isWorkplace()) {
                 orderBuild(site);
             } else {
@@ -1398,9 +1459,7 @@ public class EntityUnit extends EntityCreature {
         Team team = team();
         EntityTeamArrow arrow = new EntityTeamArrow(worldObj, this);
         arrow.aim(victim, Config.archerDamage + (team != null && team.has(Upgrade.FLETCHING) ? 1 : 0));
-        if (team != null && team.has(Upgrade.FIRE_ARROWS)) {
-            arrow.setFire(100);
-        }
+        arrow.setFlaming(team != null && team.has(Upgrade.FIRE_ARROWS));
         worldObj.spawnEntityInWorld(arrow);
         playSound("random.bow", 1.0F, 1.0F / (rand.nextFloat() * 0.4F + 0.8F));
     }
@@ -1683,6 +1742,11 @@ public class EntityUnit extends EntityCreature {
         tag.setString("Team", teamId);
         tag.setString("Kind", kind.id);
         tag.setInteger("Building", buildingId);
+        int[] queued = new int[buildQueue.size()];
+        for (int i = 0; i < queued.length; i++) {
+            queued[i] = buildQueue.get(i);
+        }
+        tag.setIntArray("BuildQueue", queued);
         int[] carried = new int[carrying.length];
         for (int i = 0; i < carried.length; i++) {
             carried[i] = (int) Math.min(Integer.MAX_VALUE, carrying[i]);
@@ -1723,6 +1787,10 @@ public class EntityUnit extends EntityCreature {
         UnitKind savedKind = UnitKind.byId(tag.getString("Kind"));
         kind = savedKind == null ? UnitKind.SOLDIER : savedKind;
         buildingId = tag.getInteger("Building");
+        buildQueue.clear();
+        for (int id : tag.getIntArray("BuildQueue")) {
+            buildQueue.add(id);
+        }
         trainedAt = tag.getInteger("TrainedAt");
         int[] carried = tag.getIntArray("Carrying");
         for (int i = 0; i < carrying.length; i++) {
