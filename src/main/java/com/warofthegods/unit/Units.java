@@ -431,8 +431,8 @@ public final class Units {
     private static final Map<UUID, double[]> followHeadings = new HashMap<>();
 
     /**
-     * Has the units follow a player in formation, the front row a block of space behind them, the formation facing the way
-     * the player goes.
+     * Has the units follow a player in formation, the front row a block of space behind them, the formation facing
+     * the way the player goes.
      */
     public void orderFollow(List<EntityUnit> units, Entity leader, Formation formation) {
         if (units.isEmpty()) {
