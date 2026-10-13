@@ -80,6 +80,12 @@ public class Config {
     public static int unitBuildingDamage = 10;
     /** Health a building loses when an enemy player breaks one of its blocks. */
     public static int blockBreakDamage = 5;
+    /** Health a building loses to a creeper going off right next to it; less the further away it goes off. */
+    public static int explosionBuildingDamage = 120;
+    /** Blocks around a building that explosions leave standing. */
+    public static int explosionProtection = 2;
+    /** Wood each torch a worker puts up costs. */
+    public static int torchWood = 1;
 
     public static boolean webEnabled = true;
     public static String webBindAddress = "0.0.0.0";
@@ -89,6 +95,22 @@ public class Config {
     public static int webSessionHours = 72;
     public static int webRenderBudgetMs = 10;
     public static int webStateTicks = 1;
+
+    public static boolean autoAssignTeams = true;
+    public static boolean rain = false;
+    public static int startTime = 0;
+
+    /** Share of creeper spawns that go ahead; the rest are stopped. */
+    public static double creeperChance = 0.15;
+    public static boolean endermen = false;
+    /** No hostile mob spawns this close to a town center. */
+    public static int townSafeRadius = 40;
+    /** Out to this far from a town center, fewer hostile mobs spawn the closer they are; past it is wilderness. */
+    public static int townRadius = 96;
+    /** Most extra zombies or skeletons that come along with one spawning in the wilderness. */
+    public static int mobGroupExtra = 3;
+    public static double mobArmorChance = 0.45;
+    public static double skeletonSwordChance = 0.3;
 
     public static int rtsStateTicks = 2;
     public static int rtsCameraFov = 40;
@@ -328,6 +350,78 @@ public class Config {
             0,
             100000,
             "Health a building loses when an enemy player breaks one of its blocks. The block comes back.");
+
+        explosionBuildingDamage = configuration.getInt(
+            "explosionDamage",
+            buildings,
+            explosionBuildingDamage,
+            0,
+            100000,
+            "Health a building loses to a creeper exploding right next to it; less the further off it goes off.");
+        explosionProtection = configuration.getInt(
+            "explosionProtection",
+            buildings,
+            explosionProtection,
+            0,
+            16,
+            "Blocks around a building where explosions break nothing; the building only loses health.");
+        torchWood = configuration
+            .getInt("torchWood", buildings, torchWood, 0, 100000, "Wood each torch a worker puts up costs.");
+
+        String games = "games";
+        configuration.setCategoryComment(games, "What happens when a new game starts.");
+        autoAssignTeams = configuration.getBoolean(
+            "autoAssignTeams",
+            games,
+            autoAssignTeams,
+            "Whether players are put on the smallest team when a game starts, and when they join without a team.");
+        rain = configuration.getBoolean("rain", games, rain, "Whether it ever rains on the game map.");
+        startTime = configuration.getInt(
+            "startTime",
+            games,
+            startTime,
+            0,
+            23999,
+            "Time of day each new game starts at, in ticks: 0 is sunrise, 6000 noon, 13000 nightfall.");
+
+        String mobs = "mobs";
+        configuration.setCategoryComment(mobs, "Hostile mobs on the game map.");
+        creeperChance = configuration
+            .get(mobs, "creeperChance", creeperChance, "Share of creeper spawns allowed, 0 to 1.")
+            .getDouble();
+        endermen = configuration.getBoolean("endermen", mobs, endermen, "Whether endermen spawn.");
+        townSafeRadius = configuration.getInt(
+            "townSafeRadius",
+            mobs,
+            townSafeRadius,
+            0,
+            1000,
+            "No hostile mobs spawn this close to a town center.");
+        townRadius = configuration.getInt(
+            "townRadius",
+            mobs,
+            townRadius,
+            0,
+            2000,
+            "Between townSafeRadius and this far from a town center, fewer hostile mobs spawn the closer they are."
+                + " Further out is wilderness, where zombies and skeletons come in groups.");
+        mobGroupExtra = configuration.getInt(
+            "groupExtra",
+            mobs,
+            mobGroupExtra,
+            0,
+            8,
+            "Most extra zombies or skeletons that spawn along with one in the wilderness.");
+        mobArmorChance = configuration
+            .get(mobs, "armorChance", mobArmorChance, "Chance a zombie or skeleton spawns wearing armor, 0 to 1.")
+            .getDouble();
+        skeletonSwordChance = configuration
+            .get(
+                mobs,
+                "skeletonSwordChance",
+                skeletonSwordChance,
+                "Chance a skeleton carries a sword instead of a bow.")
+            .getDouble();
 
         String web = "web";
         configuration.setCategoryComment(web, "The web map players open in a browser with a link from /rts web.");

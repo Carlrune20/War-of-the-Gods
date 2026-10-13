@@ -1,7 +1,14 @@
 package com.warofthegods.game;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.WorldServer;
+import net.minecraft.world.storage.WorldInfo;
 
 import com.warofthegods.Config;
 import com.warofthegods.WarOfTheGods;
@@ -45,7 +52,57 @@ public final class GameManager {
         WarOfTheGods.LOG
             .info("Started game #{} with size {}, {} teams and seed {}", game.getNumber(), size, teamCount, seed);
         GameWorld.rebuild();
+        resetDay();
         return game;
+    }
+
+    /**
+     * Every game starts at the same time of day under a clear sky. The game map takes its time and weather from the
+     * overworld.
+     */
+    private static void resetDay() {
+        MinecraftServer server = MinecraftServer.getServer();
+        for (WorldServer world : server.worldServers) {
+            world.setWorldTime(Config.startTime);
+        }
+        WorldInfo info = server.worldServerForDimension(0)
+            .getWorldInfo();
+        info.setRaining(false);
+        info.setThundering(false);
+        info.setRainTime(0);
+        info.setThunderTime(0);
+    }
+
+    /**
+     * Puts each player who is online and on no team on the team with the fewest players, so teams stay even. Returns
+     * how many were placed.
+     */
+    public static int autoAssign(Game game) {
+        List<EntityPlayerMP> players = new ArrayList<>();
+        for (Object object : MinecraftServer.getServer()
+            .getConfigurationManager().playerEntityList) {
+            EntityPlayerMP player = (EntityPlayerMP) object;
+            if (game.getTeamOf(player.getUniqueID()) == null) {
+                players.add(player);
+            }
+        }
+        Collections.shuffle(players);
+        int placed = 0;
+        for (EntityPlayerMP player : players) {
+            if (autoAssign(game, player) != null) {
+                placed++;
+            }
+        }
+        return placed;
+    }
+
+    /** Puts the player on the team with the fewest players; returns the team, or null if there are no teams. */
+    public static Team autoAssign(Game game, EntityPlayer player) {
+        Team smallest = game.getSmallestTeam();
+        if (smallest != null) {
+            game.setTeamOf(player.getUniqueID(), player.getCommandSenderName(), smallest);
+        }
+        return smallest;
     }
 
     public static Game endGame() {

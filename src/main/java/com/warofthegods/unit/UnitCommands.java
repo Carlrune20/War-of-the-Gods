@@ -30,6 +30,7 @@ import com.warofthegods.world.GameWorld;
  *   {type: "units.attack", units: [id...], building: id}  attack an enemy building
  *   {type: "units.build", units: [id...], building: id}  workers build a building site or work a farm or quarry
  *   {type: "units.gather", units: [id...], x, y, z}  workers chop the tree at or near that block
+ *   {type: "units.light", units: [id...], x1, z1, x2, z2}  workers put torches in the dark parts of that area
  *   {type: "units.stop", units: [id...]}        stop and guard where they stand
  * </pre>
  *
@@ -48,6 +49,7 @@ public final class UnitCommands {
         WebCommand.register("units.build", UnitCommands::build);
         WebCommand.register("units.stop", UnitCommands::stop);
         WebCommand.register("units.gather", UnitCommands::gather);
+        WebCommand.register("units.light", UnitCommands::light);
     }
 
     /** The viewer's team, or null after replying with why they cannot command units. */
@@ -203,6 +205,46 @@ public final class UnitCommands {
         reply.addProperty("x", tree[0]);
         reply.addProperty("y", tree[1]);
         reply.addProperty("z", tree[2]);
+        request.reply(reply);
+    }
+
+    private static void light(WebRequest request) {
+        Team team = commander(request);
+        if (team == null) {
+            return;
+        }
+        List<EntityUnit> units = ownUnits(request, team);
+        if (units == null) {
+            return;
+        }
+        Double x1 = doubleField(request.body, "x1");
+        Double z1 = doubleField(request.body, "z1");
+        Double x2 = doubleField(request.body, "x2");
+        Double z2 = doubleField(request.body, "z2");
+        if (x1 == null || z1 == null || x2 == null || z2 == null) {
+            request.replyError("Which area?");
+            return;
+        }
+        List<int[]> spots = Torches.plan(
+            GameWorld.getWorld(),
+            GameManager.getGame(),
+            (int) Math.floor(x1),
+            (int) Math.floor(z1),
+            (int) Math.floor(x2),
+            (int) Math.floor(z2));
+        if (spots.isEmpty()) {
+            request.replyError("That area is lit already");
+            return;
+        }
+        int sent = Units.get()
+            .orderLight(units, spots);
+        if (sent == 0) {
+            request.replyError("Only workers put up torches");
+            return;
+        }
+        JsonObject reply = WebJson.message("ok");
+        reply.addProperty("units", sent);
+        reply.addProperty("torches", spots.size());
         request.reply(reply);
     }
 

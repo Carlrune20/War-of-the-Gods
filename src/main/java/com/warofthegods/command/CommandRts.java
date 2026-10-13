@@ -36,6 +36,7 @@ import com.warofthegods.game.Tree;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.Upgrade;
 import com.warofthegods.unit.EntityUnit;
+import com.warofthegods.unit.Torches;
 import com.warofthegods.unit.Trees;
 import com.warofthegods.unit.Units;
 import com.warofthegods.web.Viewer;
@@ -66,10 +67,12 @@ public class CommandRts extends CommandBase {
         "upgrade",
         "research",
         "chop",
+        "light",
+        "explode",
         "finish",
         "web");
     private static final List<String> TEAM_SUBCOMMANDS = Arrays
-        .asList("list", "create", "remove", "color", "faction", "join", "leave", "base");
+        .asList("list", "create", "remove", "color", "faction", "join", "leave", "auto", "base");
     private static final List<String> UNIT_ACTIONS = Arrays.asList("spawn", "move", "stop", "kill");
     /** Units /rts units spawn makes at most at once. */
     private static final int MAX_SPAWN = 50;
@@ -157,6 +160,12 @@ public class CommandRts extends CommandBase {
             case "chop":
                 chop(sender, rest);
                 break;
+            case "light":
+                light(sender, rest);
+                break;
+            case "explode":
+                explode(sender, rest);
+                break;
             case "finish":
                 finish(sender, rest);
                 break;
@@ -202,6 +211,13 @@ public class CommandRts extends CommandBase {
         send(sender, "/rts upgrade <building id> - take a building up a level at once (op)");
         send(sender, "/rts research <team> <upgrade> - give a team an upgrade at once (op)");
         send(sender, "/rts chop <team> - send a team's idle workers to chop the tree nearest its town center (op)");
+        send(
+            sender,
+            "/rts light <team> [x1 z1 x2 z2] - send a team's idle workers to light up an area, or around their town"
+                + " center (op)");
+        send(
+            sender,
+            "/rts explode <building id> - set off a creeper-sized explosion beside a building that hurts no one (op)");
         send(sender, "/rts finish [team] - finish every building site at once (op)");
         send(sender, "/rts damage <building id> <amount> - take health off a building; at 0 it is gone (op)");
         send(sender, "/rts web - get a link to the live web map");
@@ -255,7 +271,28 @@ public class CommandRts extends CommandBase {
         broadcast(
             "Game #" + game
                 .getNumber() + " has started on a " + size + "x" + size + " map with " + teamCount + " teams.");
+        if (Config.autoAssignTeams) {
+            GameManager.autoAssign(game);
+            announceTeams(game);
+        }
         GameWorld.sendAllToGame(game);
+    }
+
+    /** Tells everyone who is on which team. */
+    private static void announceTeams(Game game) {
+        for (Team team : game.getTeams()) {
+            if (!team.getMembers()
+                .isEmpty()) {
+                broadcast(
+                    "Team " + team.getColoredName()
+                        + EnumChatFormatting.GOLD
+                        + ": "
+                        + String.join(
+                            ", ",
+                            team.getMembers()
+                                .values()));
+            }
+        }
     }
 
     /** A number is used as is; any other text is turned into a seed the way vanilla does for world seeds. */
@@ -291,7 +328,7 @@ public class CommandRts extends CommandBase {
 
     private void team(ICommandSender sender, String[] args) {
         if (args.length == 0) {
-            throw new WrongUsageException("/rts team <list|create|remove|color|faction|join|leave|base>");
+            throw new WrongUsageException("/rts team <list|create|remove|color|faction|join|leave|auto|base>");
         }
         Game game = requireGame();
         switch (args[0].toLowerCase()) {
@@ -365,6 +402,24 @@ public class CommandRts extends CommandBase {
                 broadcast(player.getCommandSenderName() + " left team " + team.getColoredName());
                 break;
             }
+            case "auto": {
+                requireOp(sender);
+                if (args.length > 1 && "all".equalsIgnoreCase(args[1])) {
+                    // Everyone online is dealt out afresh.
+                    for (Object object : MinecraftServer.getServer()
+                        .getConfigurationManager().playerEntityList) {
+                        game.removePlayer(((EntityPlayer) object).getUniqueID());
+                    }
+                }
+                int placed = GameManager.autoAssign(game);
+                send(
+                    sender,
+                    placed == 0 ? "Everyone online is on a team already" : "Put " + placed + " players on teams");
+                if (placed > 0) {
+                    announceTeams(game);
+                }
+                break;
+            }
             case "base": {
                 requireOp(sender);
                 requireArgs(args, 2, "/rts team base <team> [x z]");
@@ -392,7 +447,7 @@ public class CommandRts extends CommandBase {
                 break;
             }
             default:
-                throw new WrongUsageException("/rts team <list|create|remove|color|faction|join|leave|base>");
+                throw new WrongUsageException("/rts team <list|create|remove|color|faction|join|leave|auto|base>");
         }
     }
 
@@ -735,6 +790,90 @@ public class CommandRts extends CommandBase {
                 + " with "
                 + tracked.getWood()
                 + " wood");
+    }
+
+    private void light(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        Game game = requireGame();
+        requireArgs(args, 1, "/rts light <team> [x1 z1 x2 z2]");
+        Team team = requireTeam(game, args[0]);
+        int x1;
+        int z1;
+        int x2;
+        int z2;
+        if (args.length >= 5) {
+            x1 = MathHelper.floor_double(coordinate(sender, args[1], true));
+            z1 = MathHelper.floor_double(coordinate(sender, args[2], false));
+            x2 = MathHelper.floor_double(coordinate(sender, args[3], true));
+            z2 = MathHelper.floor_double(coordinate(sender, args[4], false));
+        } else {
+            Building hall = game.getTownHall(team);
+            if (hall == null) {
+                throw new CommandException("Team %s has no town center", team.getName());
+            }
+            x1 = hall.minX - 12;
+            z1 = hall.minZ - 12;
+            x2 = hall.getMaxX() + 12;
+            z2 = hall.getMaxZ() + 12;
+        }
+        List<int[]> spots = Torches.plan(GameWorld.getWorld(), game, x1, z1, x2, z2);
+        List<EntityUnit> idle = new ArrayList<>();
+        for (EntityUnit unit : Units.get()
+            .getUnits(team)) {
+            if (unit.isWorker() && unit.getOrder() == EntityUnit.Order.IDLE) {
+                idle.add(unit);
+            }
+        }
+        int sent = Units.get()
+            .orderLight(idle, spots);
+        send(
+            sender,
+            "Sent " + sent + " workers of " + team.getColoredName() + " to put up " + spots.size() + " torches");
+    }
+
+    /**
+     * Sets off an explosion as big as a creeper's two blocks off a building's side, then tells how much health it
+     * lost and how many of its blocks broke, which should be none.
+     */
+    private void explode(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        Game game = requireGame();
+        requireArgs(args, 1, "/rts explode <building id>");
+        Building building = game.getBuilding(parseIntBounded(sender, args[0], 1, Integer.MAX_VALUE));
+        if (building == null) {
+            throw new CommandException("There is no building #%s", args[0]);
+        }
+        WorldServer world = GameWorld.getWorld();
+        int before = solidBlocks(world, building);
+        int health = building.getHealth();
+        String name = building.describe(game);
+        Buildings.get()
+            .explodeHarmlessly(world, building.minX - 2.5, building.groundY + 1.5, building.getCenterZ(), 3);
+        int broken = before - solidBlocks(world, building);
+        send(
+            sender,
+            game.getBuilding(building.id) == null ? "The explosion destroyed " + name
+                : "The explosion took " + (health - building.getHealth())
+                    + " health off "
+                    + name
+                    + " and broke "
+                    + broken
+                    + " of its blocks");
+    }
+
+    /** Blocks that are not air on and around a building's footprint, above its ground. */
+    private static int solidBlocks(WorldServer world, Building building) {
+        int count = 0;
+        for (int x = building.minX - 1; x <= building.getMaxX() + 1; x++) {
+            for (int z = building.minZ - 1; z <= building.getMaxZ() + 1; z++) {
+                for (int y = building.groundY; y < building.groundY + 30; y++) {
+                    if (!world.isAirBlock(x, y, z)) {
+                        count++;
+                    }
+                }
+            }
+        }
+        return count;
     }
 
     /** An x or z coordinate; ~ means relative to the sender's position. */
@@ -1124,7 +1263,7 @@ public class CommandRts extends CommandBase {
     }
 
     /** Tells every player and the server console. */
-    private static void broadcast(String message) {
+    public static void broadcast(String message) {
         MinecraftServer server = MinecraftServer.getServer();
         String text = EnumChatFormatting.GOLD + message;
         for (Object player : server.getConfigurationManager().playerEntityList) {

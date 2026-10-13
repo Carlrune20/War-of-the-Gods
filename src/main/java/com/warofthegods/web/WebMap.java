@@ -509,6 +509,9 @@ public final class WebMap {
                     json.addProperty("chopping", true);
                 }
             }
+            if (unit.getTorchesLeft() > 0) {
+                json.addProperty("torches", unit.getTorchesLeft());
+            }
             if (unit.isWorker()) {
                 JsonObject carrying = new JsonObject();
                 for (Resource resource : Resource.values()) {

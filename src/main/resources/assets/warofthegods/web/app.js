@@ -526,6 +526,8 @@
     let lastClick = {time: 0, id: null};
     // A building being placed: {type, rotation, cx, cz} with the footprint centred on cx, cz under the pointer.
     let placing = null;
+    // Workers waiting for the two corners of an area to put torches in: {corner: null, or the first [x, y, z]}.
+    let lighting = null;
 
     function costText(cost) {
         cost = cost || {};
@@ -633,6 +635,10 @@
             actions.append(el("span", "note", "Place " + type.name.toLowerCase() + ": click to place, R to rotate"));
             actions.append(button("Rotate", "Turn it a quarter round (R)", () => rotatePlacing()));
             actions.append(button("Cancel", "Esc or right-click", () => stopPlacing()));
+        } else if (lighting) {
+            actions.append(el("span", "note", lighting.corner ? "Torches: now click the opposite corner"
+                : "Torches: click one corner of the area to light"));
+            actions.append(button("Cancel", "Esc or right-click", () => stopLighting()));
         } else if (building) {
             renderBuildingActions(actions, team, building);
         } else if (selectedWorkers().length) {
@@ -645,6 +651,8 @@
                 b.disabled = !canAfford(team, type.cost);
                 actions.append(b);
             }
+            actions.append(button("Torches", "Light up an area so no mobs spawn there: click two corners."
+                + " Each torch costs wood", () => startLighting()));
         } else {
             const hall = townHallOf(team.id);
             if (hall) {
@@ -798,6 +806,42 @@
         });
     }
 
+    // ---------------------------------------------------------------- lighting areas
+
+    function startLighting() {
+        placing = null;
+        lighting = {corner: null};
+        renderUnitBar();
+    }
+
+    function stopLighting() {
+        lighting = null;
+        renderUnitBar();
+    }
+
+    // The first click picks one corner of the area to light; the second the other, and the workers go.
+    function pickLightCorner(px, py) {
+        const ground = groundUnder(px, py);
+        if (!ground) {
+            return;
+        }
+        if (!lighting.corner) {
+            lighting.corner = ground;
+            renderUnitBar();
+            return;
+        }
+        const [x1, , z1] = lighting.corner;
+        const [x2, y2, z2] = ground;
+        stopLighting();
+        orderMark = {x: (x1 + x2) / 2, y: y2, z: (z1 + z2) / 2, color: [1, 0.85, 0.3, 1], time: performance.now()};
+        send("units.light", {units: selectedWorkers(), x1, z1, x2, z2}).then((reply) => {
+            if (reply) {
+                showToast("Putting up " + reply.torches + (reply.torches === 1 ? " torch" : " torches"), false);
+            }
+        });
+        view.dirty = true;
+    }
+
     // ---------------------------------------------------------------- placing buildings
     //
     // RTS style: pick a building from the bar with workers selected, and a see-through copy of it follows the
@@ -805,6 +849,7 @@
     // a click places it and sends the selected workers, shift-click places more; right-click or Esc cancels.
 
     function startPlacing(type) {
+        lighting = null;
         placing = {type, rotation: placing ? placing.rotation : 0, cx: null, cz: null};
         renderUnitBar();
         view.dirty = true;
@@ -922,6 +967,9 @@
         }
         if (placing && !selectedWorkers().length) {
             placing = null;
+        }
+        if (lighting && !selectedWorkers().length) {
+            lighting = null;
         }
         renderUnitBar();
         view.dirty = true;
@@ -1042,6 +1090,14 @@
                 stopPlacing();
             } else if (button === 0) {
                 place(px, py, shift);
+            }
+            return;
+        }
+        if (lighting) {
+            if (button === 2) {
+                stopLighting();
+            } else if (button === 0) {
+                pickLightCorner(px, py);
             }
             return;
         }
@@ -1233,7 +1289,7 @@
         };
         if (!pointers.size) {
             multiTouch = false;
-            point.box = event.button === 0 && (event.shiftKey || boxMode) && Boolean(myTeam()) && !placing;
+            point.box = event.button === 0 && (event.shiftKey || boxMode) && Boolean(myTeam()) && !placing && !lighting;
         }
         pointers.set(event.pointerId, point);
         canvas.classList.add("dragging");
@@ -1377,6 +1433,8 @@
                     return "taking " + amountsText(u.carrying || {}) + " to store";
                 }
                 return u.chopping ? "chopping a tree" : "on the way to a tree";
+            case "light":
+                return "putting up torches, " + (u.torches || 0) + " to go";
             default:
                 return u.kind === "worker" ? "idle" : "on guard";
         }
@@ -1399,6 +1457,10 @@
     function hint(px, py) {
         if (!state.game || placing) {
             return null;
+        }
+        if (lighting) {
+            return {icon: "\uD83D\uDD25", text: lighting.corner ? "Click the opposite corner"
+                : "Click one corner of the area to light", action: "act"};
         }
         const team = myTeam();
         const selected = [...state.selected].map((id) => state.units.get(id)).filter(Boolean);
@@ -1529,6 +1591,8 @@
             rotatePlacing();
         } else if (key === "escape" && placing) {
             stopPlacing();
+        } else if (key === "escape" && lighting) {
+            stopLighting();
         } else if (key === "escape" && (state.selected.size || state.selectedBuilding !== null)) {
             state.selected.clear();
             state.selectedBuilding = null;

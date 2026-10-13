@@ -124,6 +124,8 @@ public final class RtsState {
         /** The foot of the tree it chops, or null. */
         public int[] tree;
         public boolean chopping;
+        /** Torches a worker still has to put up. */
+        public int torches;
 
         public boolean isWorker() {
             return "worker".equals(kind);
@@ -369,6 +371,8 @@ public final class RtsState {
                 }
             }
             info.chopping = bool(unit, "chopping");
+            info.torches = unit.has("torches") ? unit.get("torches")
+                .getAsInt() : 0;
             units.put(info.id, info);
             byEntityId.put(info.eid, info);
         }
