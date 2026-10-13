@@ -1,8 +1,12 @@
 package com.warofthegods.client.rts;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -98,6 +102,10 @@ public final class RtsClient {
     public final Set<String> selected = new LinkedHashSet<>();
     /** Id of the viewer's building whose controls the bar shows, or 0. */
     public int selectedBuilding;
+    /** Ids of every selected building, selectedBuilding among them. */
+    public final Set<Integer> selectedBuildings = new LinkedHashSet<>();
+    /** Id of the shooting building under the mouse, whose range shows, or 0. */
+    public int hoverBuilding;
     /** Whether workers wait for two corners of an area to light up with torches. */
     public boolean lighting;
     /** The first corner of that area, x, y, z, once clicked; null before. */
@@ -209,7 +217,7 @@ public final class RtsClient {
             case "game":
                 state.setGame(message.get("game"));
                 selected.clear();
-                selectedBuilding = 0;
+                selectBuildings(new ArrayList<>(), 0);
                 placing = null;
                 break;
             case "state":
@@ -236,9 +244,15 @@ public final class RtsClient {
             RtsState.UnitInfo unit = state.units.get(id);
             return unit == null || team == null || !unit.team.equals(team.id);
         });
-        RtsState.BuildingInfo building = state.buildings.get(selectedBuilding);
-        if (building == null || team == null || !building.team.equals(team.id)) {
-            selectedBuilding = 0;
+        List<Integer> kept = new ArrayList<>();
+        for (int id : selectedBuildings) {
+            RtsState.BuildingInfo building = state.buildings.get(id);
+            if (building != null && team != null && building.team.equals(team.id)) {
+                kept.add(id);
+            }
+        }
+        if (kept.size() != selectedBuildings.size()) {
+            selectBuildings(kept, selectedBuilding);
         }
         if (placing != null && selectedWorkers().isEmpty()) {
             placing = null;
@@ -629,14 +643,36 @@ public final class RtsClient {
     }
 
     public void selectBuilding(int id) {
-        selectedBuilding = id;
+        selectBuildings(Collections.singletonList(id), id);
         selected.clear();
     }
 
-    /** After the selection changed: units and a building are not selected together. */
+    /** Selects these buildings; the bar shows the controls of primary if it is among them, else of the first. */
+    public void selectBuildings(Collection<Integer> ids, int primary) {
+        selectedBuildings.clear();
+        selectedBuildings.addAll(ids);
+        selectedBuilding = selectedBuildings.contains(primary) ? primary
+            : selectedBuildings.isEmpty() ? 0
+                : selectedBuildings.iterator()
+                    .next();
+    }
+
+    /** The selected buildings that still stand. */
+    public List<RtsState.BuildingInfo> selectedBuildingList() {
+        List<RtsState.BuildingInfo> buildings = new ArrayList<>();
+        for (int id : selectedBuildings) {
+            RtsState.BuildingInfo building = state.buildings.get(id);
+            if (building != null) {
+                buildings.add(building);
+            }
+        }
+        return buildings;
+    }
+
+    /** After the selection changed: units and buildings are not selected together. */
     public void changedSelection() {
         if (!selected.isEmpty()) {
-            selectedBuilding = 0;
+            selectBuildings(Collections.emptyList(), 0);
         }
         if (placing != null && selectedWorkers().isEmpty()) {
             placing = null;

@@ -539,12 +539,15 @@ public final class Buildings {
     public static long[] harvestOf(Game game, Building workplace) {
         long[] yield = workplace.type.yield(workplace.getLevel());
         Team team = game.getTeam(workplace.team);
-        boolean better = team != null && (workplace.type == BuildingType.FARM ? team.has(Upgrade.PLOUGHS)
-            : workplace.type == BuildingType.QUARRY && team.has(Upgrade.PICKAXES));
-        if (better) {
-            for (int i = 0; i < yield.length; i++) {
-                yield[i] = yield[i] * 3 / 2;
-            }
+        // Iron tools yield half again as much, diamond ones twice as much.
+        int halves = 2;
+        if (team != null && workplace.type == BuildingType.FARM) {
+            halves = team.has(Upgrade.DIAMOND_HOES) ? 4 : team.has(Upgrade.PLOUGHS) ? 3 : 2;
+        } else if (team != null && workplace.type == BuildingType.QUARRY) {
+            halves = team.has(Upgrade.DIAMOND_PICKAXES) ? 4 : team.has(Upgrade.PICKAXES) ? 3 : 2;
+        }
+        for (int i = 0; i < yield.length; i++) {
+            yield[i] = yield[i] * halves / 2;
         }
         return yield;
     }
@@ -633,6 +636,10 @@ public final class Buildings {
         if (team == null || game.getAge(team) < upgrade.level) {
             return "Your town has to reach " + BuildingType.ageName(upgrade.level) + " first";
         }
+        Upgrade first = upgrade.requires();
+        if (first != null && !team.has(first)) {
+            return "Research " + first.displayName.toLowerCase() + " first";
+        }
         return null;
     }
 
@@ -694,7 +701,7 @@ public final class Buildings {
             if (team == null) {
                 continue;
             }
-            int range = building.type.range(building.getLevel()) + (team.has(Upgrade.FLETCHING) ? 4 : 0);
+            int range = rangeOf(team, building);
             double y = building.groundY + shootHeight(building);
             EntityLivingBase target = Units.get()
                 .findEnemyNear(world, team, building.getCenterX(), y, building.getCenterZ(), range);
@@ -717,6 +724,12 @@ public final class Buildings {
             arrow.aim(target, Config.towerDamage + (team.has(Upgrade.FLETCHING) ? 1 : 0));
             world.spawnEntityInWorld(arrow);
         }
+    }
+
+    /** How far a building shoots, with its team's upgrades; 0 for one that does not shoot. */
+    public static int rangeOf(Team team, Building building) {
+        int range = building.type.range(building.getLevel());
+        return range > 0 && team != null && team.has(Upgrade.FLETCHING) ? range + 4 : range;
     }
 
     /** Blocks above the ground a building shoots from: a tower's deck, the town center's upper windows. */

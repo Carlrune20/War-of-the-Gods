@@ -277,7 +277,7 @@ sleep 1
 grep -q "Blue house (level 2) #6 at .*health 300/300" "$WEB_LOG" || web_fail "the house did not follow into Age II as it was"
 echo "ok: the town followed its town center into Age II"
 echo "rts research blue forged_blades" >&3
-wait_for_log "Team Blue has forged blades" 30
+wait_for_log "Team Blue has iron swords" 30
 echo "rts research blue fortified_walls" >&3
 wait_for_log "Team Blue has fortified walls" 30
 echo "rts buildings blue" >&3

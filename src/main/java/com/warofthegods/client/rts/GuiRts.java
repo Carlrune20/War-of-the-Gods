@@ -2,6 +2,7 @@ package com.warofthegods.client.rts;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -83,6 +84,8 @@ public final class GuiRts extends GuiScreen {
     private Widget pressedWidget;
     private long lastClickTime;
     private String lastClickId;
+    /** Number of the idle worker the idle button last went to. */
+    private int lastIdle;
     private int mouseX = -1;
     private int mouseY = -1;
     /** The y of the bar's top row, for what goes just above it. */
@@ -292,7 +295,7 @@ public final class GuiRts extends GuiScreen {
                 client.stopLighting();
             } else if (!client.selected.isEmpty() || client.selectedBuilding != 0) {
                 client.selected.clear();
-                client.selectedBuilding = 0;
+                client.selectBuildings(new ArrayList<>(), 0);
                 client.changedSelection();
             } else {
                 client.leave();
@@ -540,10 +543,27 @@ public final class GuiRts extends GuiScreen {
         }
         RtsState.BuildingInfo building = hit == null ? buildingAt(px, py) : null;
         if (building != null && building.team.equals(team.id)) {
-            client.selectBuilding(building.id);
+            String key = "building " + building.id;
+            long now = System.currentTimeMillis();
+            if (key.equals(lastClickId) && now - lastClickTime < 400) {
+                // A double click picks every building of that kind in view.
+                selectBuildingsIn(0, 0, mc.displayWidth, mc.displayHeight, building);
+            } else if (shift) {
+                List<Integer> ids = new ArrayList<>(client.selectedBuildings);
+                if (!ids.remove((Integer) building.id)) {
+                    ids.add(building.id);
+                }
+                client.selectBuildings(ids, client.selectedBuilding);
+                client.selected.clear();
+                client.changedSelection();
+            } else {
+                client.selectBuilding(building.id);
+            }
+            lastClickId = key;
+            lastClickTime = now;
         } else if (!shift && (!client.selected.isEmpty() || client.selectedBuilding != 0)) {
             client.selected.clear();
-            client.selectedBuilding = 0;
+            client.selectBuildings(new ArrayList<>(), 0);
             client.changedSelection();
         }
     }
@@ -711,7 +731,130 @@ public final class GuiRts extends GuiScreen {
                 client.selected.add(unit.id);
             }
         }
+        // With no units in it, the box picks the viewer's buildings in it instead.
+        if (client.selected.isEmpty() && selectBuildingsIn(left, top, right, bottom, null)) {
+            return;
+        }
         client.changedSelection();
+    }
+
+    /**
+     * Selects the viewer's buildings drawn inside a screen rectangle, only those of like's kind if like is given,
+     * like itself among them. Returns whether it found any.
+     */
+    private boolean selectBuildingsIn(int left, int top, int right, int bottom, RtsState.BuildingInfo like) {
+        RtsState.TeamInfo team = state().myTeam();
+        if (team == null) {
+            return false;
+        }
+        List<Integer> ids = new ArrayList<>();
+        if (like != null) {
+            ids.add(like.id);
+        }
+        for (RtsState.BuildingInfo b : state().buildings.values()) {
+            if (!b.team.equals(team.id) || ids.contains(b.id)
+                || like != null && (!like.type.equals(b.type) || !b.complete)) {
+                continue;
+            }
+            double[] p = project(b.x + b.sizeX / 2.0, b.y + 1, b.z + b.sizeZ / 2.0);
+            if (p != null && p[0] >= left && p[0] <= right && p[1] >= top && p[1] <= bottom) {
+                ids.add(b.id);
+            }
+        }
+        if (ids.isEmpty()) {
+            return false;
+        }
+        client.selectBuildings(ids, like != null ? like.id : client.selectedBuilding);
+        client.selected.clear();
+        return true;
+    }
+
+    /** The viewer's workers with nothing to do, by number. */
+    private List<RtsState.UnitInfo> idleWorkers() {
+        List<RtsState.UnitInfo> idle = new ArrayList<>();
+        for (RtsState.UnitInfo unit : state().units.values()) {
+            if (state().isMine(unit) && unit.isWorker() && "idle".equals(doingText(unit))) {
+                idle.add(unit);
+            }
+        }
+        idle.sort((a, b) -> Integer.compare(a.number, b.number));
+        return idle;
+    }
+
+    /** Selects and goes to the next idle worker, or with all every idle worker. */
+    private void selectIdleWorkers(boolean all) {
+        List<RtsState.UnitInfo> idle = idleWorkers();
+        if (idle.isEmpty()) {
+            return;
+        }
+        RtsState.UnitInfo next = idle.get(0);
+        for (RtsState.UnitInfo unit : idle) {
+            if (unit.number > lastIdle) {
+                next = unit;
+                break;
+            }
+        }
+        client.selected.clear();
+        if (all) {
+            for (RtsState.UnitInfo unit : idle) {
+                client.selected.add(unit.id);
+            }
+        } else {
+            client.selected.add(next.id);
+        }
+        lastIdle = next.number;
+        client.focusOn(next.x, next.z);
+        client.changedSelection();
+    }
+
+    /** Narrows the selection by kind: keeps only that kind, or with drop set, every other kind. */
+    private void filterSelection(String kind, boolean drop) {
+        client.selected.removeIf(id -> {
+            RtsState.UnitInfo unit = state().units.get(id);
+            return unit == null || kind.equals(unit.kind) == drop;
+        });
+        client.changedSelection();
+    }
+
+    /**
+     * Queues count units of a kind over the buildings, each going to whichever has the shortest queue then, and
+     * says how many it queued.
+     */
+    private void trainSpread(List<RtsState.BuildingInfo> buildings, String kindId, String kindName, int count) {
+        Map<Integer, Integer> queued = new LinkedHashMap<>();
+        for (RtsState.BuildingInfo b : buildings) {
+            queued.put(b.id, b.queue.size());
+        }
+        Map<Integer, Integer> plan = new LinkedHashMap<>();
+        for (int i = 0; i < count; i++) {
+            Integer best = null;
+            for (Map.Entry<Integer, Integer> entry : queued.entrySet()) {
+                if (entry.getValue() < 10 && (best == null || entry.getValue() < queued.get(best))) {
+                    best = entry.getKey();
+                }
+            }
+            if (best == null) {
+                break;
+            }
+            queued.put(best, queued.get(best) + 1);
+            plan.merge(best, 1, Integer::sum);
+        }
+        int[] total = { 0 };
+        for (Map.Entry<Integer, Integer> entry : plan.entrySet()) {
+            JsonObject body = new JsonObject();
+            body.addProperty("building", entry.getKey());
+            body.addProperty("unit", kindId);
+            body.addProperty("count", entry.getValue());
+            int places = plan.size();
+            client.command("buildings.train", body, reply -> {
+                total[0] += reply.has("count") ? reply.get("count")
+                    .getAsInt() : 1;
+                client.showToast(
+                    (total[0] == 1 ? "Training a " + kindName : "Training " + total[0] + " " + kindName + "s")
+                        + (places > 1 ? " at " + places + " buildings" : ""),
+                    false);
+            });
+        }
     }
 
     private void movePlacing(int px, int py) {
@@ -1063,6 +1206,7 @@ public final class GuiRts extends GuiScreen {
     private void drawTips() {
         int gx = guiX(mouseX);
         int gy = guiY(mouseY);
+        client.hoverBuilding = 0;
         for (Widget widget : widgets) {
             if (widget.tip != null && widget.contains(gx, gy)) {
                 drawTip(null, widget.tip, gx, gy, 0xFFFFFF);
@@ -1071,6 +1215,11 @@ public final class GuiRts extends GuiScreen {
         }
         if (overPanel(gx, gy) || downButton >= 0) {
             return;
+        }
+        // A tower under the mouse shows how far it shoots.
+        RtsState.BuildingInfo over = client.placing == null ? buildingAt(mouseX, mouseY) : null;
+        if (over != null && over.range > 0) {
+            client.hoverBuilding = over.id;
         }
         Object[] hint = hint(mouseX, mouseY);
         if (hint != null) {
@@ -1114,7 +1263,7 @@ public final class GuiRts extends GuiScreen {
             RtsState.TeamInfo team = state.teamsById.get(b.team);
             boolean hurt = b.complete && b.health < b.maxHealth;
             if (type == null || team == null
-                || (!"town_hall".equals(b.type) && b.id != client.selectedBuilding
+                || (!"town_hall".equals(b.type) && !client.selectedBuildings.contains(b.id)
                     && b.complete
                     && b.queue.isEmpty()
                     && b.research == null
@@ -1356,16 +1505,50 @@ public final class GuiRts extends GuiScreen {
             fighterActions(actions);
         }
         int count = client.selected.size();
-        int workers = client.selectedWorkers()
-            .size();
-        String info = team.units > 0 ? "None selected" : "No units yet";
-        if (count > 0) {
-            info = count + " selected"
-                + (workers == count ? (count == 1 ? ", a worker" : ", all workers")
-                    : workers > 0 ? ", " + workers + " workers" : "");
-        }
         List<Widget> controls = new ArrayList<>();
-        controls.add(label(info, 0xFFFFFF));
+        int idle = idleWorkers().size();
+        if (idle > 0) {
+            Widget idleButton = button(
+                idle + " idle",
+                "Go to the next idle worker; shift-click selects every idle worker",
+                this::selectIdleWorkers,
+                true);
+            idleButton.color = 0xFFD76A;
+            controls.add(withIcon(idleButton, "worker"));
+        }
+        if (count > 0) {
+            // How many of each kind are selected; clicking one narrows the selection, as in Age of Mythology.
+            Map<String, Integer> kinds = new LinkedHashMap<>();
+            for (String id : client.selected) {
+                RtsState.UnitInfo unit = state.units.get(id);
+                if (unit != null) {
+                    kinds.merge(unit.kind, 1, Integer::sum);
+                }
+            }
+            for (Map.Entry<String, Integer> entry : kinds.entrySet()) {
+                String kind = entry.getKey();
+                RtsState.UnitKindInfo info = state.unitKind(kind);
+                String name = info != null ? info.name.toLowerCase() + "s" : kind;
+                boolean mixed = kinds.size() > 1;
+                controls.add(
+                    withIcon(
+                        button(
+                            String.valueOf(entry.getValue()),
+                            mixed ? "Click or ctrl-click: keep only the " + name + "; shift-click: drop the " + name
+                                : entry.getValue() + " " + name,
+                            shift -> {
+                                if (mixed) {
+                                    filterSelection(kind, shift);
+                                }
+                            },
+                            true),
+                        kind));
+            }
+        } else if (building != null && client.selectedBuildings.size() > 1) {
+            controls.add(label(client.selectedBuildings.size() + " buildings selected", 0xFFFFFF));
+        } else {
+            controls.add(label(team.units > 0 ? "None selected" : "No units yet", 0xFFFFFF));
+        }
         controls.add(button("All", "Select all your units", shift -> {
             client.selected.clear();
             for (RtsState.UnitInfo unit : state.units.values()) {
@@ -1382,7 +1565,7 @@ public final class GuiRts extends GuiScreen {
         }, count > 0));
         controls.add(button("Clear", "Deselect (Esc)", shift -> {
             client.selected.clear();
-            client.selectedBuilding = 0;
+            client.selectBuildings(new ArrayList<>(), 0);
             client.changedSelection();
         }, count > 0 || building != null));
         controls.add(button("Leave (V)", "Back to playing in person", shift -> client.leave(), true));
@@ -1470,20 +1653,39 @@ public final class GuiRts extends GuiScreen {
             actions.add(label(note, 0xC8C8C8));
             return;
         }
+        int alike = 0;
+        for (RtsState.BuildingInfo other : client.selectedBuildingList()) {
+            if (other.type.equals(building.type)) {
+                alike++;
+            }
+        }
         actions.add(
             withIcon(
-                label(type.name + (building.level > 1 ? " " + roman(building.level) : ""), 0xFFFFFF),
+                label(
+                    type.name + (building.level > 1 ? " " + roman(building.level) : "")
+                        + (alike > 1 ? " \u00D7" + alike : ""),
+                    0xFFFFFF),
                 building.type));
         actions.add(label("Health " + building.health + "/" + building.maxHealth, 0xC8C8C8));
         if (type.workers > 0) {
             actions.add(label(building.workers + " of " + type.workers + " workers", 0xC8C8C8));
         }
         boolean full = state.teamUnitCount(team) >= team.population;
-        // Each click queues one more (shift-click five), up to ten waiting; training goes on one at a time.
+        // Each click queues one more (shift-click five), up to ten waiting; training goes on one at a time. With
+        // several buildings selected it is shared out among those that train that kind.
         for (String kindId : type.trains) {
             RtsState.UnitKindInfo kind = state.unitKind(kindId);
             if (kind == null) {
                 continue;
+            }
+            List<RtsState.BuildingInfo> trainers = new ArrayList<>();
+            boolean room = false;
+            for (RtsState.BuildingInfo other : client.selectedBuildingList()) {
+                RtsState.BuildingTypeInfo otherType = state.buildingType(other.type);
+                if (other.complete && otherType != null && otherType.trains.contains(kindId)) {
+                    trainers.add(other);
+                    room |= other.queue.size() < 10;
+                }
             }
             actions.add(
                 withIcon(
@@ -1491,22 +1693,12 @@ public final class GuiRts extends GuiScreen {
                         kind.name + " (" + RtsState.costText(kind.cost) + ")",
                         full ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
                             : "Your team has the most units it can have")
-                            : "Train a " + kind.name.toLowerCase() + "; shift-click for 5",
-                        shift -> {
-                            JsonObject body = new JsonObject();
-                            body.addProperty("building", building.id);
-                            body.addProperty("unit", kindId);
-                            body.addProperty("count", shift ? 5 : 1);
-                            client.command("buildings.train", body, reply -> {
-                                int queued = reply.has("count") ? reply.get("count")
-                                    .getAsInt() : 1;
-                                client.showToast(
-                                    queued == 1 ? "Training a " + kind.name.toLowerCase()
-                                        : "Training " + queued + " " + kind.name.toLowerCase() + "s",
-                                    false);
-                            });
-                        },
-                        !full && RtsState.canAfford(team, kind.cost) && building.queue.size() < 10),
+                            : "Train a " + kind.name.toLowerCase()
+                                + "; shift-click for 5"
+                                + (trainers.size() > 1 ? ", shared out over the " + trainers.size() + " selected"
+                                    : ""),
+                        shift -> trainSpread(trainers, kindId, kind.name.toLowerCase(), shift ? 5 : 1),
+                        !full && RtsState.canAfford(team, kind.cost) && room),
                     kindId));
         }
         if (!building.queue.isEmpty()) {
@@ -1543,7 +1735,9 @@ public final class GuiRts extends GuiScreen {
         }
         for (String upgradeId : type.researches) {
             RtsState.UpgradeInfo upgrade = state.upgrade(upgradeId);
-            if (upgrade == null || team.upgrades.contains(upgradeId)) {
+            // Ones that need another upgrade first only show up once the team has it.
+            if (upgrade == null || team.upgrades.contains(upgradeId)
+                || !upgrade.requires.isEmpty() && !team.upgrades.contains(upgrade.requires)) {
                 continue;
             }
             boolean busy = state.isResearching(team, upgradeId);
@@ -1669,7 +1863,8 @@ public final class GuiRts extends GuiScreen {
         if (widget.icon != null) {
             drawIcon(widget.icon, widget.x + 3, widget.y + 1, 12);
         }
-        fontRendererObj.drawStringWithShadow(widget.text, textX, widget.y + 3, widget.enabled ? 0xFFFFFF : 0x808080);
+        fontRendererObj
+            .drawStringWithShadow(widget.text, textX, widget.y + 3, widget.enabled ? widget.color & 0xFFFFFF : 0x808080);
     }
 
     private void drawOutline(int x0, int y0, int x1, int y1, int color) {

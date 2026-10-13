@@ -15,6 +15,7 @@ public final class RtsWorldRenderer {
 
     private static final float[] SELECTED = { 0.45F, 1, 0.5F };
     private static final float[] ATTACK = { 1, 0.3F, 0.25F };
+    private static final float[] RANGE = { 1, 0.85F, 0.35F };
     private static final float[] BORDER = { 1, 0.32F, 0.24F };
 
     private final RtsClient client;
@@ -76,9 +77,13 @@ public final class RtsWorldRenderer {
         tessellator.startDrawing(GL11.GL_LINES);
         for (RtsState.BuildingInfo b : state.buildings.values()) {
             RtsState.TeamInfo team = state.teamsById.get(b.team);
-            float[] color = b.id == client.selectedBuilding ? SELECTED
-                : team == null ? new float[] { 0.8F, 0.8F, 0.8F } : rgb(team.color);
+            boolean chosen = client.selectedBuildings.contains(b.id);
+            float[] color = chosen ? SELECTED : team == null ? new float[] { 0.8F, 0.8F, 0.8F } : rgb(team.color);
             rect(b.x - 0.5, b.z - 0.5, b.x + b.sizeX + 0.5, b.z + b.sizeZ + 0.5, b.y + 1.1, color, alpha);
+            // How far towers shoot, for the ones selected and the one under the mouse.
+            if (b.range > 0 && (chosen || b.id == client.hoverBuilding)) {
+                rangeRing(b.x + b.sizeX / 2.0, b.z + b.sizeZ / 2.0, b.range, alpha);
+            }
         }
         RtsClient.Footprint spot = client.footprint();
         if (spot != null) {
@@ -213,6 +218,24 @@ public final class RtsWorldRenderer {
         line(x1, y, z0, x1, y, z1, color, alpha);
         line(x1, y, z1, x0, y, z1, color, alpha);
         line(x0, y, z1, x0, y, z0, color, alpha);
+    }
+
+    /** A ring along the ground around x, z, rising and falling with it. */
+    private void rangeRing(double x, double z, double radius, float alpha) {
+        int segments = 72;
+        double lastX = x + radius;
+        double lastZ = z;
+        double lastY = client.groundHeight(lastX, lastZ) + 0.15;
+        for (int i = 1; i <= segments; i++) {
+            double a = 2 * Math.PI * i / segments;
+            double nextX = x + Math.cos(a) * radius;
+            double nextZ = z + Math.sin(a) * radius;
+            double nextY = client.groundHeight(nextX, nextZ) + 0.15;
+            line(lastX, lastY, lastZ, nextX, nextY, nextZ, RANGE, alpha);
+            lastX = nextX;
+            lastY = nextY;
+            lastZ = nextZ;
+        }
     }
 
     private void ring(double x, double y, double z, double radius, float[] color, float alpha) {

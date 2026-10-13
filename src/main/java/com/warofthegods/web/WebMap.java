@@ -297,6 +297,9 @@ public final class WebMap {
             upgradeJson.addProperty("description", upgrade.description);
             upgradeJson.addProperty("at", upgrade.at.id);
             upgradeJson.addProperty("level", upgrade.level);
+            if (upgrade.requires() != null) {
+                upgradeJson.addProperty("requires", upgrade.requires().id);
+            }
             upgradeJson.add("cost", costJson(upgrade.cost()));
             upgradeJson.addProperty("seconds", upgrade.seconds);
             upgrades.add(upgrade.id, upgradeJson);
@@ -442,6 +445,10 @@ public final class WebMap {
             json.addProperty("health", building.getHealth());
             json.addProperty("maxHealth", building.getMaxHealth());
             json.addProperty("level", building.getLevel());
+            int range = building.isComplete() ? Buildings.rangeOf(game.getTeam(building.team), building) : 0;
+            if (range > 0) {
+                json.addProperty("range", range);
+            }
             if (building.getResearch() != null) {
                 json.addProperty("research", building.getResearch());
                 json.addProperty(

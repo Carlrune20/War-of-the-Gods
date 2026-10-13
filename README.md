@@ -112,10 +112,11 @@ is built, and the finished building stands once the site is done; more workers b
 | Warrior | 50 Food, 20 Wood | Fights up close with a sword |
 | Archer | 40 Food, 40 Wood | Shoots arrows from up to 14 blocks |
 
-Units walk as fast as a player. Warriors carry a stone sword in Age I, iron in Age II and diamond in Age III, which
-only changes how it looks; workers hold the tool for their job, a hoe at a farm, a pickaxe at a quarry, an axe for
-building and chopping and a sword for hunting, of stone, iron or diamond in the same way, and swing it as they work.
-They hold what they carry only on the way to a store.
+Units walk as fast as a player. Warriors carry stone swords until the armory researches iron and then diamond ones,
+and always wear boots: leather, chainmail with padded armor and iron with plate. Workers hold the tool for their job,
+a hoe at a farm, a pickaxe at a quarry, an axe for building and chopping and a sword for hunting, and swing it as they
+work. Their tools are stone until the storehouse researches iron ones, and diamond after that in Age III. They hold
+what they carry only on the way to a store.
 
 Archers draw their bow as a player does, a second for a full draw, and loose arrows as fast and deadly as a player's
 fully drawn bow, trailing crit sparks: 6 damage before upgrades, and up to half again on a crit. Ordered to attack,
@@ -129,8 +130,8 @@ carve food off the carcass, 6 every 3 seconds, and carry it home 20 at a time, c
 gives 300 food, a pig 250, a sheep 200 and a chicken 100. Then they go after the nearest animal around. Animals
 warriors and archers kill leave carcasses too. Carcasses are not kept when the server restarts.
 
-Wood comes from trees. Select workers and right-click a tree to chop it: a tree holds 25 wood per log, between 100
-and 200, and a bar over it shows how much is left as cracks spread up its trunk. When it is chopped out it falls, and
+Wood comes from trees. Select workers and right-click a tree to chop it from as far as a player reaches, or from
+anywhere in among its leaves: a tree holds 25 wood per log, between 100 and 200, and a bar over it shows how much is left as cracks spread up its trunk. When it is chopped out it falls, and
 the workers go on to the nearest tree around. A worker carries up to 20 and then walks it to the nearest town center
 or storehouse, where it goes to the team, and walks back to work. A worker that built a farm or quarry stays to work it. Training takes 5 seconds per unit, one at a time per
 building.
@@ -141,17 +142,21 @@ of the team takes on the new age's look with it, at once, and buildings put up l
 about them changes. In Age II the town center houses 5 more units and starts shooting, and the second row of upgrades
 opens up. Armories and towers need Age II. For more health, research fortified walls at the town center.
 
+An upgrade that needs another one first only shows up once the team has that one.
+
 | Upgrade | At | Does |
 |---|---|---|
-| Forged blades | Armory | Warriors hit 2 harder |
+| Iron swords | Armory | Warriors carry iron swords and hit 2 harder |
+| Diamond swords | Armory, Age III, after iron swords | Warriors carry diamond swords and hit 2 harder again |
 | Fletching | Armory | Archers and towers shoot 1 harder and 4 farther |
+| Fire arrows | Armory, Age II, after fletching | Archers' arrows set what they hit on fire for a few seconds |
 | Padded armor | Armory | Warriors and archers have 6 more health, and wear chainmail |
-| Tempered steel | Armory, Age II | Warriors hit 2 harder again |
-| Plate armor | Armory, Age II | Warriors and archers have 8 more health, and wear iron |
+| Plate armor | Armory, Age II, after padded armor | Warriors and archers have 8 more health, and wear iron |
 | Bigger baskets | Storehouse | Workers carry 10 more |
-| Sharp axes | Storehouse | Workers chop half again as fast |
-| Ploughs | Storehouse | Farms yield half again as much |
-| Iron pickaxes | Storehouse, Age II | Quarries yield half again as much |
+| Iron axes | Storehouse | Workers chop half again as fast |
+| Iron pickaxes | Storehouse | Quarries yield half again as much |
+| Iron hoes | Storehouse | Farms yield half again as much |
+| Diamond axes / pickaxes / hoes | Storehouse, Age III, after the iron one | Twice as fast or as much as with stone tools |
 | Masonry | Storehouse, Age II | Buildings have a fifth more health |
 | Fortified walls | Town center, Age II, for 150 Wood and 150 Gold | Buildings have half again as much health |
 
@@ -228,8 +233,12 @@ Commanding units, from the bar at the bottom of the page:
 | Right-click a tree | Send the selected workers to chop it |
 | Torches | With workers selected: click two corners of an area for them to light up against mobs |
 | Click one of your units | Select it; shift-click adds or removes it |
-| Shift-drag, or Box then drag | Select your units inside the box |
+| Shift-drag, or Box then drag | Select your units inside the box, or with none in it your buildings |
 | Double-click one of your units | Select all of your units in view |
+| Shift-click / double-click one of your buildings | Add it to the selected buildings or take it out / select all your buildings of that kind in view. Train buttons then share the units out, each going to the building with the shortest queue |
+| The worker, warrior and archer counts on the bar | How many of each are selected. Click or ctrl-click one to keep only those, shift-click to drop them |
+| N idle | Go to the next worker with nothing to do; shift-click selects them all |
+| Hover or select a tower | A ring on the ground shows how far it shoots |
 | All / Clear / Esc | Select all your units, or none |
 | Right-click the ground | Send the selected units there, in the formation picked on the bar |
 | Formation / Stance | With warriors or archers selected: how they line up where they are sent (box, line, wedge), and how they fight on their own (aggressive, defensive, hold, passive) |

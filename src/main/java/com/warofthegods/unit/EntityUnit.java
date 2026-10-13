@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import net.minecraft.block.material.Material;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityCreature;
 import net.minecraft.entity.EntityLivingBase;
@@ -19,6 +20,7 @@ import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.IIcon;
 import net.minecraft.util.MathHelper;
@@ -136,7 +138,7 @@ public class EntityUnit extends EntityCreature {
     /** How far a target may move off before archers stop heading for the spots they were given to shoot from. */
     private static final double SPOT_DRIFT = 6;
 
-    /** Swords, axes, pickaxes and hoes by age: stone, iron and diamond. */
+    /** Swords, axes, pickaxes and hoes: stone, then iron and diamond as the team researches them. */
     private static final Item[] SWORDS = { Items.stone_sword, Items.iron_sword, Items.diamond_sword };
     private static final Item[] AXES = { Items.stone_axe, Items.iron_axe, Items.diamond_axe };
     private static final Item[] PICKAXES = { Items.stone_pickaxe, Items.iron_pickaxe, Items.diamond_pickaxe };
@@ -145,8 +147,10 @@ public class EntityUnit extends EntityCreature {
     public static final double ARCHER_RANGE = 14;
     /** How far archers shoot at buildings. */
     private static final double ARCHER_BUILDING_RANGE = 9;
-    /** How close a worker has to be to the foot of a tree to chop it. */
-    private static final double CHOP_REACH = 2.2;
+    /** How close a worker has to be to the foot of a tree to chop it: a player's reach. */
+    private static final double CHOP_REACH = 4.5;
+    /** How close to the foot of a tree a worker touching its leaves can chop it from. */
+    private static final double LEAVES_REACH = 8;
     /** How close a worker has to be to where a torch goes. */
     private static final double TORCH_REACH = 2.5;
     /** How far a worker looks for the next tree once one falls. */
@@ -187,8 +191,6 @@ public class EntityUnit extends EntityCreature {
     private final long[] carrying = new long[Resource.values().length];
     /** Whether a worker is taking what it carries to a store. */
     private boolean delivering;
-    /** Its team's age less one, for the stone, iron or diamond of its tools. */
-    private int tier;
     /** The animal a hunting worker is after, and where it was last seen. */
     private UUID preyId;
     private EntityLivingBase prey;
@@ -304,27 +306,32 @@ public class EntityUnit extends EntityCreature {
 
     /**
      * What it holds when its hands are free: an archer's bow, a warrior's sword, and for a worker the tool for its
-     * job: a hoe at a farm, a pickaxe at a quarry, a sword for hunting and otherwise an axe. They are stone, iron or
-     * diamond by its team's age.
+     * job: a hoe at a farm, a pickaxe at a quarry, a sword for hunting and otherwise an axe. They are stone until
+     * the team researches iron and then diamond ones.
      */
     private Item tool() {
-        int age = Math.max(0, Math.min(2, tier));
+        Team team = team();
         if (kind == UnitKind.ARCHER) {
             return Items.bow;
         }
         if (kind == UnitKind.SOLDIER || order == Order.HUNT) {
-            return SWORDS[age];
+            return SWORDS[tier(team, Upgrade.FORGED_BLADES, Upgrade.TEMPERED_STEEL)];
         }
         if (order == Order.WORK) {
             Building workplace = building();
             if (workplace != null && workplace.type == BuildingType.QUARRY) {
-                return PICKAXES[age];
+                return PICKAXES[tier(team, Upgrade.PICKAXES, Upgrade.DIAMOND_PICKAXES)];
             }
             if (workplace != null && workplace.type == BuildingType.FARM) {
-                return HOES[age];
+                return HOES[tier(team, Upgrade.PLOUGHS, Upgrade.DIAMOND_HOES)];
             }
         }
-        return AXES[age];
+        return AXES[tier(team, Upgrade.SHARP_AXES, Upgrade.DIAMOND_AXES)];
+    }
+
+    /** 0 for stone, 1 once the team has the iron upgrade and 2 with the diamond one. */
+    private static int tier(Team team, Upgrade iron, Upgrade diamond) {
+        return team == null ? 0 : team.has(diamond) ? 2 : team.has(iron) ? 1 : 0;
     }
 
     /** Keeps name, skin and strength in step with the team's name, color, faction and upgrades. */
@@ -346,9 +353,6 @@ public class EntityUnit extends EntityCreature {
                 (byte) team.getFaction()
                     .ordinal());
         }
-        Game game = GameManager.getGame();
-        tier = game == null ? 0 : game.getAge(team) - 1;
-        showHeld();
         // Units from before skins wore their team's color as leather armor; applyUpgrades puts on what they wear now.
         applyUpgrades(team);
     }
@@ -374,11 +378,13 @@ public class EntityUnit extends EntityCreature {
             attack.setBaseValue(damage);
         }
         wearArmor(team);
+        showHeld();
     }
 
     /**
-     * Fighters show their team's armor upgrades: chainmail with padded armor, iron with plate. It is only for show;
-     * the upgrades' extra health is what protects them. Workers wear none.
+     * Fighters show their team's armor upgrades: chainmail with padded armor, iron with plate. Warriors always wear
+     * boots, leather until then. It is only for show; the upgrades' extra health is what protects them. Workers wear
+     * none.
      */
     private void wearArmor(Team team) {
         Item[] armor = new Item[5];
@@ -389,6 +395,10 @@ public class EntityUnit extends EntityCreature {
         } else if (kind.fights() && team.has(Upgrade.PADDED_ARMOR)) {
             armor[4] = Items.chainmail_helmet;
             armor[3] = Items.chainmail_chestplate;
+        }
+        if (kind == UnitKind.SOLDIER) {
+            armor[1] = team.has(Upgrade.PLATE_ARMOR) ? Items.iron_boots
+                : team.has(Upgrade.PADDED_ARMOR) ? Items.chainmail_boots : Items.leather_boots;
         }
         for (int slot = 1; slot < 5; slot++) {
             ItemStack worn = getEquipmentInSlot(slot);
@@ -936,7 +946,9 @@ public class EntityUnit extends EntityCreature {
         }
         double dx = treeX + 0.5 - posX;
         double dz = treeZ + 0.5 - posZ;
-        if (Math.sqrt(dx * dx + dz * dz) > CHOP_REACH) {
+        double away = Math.sqrt(dx * dx + dz * dz);
+        // Leaves often stand in the way of the trunk; a worker in among them can chop it from there.
+        if (away > CHOP_REACH && !(away <= LEAVES_REACH && touchingLeaves())) {
             working = false;
             if (getNavigator().noPath() && --planTicks <= 0) {
                 planTicks = 20;
@@ -961,7 +973,9 @@ public class EntityUnit extends EntityCreature {
         }
         Team team = game.getTeam(teamId);
         int needed = Config.chopSeconds * 20;
-        if (team != null && team.has(Upgrade.SHARP_AXES)) {
+        if (team != null && team.has(Upgrade.DIAMOND_AXES)) {
+            needed = needed / 2;
+        } else if (team != null && team.has(Upgrade.SHARP_AXES)) {
             needed = needed * 2 / 3;
         }
         if (++chopTicks < Math.max(1, needed)) {
@@ -981,6 +995,22 @@ public class EntityUnit extends EntityCreature {
         if (wood[Resource.WOOD.ordinal()] > 0) {
             gather(wood);
         }
+    }
+
+    /** Whether any leaves are right up against it. */
+    private boolean touchingLeaves() {
+        AxisAlignedBB box = boundingBox.expand(0.3, 0.1, 0.3);
+        for (int x = MathHelper.floor_double(box.minX); x <= MathHelper.floor_double(box.maxX); x++) {
+            for (int y = MathHelper.floor_double(box.minY); y <= MathHelper.floor_double(box.maxY); y++) {
+                for (int z = MathHelper.floor_double(box.minZ); z <= MathHelper.floor_double(box.maxZ); z++) {
+                    if (worldObj.getBlock(x, y, z)
+                        .getMaterial() == Material.leaves) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -1294,6 +1324,9 @@ public class EntityUnit extends EntityCreature {
         Team team = team();
         EntityTeamArrow arrow = new EntityTeamArrow(worldObj, this);
         arrow.aim(victim, Config.archerDamage + (team != null && team.has(Upgrade.FLETCHING) ? 1 : 0));
+        if (team != null && team.has(Upgrade.FIRE_ARROWS)) {
+            arrow.setFire(100);
+        }
         worldObj.spawnEntityInWorld(arrow);
         playSound("random.bow", 1.0F, 1.0F / (rand.nextFloat() * 0.4F + 0.8F));
     }

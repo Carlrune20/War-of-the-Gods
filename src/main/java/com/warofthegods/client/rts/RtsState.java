@@ -43,6 +43,8 @@ public final class RtsState {
         /** The building type it is researched at. */
         public String at;
         public int level;
+        /** The upgrade the team needs first, or "" for none; until then this one is not offered. */
+        public String requires;
         public Map<String, Long> cost;
         public int seconds;
     }
@@ -174,6 +176,8 @@ public final class RtsState {
         public int builders;
         public int health;
         public int maxHealth;
+        /** How far it shoots, with its team's upgrades; 0 if it does not. */
+        public int range;
         public final List<String> queue = new ArrayList<>();
         public double progress;
         public int workers;
@@ -294,6 +298,7 @@ public final class RtsState {
             upgradeInfo.description = string(upgrade, "description");
             upgradeInfo.at = string(upgrade, "at");
             upgradeInfo.level = integer(upgrade, "level");
+            upgradeInfo.requires = string(upgrade, "requires");
             upgradeInfo.cost = amounts(object(upgrade, "cost"));
             upgradeInfo.seconds = integer(upgrade, "seconds");
             info.upgrades.put(upgradeInfo.id, upgradeInfo);
@@ -417,6 +422,7 @@ public final class RtsState {
             info.builders = integer(building, "builders");
             info.health = integer(building, "health");
             info.maxHealth = integer(building, "maxHealth");
+            info.range = integer(building, "range");
             for (JsonElement kind : array(building, "queue")) {
                 info.queue.add(kind.getAsString());
             }
