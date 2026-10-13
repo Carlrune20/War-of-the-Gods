@@ -189,8 +189,9 @@ public final class Mobs {
 
     /** A spot somewhere around a player or unit, out of sight and away from towns, or null if this try found none. */
     private int[] pickSpot(Game game, WorldServer world, List<EntityLiving> hostile) {
-        List<Entity> anchors = new ArrayList<>(Units.get()
-            .getLoaded());
+        List<Entity> anchors = new ArrayList<>(
+            Units.get()
+                .getLoaded());
         for (Object player : world.playerEntities) {
             anchors.add((Entity) player);
         }
@@ -258,31 +259,31 @@ public final class Mobs {
         size = Math.min(size, room);
         boolean skeletons = random.nextInt(3) == 0;
         for (int i = 0; i < size; i++) {
-                int x = spot[0] + (i == 0 ? 0 : random.nextInt(5) - 2);
-                int z = spot[2] + (i == 0 ? 0 : random.nextInt(5) - 2);
-                int y = world.getTopSolidOrLiquidBlock(x, z);
-                if (Math.abs(y - spot[1]) > 3 || onBuilding(game, x, z, BUILDING_MARGIN)
-                    || world.getBlock(x, y - 1, z)
-                        .getMaterial()
-                        .isLiquid()) {
-                    continue;
-                }
-                EntityMob mob = skeletons && random.nextInt(4) > 0 || !skeletons && random.nextInt(4) == 0
-                    ? new EntitySkeleton(world)
-                    : new EntityZombie(world);
-                mob.setLocationAndAngles(x + 0.5, y, z + 0.5, random.nextFloat() * 360, 0);
-                if (!world.getCollidingBoundingBoxes(mob, mob.boundingBox)
-                    .isEmpty()) {
-                    continue;
-                }
-                mob.onSpawnWithEgg(null);
-                if (mob instanceof EntityZombie) {
-                    ((EntityZombie) mob).setVillager(false);
-                    ((EntityZombie) mob).setChild(false);
-                }
-                equip(mob);
-                world.spawnEntityInWorld(mob);
+            int x = spot[0] + (i == 0 ? 0 : random.nextInt(5) - 2);
+            int z = spot[2] + (i == 0 ? 0 : random.nextInt(5) - 2);
+            int y = world.getTopSolidOrLiquidBlock(x, z);
+            if (Math.abs(y - spot[1]) > 3 || onBuilding(game, x, z, BUILDING_MARGIN)
+                || world.getBlock(x, y - 1, z)
+                    .getMaterial()
+                    .isLiquid()) {
+                continue;
             }
+            EntityMob mob = skeletons && random.nextInt(4) > 0 || !skeletons && random.nextInt(4) == 0
+                ? new EntitySkeleton(world)
+                : new EntityZombie(world);
+            mob.setLocationAndAngles(x + 0.5, y, z + 0.5, random.nextFloat() * 360, 0);
+            if (!world.getCollidingBoundingBoxes(mob, mob.boundingBox)
+                .isEmpty()) {
+                continue;
+            }
+            mob.onSpawnWithEgg(null);
+            if (mob instanceof EntityZombie) {
+                ((EntityZombie) mob).setVillager(false);
+                ((EntityZombie) mob).setChild(false);
+            }
+            equip(mob);
+            world.spawnEntityInWorld(mob);
+        }
     }
 
     /**

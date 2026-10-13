@@ -138,7 +138,8 @@ public final class Hunting {
         }
         int food = foodOf(event.entityLiving);
         Entity killer = event.source.getEntity();
-        if (food <= 0 || !(killer instanceof EntityUnit || event.source.getSourceOfDamage() instanceof EntityTeamArrow)) {
+        if (food <= 0
+            || !(killer instanceof EntityUnit || event.source.getSourceOfDamage() instanceof EntityTeamArrow)) {
             return;
         }
         // Old carcasses nobody came for give way, so they cannot pile up without end.

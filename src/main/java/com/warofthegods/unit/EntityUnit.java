@@ -504,8 +504,8 @@ public class EntityUnit extends EntityCreature {
                 }
             }
         }
-        Item item = most < 0 ? tool() : order == Order.HUNT && most == Resource.FOOD.ordinal() ? Items.beef
-            : CARRIED_ITEMS[most];
+        Item item = most < 0 ? tool()
+            : order == Order.HUNT && most == Resource.FOOD.ordinal() ? Items.beef : CARRIED_ITEMS[most];
         ItemStack held = getHeldItem();
         if (held == null || held.getItem() != item) {
             setCurrentItemOrArmor(0, new ItemStack(item));
@@ -1158,9 +1158,8 @@ public class EntityUnit extends EntityCreature {
     private EntityLivingBase nearestPrey() {
         EntityLivingBase best = null;
         double bestDistance = NEXT_PREY_RANGE * NEXT_PREY_RANGE;
-        for (Object object : worldObj.getEntitiesWithinAABB(
-            EntityLivingBase.class,
-            boundingBox.expand(NEXT_PREY_RANGE, 6, NEXT_PREY_RANGE))) {
+        for (Object object : worldObj
+            .getEntitiesWithinAABB(EntityLivingBase.class, boundingBox.expand(NEXT_PREY_RANGE, 6, NEXT_PREY_RANGE))) {
             EntityLivingBase other = (EntityLivingBase) object;
             if (!other.isEntityAlive() || Hunting.foodOf(other) <= 0) {
                 continue;

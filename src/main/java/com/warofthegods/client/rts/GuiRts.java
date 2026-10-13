@@ -834,7 +834,8 @@ public final class GuiRts extends GuiScreen {
         }
         Hit hit = entityAt(px, py);
         if (hit != null) {
-            if (workers > 0 && fighters == 0 && hit.thing instanceof RtsState.MobInfo
+            if (workers > 0 && fighters == 0
+                && hit.thing instanceof RtsState.MobInfo
                 && ((RtsState.MobInfo) hit.thing).food > 0) {
                 RtsState.MobInfo mob = (RtsState.MobInfo) hit.thing;
                 return new Object[] { "soldier", "Hunt " + mob.name + " · " + mob.food + " food", "attack" };

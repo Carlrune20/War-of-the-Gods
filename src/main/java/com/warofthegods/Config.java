@@ -425,8 +425,7 @@ public class Config {
         cowFood = configuration.getInt("cowFood", hunting, cowFood, 0, 100000, "Food a cow leaves.");
         pigFood = configuration.getInt("pigFood", hunting, pigFood, 0, 100000, "Food a pig leaves.");
         sheepFood = configuration.getInt("sheepFood", hunting, sheepFood, 0, 100000, "Food a sheep leaves.");
-        chickenFood = configuration
-            .getInt("chickenFood", hunting, chickenFood, 0, 100000, "Food a chicken leaves.");
+        chickenFood = configuration.getInt("chickenFood", hunting, chickenFood, 0, 100000, "Food a chicken leaves.");
         huntFood = configuration
             .getInt("carveFood", hunting, huntFood, 1, 10000, "Food a worker carves off a carcass at a time.");
         huntSeconds = configuration
