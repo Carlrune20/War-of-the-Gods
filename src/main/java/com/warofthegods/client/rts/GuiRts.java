@@ -778,6 +778,11 @@ public final class GuiRts extends GuiScreen {
                 return unit.chopping ? "chopping a tree" : "on the way to a tree";
             case "light":
                 return "putting up torches, " + unit.torches + " to go";
+            case "hunt":
+                if (unit.delivering) {
+                    return "taking " + RtsState.amountsText(unit.carrying) + " to store";
+                }
+                return unit.carving ? "carving a carcass" : unit.target != null ? "hunting" : "on the way to a carcass";
             default:
                 return unit.isWorker() ? "idle" : "on guard";
         }
@@ -827,6 +832,11 @@ public final class GuiRts extends GuiScreen {
         }
         Hit hit = entityAt(px, py);
         if (hit != null) {
+            if (workers > 0 && fighters == 0 && hit.thing instanceof RtsState.MobInfo
+                && ((RtsState.MobInfo) hit.thing).food > 0) {
+                RtsState.MobInfo mob = (RtsState.MobInfo) hit.thing;
+                return new Object[] { "soldier", "Hunt " + mob.name + " · " + mob.food + " food", "attack" };
+            }
             if (fighters > 0 && isEnemy(hit)) {
                 String name = hit.thing instanceof RtsState.UnitInfo ? unitName((RtsState.UnitInfo) hit.thing)
                     : hit.thing instanceof RtsState.PlayerInfo ? ((RtsState.PlayerInfo) hit.thing).name
@@ -1506,7 +1516,7 @@ public final class GuiRts extends GuiScreen {
                         (center ? "Advance to " + ageName(building.level + 1) : "Level " + (building.level + 1)) + " ("
                             + RtsState.costText(next.cost)
                             + ")",
-                        centerReady ? "Takes " + next.seconds + "s; health goes up to " + next.health
+                        centerReady ? "Takes " + next.seconds + "s; every building takes on the new age's look"
                             : "Your town has to reach " + ageName(building.level + 1) + " first",
                         shift -> {
                             JsonObject body = new JsonObject();
@@ -1525,12 +1535,12 @@ public final class GuiRts extends GuiScreen {
                 continue;
             }
             boolean busy = state.isResearching(team, upgradeId);
-            boolean levelOk = building.level >= upgrade.level;
+            boolean levelOk = team.age >= upgrade.level;
             actions.add(
                 withIcon(
                     button(
                         upgrade.name + " (" + RtsState.costText(upgrade.cost) + ")",
-                        !levelOk ? "Needs a level " + upgrade.level + " " + type.name.toLowerCase()
+                        !levelOk ? "Needs " + ageName(upgrade.level)
                             : busy ? "Being researched" : upgrade.description + "; takes " + upgrade.seconds + "s",
                         shift -> {
                             JsonObject body = new JsonObject();

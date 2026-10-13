@@ -12,6 +12,7 @@ import net.minecraft.world.storage.WorldInfo;
 
 import com.warofthegods.Config;
 import com.warofthegods.WarOfTheGods;
+import com.warofthegods.unit.Hunting;
 import com.warofthegods.world.GameWorld;
 
 /** Entry point for finding, starting and ending the current game. */
@@ -52,6 +53,7 @@ public final class GameManager {
         WarOfTheGods.LOG
             .info("Started game #{} with size {}, {} teams and seed {}", game.getNumber(), size, teamCount, seed);
         GameWorld.rebuild();
+        Hunting.clear();
         resetDay();
         return game;
     }

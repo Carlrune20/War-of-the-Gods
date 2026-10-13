@@ -1,13 +1,17 @@
 package com.warofthegods.unit;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
+import net.minecraft.block.material.Material;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityCreature;
 import net.minecraft.entity.EntityLiving;
+import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.ai.EntityAIAttackOnCollide;
 import net.minecraft.entity.ai.EntityAINearestAttackableTarget;
-import net.minecraft.entity.monster.EntityCreeper;
-import net.minecraft.entity.monster.EntityEnderman;
+import net.minecraft.entity.ai.attributes.IAttributeInstance;
 import net.minecraft.entity.monster.EntityMob;
 import net.minecraft.entity.monster.EntitySkeleton;
 import net.minecraft.entity.monster.EntityZombie;
@@ -18,7 +22,10 @@ import net.minecraft.item.ItemBow;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.MathHelper;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.DimensionManager;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
+import net.minecraftforge.event.entity.living.LivingEvent;
 import net.minecraftforge.event.entity.living.LivingSpawnEvent;
 
 import com.warofthegods.Config;
@@ -30,11 +37,13 @@ import com.warofthegods.world.GameWorld;
 
 import cpw.mods.fml.common.eventhandler.Event;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
 
 /**
- * Hostile mobs on the game map. Few spawn near town centers and none right by them; out in the wilderness zombies and
- * skeletons come in groups, often in armor, and some skeletons carry swords. Creepers are rare and endermen stay away.
- * Zombies and skeletons go after units as readily as after players.
+ * Hostile mobs on the game map. Only zombies and skeletons, and only the ones spawned here: now and then, day or
+ * night, a small group turns up in the wilderness, most often among trees, never near a town center or on a
+ * building. They do not burn in daylight, notice enemies only from close by and chase them further once they have,
+ * go after units as readily as after players, and often wear armor; some skeletons carry swords.
  */
 public final class Mobs {
 
@@ -46,25 +55,234 @@ public final class Mobs {
         { Items.leather_helmet, Items.chainmail_helmet, Items.golden_helmet, Items.iron_helmet } };
     /** How likely each armor material is, out of the sum. */
     private static final int[] MATERIAL_WEIGHTS = { 40, 30, 10, 20 };
+    /** Spawn spots are this far from a player, unit or building at least, so groups do not appear in plain view. */
+    private static final int MIN_DISTANCE = 24;
+    /** And at most this far from a player or unit, where the chunks are loaded. */
+    private static final int MAX_DISTANCE = 64;
+    /** Most hostile mobs near a spawn spot already for another group to come there. */
+    private static final int MAX_NEARBY = 4;
+    /** Blocks around a building where nothing spawns. */
+    private static final int BUILDING_MARGIN = 6;
 
     private final Random random = new Random();
-    /** Set while the companions of a mob are being spawned, so they bring no companions of their own. */
-    private boolean spawningGroup;
+    private int ticks;
 
+    /** Nothing hostile spawns in the game world the vanilla way; groups come from this class instead. */
     @SubscribeEvent
     public void onCheckSpawn(LivingSpawnEvent.CheckSpawn event) {
-        if (event.world.isRemote || !GameWorld.isGameWorld(event.world) || !(event.entityLiving instanceof IMob)) {
+        if (event.world.isRemote || !GameWorld.isGameWorld(event.world)) {
             return;
         }
-        if (event.entityLiving instanceof EntityEnderman && !Config.endermen
-            || event.entityLiving instanceof EntityCreeper && random.nextDouble() >= Config.creeperChance) {
+        if (event.entityLiving instanceof IMob) {
             event.setResult(Event.Result.DENY);
             return;
         }
+        // Animals do not spawn on buildings either.
         Game game = GameManager.getGame();
-        if (game != null && random.nextDouble() >= townChance(game, event.x, event.z)) {
+        if (game != null && onBuilding(game, event.x, event.z, 1)) {
             event.setResult(Event.Result.DENY);
         }
+    }
+
+    /** No spawner, reinforcement call or jockey brings anything hostile but zombies and skeletons in. */
+    @SubscribeEvent
+    public void onJoinWorld(EntityJoinWorldEvent event) {
+        if (event.world.isRemote || !GameWorld.isGameWorld(event.world) || !(event.entity instanceof IMob)) {
+            return;
+        }
+        Entity entity = event.entity;
+        if (!(entity instanceof EntityZombie || entity instanceof EntitySkeleton)
+            || entity instanceof EntitySkeleton && ((EntitySkeleton) entity).getSkeletonType() != 0) {
+            event.setCanceled(true);
+            return;
+        }
+        EntityMob mob = (EntityMob) entity;
+        if (mob instanceof EntityZombie) {
+            EntityZombie zombie = (EntityZombie) mob;
+            zombie.setVillager(false);
+            zombie.setChild(false);
+            // Hurt zombies call no friends.
+            IAttributeInstance reinforcements = zombie.getAttributeMap()
+                .getAttributeInstanceByName("zombie.spawnReinforcements");
+            if (reinforcements != null) {
+                reinforcements.setBaseValue(0);
+            }
+        }
+        if (mob.riddenByEntity != null || mob.ridingEntity != null) {
+            mob.mountEntity(null);
+        }
+        mob.getEntityAttribute(SharedMonsterAttributes.followRange)
+            .setBaseValue(Config.mobDetectRange);
+        // Their own fighting only goes after players, so they get some for units too.
+        mob.targetTasks.addTask(2, new EntityAINearestAttackableTarget(mob, EntityUnit.class, 0, true));
+        if (mob instanceof EntityZombie) {
+            mob.tasks.addTask(3, new EntityAIAttackOnCollide(mob, EntityUnit.class, 1.0D, true));
+        } else if (mob.getHeldItem() != null && !(mob.getHeldItem()
+            .getItem() instanceof ItemBow)) {
+                // A skeleton with a sword, loaded again. One just spawning holds nothing yet; equip() sees to it.
+                addMelee((EntitySkeleton) mob);
+            }
+    }
+
+    /**
+     * Zombies and skeletons do not burn in daylight, and notice enemies only close by; once they have one, they
+     * follow it further.
+     */
+    @SubscribeEvent
+    public void onLivingUpdate(LivingEvent.LivingUpdateEvent event) {
+        Entity entity = event.entity;
+        if (entity.worldObj.isRemote || !(entity instanceof EntityZombie || entity instanceof EntitySkeleton)
+            || !GameWorld.isGameWorld(entity.worldObj)) {
+            return;
+        }
+        EntityMob mob = (EntityMob) entity;
+        // The sun sets them alight after this event, and this puts it out again before it can do harm. Fire from
+        // anything else, such as lava, still burns.
+        if (mob.isBurning() && mob.worldObj.isDaytime()
+            && !mob.handleLavaMovement()
+            && mob.worldObj.canBlockSeeTheSky(
+                MathHelper.floor_double(mob.posX),
+                MathHelper.floor_double(mob.posY),
+                MathHelper.floor_double(mob.posZ))) {
+            mob.extinguish();
+        }
+        if (mob.ticksExisted % 10 == 0) {
+            double range = mob.getAttackTarget() != null ? Config.mobChaseRange : Config.mobDetectRange;
+            IAttributeInstance follow = mob.getEntityAttribute(SharedMonsterAttributes.followRange);
+            if (follow.getBaseValue() != range) {
+                follow.setBaseValue(range);
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- spawning
+
+    @SubscribeEvent
+    public void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END || ++ticks % Math.max(20, Config.mobSpawnSeconds * 20) != 0) {
+            return;
+        }
+        Game game = DimensionManager.getWorld(0) == null ? null : GameManager.getGame();
+        WorldServer world = DimensionManager.getWorld(GameWorld.dimensionId());
+        if (game == null || world == null || Config.maxMobs <= 0) {
+            return;
+        }
+        List<EntityLiving> hostile = new ArrayList<>();
+        for (EntityLiving mob : Units.get()
+            .getMobs(game, world)) {
+            if (mob instanceof IMob) {
+                hostile.add(mob);
+            }
+        }
+        if (hostile.size() >= Config.maxMobs) {
+            return;
+        }
+        // A few tries for a good spot; most of the map is no good at a given moment.
+        for (int attempt = 0; attempt < 8; attempt++) {
+            int[] spot = pickSpot(game, world, hostile);
+            if (spot != null) {
+                spawnGroup(world, game, spot, Config.maxMobs - hostile.size());
+                return;
+            }
+        }
+    }
+
+    /** A spot somewhere around a player or unit, out of sight and away from towns, or null if this try found none. */
+    private int[] pickSpot(Game game, WorldServer world, List<EntityLiving> hostile) {
+        List<Entity> anchors = new ArrayList<>(Units.get()
+            .getLoaded());
+        for (Object player : world.playerEntities) {
+            anchors.add((Entity) player);
+        }
+        if (anchors.isEmpty()) {
+            return null;
+        }
+        Entity anchor = anchors.get(random.nextInt(anchors.size()));
+        double angle = random.nextDouble() * Math.PI * 2;
+        double distance = MIN_DISTANCE + random.nextDouble() * (MAX_DISTANCE - MIN_DISTANCE);
+        int x = MathHelper.floor_double(anchor.posX + Math.cos(angle) * distance);
+        int z = MathHelper.floor_double(anchor.posZ + Math.sin(angle) * distance);
+        if (!game.isInside(x, z) || !world.blockExists(x, 64, z)
+            || random.nextDouble() >= townChance(game, x, z)
+            || onBuilding(game, x, z, BUILDING_MARGIN)) {
+            return null;
+        }
+        for (Object object : world.playerEntities) {
+            if (((Entity) object).getDistanceSq(x, ((Entity) object).posY, z) < MIN_DISTANCE * MIN_DISTANCE) {
+                return null;
+            }
+        }
+        for (EntityUnit unit : Units.get()
+            .getLoaded()) {
+            if (unit.getDistanceSq(x, unit.posY, z) < MIN_DISTANCE * MIN_DISTANCE) {
+                return null;
+            }
+        }
+        int nearby = 0;
+        for (EntityLiving mob : hostile) {
+            nearby += mob.getDistanceSq(x, mob.posY, z) < 48 * 48 ? 1 : 0;
+        }
+        if (nearby >= MAX_NEARBY) {
+            return null;
+        }
+        int y = world.getTopSolidOrLiquidBlock(x, z);
+        Material ground = world.getBlock(x, y - 1, z)
+            .getMaterial();
+        if (ground.isLiquid() || ground == Material.leaves || ground == Material.ice) {
+            return null;
+        }
+        if (!amongTrees(world, x, z) && random.nextDouble() >= Config.openGroundChance) {
+            return null;
+        }
+        return new int[] { x, y, z };
+    }
+
+    /** Whether there are trees around x, z: leaves on top in a good few spots nearby. */
+    private static boolean amongTrees(World world, int x, int z) {
+        int leaves = 0;
+        for (int dx = -8; dx <= 8; dx += 4) {
+            for (int dz = -8; dz <= 8; dz += 4) {
+                int top = world.getHeightValue(x + dx, z + dz) - 1;
+                Material material = world.getBlock(x + dx, top, z + dz)
+                    .getMaterial();
+                if (material == Material.leaves || material == Material.wood) {
+                    leaves++;
+                }
+            }
+        }
+        return leaves >= 4;
+    }
+
+    private void spawnGroup(WorldServer world, Game game, int[] spot, int room) {
+        int size = Config.mobGroupMin + random.nextInt(Math.max(1, Config.mobGroupMax - Config.mobGroupMin + 1));
+        size = Math.min(size, room);
+        boolean skeletons = random.nextInt(3) == 0;
+        for (int i = 0; i < size; i++) {
+                int x = spot[0] + (i == 0 ? 0 : random.nextInt(5) - 2);
+                int z = spot[2] + (i == 0 ? 0 : random.nextInt(5) - 2);
+                int y = world.getTopSolidOrLiquidBlock(x, z);
+                if (Math.abs(y - spot[1]) > 3 || onBuilding(game, x, z, BUILDING_MARGIN)
+                    || world.getBlock(x, y - 1, z)
+                        .getMaterial()
+                        .isLiquid()) {
+                    continue;
+                }
+                EntityMob mob = skeletons && random.nextInt(4) > 0 || !skeletons && random.nextInt(4) == 0
+                    ? new EntitySkeleton(world)
+                    : new EntityZombie(world);
+                mob.setLocationAndAngles(x + 0.5, y, z + 0.5, random.nextFloat() * 360, 0);
+                if (!world.getCollidingBoundingBoxes(mob, mob.boundingBox)
+                    .isEmpty()) {
+                    continue;
+                }
+                mob.onSpawnWithEgg(null);
+                if (mob instanceof EntityZombie) {
+                    ((EntityZombie) mob).setVillager(false);
+                    ((EntityZombie) mob).setChild(false);
+                }
+                equip(mob);
+                world.spawnEntityInWorld(mob);
+            }
     }
 
     /**
@@ -92,53 +310,14 @@ public final class Mobs {
         return nearest;
     }
 
-    /**
-     * A zombie or skeleton spawning naturally gets its usual gear, then more: maybe armor, maybe a sword instead of a
-     * bow. In the wilderness a few more come along.
-     */
-    @SubscribeEvent
-    public void onSpecialSpawn(LivingSpawnEvent.SpecialSpawn event) {
-        if (event.world.isRemote || !GameWorld.isGameWorld(event.world)
-            || !(event.entityLiving instanceof EntityZombie || event.entityLiving instanceof EntitySkeleton)) {
-            return;
-        }
-        EntityLiving mob = (EntityLiving) event.entityLiving;
-        // Cancelling stops the spawner from equipping it, so that is done here, before the extras.
-        event.setCanceled(true);
-        mob.onSpawnWithEgg(null);
-        equip(mob);
-        Game game = GameManager.getGame();
-        if (spawningGroup || game == null || nearestTownCenter(game, mob.posX, mob.posZ) < Config.townRadius) {
-            return;
-        }
-        int extra = Config.mobGroupExtra <= 0 ? 0 : 1 + random.nextInt(Config.mobGroupExtra);
-        spawningGroup = true;
-        try {
-            for (int i = 0; i < extra; i++) {
-                spawnCompanion(event.world, mob);
+    /** Whether x, z is on a building or building site, or within margin blocks of one. */
+    static boolean onBuilding(Game game, double x, double z, double margin) {
+        for (Building building : game.getBuildings()) {
+            if (building.covers(x + 0.5, z + 0.5, margin)) {
+                return true;
             }
-        } finally {
-            spawningGroup = false;
         }
-    }
-
-    private void spawnCompanion(World world, EntityLiving leader) {
-        int x = MathHelper.floor_double(leader.posX) + random.nextInt(7) - 3;
-        int z = MathHelper.floor_double(leader.posZ) + random.nextInt(7) - 3;
-        int y = world.getTopSolidOrLiquidBlock(x, z);
-        if (Math.abs(y - leader.posY) > 4 || world.getBlock(x, y - 1, z)
-            .getMaterial()
-            .isLiquid()) {
-            return;
-        }
-        EntityLiving companion = leader instanceof EntitySkeleton ? new EntitySkeleton(world) : new EntityZombie(world);
-        companion.setLocationAndAngles(x + 0.5, y, z + 0.5, random.nextFloat() * 360, 0);
-        if (!companion.getCanSpawnHere()) {
-            return;
-        }
-        world.spawnEntityInWorld(companion);
-        companion.onSpawnWithEgg(null);
-        equip(companion);
+        return false;
     }
 
     private void equip(EntityLiving mob) {
@@ -153,8 +332,7 @@ public final class Mobs {
                 }
             }
         }
-        if (mob instanceof EntitySkeleton && ((EntitySkeleton) mob).getSkeletonType() == 0
-            && random.nextDouble() < Config.skeletonSwordChance) {
+        if (mob instanceof EntitySkeleton && random.nextDouble() < Config.skeletonSwordChance) {
             mob.setCurrentItemOrArmor(0, new ItemStack(random.nextInt(3) == 0 ? Items.iron_sword : Items.stone_sword));
             mob.setEquipmentDropChance(0, 0.05F);
             ((EntitySkeleton) mob).setCombatTask();
@@ -175,24 +353,6 @@ public final class Mobs {
             }
         }
         return 0;
-    }
-
-    /** Zombies and skeletons hunt units too. Their own fighting only goes after players, so they get one for units. */
-    @SubscribeEvent
-    public void onJoinWorld(EntityJoinWorldEvent event) {
-        if (event.world.isRemote || !GameWorld.isGameWorld(event.world)
-            || !(event.entity instanceof EntityZombie || event.entity instanceof EntitySkeleton)) {
-            return;
-        }
-        EntityMob mob = (EntityMob) event.entity;
-        mob.targetTasks.addTask(2, new EntityAINearestAttackableTarget(mob, EntityUnit.class, 0, true));
-        if (mob instanceof EntityZombie) {
-            mob.tasks.addTask(3, new EntityAIAttackOnCollide(mob, EntityUnit.class, 1.0D, true));
-        } else if (mob.getHeldItem() != null && !(mob.getHeldItem()
-            .getItem() instanceof ItemBow)) {
-                // A skeleton with a sword, loaded again. One just spawning holds nothing yet; equip() sees to it.
-                addMelee((EntitySkeleton) mob);
-            }
     }
 
     private static void addMelee(EntityCreature skeleton) {

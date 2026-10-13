@@ -4,7 +4,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Team-wide improvements researched at a building: military ones at the armory, economic ones at the storehouse.
+ * Team-wide improvements researched at a building: military ones at the armory, economic ones at the storehouse,
+ * and fortified walls at the town center.
  * Each is researched once and lasts the game. Ids are stored in save data, so only add new values.
  */
 public enum Upgrade {
@@ -24,14 +25,16 @@ public enum Upgrade {
     PLOUGHS("ploughs", "Ploughs", "Farms yield half again as much food", BuildingType.STOREHOUSE, 1, 75, 75, 0, 0, 30),
     PICKAXES("pickaxes", "Iron pickaxes", "Quarries yield half again as much", BuildingType.STOREHOUSE, 2, 50, 100, 0,
         20, 30),
-    MASONRY("masonry", "Masonry", "Buildings have a fifth more health", BuildingType.STOREHOUSE, 2, 0, 100, 100, 0, 40);
+    MASONRY("masonry", "Masonry", "Buildings have a fifth more health", BuildingType.STOREHOUSE, 2, 0, 100, 100, 0, 40),
+    FORTIFIED_WALLS("fortified_walls", "Fortified walls", "Buildings have half again as much health",
+        BuildingType.TOWN_HALL, 2, 0, 150, 150, 0, 45);
 
     public final String id;
     public final String displayName;
     public final String description;
     /** The building it is researched at. */
     public final BuildingType at;
-    /** The level that building has to be at. */
+    /** The level that building has to be at, which is the age its team has to be in. */
     public final int level;
     private final long[] cost;
     public final int seconds;

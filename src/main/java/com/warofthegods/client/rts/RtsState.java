@@ -127,6 +127,7 @@ public final class RtsState {
         /** The foot of the tree it chops, or null. */
         public int[] tree;
         public boolean chopping;
+        public boolean carving;
         /** Torches a worker still has to put up. */
         public int torches;
         public String stance = "defensive";
@@ -151,6 +152,8 @@ public final class RtsState {
 
         public String name;
         public boolean hostile;
+        /** Food it leaves for workers who hunt it; 0 when it cannot be hunted. */
+        public int food;
         public double width;
         public double height;
     }
@@ -377,6 +380,7 @@ public final class RtsState {
                 }
             }
             info.chopping = bool(unit, "chopping");
+            info.carving = bool(unit, "carving");
             info.stance = unit.has("stance") ? unit.get("stance")
                 .getAsString() : "defensive";
             info.torches = unit.has("torches") ? unit.get("torches")
@@ -390,6 +394,7 @@ public final class RtsState {
             readThing(info, mob);
             info.name = string(mob, "name");
             info.hostile = bool(mob, "hostile");
+            info.food = integer(mob, "food");
             info.width = number(mob, "width");
             info.height = number(mob, "height");
             mobs.put(info.id, info);

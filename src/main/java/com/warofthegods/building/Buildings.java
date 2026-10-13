@@ -142,6 +142,7 @@ public final class Buildings {
         harvest(game);
         research(game);
         shoot(game, world);
+        keepUpWithAge(game);
         updateLooks(game, world);
         smoulder(game, world);
     }
@@ -559,8 +560,14 @@ public final class Buildings {
         return upgrade == null ? 1 : upgrade.ticks();
     }
 
-    /** Why the building cannot go up a level now, or null if it can, leaving out whether the team can pay. */
+    /**
+     * Why the building cannot go up a level now, or null if it can, leaving out whether the team can pay. Only the
+     * town center goes up, taking its team into the next age; the other buildings follow by themselves.
+     */
     public static String levelUpProblem(Game game, Building building) {
+        if (building.type != BuildingType.TOWN_HALL) {
+            return "Buildings take on the look of each new age by themselves; advance the town center instead";
+        }
         if (!building.isComplete()) {
             return "It is not built yet";
         }
@@ -570,12 +577,37 @@ public final class Buildings {
         if (building.getResearch() != null) {
             return "It is busy";
         }
-        Team team = game.getTeam(building.team);
-        int level = building.getLevel() + 1;
-        if (building.type != BuildingType.TOWN_HALL && (team == null || game.getAge(team) < level)) {
-            return "Your town has to reach " + BuildingType.ageName(level) + " first";
-        }
         return null;
+    }
+
+    /**
+     * Takes the team of a town center into the next age: the town center goes up a level, and every other building
+     * of the team takes on the new age's look with it.
+     */
+    public static void advanceAge(Game game, Building center) {
+        center.levelUp();
+        keepUpWithAge(game);
+    }
+
+    /**
+     * Every finished building looks the age its team is in, as far as it has a look for it. Levels change only how
+     * buildings look, so this takes nothing from them and gives them nothing.
+     */
+    private static void keepUpWithAge(Game game) {
+        for (Building building : game.getBuildings()) {
+            if (building.type == BuildingType.TOWN_HALL || !building.isComplete()) {
+                continue;
+            }
+            Team team = game.getTeam(building.team);
+            int level = Math.min(building.type.levels, team == null ? 1 : game.getAge(team));
+            if (building.getLevel() != level) {
+                if (Building.LEVEL_UP.equals(building.getResearch())) {
+                    // Going up by itself from before ages did it for every building.
+                    building.cancelResearch();
+                }
+                building.setLevel(level);
+            }
+        }
     }
 
     /** Why the upgrade cannot be researched at the building now, or null; leaves out whether the team can pay. */
@@ -598,8 +630,8 @@ public final class Buildings {
         if (building.getResearch() != null) {
             return "It is busy";
         }
-        if (building.getLevel() < upgrade.level) {
-            return "The " + building.type.displayName.toLowerCase() + " has to be at level " + upgrade.level;
+        if (team == null || game.getAge(team) < upgrade.level) {
+            return "Your town has to reach " + BuildingType.ageName(upgrade.level) + " first";
         }
         return null;
     }
@@ -616,7 +648,9 @@ public final class Buildings {
             }
             Team team = game.getTeam(building.team);
             if (Building.LEVEL_UP.equals(done)) {
-                building.levelUp();
+                if (building.type == BuildingType.TOWN_HALL) {
+                    advanceAge(game, building);
+                }
                 WarOfTheGods.LOG.info("Upgraded {}", building.describe(game));
                 continue;
             }
@@ -650,8 +684,7 @@ public final class Buildings {
                 shotTicks.remove(building.id);
                 continue;
             }
-            int every = building.getLevel() >= 2 && building.type == BuildingType.TOWER ? Config.towerShotTicks * 2 / 3
-                : Config.towerShotTicks;
+            int every = Config.towerShotTicks;
             int elapsed = shotTicks.getOrDefault(building.id, 0) + INTERVAL;
             if (elapsed < every) {
                 shotTicks.put(building.id, elapsed);

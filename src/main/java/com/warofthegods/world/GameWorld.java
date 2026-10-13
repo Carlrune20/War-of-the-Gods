@@ -22,8 +22,11 @@ import org.apache.commons.io.FileUtils;
 
 import com.warofthegods.Config;
 import com.warofthegods.WarOfTheGods;
+import com.warofthegods.game.Building;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
+import com.warofthegods.game.Team;
+import com.warofthegods.unit.Units;
 
 /** The dimension games are played in: registering it, rebuilding it for each new game and moving players into it. */
 public final class GameWorld {
@@ -130,6 +133,24 @@ public final class GameWorld {
         }
     }
 
+    /**
+     * A spot on dry ground in front of the team's town center, or at its base before the town center is up, as x, y,
+     * z of the block to stand in; the middle of the map for no team.
+     */
+    public static int[] findTeamSpawn(WorldServer world, Game game, Team team) {
+        if (team == null) {
+            return findSpawn(world, game);
+        }
+        Building center = game.getTownHall(team);
+        if (center != null) {
+            double[] door = center.getDoorstep();
+            return findDryGround(world, (int) Math.floor(door[0]), (int) Math.floor(door[1]), 16);
+        }
+        Units.assignBase(game, world, team);
+        int[] base = team.getBase();
+        return base == null ? findSpawn(world, game) : findDryGround(world, base[0], base[1], 16);
+    }
+
     /** A spot on dry ground near the middle of the map, as x, y, z of the block to stand in. */
     public static int[] findSpawn(WorldServer world, Game game) {
         MapArea area = MapArea.of(game, Config.mapMargin);
@@ -163,10 +184,13 @@ public final class GameWorld {
         return fallback;
     }
 
-    /** Puts the player at the map spawn of the running game. */
+    /**
+     * Puts the player in the running game: in front of their team's town center, or where it is about to go up, and
+     * players on no team in the middle of the map.
+     */
     public static void sendToGame(EntityPlayerMP player, Game game) {
         WorldServer world = getWorld();
-        int[] spawn = findSpawn(world, game);
+        int[] spawn = findTeamSpawn(world, game, game.getTeamOf(player.getUniqueID()));
         teleport(player, world, spawn[0] + 0.5, spawn[1], spawn[2] + 0.5);
         persistedData(player).setInteger(PLAYER_GAME_KEY, game.getNumber());
     }

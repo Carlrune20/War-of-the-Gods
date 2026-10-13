@@ -18,7 +18,7 @@ import com.warofthegods.unit.EntityUnit;
 /**
  * Draws a unit with the player model in the skin of its kind and its team's faction, with bands round its arms and
  * waist in its team's color, and any armor its team's upgrades give it. The name above its head is in its team's
- * color too.
+ * color too. Archers raise their bow as they draw it.
  */
 public class RenderUnit extends RenderBiped {
 
@@ -43,6 +43,16 @@ public class RenderUnit extends RenderBiped {
 
     public RenderUnit() {
         super(new ModelBiped(), 0.5F);
+    }
+
+    /** An archer drawing its bow holds it up in both hands, as a player does. */
+    @Override
+    public void doRender(EntityLiving entity, double x, double y, double z, float yaw, float partialTicks) {
+        boolean aiming = ((EntityUnit) entity).getDrawTicks() > 0;
+        modelBipedMain.aimedBow = aiming;
+        field_82423_g.aimedBow = aiming;
+        field_82425_h.aimedBow = aiming;
+        super.doRender(entity, x, y, z, yaw, partialTicks);
     }
 
     @Override

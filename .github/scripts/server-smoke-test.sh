@@ -270,8 +270,20 @@ wait_for_log "Laid out Blue tower #7" 30
 wait_for_log "Built Blue tower #7" 120
 echo "rts upgrade 2" >&3
 wait_for_log "Upgraded Blue town center (level 2) #2" 30
+# The rest of the town follows the town center into Age II, looking it but gaining nothing else.
+echo "rts buildings blue" >&3
+wait_for_log "Blue tower (level 2) #7 at" 30
+sleep 1
+grep -q "Blue house (level 2) #6 at .*health 300/300" "$WEB_LOG" || web_fail "the house did not follow into Age II as it was"
+echo "ok: the town followed its town center into Age II"
 echo "rts research blue forged_blades" >&3
 wait_for_log "Team Blue has forged blades" 30
+echo "rts research blue fortified_walls" >&3
+wait_for_log "Team Blue has fortified walls" 30
+echo "rts buildings blue" >&3
+sleep 2
+grep -q "Blue house (level 2) #6 at .*health 450/450" "$WEB_LOG" || web_fail "fortified walls did not raise the house's health"
+echo "ok: fortified walls give buildings half again as much health"
 
 # A worker chops a tree near the town center and brings the wood home.
 echo "rts units spawn blue 1 worker" >&3
@@ -295,7 +307,7 @@ echo "ok: Blue wood went from $wood_before to $wood"
 # An explosion beside the tower takes health off it but breaks none of its blocks.
 echo "rts explode 7" >&3
 wait_for_log "The explosion took" 30
-grep -qE "The explosion took [1-9][0-9]? health off Blue tower #7 .* and broke 0 of its blocks|The explosion took 1[0-2][0-9] health off Blue tower #7 .* and broke 0 of its blocks" "$WEB_LOG" \
+grep -qE "The explosion took [1-9][0-9]? health off Blue tower (\(level 2\) )?#7 .* and broke 0 of its blocks|The explosion took 1[0-2][0-9] health off Blue tower (\(level 2\) )?#7 .* and broke 0 of its blocks" "$WEB_LOG" \
     || web_fail "the explosion did not just damage the tower: $(grep -oE 'The explosion took .*' "$WEB_LOG" | tail -1)"
 echo "ok: $(grep -oE 'The explosion took .*' "$WEB_LOG" | tail -1)"
 
@@ -354,8 +366,8 @@ grep -q "Red warrior 1 at .*, hold" "$WEB_LOG" || fail "boot-4-units: Red warrio
 echo "ok: stances are saved"
 expect "$WEB_LOG" "Red town center #1 at"
 expect "$WEB_LOG" "Blue town center (level 2) #2 at"
-expect "$WEB_LOG" "Blue tower #7 at"
-expect "$WEB_LOG" "Blue barracks #4 at"
+expect "$WEB_LOG" "Blue tower (level 2) #7 at"
+expect "$WEB_LOG" "Blue barracks (level 2) #4 at"
 grep -q "Blue worker 3 at .* work" "$WEB_LOG" || fail "boot-4-units: the farm lost its worker"
 if grep -q "Blue storehouse #5" "$WEB_LOG"; then
     fail "boot-4-units: the destroyed storehouse came back"

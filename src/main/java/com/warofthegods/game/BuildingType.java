@@ -35,7 +35,10 @@ public enum BuildingType {
     public final String displayName;
     /** Name in the config file, such as farm in farmCostWood. */
     public final String configName;
-    /** Levels it can be upgraded to; each looks different. */
+    /**
+     * Levels it has, each with its own look. The town center goes up a level to take its team into the next age;
+     * every other building takes on the look of the age by itself.
+     */
     public final int levels;
     /** Whether workers can build it. */
     public final boolean buildable;
@@ -77,7 +80,7 @@ public enum BuildingType {
 
     /** Whether upgrades are researched here. */
     public boolean researches() {
-        return this == ARMORY || this == STOREHOUSE;
+        return this == ARMORY || this == STOREHOUSE || this == TOWN_HALL;
     }
 
     /** What building one costs, leaving out resources it costs none of. */
@@ -86,8 +89,8 @@ public enum BuildingType {
     }
 
     /**
-     * What upgrading one to the level costs: the building's own cost and a half for each level, and for the town
-     * center a fixed price, as it has no cost of its own.
+     * What taking one up to the level costs. Only the town center goes up by itself, taking its team into the next
+     * age; for other buildings this is the building's own cost and a half for each level, as it was before ages.
      */
     public Map<Resource, Long> upgradeCost(int level) {
         if (this == TOWN_HALL) {
@@ -117,9 +120,9 @@ public enum BuildingType {
         return Config.buildingHealth.get(this);
     }
 
-    /** Health at a level: half as much again for each level above the first. */
+    /** Health at a level: the same at every level, which only changes how it looks. */
     public int maxHealth(int level) {
-        return maxHealth() + maxHealth() * (level - 1) / 2;
+        return maxHealth();
     }
 
     /** Ticks of work one worker puts in to build it; two workers take half as long. */
@@ -130,13 +133,12 @@ public enum BuildingType {
     /** Resources one worker gathers here per harvest at a level, by resource ordinal; all zero where nothing is. */
     public long[] yield(int level) {
         long[] amounts = new long[Resource.values().length];
-        // A second level yields a third more.
-        double factor = level >= 2 ? 4 / 3.0 : 1;
+        // The same at every level, which only changes how it looks.
         if (this == FARM) {
-            amounts[Resource.FOOD.ordinal()] = Math.round(Config.farmFood * factor);
+            amounts[Resource.FOOD.ordinal()] = Config.farmFood;
         } else if (this == QUARRY) {
-            amounts[Resource.STONE.ordinal()] = Math.round(Config.quarryStone * factor);
-            amounts[Resource.METAL.ordinal()] = Math.round(Config.quarryMetal * factor);
+            amounts[Resource.STONE.ordinal()] = Config.quarryStone;
+            amounts[Resource.METAL.ordinal()] = Config.quarryMetal;
         }
         return amounts;
     }
@@ -146,13 +148,13 @@ public enum BuildingType {
         return this == FARM ? Config.farmWorkers : this == QUARRY ? Config.quarryWorkers : 0;
     }
 
-    /** Units it houses at a level. */
+    /** Units it houses at a level: the town center houses more in each age, a house always as many. */
     public int population(int level) {
         if (this == TOWN_HALL) {
             return Config.townCenterPopulation + (level - 1) * Config.townCenterPopulation / 2;
         }
         if (this == HOUSE) {
-            return Config.housePopulation + (level - 1) * Config.housePopulation / 2;
+            return Config.housePopulation;
         }
         return 0;
     }
@@ -162,7 +164,7 @@ public enum BuildingType {
         if (!shoots(level)) {
             return 0;
         }
-        return Config.towerRange + (level - 1) * 4;
+        return Config.towerRange;
     }
 
     public static BuildingType byId(String id) {

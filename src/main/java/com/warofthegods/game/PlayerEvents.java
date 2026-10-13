@@ -32,13 +32,13 @@ public class PlayerEvents {
                 .getNumber() + " is running. You are on team " + team.getColoredName() + EnumChatFormatting.GOLD + ".";
         player.addChatMessage(new ChatComponentText(EnumChatFormatting.GOLD + message));
 
-        // Players who were elsewhere, or in an older game's world, start at the spawn of the current map.
+        // Players who were elsewhere, or in an older game's world, start at their town center on the current map.
         if (player instanceof EntityPlayerMP && GameWorld.isOutsideGame((EntityPlayerMP) player, game)) {
             GameWorld.sendToGame((EntityPlayerMP) player, game);
         }
     }
 
-    /** Players who die in the game world come back on dry ground in the middle of the map. */
+    /** Players who die in the game world come back in front of their town center. */
     @SubscribeEvent
     public void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
         Game game = GameManager.getGame();

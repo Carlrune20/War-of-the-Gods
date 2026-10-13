@@ -800,7 +800,7 @@
             const ready = center || (team.age || 1) > building.level;
             const up = iconButton("level", (center ? "Advance to " + ageName(building.level + 1)
                 : "Level " + (building.level + 1)) + " (" + costText(next.cost) + ")",
-                ready ? "Takes " + next.seconds + "s; health goes up to " + next.health
+                ready ? "Takes " + next.seconds + "s; every building takes on the new age's look"
                     : "Your town has to reach " + ageName(building.level + 1) + " first", async () => {
                     if (await send("buildings.upgrade", {building: building.id})) {
                         showToast("Going up a level");
@@ -815,9 +815,9 @@
                 continue;
             }
             const busy = [...state.buildings.values()].some((b) => b.team === team.id && b.research === upgradeId);
-            const levelOk = building.level >= upgrade.level;
+            const levelOk = (team.age || 1) >= upgrade.level;
             const research = iconButton("upgrade", upgrade.name + " (" + costText(upgrade.cost) + ")",
-                !levelOk ? "Needs a level " + upgrade.level + " " + type.name.toLowerCase()
+                !levelOk ? "Needs " + ageName(upgrade.level)
                     : busy ? "Being researched" : upgrade.description + "; takes " + upgrade.seconds + "s",
                 async () => {
                     if (await send("buildings.research", {building: building.id, upgrade: upgradeId})) {
@@ -1483,6 +1483,11 @@
                 return u.chopping ? "chopping a tree" : "on the way to a tree";
             case "light":
                 return "putting up torches, " + (u.torches || 0) + " to go";
+            case "hunt":
+                if (u.delivering) {
+                    return "taking " + amountsText(u.carrying || {}) + " to store";
+                }
+                return u.carving ? "carving a carcass" : u.target ? "hunting" : "on the way to a carcass";
             default:
                 return u.kind === "worker" ? "idle" : "on guard";
         }
@@ -1516,6 +1521,10 @@
         const workers = selected.length - fighters;
         const hit = entityAt(px, py);
         if (hit) {
+            if (workers && !fighters && hit.kind === "mob" && hit.thing.food) {
+                return {icon: ICONS.attack, text: "Hunt " + hit.thing.name + " \u00B7 " + hit.thing.food + " food",
+                    action: "attack"};
+            }
             if (fighters && isEnemy(hit)) {
                 const name = hit.kind === "unit" ? unitName(hit.thing) : hit.thing.name;
                 return {icon: ICONS.attack, text: "Attack " + name + (hit.kind === "mob"

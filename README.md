@@ -15,7 +15,7 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts info` | Show the current game: map area, teams, resources, alliances. |
 | `/rts newgame [teams] [mapSize] [seed]` | (op) End the current game and start a new one on a freshly generated map, moving everyone online onto it and sharing them out over the teams. Defaults: 2 teams, 1000x1000 map, random seed. Teams are named after their color: Red, Blue, Green... |
 | `/rts endgame` | (op) End the current game. |
-| `/rts spawn [player]` | Go to the middle of the game map (sending someone else needs op). |
+| `/rts spawn [player]` | Go to your team's town center on the game map, or its middle on no team (sending someone else needs op). |
 | `/rts team list` | List teams with their members and resources. |
 | `/rts team create <name> [color]` | (op) Add a team. |
 | `/rts team remove <name>` | (op) Remove a team and its alliances. |
@@ -38,8 +38,8 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts buildings [team]` | List buildings and building sites with their health, how far each site is built and how many workers work each farm or quarry. |
 | `/rts build <team> <type> [x z] [rotation]` | (op) Lay out a building site for free (farm, house, barracks, storehouse, quarry, armory or tower), near the town center unless x z is given, and send the team's idle workers to build it. |
 | `/rts train <team> <worker\|warrior\|archer> [count]` | (op) Queue units for free at the team's town center or barracks. |
-| `/rts upgrade <building id>` | (op) Take a building up a level at once, for free. |
-| `/rts research <team> <upgrade>` | (op) Give a team an upgrade at once, such as `forged_blades`. |
+| `/rts upgrade <building id>` | (op) Take a town center, and with it its whole town, into the next age at once, for free. |
+| `/rts research <team> <upgrade>` | (op) Give a team an upgrade at once, such as `forged_blades` or `fortified_walls`. |
 | `/rts chop <team>` | (op) Send a team's idle workers to chop the tree nearest its town center. |
 | `/rts light <team> [x1 z1 x2 z2]` | (op) Send a team's idle workers to put torches in the dark parts of an area, or around its town center. |
 | `/rts explode <building id>` | (op) Set off a creeper-sized explosion beside a building, hurting no one, to see what it does to the building. |
@@ -65,13 +65,16 @@ Every new game starts at sunrise, and it never rains on the game map. Players on
 out over the teams, and players who log in later with no team join the team with the fewest players; press **B**
 for the team menu to change.
 
-Hostile mobs keep away from towns: none spawn within 40 blocks of a town center, and fewer the closer they are out to
-96 blocks. Out in the wilderness zombies and skeletons come in groups of two to four, many wear armor and some
-skeletons carry swords. Zombies and skeletons go after units as well as players. Creepers are rare and endermen do
-not spawn. All of this can be changed in the config.
+The only hostile mobs are zombies and skeletons, and they are rare: every 45 seconds, day or night, a group of two or
+three may turn up somewhere out of sight of players and units, mostly among trees and now and then in the open, up
+to 16 on the whole map. None spawn within 40 blocks of a town center, fewer the closer they are out to 96 blocks, and
+none on or right next to a building; no zombie villagers or baby zombies, and hurt zombies call no friends. They do
+not burn in daylight. They notice players and units only within 10 blocks, but once they have, they follow them up
+to 32. Many wear armor and some skeletons carry swords. Nothing else hostile spawns. All of this can be changed in
+the config.
 
-Players who log in while a game is running are moved onto its map (unless they are already on it), and players
-who die on the map respawn in its middle. The overworld is untouched.
+Players who log in while a game is running are moved onto its map (unless they are already on it), in front of their
+team's town center, and so are players when a new game starts and players who die on the map. The overworld is untouched.
 
 Game worlds are saved under `world/warofthegods/game-<number>`; the folders of older games are deleted when a new
 game starts.
@@ -94,9 +97,9 @@ is built, and the finished building stands once the site is done; more workers b
 
 | Building | What it does | Costs (default) | Health | Build time (one worker) |
 |---|---|---|---|---|
-| Town center | Trains workers, takes in what they gather, houses 10 units; shoots arrows from level 2 | | 1500 | |
+| Town center | Trains workers, takes in what they gather, houses 10 units and 5 more each age; shoots arrows from Age II; researches fortified walls | | 1500 | |
 | House | Houses 5 more units | 60 Wood | 300 | 12 s |
-| Farm | Workers there gather food: 5 per worker every 5 s, up to 3 workers | 75 Wood | 300 | 15 s |
+| Farm | A worker there gathers food: 5 every 5 s, one worker per farm | 75 Wood | 300 | 15 s |
 | Quarry | A pit with ore in its walls; workers there gather 4 stone and 1 metal every 5 s, up to 3 workers | 100 Wood | 500 | 20 s |
 | Storehouse | Takes in what workers gather; researches economic upgrades | 100 Wood | 600 | 20 s |
 | Barracks | Trains warriors and archers | 150 Wood, 50 Stone | 800 | 25 s |
@@ -105,37 +108,52 @@ is built, and the finished building stands once the site is done; more workers b
 
 | Unit | Costs (default) | |
 |---|---|---|
-| Worker | 50 Food | Builds, farms, quarries and chops trees; never fights |
+| Worker | 50 Food | Builds, farms, quarries, chops trees and hunts; never fights |
 | Warrior | 50 Food, 20 Wood | Fights up close with a sword |
 | Archer | 40 Food, 40 Wood | Shoots arrows from up to 14 blocks |
+
+Units walk as fast as a player. Warriors carry a stone sword in Age I, iron in Age II and diamond in Age III, which
+only changes how it looks; workers hold the tool for their job, a hoe at a farm, a pickaxe at a quarry, an axe for
+building and chopping and a sword for hunting, of stone, iron or diamond in the same way, and swing it as they work.
+They hold what they carry only on the way to a store.
+
+Archers draw their bow as a player does, a second for a full draw, and loose arrows as fast and deadly as a player's
+fully drawn bow, trailing crit sparks: 6 damage before upgrades, and up to half again on a crit. Ordered to attack,
+they first spread out in a line facing the target, a few blocks inside their range, with a second row in the gaps if
+there are more than 12. Their arrows fly on past friends. Hits from warriors and arrows from archers and towers all
+land, however recently the target was last hit, so four archers on one enemy do four times the harm of one. Archers
+shoot at buildings too, taking 5 off with each arrow.
+
+Food also comes from hunting. Select workers and right-click a cow, pig, sheep or chicken: they run it down, then
+carve food off the carcass, 6 every 3 seconds, and carry it home 20 at a time, coming back until it is gone. A cow
+gives 300 food, a pig 250, a sheep 200 and a chicken 100. Then they go after the nearest animal around. Animals
+warriors and archers kill leave carcasses too. Carcasses are not kept when the server restarts.
 
 Wood comes from trees. Select workers and right-click a tree to chop it: a tree holds 25 wood per log, between 100
 and 200, and a bar over it shows how much is left as cracks spread up its trunk. When it is chopped out it falls, and
 the workers go on to the nearest tree around. A worker carries up to 20 and then walks it to the nearest town center
-or storehouse, where it goes to the team, and walks back to work. Workers hold what they carry most of in their
-hands. A worker that built a farm or quarry stays to work it. Training takes 5 seconds per unit, one at a time per
+or storehouse, where it goes to the team, and walks back to work. A worker that built a farm or quarry stays to work it. Training takes 5 seconds per unit, one at a time per
 building.
 
 A team's town center sets its age: taking it up a level advances the whole town from Age I to Age II, for 200 Food,
-200 Wood and 150 Stone, and then to Age III, for 400 Food, 300 Wood, 300 Stone and 100 Metal. Armories and towers
-need Age II. Other buildings go up levels too: select one and click Level, which costs half again its price per level
-and takes 30 seconds, or 60 for a third level; a building can only go up to the town's age, so level 2 needs Age II. Each level
-looks grander, has half as much health again and does more: a level 2 town center houses 5 more units and shoots, a
-level 2 house houses 7, a farm or quarry yields a third more, a tower shoots farther and faster, and an armory or
-storehouse can research its second row of upgrades.
+200 Wood and 150 Stone, and then to Age III, for 400 Food, 300 Wood, 300 Stone and 100 Metal. Every other building
+of the team takes on the new age's look with it, at once, and buildings put up later look the age too; nothing else
+about them changes. In Age II the town center houses 5 more units and starts shooting, and the second row of upgrades
+opens up. Armories and towers need Age II. For more health, research fortified walls at the town center.
 
 | Upgrade | At | Does |
 |---|---|---|
 | Forged blades | Armory | Warriors hit 2 harder |
 | Fletching | Armory | Archers and towers shoot 1 harder and 4 farther |
 | Padded armor | Armory | Warriors and archers have 6 more health, and wear chainmail |
-| Tempered steel | Armory, level 2 | Warriors hit 2 harder again |
-| Plate armor | Armory, level 2 | Warriors and archers have 8 more health, and wear iron |
+| Tempered steel | Armory, Age II | Warriors hit 2 harder again |
+| Plate armor | Armory, Age II | Warriors and archers have 8 more health, and wear iron |
 | Bigger baskets | Storehouse | Workers carry 10 more |
 | Sharp axes | Storehouse | Workers chop half again as fast |
 | Ploughs | Storehouse | Farms yield half again as much |
-| Iron pickaxes | Storehouse, level 2 | Quarries yield half again as much |
-| Masonry | Storehouse, level 2 | Buildings have a fifth more health |
+| Iron pickaxes | Storehouse, Age II | Quarries yield half again as much |
+| Masonry | Storehouse, Age II | Buildings have a fifth more health |
+| Fortified walls | Town center, Age II, for 150 Wood and 150 Stone | Buildings have half again as much health |
 
 Buildings have health. A building site starts with a tenth of it and gains the rest as it is built. As a building
 loses health it looks it: at three quarters, half and a quarter it shows holes, cracks, cobwebs and rubble. Enemy
@@ -147,7 +165,7 @@ building site; the building loses up to 120 health instead, the more the closer 
 building smokes, and below a quarter it burns, though the fire spreads nowhere. Players in creative mode break blocks as usual. At 0 health a building falls to a ruin,
 and units training there are lost. A destroyed town center does not come back.
 
-A team can have as many units as its town center and houses house, up to 50. Buildings need a spot inside the map,
+A team can have as many units as its town center and houses house, up to 100. Buildings need a spot inside the map,
 two blocks clear of other buildings, on ground that is mostly dry and not too steep; foundations fill in dips and
 anything above the building is cleared. The structures are drawn by `tools/structures/generate.py` into
 `assets/warofthegods/structures/<faction>`, and the skins and icons by `tools/textures/generate.py`.
@@ -164,10 +182,9 @@ with warriors or archers selected:
 
 Units sent somewhere line up there in the formation picked on the bar, facing the way they went, with warriors in
 front, archers behind them and workers at the back: a box (the default), a wide line, or a wedge. Units going far
-plan their whole way first, around lakes, cliffs, trees and buildings, and walk it a stretch at a time. Creepers it leaves alone unless ordered to attack one,
-as fighting one up close only sets it off.
+plan their whole way first, around lakes, cliffs, trees and buildings, and walk it a stretch at a time.
 
-Workers put up torches to keep mobs from spawning: select workers, press Torches and click two corners of an area,
+Workers put up torches to light the town up: select workers, press Torches and click two corners of an area,
 up to 64 blocks each way. They put a torch, for 1 wood, wherever the area is dark enough for mobs, leaving buildings
 alone. Units also fight back when hit. Enemies are units and
 players of teams that are not allied, and hostile mobs. Ordered to attack, a unit chases its target until one of

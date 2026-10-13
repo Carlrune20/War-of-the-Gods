@@ -51,6 +51,8 @@ public final class Units {
     private static final int MISSING_SCANS = 6;
     /** Blocks between units standing in formation. */
     private static final double SPACING = 1.6;
+    /** Most archers in one row when they line up to shoot. */
+    private static final int ARCHERS_PER_ROW = 12;
 
     private static Units instance;
 
@@ -238,20 +240,27 @@ public final class Units {
      * per scan, since finding dry land may load chunks. The team's town hall goes up there.
      */
     private static void assignBases(Game game, WorldServer world) {
-        List<Team> teams = new ArrayList<>(game.getTeams());
-        for (int i = 0; i < teams.size(); i++) {
-            Team team = teams.get(i);
-            if (team.getBase() != null) {
-                continue;
+        for (Team team : game.getTeams()) {
+            if (team.getBase() == null) {
+                assignBase(game, world, team);
+                return;
             }
-            double angle = -Math.PI / 2 + 2 * Math.PI * i / Math.max(2, teams.size());
-            double radius = game.getSize() * 0.3;
-            int x = (int) Math.round(game.getCenterX() + Math.cos(angle) * radius);
-            int z = (int) Math.round(game.getCenterZ() + Math.sin(angle) * radius);
-            int[] ground = GameWorld.findDryGround(world, x, z, 64);
-            team.setBase(ground[0], ground[2]);
+        }
+    }
+
+    /** Gives the team its base, on its spot on the circle around the middle of the map, if it has none yet. */
+    public static void assignBase(Game game, WorldServer world, Team team) {
+        List<Team> teams = new ArrayList<>(game.getTeams());
+        int i = teams.indexOf(team);
+        if (i < 0 || team.getBase() != null) {
             return;
         }
+        double angle = -Math.PI / 2 + 2 * Math.PI * i / Math.max(2, teams.size());
+        double radius = game.getSize() * 0.3;
+        int x = (int) Math.round(game.getCenterX() + Math.cos(angle) * radius);
+        int z = (int) Math.round(game.getCenterZ() + Math.sin(angle) * radius);
+        int[] ground = GameWorld.findDryGround(world, x, z, 64);
+        team.setBase(ground[0], ground[2]);
     }
 
     // ---------------------------------------------------------------- training
@@ -514,10 +523,78 @@ public final class Units {
         return sent;
     }
 
+    /**
+     * Sends the units at the target. Archers spread out in a line facing it, a bit inside their range, a second row
+     * behind the first in the gaps, so every one of them has a clear shot.
+     */
     public void orderAttack(List<EntityUnit> units, EntityLivingBase target) {
+        List<EntityUnit> archers = new ArrayList<>();
         for (EntityUnit unit : units) {
-            unit.orderAttack(target);
+            if (unit.getKind() == UnitKind.ARCHER) {
+                archers.add(unit);
+            } else {
+                unit.orderAttack(target);
+            }
         }
+        if (archers.isEmpty()) {
+            return;
+        }
+        double cx = 0;
+        double cz = 0;
+        for (EntityUnit archer : archers) {
+            cx += archer.posX;
+            cz += archer.posZ;
+        }
+        cx /= archers.size();
+        cz /= archers.size();
+        // From the target back toward the archers.
+        double bx = cx - target.posX;
+        double bz = cz - target.posZ;
+        double length = Math.sqrt(bx * bx + bz * bz);
+        if (length < 1) {
+            bx = 0;
+            bz = 1;
+            length = 1;
+        }
+        bx /= length;
+        bz /= length;
+        double across = archers.get(0)
+            .archerRange() - 3;
+        double back = Math.max(6, Math.min(length, across));
+        double rx = -bz;
+        double rz = bx;
+        final double sideX = rx;
+        final double sideZ = rz;
+        archers.sort(Comparator.comparingDouble(unit -> unit.posX * sideX + unit.posZ * sideZ));
+        int perRow = Math.min(ARCHERS_PER_ROW, archers.size());
+        Game game = GameManager.getGame();
+        for (int i = 0; i < archers.size(); i++) {
+            int row = i / perRow;
+            int inRow = Math.min(perRow, archers.size() - row * perRow);
+            // Rows behind stand in the gaps of the row ahead.
+            double offset = (i % perRow - (inRow - 1) / 2.0 + (row % 2) * 0.5) * SPACING;
+            double distance = back + row * SPACING;
+            double x = target.posX + bx * distance + rx * offset;
+            double z = target.posZ + bz * distance + rz * offset;
+            if (game != null) {
+                x = Math.max(game.getMinX() + 0.5, Math.min(game.getMaxX() + 0.5, x));
+                z = Math.max(game.getMinZ() + 0.5, Math.min(game.getMaxZ() + 0.5, z));
+            }
+            archers.get(i)
+                .orderAttack(target, x, z);
+        }
+    }
+
+    /** Sends workers to hunt the animal; returns how many went. */
+    public int orderHunt(List<EntityUnit> units, EntityLivingBase animal) {
+        int sent = 0;
+        for (EntityUnit unit : units) {
+            if (unit.isWorker()) {
+                unit.orderHunt(animal);
+                sent++;
+            }
+        }
+        return sent;
     }
 
     public void orderStop(List<EntityUnit> units) {
