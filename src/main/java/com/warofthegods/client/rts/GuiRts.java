@@ -1687,19 +1687,20 @@ public final class GuiRts extends GuiScreen {
                     room |= other.queue.size() < 10;
                 }
             }
-            actions.add(
-                withIcon(
-                    button(
-                        kind.name + " (" + RtsState.costText(kind.cost) + ")",
-                        full ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
-                            : "Your team has the most units it can have")
-                            : "Train a " + kind.name.toLowerCase()
-                                + "; shift-click for 5"
-                                + (trainers.size() > 1 ? ", shared out over the " + trainers.size() + " selected"
-                                    : ""),
-                        shift -> trainSpread(trainers, kindId, kind.name.toLowerCase(), shift ? 5 : 1),
-                        !full && RtsState.canAfford(team, kind.cost) && room),
-                    kindId));
+            actions
+                .add(
+                    withIcon(
+                        button(
+                            kind.name + " (" + RtsState.costText(kind.cost) + ")",
+                            full ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
+                                : "Your team has the most units it can have")
+                                : "Train a " + kind.name.toLowerCase()
+                                    + "; shift-click for 5"
+                                    + (trainers.size() > 1 ? ", shared out over the " + trainers.size() + " selected"
+                                        : ""),
+                            shift -> trainSpread(trainers, kindId, kind.name.toLowerCase(), shift ? 5 : 1),
+                            !full && RtsState.canAfford(team, kind.cost) && room),
+                        kindId));
         }
         if (!building.queue.isEmpty()) {
             actions.add(progress(building.progress, GREEN));
@@ -1863,8 +1864,11 @@ public final class GuiRts extends GuiScreen {
         if (widget.icon != null) {
             drawIcon(widget.icon, widget.x + 3, widget.y + 1, 12);
         }
-        fontRendererObj
-            .drawStringWithShadow(widget.text, textX, widget.y + 3, widget.enabled ? widget.color & 0xFFFFFF : 0x808080);
+        fontRendererObj.drawStringWithShadow(
+            widget.text,
+            textX,
+            widget.y + 3,
+            widget.enabled ? widget.color & 0xFFFFFF : 0x808080);
     }
 
     private void drawOutline(int x0, int y0, int x1, int y1, int color) {

@@ -54,8 +54,8 @@ public enum Upgrade {
     private final long[] cost;
     public final int seconds;
 
-    Upgrade(String id, String displayName, String description, BuildingType at, int level, String requiresId,
-        long food, long wood, long gold, int seconds) {
+    Upgrade(String id, String displayName, String description, BuildingType at, int level, String requiresId, long food,
+        long wood, long gold, int seconds) {
         this.id = id;
         this.requiresId = requiresId;
         this.displayName = displayName;
