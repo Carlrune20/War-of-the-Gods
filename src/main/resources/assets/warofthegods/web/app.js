@@ -335,6 +335,8 @@
             state.buildings.set(b.id, b);
         }
         state.trees = message.trees || [];
+        joinRallyGroups();
+        tidyGroups();
         // Dead units, and units of a team the viewer has left, drop out of the selection, as do lost buildings.
         const team = myTeam();
         for (const id of [...state.selected]) {
@@ -692,6 +694,15 @@
         }
         const count = state.selected.size;
         const info = el("span");
+        for (const [n, group] of [...groups].sort((a, b) => a[0] - b[0])) {
+            const size = group.units.size + group.buildings.size;
+            if (size) {
+                const b = button(n + "\u00B7" + size, "Control group " + n + ": press " + n + " to select it, again"
+                    + " to go to it", () => recallGroup(n));
+                b.classList.add("group");
+                info.append(b);
+            }
+        }
         const idle = idleWorkers().length;
         if (idle) {
             const idleButton = iconButton("worker", idle + " idle", "Go to the next idle worker; shift-click selects"
@@ -820,6 +831,15 @@
             bar.append(el("span"));
             actions.append(bar);
             actions.append(el("span", "note", building.queue.length + " in training"));
+        }
+        if ((type.trains || []).length) {
+            const n = rallyGroups.get(building.id);
+            const rallied = n !== undefined || building.rallyX !== undefined;
+            actions.append(el("span", "note", n !== undefined ? "New units join group " + n
+                : rallied ? "Rally point set" : "Right-click to set a rally point"));
+            if (rallied) {
+                actions.append(button("Clear rally", "New units stay at the door", () => clearRally(selectedBuildingList())));
+            }
         }
         if (building.research) {
             const bar = el("span", "progress research");
@@ -1265,6 +1285,8 @@
         if (ordering) {
             if (state.selected.size) {
                 order(px, py, hit);
+            } else if (button === 2 && state.selectedBuildings.size) {
+                setRally(px, py, hit);
             }
             return;
         }
@@ -1316,7 +1338,17 @@
 
     function order(px, py, hit) {
         const units = [...state.selected];
-        if (hit && isEnemy(hit)) {
+        const team = myTeam();
+        if (hit && hit.kind === "player" && team && hit.thing.team === team.id) {
+            // Right-clicking a player of the team, such as yourself, has the units follow them in formation.
+            const t = hit.thing;
+            orderMark = {x: t.drawX, y: t.drawY, z: t.drawZ, color: [0.45, 1, 0.5, 1], time: performance.now()};
+            send("units.follow", {units, target: entityId(hit), formation}).then((reply) => {
+                if (reply) {
+                    showToast("Following " + t.name);
+                }
+            });
+        } else if (hit && isEnemy(hit)) {
             const t = hit.thing;
             orderMark = {x: t.drawX, y: t.drawY, z: t.drawZ, color: [1, 0.3, 0.25, 1], time: performance.now()};
             send("units.attack", {units, target: entityId(hit)});
@@ -1331,6 +1363,192 @@
             send("units.move", {units, x: ground[0], z: ground[2], formation});
         }
         view.dirty = true;
+    }
+
+    // ---------------------------------------------------------------- control groups and rally points
+    //
+    // Ctrl (or alt, as browsers keep ctrl + number for their tabs) and a number makes the selection that control
+    // group; shift and the number adds the selection to it; the number alone selects it, and again goes to it.
+    // Groups live in this page only.
+
+    const groups = new Map(); // number -> {units: Set, buildings: Set}
+    const rallyGroups = new Map(); // building id -> control group number its new units join
+    const knownUnits = new Set(); // ids of the viewer's units seen so far, to spot new ones
+    let knownReady = false;
+
+    function groupOf(n) {
+        if (!groups.has(n)) {
+            groups.set(n, {units: new Set(), buildings: new Set()});
+        }
+        return groups.get(n);
+    }
+
+    // Drops dead units and lost buildings from the groups.
+    function tidyGroups() {
+        for (const group of groups.values()) {
+            for (const id of [...group.units]) {
+                if (!state.units.has(id)) {
+                    group.units.delete(id);
+                }
+            }
+            for (const id of [...group.buildings]) {
+                if (!state.buildings.has(id)) {
+                    group.buildings.delete(id);
+                }
+            }
+        }
+    }
+
+    function setGroup(n, add) {
+        if (!state.selected.size && !state.selectedBuildings.size) {
+            return;
+        }
+        const group = groupOf(n);
+        if (!add) {
+            group.units.clear();
+            group.buildings.clear();
+        }
+        for (const id of state.selected) {
+            group.units.add(id);
+        }
+        for (const id of state.selectedBuildings) {
+            group.buildings.add(id);
+        }
+        showToast((add ? "Added to" : "Made") + " group " + n);
+        renderUnitBar();
+    }
+
+    function sameSet(a, b) {
+        return a.size === b.size && [...a].every((id) => b.has(id));
+    }
+
+    function recallGroup(n) {
+        const group = groups.get(n);
+        if (!group || (!group.units.size && !group.buildings.size)) {
+            return;
+        }
+        if (sameSet(state.selected, group.units) && sameSet(state.selectedBuildings, group.buildings)) {
+            focusGroup(group);
+            return;
+        }
+        state.selected = new Set(group.units);
+        setBuildingSelection([...group.buildings]);
+        if (group.units.size) {
+            changedSelection();
+        } else {
+            renderUnitBar();
+            view.dirty = true;
+        }
+    }
+
+    function focusGroup(group) {
+        let x = 0;
+        let z = 0;
+        let y = 0;
+        let count = 0;
+        for (const id of group.units) {
+            const u = state.units.get(id);
+            if (u) {
+                x += u.drawX;
+                y += u.drawY;
+                z += u.drawZ;
+                count++;
+            }
+        }
+        for (const id of group.buildings) {
+            const b = state.buildings.get(id);
+            if (b) {
+                x += b.x + b.sizeX / 2;
+                y += b.y + 1;
+                z += b.z + b.sizeZ / 2;
+                count++;
+            }
+        }
+        if (count) {
+            setFollow(false);
+            view.focus(x / count, y / count, z / count);
+        }
+    }
+
+    // The control group a unit is in, or null.
+    function groupNumberOf(unitId) {
+        for (const [n, group] of groups) {
+            if (group.units.has(unitId)) {
+                return n;
+            }
+        }
+        return null;
+    }
+
+    // Right-click with buildings selected: their new units go there, or join the control group of the unit clicked.
+    function setRally(px, py, hit) {
+        const buildings = selectedBuildingList().filter((b) => (buildingType(b.type).trains || []).length);
+        if (!buildings.length) {
+            return;
+        }
+        const ids = buildings.map((b) => b.id);
+        const n = hit && hit.kind === "unit" && isMine(hit.thing) ? groupNumberOf(hit.thing.id) : null;
+        if (n !== null) {
+            for (const id of ids) {
+                rallyGroups.set(id, n);
+            }
+            send("buildings.rally", {buildings: ids});
+            showToast("New units join group " + n);
+            renderUnitBar();
+            return;
+        }
+        const ground = hit ? [hit.thing.drawX, hit.thing.drawY, hit.thing.drawZ] : groundUnder(px, py);
+        if (!ground) {
+            return;
+        }
+        for (const id of ids) {
+            rallyGroups.delete(id);
+        }
+        orderMark = {x: ground[0], y: ground[1], z: ground[2], color: [1, 0.85, 0.35, 1], time: performance.now()};
+        send("buildings.rally", {buildings: ids, x: ground[0], z: ground[2]}).then((reply) => {
+            if (reply) {
+                showToast("Rally point set");
+            }
+        });
+        view.dirty = true;
+    }
+
+    function clearRally(buildings) {
+        for (const b of buildings) {
+            rallyGroups.delete(b.id);
+        }
+        send("buildings.rally", {buildings: buildings.map((b) => b.id)});
+        renderUnitBar();
+    }
+
+    // New units from a building that rallies to a control group join it and walk over to it.
+    function joinRallyGroups() {
+        const team = myTeam();
+        const fresh = [];
+        for (const u of state.units.values()) {
+            if (team && u.team === team.id && !knownUnits.has(u.id)) {
+                knownUnits.add(u.id);
+                fresh.push(u);
+            }
+        }
+        if (!knownReady) {
+            knownReady = true;
+            return;
+        }
+        for (const u of fresh) {
+            const n = rallyGroups.get(u.from);
+            if (n === undefined) {
+                continue;
+            }
+            const group = groupOf(n);
+            const others = [...group.units].map((id) => state.units.get(id)).filter(Boolean);
+            group.units.add(u.id);
+            if (others.length) {
+                const x = others.reduce((sum, o) => sum + o.x, 0) / others.length;
+                const z = others.reduce((sum, o) => sum + o.z, 0) / others.length;
+                send("units.move", {units: [u.id], x, z, formation});
+            }
+        }
     }
 
     // Right-clicking an enemy building sends the selected soldiers to attack it.
@@ -1648,6 +1866,10 @@
                 return u.chopping ? "chopping a tree" : "on the way to a tree";
             case "light":
                 return "putting up torches, " + (u.torches || 0) + " to go";
+            case "follow": {
+                const leader = state.players.get(u.target);
+                return "following " + (leader ? leader.name : "a player");
+            }
             case "hunt":
                 if (u.delivering) {
                     return "taking " + amountsText(u.carrying || {}) + " to store";
@@ -1685,6 +1907,14 @@
         const fighters = selected.filter((u) => u.kind !== "worker").length;
         const workers = selected.length - fighters;
         const hit = entityAt(px, py);
+        if (hit && selected.length && hit.kind === "player" && team && hit.thing.team === team.id) {
+            return {icon: ICONS.player, text: "Follow " + hit.thing.name + " in formation", action: "act"};
+        }
+        if (!selected.length && state.selectedBuildings.size && selectedBuildingList().some((b) => b.complete
+            && (buildingType(b.type).trains || []).length)) {
+            const n = hit && hit.kind === "unit" && isMine(hit.thing) ? groupNumberOf(hit.thing.id) : null;
+            return {icon: "\u2691", text: n !== null ? "New units join group " + n : "Set rally point", action: "act"};
+        }
         if (hit) {
             if (workers && !fighters && hit.kind === "mob" && hit.thing.food) {
                 return {icon: ICONS.attack, text: "Hunt " + hit.thing.name + " \u00B7 " + hit.thing.food + " food",
@@ -1807,7 +2037,23 @@
     const PAN_KEYS = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
 
     window.addEventListener("keydown", (event) => {
-        if (event.target instanceof HTMLInputElement || event.ctrlKey || event.metaKey || event.altKey) {
+        if (event.target instanceof HTMLInputElement) {
+            return;
+        }
+        const digit = /^Digit([0-9])$/.exec(event.code);
+        if (digit && myTeam()) {
+            const n = Number(digit[1]);
+            if (event.ctrlKey || event.altKey || event.metaKey) {
+                setGroup(n, false);
+            } else if (event.shiftKey) {
+                setGroup(n, true);
+            } else {
+                recallGroup(n);
+            }
+            event.preventDefault();
+            return;
+        }
+        if (event.ctrlKey || event.metaKey || event.altKey) {
             return;
         }
         const key = event.key.toLowerCase();
@@ -2030,6 +2276,11 @@
         for (const b of state.buildings.values()) {
             const color = state.selectedBuildings.has(b.id) ? SELECTED : teamColor(b.team);
             rect(lines, b.x - 0.5, b.z - 0.5, b.x + b.sizeX + 0.5, b.z + b.sizeZ + 0.5, b.y + 1.1, color);
+            if (state.selectedBuildings.has(b.id) && b.rallyX !== undefined && !rallyGroups.has(b.id)) {
+                const y = surfaceY(Math.floor(b.rallyX), Math.floor(b.rallyZ));
+                lines.push([[b.x + b.sizeX / 2, b.y + 1.1, b.z + b.sizeZ / 2], [b.rallyX, y + 0.1, b.rallyZ], RANGE]);
+                ring(lines, b.rallyX, y + 0.1, b.rallyZ, 0.6 * s, RANGE);
+            }
             // How far towers shoot, for the ones selected and the one under the pointer.
             if (b.range && (state.selectedBuildings.has(b.id) || b.id === hoverBuilding)) {
                 ring(lines, b.x + b.sizeX / 2, b.y + 1.1, b.z + b.sizeZ / 2, b.range, RANGE, 64);

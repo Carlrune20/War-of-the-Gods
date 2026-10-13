@@ -239,6 +239,11 @@ Commanding units, from the bar at the bottom of the page:
 | The worker, warrior and archer counts on the bar | How many of each are selected. Click or ctrl-click one to keep only those, shift-click to drop them |
 | N idle | Go to the next worker with nothing to do; shift-click selects them all |
 | Hover or select a tower | A ring on the ground shows how far it shoots |
+| Ctrl + 1 … 0 (or Alt + number, since browsers keep Ctrl + number for tabs) | Make the selected units and buildings control group 1 … 0 |
+| Shift + number | Add the selection to that control group |
+| Number | Select that control group; press it again to move the camera to it. The groups also show on the bar |
+| Right-click with only buildings selected | Set a rally point: units they train walk there. Right-click one of your units that is in a control group and new units join that group instead. Clear rally on the bar removes it |
+| Right-click a player of your team, such as yourself | The selected units follow them, keeping the formation they were in, two blocks behind |
 | All / Clear / Esc | Select all your units, or none |
 | Right-click the ground | Send the selected units there, in the formation picked on the bar |
 | Formation / Stance | With warriors or archers selected: how they line up where they are sent (box, line, wedge), and how they fight on their own (aggressive, defensive, hold, passive) |
@@ -305,6 +310,8 @@ way and goes through the same commands, so the web map and the in-game view can 
 | Wheel / Ctrl + wheel | Zoom / tilt |
 | Middle-drag / shift + middle-drag | Turn and tilt the camera / move it; right-click always gives orders |
 | Click, shift-click, double-click, drag a box | Select your units, as on the web map |
+| 1 … 0, Ctrl/Shift + number | Control groups, as on the web map (Ctrl + number makes a group) |
+| Right-click with buildings selected / a player of your team | Rally point / follow them, as on the web map |
 | Right-click | Move, attack (enemies and mobs), build or work, as on the web map |
 | Click one of your buildings | Its controls in the bar, such as Train |
 | H / Space | Go to your town center / to the selected units |

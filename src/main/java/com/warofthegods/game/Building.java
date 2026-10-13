@@ -45,6 +45,8 @@ public final class Building {
     private int researchTicks;
     /** The structure last put into the world for it, such as house_l1_d2; null before the first. */
     private String shown;
+    /** Where units it trains walk to, as x, z; null to stay at the door. */
+    private double[] rally;
 
     /** What {@link #getResearch()} is while the building goes up a level. */
     public static final String LEVEL_UP = "level";
@@ -286,6 +288,15 @@ public final class Building {
         }
     }
 
+    /** Where units it trains walk to, as x, z; null when they stay at the door. */
+    public double[] getRally() {
+        return rally == null ? null : rally.clone();
+    }
+
+    public void setRally(double[] rally) {
+        this.rally = rally == null ? null : new double[] { rally[0], rally[1] };
+    }
+
     public List<UnitKind> getQueue() {
         return Collections.unmodifiableList(queue);
     }
@@ -357,6 +368,10 @@ public final class Building {
         if (shown != null) {
             tag.setString("shown", shown);
         }
+        if (rally != null) {
+            tag.setDouble("rallyX", rally[0]);
+            tag.setDouble("rallyZ", rally[1]);
+        }
         return tag;
     }
 
@@ -394,6 +409,9 @@ public final class Building {
             building.researchTicks = tag.getInteger("researchTicks");
         }
         building.shown = tag.hasKey("shown") ? tag.getString("shown") : null;
+        if (tag.hasKey("rallyX")) {
+            building.rally = new double[] { tag.getDouble("rallyX"), tag.getDouble("rallyZ") };
+        }
         if (tag.hasKey("health")) {
             // Teams are read first, so masonry counts.
             building.health = Math.max(1, Math.min(building.getMaxHealth(), tag.getInteger("health")));

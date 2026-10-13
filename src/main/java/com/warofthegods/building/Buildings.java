@@ -480,6 +480,14 @@ public final class Buildings {
                 // Over the limit after all, such as after an op spawned units; try again later.
                 building.requeueFirst(trained);
             } else {
+                for (EntityUnit unit : spawned) {
+                    unit.setTrainedAt(building.id);
+                }
+                double[] rally = building.getRally();
+                if (rally != null) {
+                    Units.get()
+                        .orderMove(spawned, rally[0], rally[1]);
+                }
                 WarOfTheGods.LOG.info(
                     "{} trained {}",
                     building.describe(game),
