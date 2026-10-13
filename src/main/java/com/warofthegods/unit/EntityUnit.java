@@ -390,9 +390,8 @@ public class EntityUnit extends EntityCreature {
     }
 
     /**
-     * Fighters show their team's armor upgrades: chainmail with padded armor, iron with plate. Warriors always wear
-     * boots, leather until then. It is only for show; the upgrades' extra health is what protects them. Workers wear
-     * none.
+     * Fighters show their team's armor upgrades, boots included: chainmail with padded armor, iron with plate. It is
+     * only for show; the upgrades' extra health is what protects them. Workers wear none.
      */
     private void wearArmor(Team team) {
         Item[] armor = new Item[5];
@@ -400,13 +399,11 @@ public class EntityUnit extends EntityCreature {
             armor[4] = Items.iron_helmet;
             armor[3] = Items.iron_chestplate;
             armor[2] = Items.iron_leggings;
+            armor[1] = Items.iron_boots;
         } else if (kind.fights() && team.has(Upgrade.PADDED_ARMOR)) {
             armor[4] = Items.chainmail_helmet;
             armor[3] = Items.chainmail_chestplate;
-        }
-        if (kind == UnitKind.SOLDIER) {
-            armor[1] = team.has(Upgrade.PLATE_ARMOR) ? Items.iron_boots
-                : team.has(Upgrade.PADDED_ARMOR) ? Items.chainmail_boots : Items.leather_boots;
+            armor[1] = Items.chainmail_boots;
         }
         for (int slot = 1; slot < 5; slot++) {
             ItemStack worn = getEquipmentInSlot(slot);
