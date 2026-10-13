@@ -294,7 +294,7 @@ way and goes through the same commands, so the web map and the in-game view can 
 | WASD or the arrow keys, or the mouse at the edge of the window | Move the camera (hold shift for faster) |
 | Q / E | Turn a quarter round |
 | Wheel / Ctrl + wheel | Zoom / tilt |
-| Middle-drag / right-drag | Move the camera / turn and tilt it |
+| Middle-drag / shift + middle-drag | Turn and tilt the camera / move it; right-click always gives orders |
 | Click, shift-click, double-click, drag a box | Select your units, as on the web map |
 | Right-click | Move, attack (enemies and mobs), build or work, as on the web map |
 | Click one of your buildings | Its controls in the bar, such as Train |

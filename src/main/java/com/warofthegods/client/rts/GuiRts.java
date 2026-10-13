@@ -33,7 +33,8 @@ import com.google.gson.JsonPrimitive;
  * drag a box around several, and right-click the ground to send them there, an enemy or a mob to attack it, or one of
  * your building sites, farms or quarries to send workers to it. Click a building to see what it trains. WASD or the
  * arrow keys (or the mouse at the window's edge) move the camera, Q and E turn it a quarter round, the wheel zooms,
- * the middle button drags it along, the right button dragged tilts and turns it. V or Esc leaves.
+ * the middle button dragged tilts and turns it, or with shift drags it along. The right button only ever gives orders,
+ * however the mouse moves while it is down. V or Esc leaves.
  *
  * <p>
  * The world and the mouse are in window pixels; the panels in the scaled units Minecraft draws its screens in.
@@ -241,12 +242,12 @@ public final class GuiRts extends GuiScreen {
         lastY = py;
         moved = moved || Math.hypot(px - downX, py - downY) > 6;
         RtsCamera camera = camera();
-        if (downButton == 2) {
+        if (downButton == 2 && isShiftKeyDown()) {
             double blocksPerPixel = 2 * camera.distance * Math.tan(Math.toRadians(camera.fov) / 2) / mc.displayHeight;
             camera
                 .pan(-dx * blocksPerPixel, dy * blocksPerPixel / Math.max(0.3, Math.sin(Math.toRadians(camera.pitch))));
             client.clampFocus();
-        } else if (downButton == 1 && moved) {
+        } else if (downButton == 2 && moved) {
             camera.yaw += dx * 0.3F;
             camera.yawGoal = camera.yaw;
             camera.pitch = clamp(camera.pitch + dy * 0.2F, 25, 88);
@@ -268,7 +269,8 @@ public final class GuiRts extends GuiScreen {
         downButton = -1;
         if (box && moved) {
             selectIn(downX, downY, px, py, isShiftKeyDown());
-        } else if (!moved) {
+        } else if (!moved || button == 1) {
+            // A right click orders the units even if the mouse slipped while it was down.
             click(px, py, button, isShiftKeyDown());
         }
         box = false;
