@@ -113,9 +113,8 @@ is built, and the finished building stands once the site is done; more workers b
 | Archer | 40 Food, 40 Wood | Shoots arrows from up to 14 blocks |
 
 Units walk as fast as a player. Warriors carry stone swords until the armory researches iron and then diamond ones,
-and always wear boots, leather until the armor upgrades. Warriors and archers wear the armor upgrades from helmet to
-boots: chainmail with padded armor and iron with plate. Workers hold the tool for their job,
-a hoe at a farm, a pickaxe at a quarry, an axe for building and chopping and a sword for hunting, and swing it as they
+and warriors and archers wear the armor upgrades from helmet to boots: chainmail with padded armor and iron with
+plate. Workers hold the tool for their job, a hoe at a farm, a pickaxe at a quarry, an axe for building and chopping and a sword for hunting, and swing it as they
 work. Their tools are stone until the storehouse researches iron ones, and diamond after that in Age III. They hold
 what they carry only on the way to a store.
 
