@@ -48,7 +48,7 @@ public final class GuiRts extends GuiScreen {
     /** Pixels around a unit, player or mob as drawn that still count as pointing at it. */
     private static final double PICK_SLACK = 3;
     private static final double PICK_MIN = 4;
-    /** The building and unit icons, one 16 pixel square each, in the order of {@link #ICON_NAMES}. */
+    /** The building, unit and resource icons, one 16 pixel square each, in the order of {@link #ICON_NAMES}. */
     private static final ResourceLocation ICONS = new ResourceLocation("warofthegods", "textures/gui/icons.png");
     private static final List<String> ICON_NAMES = Arrays.asList(
         "town_hall",
@@ -64,7 +64,10 @@ public final class GuiRts extends GuiScreen {
         "archer",
         "tree",
         "upgrade",
-        "level");
+        "level",
+        "food",
+        "wood",
+        "gold");
 
     private final RtsClient client;
     private final List<Widget> widgets = new ArrayList<>();
@@ -1214,6 +1217,9 @@ public final class GuiRts extends GuiScreen {
         RtsState state = state();
         List<String> lines = new ArrayList<>();
         List<Integer> colors = new ArrayList<>();
+        // Where on the resources line each resource's icon goes, left blank in the text.
+        int resourceLine = -1;
+        List<Integer> iconAt = new ArrayList<>();
         RtsState.TeamInfo team = state.myTeam();
         if (state.game == null) {
             lines.add("No game is running");
@@ -1228,13 +1234,13 @@ public final class GuiRts extends GuiScreen {
             for (String resource : RtsState.RESOURCES) {
                 Long amount = team.resources.get(resource);
                 if (resources.length() > 0) {
-                    resources.append("   ");
+                    resources.append("    ");
                 }
-                resources.append(Character.toUpperCase(resource.charAt(0)))
-                    .append(resource.substring(1))
-                    .append(' ')
+                iconAt.add(fontRendererObj.getStringWidth(resources.toString()));
+                resources.append("   ")
                     .append(amount == null ? 0 : amount);
             }
+            resourceLine = lines.size();
             lines.add(resources.toString());
             colors.add(0xFFE9A8);
             lines.add(
@@ -1258,6 +1264,9 @@ public final class GuiRts extends GuiScreen {
         drawRect(4, 4, 4 + w + 8, 4 + lines.size() * 11 + 5, PANEL);
         for (int i = 0; i < lines.size(); i++) {
             fontRendererObj.drawStringWithShadow(lines.get(i), 8, 8 + i * 11, colors.get(i));
+        }
+        for (int i = 0; i < iconAt.size(); i++) {
+            drawIcon(RtsState.RESOURCES[i], 8 + iconAt.get(i), 7 + resourceLine * 11, 9);
         }
     }
 

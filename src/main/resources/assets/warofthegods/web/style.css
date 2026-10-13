@@ -162,7 +162,7 @@ button.on {
 
 .resources {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 4px;
     margin: 6px 0;
     font-variant-numeric: tabular-nums;
@@ -174,10 +174,8 @@ button.on {
     padding: 3px 5px;
 }
 
-.resources span {
-    display: block;
-    font-size: 11px;
-    color: var(--muted);
+.resources .sprite {
+    margin-right: 6px;
 }
 
 .members {

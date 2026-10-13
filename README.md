@@ -26,7 +26,7 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts team auto [all]` | (op) Put everyone online who is on no team on the team with the fewest players; with `all`, share everyone out afresh. |
 | `/rts team base <team> [x z]` | (op) Move a team's base to x z or to where you stand; a new town center goes up there. |
 | `/rts ally <team> <team>` / `/rts unally <team> <team>` | (op) Make or break an alliance. |
-| `/rts resources [team]` | Show a team's Food, Wood, Stone and Metal (your own team by default). |
+| `/rts resources [team]` | Show a team's Food, Wood and Gold (your own team by default). |
 | `/rts resources <give\|take\|set> <team> <resource> <amount>` | (op) Change a team's resources. |
 | `/rts units [team]` | List a team's units with where they are and what they are doing (your own team by default), or every team's unit count. |
 | `/rts units spawn <team> [count] [warrior\|archer\|worker]` | (op) Spawn units for a team at its town center, for free, even with no room for them. |
@@ -100,11 +100,11 @@ is built, and the finished building stands once the site is done; more workers b
 | Town center | Trains workers, takes in what they gather, houses 10 units and 5 more each age; shoots arrows from Age II; researches fortified walls | | 1500 | |
 | House | Houses 5 more units | 60 Wood | 300 | 12 s |
 | Farm | A worker there gathers food: 5 every 5 s, one worker per farm | 75 Wood | 300 | 15 s |
-| Quarry | A pit with ore in its walls; workers there gather 4 stone and 1 metal every 5 s, up to 3 workers | 100 Wood | 500 | 20 s |
+| Quarry | A pit with ore in its walls; workers there gather 5 gold every 5 s, up to 3 workers | 100 Wood | 500 | 20 s |
 | Storehouse | Takes in what workers gather; researches economic upgrades | 100 Wood | 600 | 20 s |
-| Barracks | Trains warriors and archers | 150 Wood, 50 Stone | 800 | 25 s |
-| Armory | Researches military upgrades; needs Age II | 120 Wood, 60 Stone | 700 | 25 s |
-| Tower | Shoots arrows at enemies within 16 blocks; needs Age II | 50 Wood, 100 Stone | 900 | 25 s |
+| Barracks | Trains warriors and archers | 150 Wood, 50 Gold | 800 | 25 s |
+| Armory | Researches military upgrades; needs Age II | 120 Wood, 60 Gold | 700 | 25 s |
+| Tower | Shoots arrows at enemies within 16 blocks; needs Age II | 50 Wood, 100 Gold | 900 | 25 s |
 
 | Unit | Costs (default) | |
 |---|---|---|
@@ -136,7 +136,7 @@ or storehouse, where it goes to the team, and walks back to work. A worker that 
 building.
 
 A team's town center sets its age: taking it up a level advances the whole town from Age I to Age II, for 200 Food,
-200 Wood and 150 Stone, and then to Age III, for 400 Food, 300 Wood, 300 Stone and 100 Metal. Every other building
+200 Wood and 150 Gold, and then to Age III, for 400 Food, 300 Wood and 400 Gold. Every other building
 of the team takes on the new age's look with it, at once, and buildings put up later look the age too; nothing else
 about them changes. In Age II the town center houses 5 more units and starts shooting, and the second row of upgrades
 opens up. Armories and towers need Age II. For more health, research fortified walls at the town center.
@@ -153,7 +153,7 @@ opens up. Armories and towers need Age II. For more health, research fortified w
 | Ploughs | Storehouse | Farms yield half again as much |
 | Iron pickaxes | Storehouse, Age II | Quarries yield half again as much |
 | Masonry | Storehouse, Age II | Buildings have a fifth more health |
-| Fortified walls | Town center, Age II, for 150 Wood and 150 Stone | Buildings have half again as much health |
+| Fortified walls | Town center, Age II, for 150 Wood and 150 Gold | Buildings have half again as much health |
 
 Buildings have health. A building site starts with a tenth of it and gains the rest as it is built. As a building
 loses health it looks it: at three quarters, half and a quarter it shows holes, cracks, cobwebs and rubble. Enemy

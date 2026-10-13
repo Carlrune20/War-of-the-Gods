@@ -1108,7 +1108,7 @@ public class CommandRts extends CommandBase {
             Team team = requireTeam(game, args[1]);
             Resource resource = Resource.byId(args[2]);
             if (resource == null) {
-                throw new CommandException("Unknown resource '%s', use food, wood, stone or metal", args[2]);
+                throw new CommandException("Unknown resource '%s', use food, wood or gold", args[2]);
             }
             long amount = parseAmount(args[3]);
             switch (args[0].toLowerCase()) {

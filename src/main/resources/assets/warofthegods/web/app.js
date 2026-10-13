@@ -360,7 +360,7 @@
 
     // ---------------------------------------------------------------- side panel
 
-    const RESOURCES = [["food", "Food"], ["wood", "Wood"], ["stone", "Stone"], ["metal", "Metal"]];
+    const RESOURCES = [["food", "Food"], ["wood", "Wood"], ["gold", "Gold"]];
 
     function el(tag, className, text) {
         const node = document.createElement(tag);
@@ -399,7 +399,8 @@
             const resources = el("div", "resources");
             for (const [id, label] of RESOURCES) {
                 const cell = el("div");
-                cell.append(el("span", "", label), document.createTextNode(String(team.resources[id])));
+                cell.title = label;
+                cell.append(sprite(id), document.createTextNode(String(team.resources[id])));
                 resources.append(cell);
             }
             box.append(resources);
@@ -599,9 +600,9 @@
         return b;
     }
 
-    // The building and unit icons in icons.png, one 16 pixel square each, in this order.
+    // The building, unit and resource icons in icons.png, one 16 pixel square each, in this order.
     const SPRITES = ["town_hall", "house", "barracks", "storehouse", "quarry", "farm", "armory", "tower", "worker",
-        "soldier", "archer", "tree", "upgrade", "level"];
+        "soldier", "archer", "tree", "upgrade", "level", "food", "wood", "gold"];
 
     function sprite(name) {
         const span = el("span", "sprite");
@@ -1452,7 +1453,7 @@
         animal: "\uD83D\uDC04",
     };
 
-    const RESOURCE_ORDER = ["food", "wood", "stone", "metal"];
+    const RESOURCE_ORDER = ["food", "wood", "gold"];
 
     function amountsText(amounts) {
         return RESOURCE_ORDER.filter((id) => amounts[id]).map((id) => amounts[id] + " " + id).join(", ");

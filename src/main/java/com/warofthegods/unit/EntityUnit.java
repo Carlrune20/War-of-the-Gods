@@ -512,8 +512,7 @@ public class EntityUnit extends EntityCreature {
         }
     }
 
-    private static final Item[] CARRIED_ITEMS = { Items.wheat, Item.getItemFromBlock(Blocks.log),
-        Item.getItemFromBlock(Blocks.cobblestone), Items.iron_ingot };
+    private static final Item[] CARRIED_ITEMS = { Items.wheat, Item.getItemFromBlock(Blocks.log), Items.gold_ingot };
 
     public Order getOrder() {
         return order;
@@ -1618,6 +1617,10 @@ public class EntityUnit extends EntityCreature {
         int[] carried = tag.getIntArray("Carrying");
         for (int i = 0; i < carrying.length; i++) {
             carrying[i] = i < carried.length ? carried[i] : 0;
+        }
+        if (carried.length == 4) {
+            // Saved before Stone and Metal became Gold.
+            carrying[Resource.GOLD.ordinal()] = carried[2] + carried[3];
         }
         delivering = tag.getBoolean("Delivering");
         number = tag.getInteger("Number");
