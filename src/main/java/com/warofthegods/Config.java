@@ -1,8 +1,10 @@
 package com.warofthegods;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.EnumMap;
 
+import net.minecraftforge.common.config.ConfigCategory;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
 
@@ -16,38 +18,38 @@ public class Config {
     public static boolean allowSelfJoin = true;
     public static int gameDimensionId = 77;
     public static int mapMargin = 48;
-    public static final long[] startingResources = { 200, 200, 100, 0 };
+    public static final long[] startingResources = { 200, 200, 100 };
 
-    /** Food, Wood, Stone and Metal one unit costs to train from the web map. */
-    public static final long[] unitCost = { 50, 20, 0, 0 };
+    /** Food, Wood and Gold one unit costs to train from the web map. */
+    public static final long[] unitCost = { 50, 20, 0 };
     public static int unitsPerTeam = 100;
     public static int unitHealth = 20;
-    /** Food, Wood, Stone and Metal one worker costs to train at the town center. */
-    public static final long[] workerCost = { 50, 0, 0, 0 };
-    /** Food, Wood, Stone and Metal one archer costs to train at a barracks. */
-    public static final long[] archerCost = { 40, 40, 0, 0 };
+    /** Food, Wood and Gold one worker costs to train at the town center. */
+    public static final long[] workerCost = { 50, 0, 0 };
+    /** Food, Wood and Gold one archer costs to train at a barracks. */
+    public static final long[] archerCost = { 40, 40, 0 };
     public static int trainSeconds = 5;
 
-    /** Food, Wood, Stone and Metal each kind of building costs. */
+    /** Food, Wood and Gold each kind of building costs. */
     public static final EnumMap<BuildingType, long[]> buildingCost = new EnumMap<>(BuildingType.class);
     public static final EnumMap<BuildingType, Integer> buildingHealth = new EnumMap<>(BuildingType.class);
     /** Seconds one worker takes to build each kind of building. */
     public static final EnumMap<BuildingType, Integer> buildSeconds = new EnumMap<>(BuildingType.class);
 
     static {
-        defaults(BuildingType.TOWN_HALL, new long[4], 1500, 0);
-        defaults(BuildingType.FARM, new long[] { 0, 75, 0, 0 }, 300, 15);
-        defaults(BuildingType.BARRACKS, new long[] { 0, 150, 50, 0 }, 800, 25);
-        defaults(BuildingType.STOREHOUSE, new long[] { 0, 100, 0, 0 }, 600, 20);
-        defaults(BuildingType.QUARRY, new long[] { 0, 100, 0, 0 }, 500, 20);
-        defaults(BuildingType.HOUSE, new long[] { 0, 60, 0, 0 }, 300, 12);
-        defaults(BuildingType.ARMORY, new long[] { 0, 120, 60, 0 }, 700, 25);
-        defaults(BuildingType.TOWER, new long[] { 0, 50, 100, 0 }, 900, 25);
+        defaults(BuildingType.TOWN_HALL, new long[3], 1500, 0);
+        defaults(BuildingType.FARM, new long[] { 0, 75, 0 }, 300, 15);
+        defaults(BuildingType.BARRACKS, new long[] { 0, 150, 50 }, 800, 25);
+        defaults(BuildingType.STOREHOUSE, new long[] { 0, 100, 0 }, 600, 20);
+        defaults(BuildingType.QUARRY, new long[] { 0, 100, 0 }, 500, 20);
+        defaults(BuildingType.HOUSE, new long[] { 0, 60, 0 }, 300, 12);
+        defaults(BuildingType.ARMORY, new long[] { 0, 120, 60 }, 700, 25);
+        defaults(BuildingType.TOWER, new long[] { 0, 50, 100 }, 900, 25);
     }
 
-    /** Food, Wood, Stone and Metal the town center costs to go up to level 2, and to level 3. */
-    public static final long[] townCenterLevel2Cost = { 200, 200, 150, 0 };
-    public static final long[] townCenterLevel3Cost = { 400, 300, 300, 100 };
+    /** Food, Wood and Gold the town center costs to go up to level 2, and to level 3. */
+    public static final long[] townCenterLevel2Cost = { 200, 200, 150 };
+    public static final long[] townCenterLevel3Cost = { 400, 300, 400 };
     /** Seconds going up from level 1 to 2 takes; from 2 to 3 takes twice as long. */
     public static int upgradeSeconds = 30;
     public static int townCenterPopulation = 10;
@@ -75,8 +77,7 @@ public class Config {
     public static int farmYieldSeconds = 5;
     public static int farmFood = 5;
     public static int quarryWorkers = 3;
-    public static int quarryStone = 4;
-    public static int quarryMetal = 1;
+    public static int quarryGold = 5;
     /** Most a worker carries before taking it to the town center or a storehouse. */
     public static int carryCapacity = 20;
     /** Health a building loses to one hit of a warrior. */
@@ -135,7 +136,7 @@ public class Config {
     public static boolean rtsEdgeScroll = true;
 
     /** Bumped when defaults change in a way that should replace what older config files hold. */
-    private static final int CONFIG_VERSION = 2;
+    private static final int CONFIG_VERSION = 3;
 
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
@@ -144,7 +145,8 @@ public class Config {
             "configVersion",
             0,
             "Which defaults this file was written with. Leave it alone.");
-        if (version.getInt() < CONFIG_VERSION) {
+        int oldVersion = version.getInt();
+        if (oldVersion < 2) {
             // These defaults changed; the old values make way for the new ones, and settings that are gone are
             // dropped.
             forget(configuration, "units", "perTeam");
@@ -153,8 +155,14 @@ public class Config {
             forget(configuration, "mobs", "groupExtra");
             forget(configuration, "mobs", "creeperChance");
             forget(configuration, "mobs", "endermen");
-            version.set(CONFIG_VERSION);
         }
+        if (oldVersion < 3) {
+            // Stone and Metal became Gold; their settings go, and costs come back as Gold.
+            for (String category : new String[] { "startingResources", "units", "buildings" }) {
+                forgetStoneAndMetal(configuration, category);
+            }
+        }
+        version.set(CONFIG_VERSION);
 
         defaultMapSize = configuration.getInt(
             "defaultMapSize",
@@ -365,20 +373,13 @@ public class Config {
             1,
             64,
             "Most workers that can work one quarry at a time.");
-        quarryStone = configuration.getInt(
-            "quarryStone",
+        quarryGold = configuration.getInt(
+            "quarryGold",
             buildings,
-            quarryStone,
+            quarryGold,
             0,
             100000,
-            "Stone each worker at a quarry gathers per harvest; harvests come as often as a farm's.");
-        quarryMetal = configuration.getInt(
-            "quarryMetal",
-            buildings,
-            quarryMetal,
-            0,
-            100000,
-            "Metal each worker at a quarry gathers per harvest.");
+            "Gold each worker at a quarry gathers per harvest; harvests come as often as a farm's.");
         carryCapacity = configuration.getInt(
             "carryCapacity",
             buildings,
@@ -586,6 +587,19 @@ public class Config {
 
         if (configuration.hasChanged()) {
             configuration.save();
+        }
+    }
+
+    private static void forgetStoneAndMetal(Configuration configuration, String category) {
+        if (!configuration.hasCategory(category)) {
+            return;
+        }
+        ConfigCategory settings = configuration.getCategory(category);
+        for (String key : new ArrayList<>(settings.keySet())) {
+            String name = key.toLowerCase();
+            if (name.endsWith("stone") || name.endsWith("metal")) {
+                settings.remove(key);
+            }
         }
     }
 

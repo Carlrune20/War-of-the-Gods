@@ -323,11 +323,13 @@ PALETTE = {
     "r": (178, 64, 48), "R": (120, 38, 32), "b": (64, 96, 196), "B": (38, 58, 132), "y": (234, 194, 64),
     "g": (84, 156, 64), "G": (46, 104, 42), "l": (236, 230, 214), "f": (226, 172, 132), "i": (206, 210, 220),
     "I": (132, 138, 150), "h": (226, 196, 92), "o": (224, 134, 62), "c": (96, 204, 214), "d": (122, 86, 56),
-    "x": (44, 50, 66), "e": (60, 40, 30),
+    "x": (44, 50, 66), "e": (60, 40, 30), "m": (196, 52, 50), "M": (138, 30, 34), "t": (190, 154, 100),
+    "u": (255, 240, 150), "Y": (176, 124, 28),
 }
 
 ICON_ORDER = ["town_hall", "house", "barracks", "storehouse", "quarry", "farm", "armory", "tower",
-              "worker", "soldier", "archer", "tree", "upgrade", "level"]
+              "worker", "soldier", "archer", "tree", "upgrade", "level",
+              "food", "wood", "gold"]
 
 ICON_ART = {
     "town_hall": """
@@ -567,6 +569,58 @@ ICON_ART = {
         ..kssssssssssk..
         ..kSSSSSSSSSSk..
         ..kkkkkkkkkkkk..
+        ................""",
+    # Raw beef, an oak log and a gold ingot, for the three resources.
+    "food": """
+        ................
+        ................
+        ....kkkkk.......
+        ...kmmmmmkkk....
+        ..kmlllmmmmmkk..
+        ..kmmmmllllmmmk.
+        .kmmmmmmmmmllmk.
+        .kmlllmmmmmmmmk.
+        .kmmmmllllmmmMk.
+        ..kmmmmmmmlllMk.
+        ..kMmmmmmmmmMMk.
+        ...kMMmmmmMMMk..
+        ....kkMMMMkkk...
+        ......kkkk......
+        ................
+        ................""",
+    "wood": """
+        ................
+        ..kkkkkkkkkkkk..
+        ..kttwwwwwwttk..
+        ..ktwttttttwtk..
+        ..ktwtwwwwtwtk..
+        ..ktwttttttwtk..
+        ..kttwwwwwwttk..
+        ..kkkkkkkkkkkk..
+        ..kdWdWWdWdWdk..
+        ..kdWdWWdWdWdk..
+        ..kWdWdWWdWdWk..
+        ..kdWdWWdWdWdk..
+        ..kdWWdWdWWdWk..
+        ..kWdWdWWdWdWk..
+        ..kkkkkkkkkkkk..
+        ................""",
+    "gold": """
+        ................
+        ................
+        ................
+        ................
+        ................
+        ....kkkkkkkkkk..
+        ...kuuuuuuuukYk.
+        ..kuuuuuuuukYYk.
+        .kkkkkkkkkkYYYk.
+        .kyyyyyyyykYYk..
+        .kyyyyyyyykYk...
+        .kkkkkkkkkkk....
+        ................
+        ................
+        ................
         ................""",
 }
 

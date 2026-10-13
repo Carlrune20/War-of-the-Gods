@@ -22,7 +22,7 @@ public enum BuildingType {
     BARRACKS("barracks", "Barracks", "barracks", 2, true, false, UnitKind.SOLDIER, UnitKind.ARCHER),
     /** Takes in what workers carry, so they need not walk all the way home; researches economic upgrades. */
     STOREHOUSE("storehouse", "Storehouse", "storehouse", 2, true, true),
-    /** Workers working at it gather stone and a little metal. */
+    /** Workers working at it gather gold. */
     QUARRY("quarry", "Quarry", "quarry", 2, true, false),
     /** Houses more units. */
     HOUSE("house", "House", "house", 2, true, false),
@@ -137,8 +137,7 @@ public enum BuildingType {
         if (this == FARM) {
             amounts[Resource.FOOD.ordinal()] = Config.farmFood;
         } else if (this == QUARRY) {
-            amounts[Resource.STONE.ordinal()] = Config.quarryStone;
-            amounts[Resource.METAL.ordinal()] = Config.quarryMetal;
+            amounts[Resource.GOLD.ordinal()] = Config.quarryGold;
         }
         return amounts;
     }

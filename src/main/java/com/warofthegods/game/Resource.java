@@ -2,13 +2,14 @@ package com.warofthegods.game;
 
 import net.minecraft.util.EnumChatFormatting;
 
-/** The four team resources. Ordinals are stored in save data, so only append new values. */
+/**
+ * The three team resources. Saves keep them by id; units' carried loads by ordinal, so only append new values.
+ */
 public enum Resource {
 
     FOOD("food", "Food", EnumChatFormatting.GREEN),
     WOOD("wood", "Wood", EnumChatFormatting.GOLD),
-    STONE("stone", "Stone", EnumChatFormatting.GRAY),
-    METAL("metal", "Metal", EnumChatFormatting.AQUA);
+    GOLD("gold", "Gold", EnumChatFormatting.YELLOW);
 
     public final String id;
     public final String displayName;

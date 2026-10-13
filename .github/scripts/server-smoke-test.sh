@@ -55,7 +55,7 @@ rts team create Zombies dark_green
 rts ally red blue
 rts resources give red wood 50
 rts resources take blue food 25
-rts resources set green metal 7
+rts resources set green gold 7
 rts team remove Zombies
 rts info
 stop"
@@ -85,9 +85,9 @@ expect boot-2-reload.log "Game #1"
 expect boot-2-reload.log "Map: 1000x1000 from -500,-500 to 499,499"
 expect boot-2-reload.log "World: dimension 77, seed 12345"
 expect boot-2-reload.log "$spawn1"
-expect boot-2-reload.log "Team Red [Food 200, Wood 250, Stone 100, Metal 0] members: none"
-expect boot-2-reload.log "Team Blue [Food 175, Wood 200, Stone 100, Metal 0] members: none"
-expect boot-2-reload.log "Team Green [Food 200, Wood 200, Stone 100, Metal 7] members: none"
+expect boot-2-reload.log "Team Red [Food 200, Wood 250, Gold 100] members: none"
+expect boot-2-reload.log "Team Blue [Food 175, Wood 200, Gold 100] members: none"
+expect boot-2-reload.log "Team Green [Food 200, Wood 200, Gold 7] members: none"
 expect boot-2-reload.log "Alliance: Blue + Red"
 reject boot-2-reload.log "Team Zombies"
 # A new game replaces it and keeps counting.

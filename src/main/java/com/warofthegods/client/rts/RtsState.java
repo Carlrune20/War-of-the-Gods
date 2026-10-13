@@ -18,7 +18,7 @@ import com.google.gson.JsonObject;
  */
 public final class RtsState {
 
-    public static final String[] RESOURCES = { "food", "wood", "stone", "metal" };
+    public static final String[] RESOURCES = { "food", "wood", "gold" };
 
     public static final class UnitKindInfo {
 

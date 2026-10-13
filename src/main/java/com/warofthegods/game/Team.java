@@ -277,6 +277,10 @@ public class Team {
         for (Resource resource : Resource.values()) {
             team.resources.put(resource, resourceTag.getLong(resource.id));
         }
+        if (!resourceTag.hasKey(Resource.GOLD.id)) {
+            // Saved before Stone and Metal became Gold.
+            team.resources.put(Resource.GOLD, resourceTag.getLong("stone") + resourceTag.getLong("metal"));
+        }
         int[] base = tag.getIntArray("base");
         team.base = base.length == 2 ? base : null;
         team.townHallDue = tag.getBoolean("townHallDue");
