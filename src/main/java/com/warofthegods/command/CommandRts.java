@@ -219,7 +219,7 @@ public class CommandRts extends CommandBase {
             "/rts build <team> <farm|house|barracks|storehouse|quarry|armory|tower> [x z] [rotation] - lay out a site"
                 + " for the team's workers (op)");
         send(sender, "/rts train <team> <worker|warrior|archer> [count] - queue units for free at a building (op)");
-        send(sender, "/rts upgrade <building id> - take a building up a level at once (op)");
+        send(sender, "/rts upgrade <building id> - take a town center, and its town, into the next age at once (op)");
         send(sender, "/rts research <team> <upgrade> - give a team an upgrade at once (op)");
         send(sender, "/rts chop <team> - send a team's idle workers to chop the tree nearest its town center (op)");
         send(
@@ -730,11 +730,15 @@ public class CommandRts extends CommandBase {
         if (building == null) {
             throw new CommandException("There is no building #%s", args[0]);
         }
+        if (building.type != BuildingType.TOWN_HALL) {
+            throw new CommandException(
+                "Only town centers go up a level; the other buildings follow their town into each new age");
+        }
         if (!building.isComplete() || building.getLevel() >= building.type.levels) {
             throw new CommandException("%s cannot go up a level", building.describe(game));
         }
         building.cancelResearch();
-        building.levelUp();
+        Buildings.advanceAge(game, building);
         send(sender, "Upgraded " + building.describe(game));
     }
 

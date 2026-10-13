@@ -33,7 +33,8 @@ import com.google.gson.JsonPrimitive;
  * drag a box around several, and right-click the ground to send them there, an enemy or a mob to attack it, or one of
  * your building sites, farms or quarries to send workers to it. Click a building to see what it trains. WASD or the
  * arrow keys (or the mouse at the window's edge) move the camera, Q and E turn it a quarter round, the wheel zooms,
- * the middle button drags it along, the right button dragged tilts and turns it. V or Esc leaves.
+ * the middle button dragged tilts and turns it, or with shift drags it along. The right button only ever gives orders,
+ * however the mouse moves while it is down. V or Esc leaves.
  *
  * <p>
  * The world and the mouse are in window pixels; the panels in the scaled units Minecraft draws its screens in.
@@ -241,12 +242,12 @@ public final class GuiRts extends GuiScreen {
         lastY = py;
         moved = moved || Math.hypot(px - downX, py - downY) > 6;
         RtsCamera camera = camera();
-        if (downButton == 2) {
+        if (downButton == 2 && isShiftKeyDown()) {
             double blocksPerPixel = 2 * camera.distance * Math.tan(Math.toRadians(camera.fov) / 2) / mc.displayHeight;
             camera
                 .pan(-dx * blocksPerPixel, dy * blocksPerPixel / Math.max(0.3, Math.sin(Math.toRadians(camera.pitch))));
             client.clampFocus();
-        } else if (downButton == 1 && moved) {
+        } else if (downButton == 2 && moved) {
             camera.yaw += dx * 0.3F;
             camera.yawGoal = camera.yaw;
             camera.pitch = clamp(camera.pitch + dy * 0.2F, 25, 88);
@@ -268,7 +269,8 @@ public final class GuiRts extends GuiScreen {
         downButton = -1;
         if (box && moved) {
             selectIn(downX, downY, px, py, isShiftKeyDown());
-        } else if (!moved) {
+        } else if (!moved || button == 1) {
+            // A right click orders the units even if the mouse slipped while it was down.
             click(px, py, button, isShiftKeyDown());
         }
         box = false;
@@ -778,6 +780,11 @@ public final class GuiRts extends GuiScreen {
                 return unit.chopping ? "chopping a tree" : "on the way to a tree";
             case "light":
                 return "putting up torches, " + unit.torches + " to go";
+            case "hunt":
+                if (unit.delivering) {
+                    return "taking " + RtsState.amountsText(unit.carrying) + " to store";
+                }
+                return unit.carving ? "carving a carcass" : unit.target != null ? "hunting" : "on the way to a carcass";
             default:
                 return unit.isWorker() ? "idle" : "on guard";
         }
@@ -827,6 +834,12 @@ public final class GuiRts extends GuiScreen {
         }
         Hit hit = entityAt(px, py);
         if (hit != null) {
+            if (workers > 0 && fighters == 0
+                && hit.thing instanceof RtsState.MobInfo
+                && ((RtsState.MobInfo) hit.thing).food > 0) {
+                RtsState.MobInfo mob = (RtsState.MobInfo) hit.thing;
+                return new Object[] { "soldier", "Hunt " + mob.name + " · " + mob.food + " food", "attack" };
+            }
             if (fighters > 0 && isEnemy(hit)) {
                 String name = hit.thing instanceof RtsState.UnitInfo ? unitName((RtsState.UnitInfo) hit.thing)
                     : hit.thing instanceof RtsState.PlayerInfo ? ((RtsState.PlayerInfo) hit.thing).name
@@ -1506,7 +1519,7 @@ public final class GuiRts extends GuiScreen {
                         (center ? "Advance to " + ageName(building.level + 1) : "Level " + (building.level + 1)) + " ("
                             + RtsState.costText(next.cost)
                             + ")",
-                        centerReady ? "Takes " + next.seconds + "s; health goes up to " + next.health
+                        centerReady ? "Takes " + next.seconds + "s; every building takes on the new age's look"
                             : "Your town has to reach " + ageName(building.level + 1) + " first",
                         shift -> {
                             JsonObject body = new JsonObject();
@@ -1525,12 +1538,12 @@ public final class GuiRts extends GuiScreen {
                 continue;
             }
             boolean busy = state.isResearching(team, upgradeId);
-            boolean levelOk = building.level >= upgrade.level;
+            boolean levelOk = team.age >= upgrade.level;
             actions.add(
                 withIcon(
                     button(
                         upgrade.name + " (" + RtsState.costText(upgrade.cost) + ")",
-                        !levelOk ? "Needs a level " + upgrade.level + " " + type.name.toLowerCase()
+                        !levelOk ? "Needs " + ageName(upgrade.level)
                             : busy ? "Being researched" : upgrade.description + "; takes " + upgrade.seconds + "s",
                         shift -> {
                             JsonObject body = new JsonObject();

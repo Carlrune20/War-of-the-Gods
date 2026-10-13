@@ -121,11 +121,18 @@ public final class Building {
         return health;
     }
 
-    /** Health at its level, a fifth more once its team has researched masonry. */
+    /** Its type's health, a fifth more with masonry and half again more with fortified walls. */
     public int getMaxHealth() {
-        int max = type.maxHealth(level);
+        int base = type.maxHealth(level);
+        int max = base;
         Team owner = game.getTeam(team);
-        return owner != null && owner.has(Upgrade.MASONRY) ? max + max / 5 : max;
+        if (owner != null && owner.has(Upgrade.MASONRY)) {
+            max += base / 5;
+        }
+        if (owner != null && owner.has(Upgrade.FORTIFIED_WALLS)) {
+            max += base / 2;
+        }
+        return max;
     }
 
     /** Raises health by as much as the most it can have went up, as when it gains a level or masonry. */
@@ -146,9 +153,17 @@ public final class Building {
 
     /** Goes up a level, keeping the health it lost. */
     public void levelUp() {
-        int before = getMaxHealth();
-        level = Math.min(type.levels, level + 1);
-        addMaxHealth(before);
+        setLevel(level + 1);
+    }
+
+    /** Takes on the look of a level, as far as it has one; levels change only how a building looks. */
+    public void setLevel(int newLevel) {
+        newLevel = Math.max(1, Math.min(type.levels, newLevel));
+        if (newLevel != level) {
+            int before = getMaxHealth();
+            level = newLevel;
+            addMaxHealth(before);
+        }
     }
 
     /** What it is researching, an upgrade id or {@link #LEVEL_UP}, or null. */

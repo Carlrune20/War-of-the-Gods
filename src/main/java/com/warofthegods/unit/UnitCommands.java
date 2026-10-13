@@ -27,7 +27,7 @@ import com.warofthegods.world.GameWorld;
  *   {type: "units.move", units: [id...], x, z, formation?}  walk there, in a box, line or wedge
  *   {type: "units.stance", units: [id...], stance}  aggressive, defensive, hold or passive
  *   {type: "units.attack", units: [id...], target: id}  attack an enemy unit or player, or a mob; workers do not
- *                                                       fight
+ *                                                       fight, but hunt cows, pigs, sheep and chickens
  *   {type: "units.attack", units: [id...], building: id}  attack an enemy building
  *   {type: "units.build", units: [id...], building: id}  workers build a building site or work a farm or quarry
  *   {type: "units.gather", units: [id...], x, y, z}  workers chop the tree at or near that block
@@ -105,12 +105,12 @@ public final class UnitCommands {
         if (units == null) {
             return;
         }
-        units.removeIf(EntityUnit::isWorker);
-        if (units.isEmpty()) {
-            request.replyError("Workers do not fight");
-            return;
-        }
         if (request.body.has("building")) {
+            units.removeIf(EntityUnit::isWorker);
+            if (units.isEmpty()) {
+                request.replyError("Workers do not fight");
+                return;
+            }
             Game game = GameManager.getGame();
             Building building = game.getBuilding(intField(request.body, "building", 0));
             Team owner = building == null ? null : game.getTeam(building.team);
@@ -136,6 +136,24 @@ public final class UnitCommands {
             request.replyError("That target is gone");
             return;
         }
+        // Workers hunt animals that leave food; they fight nothing else.
+        List<EntityUnit> workers = new ArrayList<>();
+        for (EntityUnit unit : units) {
+            if (unit.isWorker()) {
+                workers.add(unit);
+            }
+        }
+        units.removeAll(workers);
+        int hunters = Hunting.foodOf(target) > 0 ? Units.get()
+            .orderHunt(workers, target) : 0;
+        if (units.isEmpty()) {
+            if (hunters == 0) {
+                request.replyError("Workers do not fight");
+            } else {
+                ok(request, hunters);
+            }
+            return;
+        }
         // Any mob can be hunted on command; units and players only if their team is an enemy.
         if (!Units.isMob(target) && !Units.get()
             .isEnemy(units.get(0), target)) {
@@ -144,7 +162,7 @@ public final class UnitCommands {
         }
         Units.get()
             .orderAttack(units, target);
-        ok(request, units.size());
+        ok(request, units.size() + hunters);
     }
 
     private static void build(WebRequest request) {

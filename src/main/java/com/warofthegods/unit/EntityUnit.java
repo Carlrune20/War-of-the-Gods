@@ -20,12 +20,14 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.DamageSource;
+import net.minecraft.util.IIcon;
 import net.minecraft.util.MathHelper;
 import net.minecraft.world.World;
 
 import com.warofthegods.Config;
 import com.warofthegods.building.Buildings;
 import com.warofthegods.game.Building;
+import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
@@ -37,12 +39,16 @@ import com.warofthegods.game.Upgrade;
 import com.warofthegods.rts.Commanders;
 import com.warofthegods.web.WebMap;
 
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
+
 /**
- * A unit of a team, with the player model and its team's color on dyed leather armor. Soldiers carry an iron sword
- * and follow orders from the web map: walk somewhere, attack something, or stand guard, in which case they fight
- * enemies and enemy buildings that come close and walk back to their post afterwards. Workers carry an axe and never
- * fight: they walk, build at building sites, and work farms and quarries, carrying what they gather to the nearest
- * town hall or storehouse whenever their hands are full.
+ * A unit of a team, with the player model in its team's skin. Soldiers carry a sword or a bow and follow orders from
+ * the web map: walk somewhere, attack something, or stand guard, in which case they fight enemies and enemy buildings
+ * that come close and walk back to their post afterwards. Workers never fight: they walk, build at building sites,
+ * work farms and quarries, chop trees and hunt animals, carrying what they gather to the nearest town hall or
+ * storehouse whenever their hands are full. Swords and tools are stone in Age I, iron in Age II and diamond in Age
+ * III; workers hold the tool for the job they are at, and what they carry only on the way to a store.
  *
  * <p>
  * Walking uses vanilla pathfinding in legs of at most {@link #LEG} blocks toward the goal, since vanilla paths only
@@ -63,7 +69,9 @@ public class EntityUnit extends EntityCreature {
         /** A worker chopping a tree, or carrying the wood to a store. */
         CHOP,
         /** A worker putting up torches. */
-        LIGHT
+        LIGHT,
+        /** A worker hunting an animal, carving food off its carcass, or carrying the food to a store. */
+        HUNT
     }
 
     /** How a unit fights when it has no orders to: how far it looks for enemies and how far it chases them. */
@@ -110,6 +118,29 @@ public class EntityUnit extends EntityCreature {
     /** Times in a row a unit may fail to make progress before it gives up on an order. */
     private static final int MAX_STALLS = 6;
     private static final double SPEED = 1.0;
+    /**
+     * Movement speed: a mob's walking pace goes with the square of it, and at this it walks as fast as a player,
+     * about 4.3 blocks a second.
+     */
+    private static final double MOVEMENT_SPEED = 0.316;
+    /** Ticks an archer draws its bow for, as long as a player takes to draw one fully. */
+    private static final int DRAW_TICKS = 20;
+    /** Ticks an archer waits after a shot before drawing again. */
+    private static final int ARCHER_REST = 10;
+    /** Damage a worker's hit does to an animal it hunts. */
+    private static final float HUNT_DAMAGE = 5;
+    /** How far a worker looks for another animal once a carcass is eaten up. */
+    private static final double NEXT_PREY_RANGE = 24;
+    /** How close a worker has to be to a carcass to carve it. */
+    private static final double CARVE_REACH = 1.8;
+    /** How far a target may move off before archers stop heading for the spots they were given to shoot from. */
+    private static final double SPOT_DRIFT = 6;
+
+    /** Swords, axes, pickaxes and hoes by age: stone, iron and diamond. */
+    private static final Item[] SWORDS = { Items.stone_sword, Items.iron_sword, Items.diamond_sword };
+    private static final Item[] AXES = { Items.stone_axe, Items.iron_axe, Items.diamond_axe };
+    private static final Item[] PICKAXES = { Items.stone_pickaxe, Items.iron_pickaxe, Items.diamond_pickaxe };
+    private static final Item[] HOES = { Items.stone_hoe, Items.iron_hoe, Items.diamond_hoe };
     /** How far archers shoot, before upgrades. */
     public static final double ARCHER_RANGE = 14;
     /** How far archers shoot at buildings. */
@@ -124,6 +155,7 @@ public class EntityUnit extends EntityCreature {
     private static final int WATCH_COLOR = 20;
     private static final int WATCH_KIND = 21;
     private static final int WATCH_FACTION = 22;
+    private static final int WATCH_DRAWING = 23;
 
     private String teamId = "";
     private UnitKind kind = UnitKind.SOLDIER;
@@ -155,6 +187,28 @@ public class EntityUnit extends EntityCreature {
     private final long[] carrying = new long[Resource.values().length];
     /** Whether a worker is taking what it carries to a store. */
     private boolean delivering;
+    /** Its team's age less one, for the stone, iron or diamond of its tools. */
+    private int tier;
+    /** The animal a hunting worker is after, and where it was last seen. */
+    private UUID preyId;
+    private EntityLivingBase prey;
+    private double preyX;
+    private double preyZ;
+    /** The carcass a hunting worker carves, or 0. */
+    private int carcassId;
+    private int carveTicks;
+    /** Ticks an archer has drawn its bow for; 0 when it is not drawing. */
+    private int drawTicks;
+    /** Whether the archer drew its bow this tick. */
+    private boolean drewThisTick;
+    /** On a client, ticks the archer has been seen drawing its bow for. */
+    private int clientDrawTicks;
+    /** Where an archer ordered to attack goes to shoot from, in a line with the others, and where its target was. */
+    private boolean hasSpot;
+    private double spotX;
+    private double spotZ;
+    private double anchorX;
+    private double anchorZ;
 
     private int attackCooldown;
     private int planTicks;
@@ -188,6 +242,28 @@ public class EntityUnit extends EntityCreature {
         dataWatcher.addObject(WATCH_COLOR, 0xFFFFFF);
         dataWatcher.addObject(WATCH_KIND, (byte) 0);
         dataWatcher.addObject(WATCH_FACTION, (byte) 0);
+        dataWatcher.addObject(WATCH_DRAWING, (byte) 0);
+    }
+
+    /** On a client, how long the archer has been drawing its bow for, in ticks; 0 when it is not drawing. */
+    public int getDrawTicks() {
+        return clientDrawTicks;
+    }
+
+    private void setDrawing(boolean drawing) {
+        if ((dataWatcher.getWatchableObjectByte(WATCH_DRAWING) != 0) != drawing) {
+            dataWatcher.updateObject(WATCH_DRAWING, (byte) (drawing ? 1 : 0));
+        }
+    }
+
+    /** The bow in its hand bends as it is drawn, as a player's does. */
+    @SideOnly(Side.CLIENT)
+    @Override
+    public IIcon getItemIcon(ItemStack stack, int pass) {
+        if (stack != null && stack.getItem() == Items.bow && clientDrawTicks > 0) {
+            return Items.bow.getItemIconForUseDuration(clientDrawTicks >= 18 ? 2 : clientDrawTicks > 13 ? 1 : 0);
+        }
+        return super.getItemIcon(stack, pass);
     }
 
     /** The RGB color of its team, for drawing its team sash; known on clients too. */
@@ -211,7 +287,7 @@ public class EntityUnit extends EntityCreature {
     protected void applyEntityAttributes() {
         super.applyEntityAttributes();
         getEntityAttribute(SharedMonsterAttributes.maxHealth).setBaseValue(Config.unitHealth);
-        getEntityAttribute(SharedMonsterAttributes.movementSpeed).setBaseValue(0.3);
+        getEntityAttribute(SharedMonsterAttributes.movementSpeed).setBaseValue(MOVEMENT_SPEED);
         getEntityAttribute(SharedMonsterAttributes.followRange).setBaseValue(48);
         getAttributeMap().registerAttribute(SharedMonsterAttributes.attackDamage)
             .setBaseValue(1);
@@ -222,14 +298,33 @@ public class EntityUnit extends EntityCreature {
         this.teamId = team.getId();
         this.kind = kind;
         this.number = number;
-        setCurrentItemOrArmor(0, new ItemStack(tool()));
         updateTeam(team);
         setHealth(getMaxHealth());
     }
 
-    /** What it holds when its hands are free: a worker's axe, a warrior's sword, an archer's bow. */
+    /**
+     * What it holds when its hands are free: an archer's bow, a warrior's sword, and for a worker the tool for its
+     * job: a hoe at a farm, a pickaxe at a quarry, a sword for hunting and otherwise an axe. They are stone, iron or
+     * diamond by its team's age.
+     */
     private Item tool() {
-        return kind == UnitKind.WORKER ? Items.iron_axe : kind == UnitKind.ARCHER ? Items.bow : Items.iron_sword;
+        int age = Math.max(0, Math.min(2, tier));
+        if (kind == UnitKind.ARCHER) {
+            return Items.bow;
+        }
+        if (kind == UnitKind.SOLDIER || order == Order.HUNT) {
+            return SWORDS[age];
+        }
+        if (order == Order.WORK) {
+            Building workplace = building();
+            if (workplace != null && workplace.type == BuildingType.QUARRY) {
+                return PICKAXES[age];
+            }
+            if (workplace != null && workplace.type == BuildingType.FARM) {
+                return HOES[age];
+            }
+        }
+        return AXES[age];
     }
 
     /** Keeps name, skin and strength in step with the team's name, color, faction and upgrades. */
@@ -251,6 +346,9 @@ public class EntityUnit extends EntityCreature {
                 (byte) team.getFaction()
                     .ordinal());
         }
+        Game game = GameManager.getGame();
+        tier = game == null ? 0 : game.getAge(team) - 1;
+        showHeld();
         // Units from before skins wore their team's color as leather armor; applyUpgrades puts on what they wear now.
         applyUpgrades(team);
     }
@@ -361,7 +459,12 @@ public class EntityUnit extends EntityCreature {
 
     /** Whether a worker is on its way to a store with what it carries. */
     public boolean isDelivering() {
-        return (order == Order.WORK || order == Order.CHOP) && delivering;
+        return (order == Order.WORK || order == Order.CHOP || order == Order.HUNT) && delivering;
+    }
+
+    /** Whether the unit is a worker carving a carcass. */
+    public boolean isCarving() {
+        return order == Order.HUNT && working && !delivering && carcassId != 0;
     }
 
     /** What the worker carries, in all. */
@@ -388,18 +491,21 @@ public class EntityUnit extends EntityCreature {
             working = false;
             startOrder();
         }
-        showCarrying();
+        showHeld();
     }
 
-    /** Holds what it carries most of, or its axe when empty-handed. */
-    private void showCarrying() {
+    /** Holds the tool for what it is doing, or on the way to a store what it carries most of. */
+    private void showHeld() {
         int most = -1;
-        for (int i = 0; i < carrying.length; i++) {
-            if (carrying[i] > 0 && (most < 0 || carrying[i] > carrying[most])) {
-                most = i;
+        if (delivering) {
+            for (int i = 0; i < carrying.length; i++) {
+                if (carrying[i] > 0 && (most < 0 || carrying[i] > carrying[most])) {
+                    most = i;
+                }
             }
         }
-        Item item = most < 0 ? tool() : CARRIED_ITEMS[most];
+        Item item = most < 0 ? tool()
+            : order == Order.HUNT && most == Resource.FOOD.ordinal() ? Items.beef : CARRIED_ITEMS[most];
         ItemStack held = getHeldItem();
         if (held == null || held.getItem() != item) {
             setCurrentItemOrArmor(0, new ItemStack(item));
@@ -443,6 +549,17 @@ public class EntityUnit extends EntityCreature {
             }
             case LIGHT:
                 return torches.isEmpty() ? null : new double[] { torches.get(0)[0] + 0.5, torches.get(0)[2] + 0.5 };
+            case HUNT: {
+                if (delivering) {
+                    Building store = store();
+                    return store == null ? null : store.nearestOutside(posX, posZ);
+                }
+                Hunting.Carcass carcass = Hunting.get(carcassId);
+                if (carcass != null) {
+                    return working ? null : new double[] { carcass.x, carcass.z };
+                }
+                return prey == null ? null : new double[] { prey.posX, prey.posZ };
+            }
             case CHOP: {
                 if (delivering) {
                     Building store = store();
@@ -456,6 +573,9 @@ public class EntityUnit extends EntityCreature {
     }
 
     public UUID getTargetId() {
+        if (order == Order.HUNT) {
+            return carcassId == 0 && prey != null ? prey.getUniqueID() : null;
+        }
         return order == Order.ATTACK && target != null ? target.getUniqueID() : null;
     }
 
@@ -529,6 +649,34 @@ public class EntityUnit extends EntityCreature {
         this.target = target;
         targetId = target.getUniqueID();
         defending = false;
+        hasSpot = false;
+        startOrder();
+    }
+
+    /** An archer's attack, shooting from x, z, in a line with the other archers sent along. */
+    void orderAttack(EntityLivingBase target, double x, double z) {
+        orderAttack(target);
+        hasSpot = true;
+        spotX = x;
+        spotZ = z;
+        anchorX = target.posX;
+        anchorZ = target.posZ;
+    }
+
+    /** Sends a worker to hunt the animal, carve food off its carcass and carry the food home. */
+    void orderHunt(EntityLivingBase animal) {
+        order = Order.HUNT;
+        prey = animal;
+        preyId = animal.getUniqueID();
+        preyX = animal.posX;
+        preyZ = animal.posZ;
+        carcassId = 0;
+        carveTicks = 0;
+        working = false;
+        delivering = getCarried() >= capacity();
+        target = null;
+        targetId = null;
+        defending = false;
         startOrder();
     }
 
@@ -545,10 +693,14 @@ public class EntityUnit extends EntityCreature {
         progressX = posX;
         progressZ = posZ;
         getNavigator().clearPathEntity();
+        if (!worldObj.isRemote) {
+            showHeld();
+        }
     }
 
     private void guardHere() {
         order = Order.IDLE;
+        hasSpot = false;
         working = false;
         delivering = false;
         target = null;
@@ -562,6 +714,7 @@ public class EntityUnit extends EntityCreature {
     /** Goes back to guarding its post, if it has one. */
     private void backToPost() {
         order = Order.IDLE;
+        hasSpot = false;
         working = false;
         delivering = false;
         target = null;
@@ -584,12 +737,58 @@ public class EntityUnit extends EntityCreature {
         return false;
     }
 
+    /** Creatures leave arm swings to mobs and players; units swing their swords and tools too. */
+    @Override
+    public void onLivingUpdate() {
+        updateArmSwingProgress();
+        super.onLivingUpdate();
+    }
+
+    @Override
+    public void onUpdate() {
+        super.onUpdate();
+        if (worldObj.isRemote) {
+            clientDrawTicks = dataWatcher.getWatchableObjectByte(WATCH_DRAWING) != 0 ? clientDrawTicks + 1 : 0;
+        }
+    }
+
     @Override
     protected void updateAITick() {
         super.updateAITick();
         if (attackCooldown > 0) {
             attackCooldown--;
         }
+        drewThisTick = false;
+        tickOrder();
+        if (!drewThisTick && drawTicks > 0) {
+            drawTicks = 0;
+            setDrawing(false);
+        }
+    }
+
+    /**
+     * Draws an archer's bow a tick further; returns true once it is fully drawn, when the arrow goes, after which it
+     * rests a moment before drawing again.
+     */
+    private boolean drawBow() {
+        if (attackCooldown > 0) {
+            return false;
+        }
+        drewThisTick = true;
+        if (drawTicks == 0) {
+            setDrawing(true);
+        }
+        if (++drawTicks < DRAW_TICKS) {
+            return false;
+        }
+        drawTicks = 0;
+        drewThisTick = false;
+        setDrawing(false);
+        attackCooldown = ARCHER_REST;
+        return true;
+    }
+
+    private void tickOrder() {
         switch (order) {
             case MOVE:
                 tickMove();
@@ -611,6 +810,9 @@ public class EntityUnit extends EntityCreature {
                 break;
             case LIGHT:
                 tickLight();
+                break;
+            case HUNT:
+                tickHunt();
                 break;
             default:
                 tickGuard();
@@ -694,7 +896,8 @@ public class EntityUnit extends EntityCreature {
             }
             getLookHelper()
                 .setLookPosition(workplace.getCenterX(), workplace.groundY + 1, workplace.getCenterZ(), 10, 30);
-            if (ticksExisted % 30 == 0) {
+            // Now and then, as a farmer hoeing or a quarryman picking at the rock.
+            if (rand.nextInt(25) == 0) {
                 swingItem();
             }
             progressTicks = 0;
@@ -832,6 +1035,145 @@ public class EntityUnit extends EntityCreature {
         startOrder();
     }
 
+    /**
+     * Hunts an animal down, then carves food off its carcass, carrying it to a store whenever its hands are full and
+     * coming back for more. Once the carcass is eaten up it goes after the nearest animal around; with none left, it
+     * takes home what it has and waits there.
+     */
+    private void tickHunt() {
+        if (delivering) {
+            deliver();
+            return;
+        }
+        Hunting.Carcass carcass = Hunting.get(carcassId);
+        if (carcass == null) {
+            carcassId = 0;
+            EntityLivingBase animal = resolvePrey();
+            if (animal != null) {
+                chase(animal);
+                return;
+            }
+            // Down, by this worker or another unit: to its carcass, if it left one, or on to the next.
+            Hunting.Carcass left = Hunting.nearest(preyX, preyZ, 4);
+            EntityLivingBase next = left == null ? nearestPrey() : null;
+            if (left != null) {
+                carcassId = left.id;
+                working = false;
+                startOrder();
+            } else if (next != null) {
+                orderHunt(next);
+            } else if (getCarried() > 0) {
+                delivering = true;
+                working = false;
+                startOrder();
+            } else {
+                getNavigator().clearPathEntity();
+                guardHere();
+            }
+            return;
+        }
+        if (distanceTo(carcass.x, carcass.z) > CARVE_REACH) {
+            working = false;
+            if (getNavigator().noPath() && --planTicks <= 0) {
+                planTicks = 20;
+                walkToward(carcass.x, carcass.z);
+            }
+            if (!madeProgress()) {
+                guardHere();
+            }
+            return;
+        }
+        if (!working) {
+            working = true;
+            getNavigator().clearPathEntity();
+        }
+        progressTicks = 0;
+        getLookHelper().setLookPosition(carcass.x, carcass.y, carcass.z, 10, 30);
+        if (ticksExisted % 15 == 0) {
+            swingItem();
+        }
+        if (++carveTicks < Math.max(1, Config.huntSeconds * 20)) {
+            return;
+        }
+        carveTicks = 0;
+        long[] food = new long[carrying.length];
+        food[Resource.FOOD.ordinal()] = Hunting.carve(carcass, Config.huntFood);
+        if (food[Resource.FOOD.ordinal()] > 0) {
+            gather(food);
+        }
+        if (carcass.getFood() <= 0) {
+            carcassId = 0;
+            prey = null;
+            preyId = null;
+            preyX = carcass.x;
+            preyZ = carcass.z;
+        }
+    }
+
+    /** Runs the animal down and hits it until it falls. */
+    private void chase(EntityLivingBase animal) {
+        working = false;
+        preyX = animal.posX;
+        preyZ = animal.posZ;
+        getLookHelper().setLookPositionWithEntity(animal, 30, 30);
+        double distanceSq = getDistanceSq(animal.posX, animal.boundingBox.minY, animal.posZ);
+        double reach = width * 2 * width * 2 + animal.width;
+        if (distanceSq <= reach + 1) {
+            if (attackCooldown <= 0) {
+                attackCooldown = 15;
+                swingItem();
+                animal.attackEntityFrom(DamageSource.causeMobDamage(this), HUNT_DAMAGE);
+            }
+            progressTicks = 0;
+            return;
+        }
+        if (--planTicks <= 0) {
+            planTicks = 10 + rand.nextInt(5);
+            if (Math.sqrt(distanceSq) > LEG || !getNavigator().tryMoveToEntityLiving(animal, SPEED)) {
+                walkToward(animal.posX, animal.posZ);
+            }
+        }
+        if (!madeProgress()) {
+            guardHere();
+        }
+    }
+
+    private EntityLivingBase resolvePrey() {
+        if (prey != null && (!prey.isEntityAlive() || prey.worldObj != worldObj)) {
+            prey = null;
+            preyId = null;
+        }
+        if (prey == null && preyId != null) {
+            prey = Units.get()
+                .findLiving(worldObj, preyId);
+            if (prey == null || !prey.isEntityAlive()) {
+                prey = null;
+                preyId = null;
+            }
+        }
+        return prey;
+    }
+
+    /** The nearest animal worth hunting around where the last one fell, or null. */
+    private EntityLivingBase nearestPrey() {
+        EntityLivingBase best = null;
+        double bestDistance = NEXT_PREY_RANGE * NEXT_PREY_RANGE;
+        for (Object object : worldObj
+            .getEntitiesWithinAABB(EntityLivingBase.class, boundingBox.expand(NEXT_PREY_RANGE, 6, NEXT_PREY_RANGE))) {
+            EntityLivingBase other = (EntityLivingBase) object;
+            if (!other.isEntityAlive() || Hunting.foodOf(other) <= 0) {
+                continue;
+            }
+            double dx = other.posX - preyX;
+            double dz = other.posZ - preyZ;
+            if (dx * dx + dz * dz < bestDistance) {
+                best = other;
+                bestDistance = dx * dx + dz * dz;
+            }
+        }
+        return best;
+    }
+
     /** The nearest town hall or storehouse of the unit's team, or null. */
     private Building store() {
         Game game = GameManager.getGame();
@@ -863,7 +1205,6 @@ public class EntityUnit extends EntityCreature {
         }
         Arrays.fill(carrying, 0);
         delivering = false;
-        showCarrying();
         startOrder();
     }
 
@@ -903,19 +1244,19 @@ public class EntityUnit extends EntityCreature {
         if (building.distanceTo(posX, posZ) <= buildingReach()) {
             getNavigator().clearPathEntity();
             getLookHelper().setLookPosition(building.getCenterX(), building.groundY + 1, building.getCenterZ(), 30, 30);
-            if (attackCooldown <= 0) {
-                int damage = Config.unitBuildingDamage;
-                if (kind == UnitKind.ARCHER) {
-                    attackCooldown = 30;
-                    damage /= 2;
+            int damage = Config.unitBuildingDamage;
+            if (kind == UnitKind.ARCHER) {
+                if (drawBow()) {
                     EntityTeamArrow arrow = new EntityTeamArrow(worldObj, this);
                     arrow.aimAt(building.getCenterX(), building.groundY + 2, building.getCenterZ(), 0);
                     worldObj.spawnEntityInWorld(arrow);
                     playSound("random.bow", 1.0F, 1.0F / (rand.nextFloat() * 0.4F + 0.8F));
-                } else {
-                    attackCooldown = 20;
-                    swingItem();
+                    Buildings.get()
+                        .damage(building, damage / 2, getCommandSenderName().replaceAll("\u00a7.", ""));
                 }
+            } else if (attackCooldown <= 0) {
+                attackCooldown = 20;
+                swingItem();
                 Buildings.get()
                     .damage(building, damage, getCommandSenderName().replaceAll("\u00a7.", ""));
             }
@@ -930,7 +1271,7 @@ public class EntityUnit extends EntityCreature {
     }
 
     /** How far an archer shoots, with its team's upgrades. */
-    private double archerRange() {
+    double archerRange() {
         Team team = team();
         return ARCHER_RANGE + (team != null && team.has(Upgrade.FLETCHING) ? 4 : 0);
     }
@@ -953,7 +1294,7 @@ public class EntityUnit extends EntityCreature {
     private void shoot(EntityLivingBase victim) {
         Team team = team();
         EntityTeamArrow arrow = new EntityTeamArrow(worldObj, this);
-        arrow.aim(victim, 3 + (team != null && team.has(Upgrade.FLETCHING) ? 1 : 0));
+        arrow.aim(victim, Config.archerDamage + (team != null && team.has(Upgrade.FLETCHING) ? 1 : 0));
         worldObj.spawnEntityInWorld(arrow);
         playSound("random.bow", 1.0F, 1.0F / (rand.nextFloat() * 0.4F + 0.8F));
     }
@@ -987,11 +1328,27 @@ public class EntityUnit extends EntityCreature {
         }
         getLookHelper().setLookPositionWithEntity(current, 30, 30);
         double distanceSq = getDistanceSq(current.posX, current.boundingBox.minY, current.posZ);
+        if (hasSpot) {
+            // First into line with the other archers, unless the target has gone elsewhere meanwhile.
+            double drift = Math.hypot(current.posX - anchorX, current.posZ - anchorZ);
+            if (drift > SPOT_DRIFT || distanceTo(spotX, spotZ) <= 1.2) {
+                hasSpot = false;
+                getNavigator().clearPathEntity();
+            } else {
+                if (getNavigator().noPath() && --planTicks <= 0) {
+                    planTicks = 20;
+                    walkToward(spotX, spotZ);
+                }
+                if (!madeProgress()) {
+                    hasSpot = false;
+                }
+                return;
+            }
+        }
         if (kind == UnitKind.ARCHER && distanceSq <= archerRange() * archerRange()
             && getEntitySenses().canSee(current)) {
             getNavigator().clearPathEntity();
-            if (attackCooldown <= 0) {
-                attackCooldown = 30;
+            if (drawBow()) {
                 shoot(current);
             }
             progressTicks = 0;
@@ -1244,6 +1601,11 @@ public class EntityUnit extends EntityCreature {
         if (targetId != null && !defending) {
             tag.setString("Target", targetId.toString());
         }
+        if (order == Order.HUNT && preyId != null) {
+            tag.setString("Prey", preyId.toString());
+        }
+        tag.setDouble("PreyX", preyX);
+        tag.setDouble("PreyZ", preyZ);
     }
 
     @Override
@@ -1293,5 +1655,16 @@ public class EntityUnit extends EntityCreature {
         if (order == Order.ATTACK && targetId == null) {
             order = Order.IDLE;
         }
+        // Carcasses are not kept across restarts; a hunter goes after the next animal where the last one fell.
+        preyId = null;
+        if (tag.hasKey("Prey")) {
+            try {
+                preyId = UUID.fromString(tag.getString("Prey"));
+            } catch (IllegalArgumentException e) {
+                preyId = null;
+            }
+        }
+        preyX = tag.hasKey("PreyX") ? tag.getDouble("PreyX") : posX;
+        preyZ = tag.hasKey("PreyZ") ? tag.getDouble("PreyZ") : posZ;
     }
 }

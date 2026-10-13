@@ -33,6 +33,7 @@ import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.Upgrade;
 import com.warofthegods.rts.Commanders;
 import com.warofthegods.unit.EntityUnit;
+import com.warofthegods.unit.Hunting;
 import com.warofthegods.unit.Units;
 import com.warofthegods.world.ChunkProviderRts;
 import com.warofthegods.world.GameWorld;
@@ -256,7 +257,8 @@ public final class WebMap {
             JsonArray population = new JsonArray();
             JsonArray ranges = new JsonArray();
             for (int level = 1; level <= type.levels; level++) {
-                if (level > 1) {
+                // Only the town center goes up a level, taking the town into the next age.
+                if (level > 1 && type == BuildingType.TOWN_HALL) {
                     JsonObject levelJson = new JsonObject();
                     levelJson.add("cost", costJson(type.upgradeCost(level)));
                     levelJson.addProperty("seconds", type.upgradeTicks(level) / 20);
@@ -529,6 +531,9 @@ public final class WebMap {
                 if (unit.isDelivering()) {
                     json.addProperty("delivering", true);
                 }
+                if (unit.isCarving()) {
+                    json.addProperty("carving", true);
+                }
             }
             if (unit.getTargetId() != null) {
                 json.addProperty(
@@ -554,6 +559,10 @@ public final class WebMap {
             json.addProperty("eid", mob.getEntityId());
             json.addProperty("name", mob.getCommandSenderName());
             json.addProperty("hostile", mob instanceof IMob);
+            int food = Hunting.foodOf(mob);
+            if (food > 0) {
+                json.addProperty("food", food);
+            }
             json.addProperty("x", round(mob.posX));
             json.addProperty("y", round(mob.posY));
             json.addProperty("z", round(mob.posZ));

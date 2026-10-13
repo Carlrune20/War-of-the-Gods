@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.EnumMap;
 
 import net.minecraftforge.common.config.Configuration;
+import net.minecraftforge.common.config.Property;
 
 import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Resource;
@@ -19,7 +20,7 @@ public class Config {
 
     /** Food, Wood, Stone and Metal one unit costs to train from the web map. */
     public static final long[] unitCost = { 50, 20, 0, 0 };
-    public static int unitsPerTeam = 50;
+    public static int unitsPerTeam = 100;
     public static int unitHealth = 20;
     /** Food, Wood, Stone and Metal one worker costs to train at the town center. */
     public static final long[] workerCost = { 50, 0, 0, 0 };
@@ -52,7 +53,9 @@ public class Config {
     public static int townCenterPopulation = 10;
     public static int housePopulation = 5;
     public static int towerRange = 16;
-    public static int towerDamage = 3;
+    public static int towerDamage = 6;
+    /** Damage of an archer's arrow before upgrades; a crit adds up to half again, as for a player's full draw. */
+    public static int archerDamage = 6;
     public static int towerShotTicks = 30;
     /** Wood one log of a tree holds; a tree holds between treeWoodMin and treeWoodMax in all. */
     public static int woodPerLog = 25;
@@ -68,7 +71,7 @@ public class Config {
         buildSeconds.put(type, seconds);
     }
 
-    public static int farmWorkers = 3;
+    public static int farmWorkers = 1;
     public static int farmYieldSeconds = 5;
     public static int farmFood = 5;
     public static int quarryWorkers = 3;
@@ -86,6 +89,14 @@ public class Config {
     public static int explosionProtection = 2;
     /** Wood each torch a worker puts up costs. */
     public static int torchWood = 1;
+    /** Food a cow, pig, sheep or chicken leaves for workers to carve off once killed. */
+    public static int cowFood = 300;
+    public static int pigFood = 250;
+    public static int sheepFood = 200;
+    public static int chickenFood = 100;
+    /** Food a worker carves off a carcass per huntSeconds. */
+    public static int huntFood = 6;
+    public static int huntSeconds = 3;
 
     public static boolean webEnabled = true;
     public static String webBindAddress = "0.0.0.0";
@@ -100,15 +111,22 @@ public class Config {
     public static boolean rain = false;
     public static int startTime = 0;
 
-    /** Share of creeper spawns that go ahead; the rest are stopped. */
-    public static double creeperChance = 0.15;
-    public static boolean endermen = false;
+    /** Seconds between tries at spawning a group of zombies or skeletons somewhere in the wilderness. */
+    public static int mobSpawnSeconds = 45;
+    /** Most zombies and skeletons on the whole map at once. */
+    public static int maxMobs = 16;
+    /** Fewest and most zombies or skeletons in a group. */
+    public static int mobGroupMin = 2;
+    public static int mobGroupMax = 3;
+    /** Chance a spawn spot out in the open is used; spots among trees always are. */
+    public static double openGroundChance = 0.25;
+    /** Blocks a zombie or skeleton notices enemies from, and how far it chases one once it has. */
+    public static int mobDetectRange = 10;
+    public static int mobChaseRange = 32;
     /** No hostile mob spawns this close to a town center. */
     public static int townSafeRadius = 40;
     /** Out to this far from a town center, fewer hostile mobs spawn the closer they are; past it is wilderness. */
     public static int townRadius = 96;
-    /** Most extra zombies or skeletons that come along with one spawning in the wilderness. */
-    public static int mobGroupExtra = 3;
     public static double mobArmorChance = 0.45;
     public static double skeletonSwordChance = 0.3;
 
@@ -116,8 +134,27 @@ public class Config {
     public static int rtsCameraFov = 40;
     public static boolean rtsEdgeScroll = true;
 
+    /** Bumped when defaults change in a way that should replace what older config files hold. */
+    private static final int CONFIG_VERSION = 2;
+
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
+        Property version = configuration.get(
+            Configuration.CATEGORY_GENERAL,
+            "configVersion",
+            0,
+            "Which defaults this file was written with. Leave it alone.");
+        if (version.getInt() < CONFIG_VERSION) {
+            // These defaults changed; the old values make way for the new ones, and settings that are gone are
+            // dropped.
+            forget(configuration, "units", "perTeam");
+            forget(configuration, "buildings", "farmWorkers");
+            forget(configuration, "buildings", "towerDamage");
+            forget(configuration, "mobs", "groupExtra");
+            forget(configuration, "mobs", "creeperChance");
+            forget(configuration, "mobs", "endermen");
+            version.set(CONFIG_VERSION);
+        }
 
         defaultMapSize = configuration.getInt(
             "defaultMapSize",
@@ -199,6 +236,13 @@ public class Config {
             1000,
             "Most units a team can have at once, however many houses it builds.");
         unitHealth = configuration.getInt("health", units, unitHealth, 1, 1000, "Health of a unit; 20 is a player's.");
+        archerDamage = configuration.getInt(
+            "archerDamage",
+            units,
+            archerDamage,
+            0,
+            1000,
+            "Damage of an archer's arrow, before upgrades; a crit adds up to half again, as for a player's full draw.");
         trainSeconds = configuration
             .getInt("trainSeconds", units, trainSeconds, 0, 3600, "Seconds it takes to train one unit.");
 
@@ -290,8 +334,14 @@ public class Config {
             1,
             64,
             "Blocks a tower shoots at enemies; level 2 towers and town centers from level 2 shoot 4 farther.");
-        towerDamage = configuration
-            .getInt("towerDamage", buildings, towerDamage, 0, 1000, "Damage of a tower's arrow, before upgrades.");
+        towerDamage = configuration.getInt(
+            "towerDamage",
+            buildings,
+            towerDamage,
+            0,
+            1000,
+            "Damage of a tower's arrow, before upgrades. Arrows fly as a player's fully drawn bow shoots them, and a"
+                + " crit adds up to half again.");
         towerShotTicks = configuration.getInt(
             "towerShotTicks",
             buildings,
@@ -368,6 +418,19 @@ public class Config {
         torchWood = configuration
             .getInt("torchWood", buildings, torchWood, 0, 100000, "Wood each torch a worker puts up costs.");
 
+        String hunting = "hunting";
+        configuration.setCategoryComment(
+            hunting,
+            "Workers hunt cows, pigs, sheep and chickens, then carve food off the carcass and carry it home.");
+        cowFood = configuration.getInt("cowFood", hunting, cowFood, 0, 100000, "Food a cow leaves.");
+        pigFood = configuration.getInt("pigFood", hunting, pigFood, 0, 100000, "Food a pig leaves.");
+        sheepFood = configuration.getInt("sheepFood", hunting, sheepFood, 0, 100000, "Food a sheep leaves.");
+        chickenFood = configuration.getInt("chickenFood", hunting, chickenFood, 0, 100000, "Food a chicken leaves.");
+        huntFood = configuration
+            .getInt("carveFood", hunting, huntFood, 1, 10000, "Food a worker carves off a carcass at a time.");
+        huntSeconds = configuration
+            .getInt("carveSeconds", hunting, huntSeconds, 1, 3600, "Seconds a worker takes to carve that much.");
+
         String games = "games";
         configuration.setCategoryComment(games, "What happens when a new game starts.");
         autoAssignTeams = configuration.getBoolean(
@@ -386,32 +449,56 @@ public class Config {
 
         String mobs = "mobs";
         configuration.setCategoryComment(mobs, "Hostile mobs on the game map.");
-        creeperChance = configuration
-            .get(mobs, "creeperChance", creeperChance, "Share of creeper spawns allowed, 0 to 1.")
-            .getDouble();
-        endermen = configuration.getBoolean("endermen", mobs, endermen, "Whether endermen spawn.");
         townSafeRadius = configuration.getInt(
             "townSafeRadius",
             mobs,
             townSafeRadius,
             0,
             1000,
-            "No hostile mobs spawn this close to a town center.");
+            "No zombies or skeletons spawn this close to a town center.");
         townRadius = configuration.getInt(
             "townRadius",
             mobs,
             townRadius,
             0,
             2000,
-            "Between townSafeRadius and this far from a town center, fewer hostile mobs spawn the closer they are."
-                + " Further out is wilderness, where zombies and skeletons come in groups.");
-        mobGroupExtra = configuration.getInt(
-            "groupExtra",
+            "Between townSafeRadius and this far from a town center, fewer zombies and skeletons spawn the closer"
+                + " it is. Further out is wilderness.");
+        mobSpawnSeconds = configuration.getInt(
+            "spawnSeconds",
             mobs,
-            mobGroupExtra,
-            0,
-            8,
-            "Most extra zombies or skeletons that spawn along with one in the wilderness.");
+            mobSpawnSeconds,
+            1,
+            3600,
+            "Seconds between tries at spawning a group of zombies or skeletons in the wilderness, day or night."
+                + " Nothing else hostile spawns.");
+        maxMobs = configuration
+            .getInt("maxMobs", mobs, maxMobs, 0, 1000, "Most zombies and skeletons on the whole map at once.");
+        mobGroupMin = configuration
+            .getInt("groupMin", mobs, mobGroupMin, 1, 16, "Fewest zombies or skeletons in a group.");
+        mobGroupMax = configuration
+            .getInt("groupMax", mobs, mobGroupMax, 1, 16, "Most zombies or skeletons in a group.");
+        openGroundChance = configuration
+            .get(
+                mobs,
+                "openGroundChance",
+                openGroundChance,
+                "Chance a group may spawn out in the open, 0 to 1; among trees they always may.")
+            .getDouble();
+        mobDetectRange = configuration.getInt(
+            "detectRange",
+            mobs,
+            mobDetectRange,
+            1,
+            128,
+            "Blocks a zombie or skeleton notices players and units from.");
+        mobChaseRange = configuration.getInt(
+            "chaseRange",
+            mobs,
+            mobChaseRange,
+            1,
+            128,
+            "Blocks a zombie or skeleton follows an enemy once it has noticed one.");
         mobArmorChance = configuration
             .get(mobs, "armorChance", mobArmorChance, "Chance a zombie or skeleton spawns wearing armor, 0 to 1.")
             .getDouble();
@@ -499,6 +586,13 @@ public class Config {
 
         if (configuration.hasChanged()) {
             configuration.save();
+        }
+    }
+
+    private static void forget(Configuration configuration, String category, String key) {
+        if (configuration.hasCategory(category)) {
+            configuration.getCategory(category)
+                .remove(key);
         }
     }
 }
