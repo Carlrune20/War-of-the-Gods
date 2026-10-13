@@ -126,6 +126,7 @@ public final class RtsClient {
             return units.isEmpty() && buildings.isEmpty();
         }
     }
+
     /** Whether workers wait for two corners of an area to light up with torches. */
     public boolean lighting;
     /** The first corner of that area, x, y, z, once clicked; null before. */

@@ -463,8 +463,9 @@ public final class Units {
         double rz = fx;
         List<List<double[]>> rows = rows(formation, units.size());
         double front = rows.isEmpty() || rows.get(0)
-            .isEmpty() ? 0 : rows.get(0)
-                .get(0)[1];
+            .isEmpty() ? 0
+                : rows.get(0)
+                    .get(0)[1];
         List<EntityUnit> ranked = new ArrayList<>(units);
         ranked.sort(Comparator.comparingInt(Units::rank));
         int next = 0;
@@ -519,8 +520,9 @@ public final class Units {
             return body;
         }
         EntityPlayer player = world.func_152378_a(id);
-        return player == null || player.isDead || Commanders.get()
-            .isCommanding(id) ? null : player;
+        return player == null || player.isDead
+            || Commanders.get()
+                .isCommanding(id) ? null : player;
     }
 
     /** Warriors first, then archers, then workers. */
