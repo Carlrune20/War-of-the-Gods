@@ -30,6 +30,7 @@
         buildings: new Map(),
         trees: [], // {x, y, z, top, wood, maxWood}: trees workers have started chopping
         selectedBuilding: null, // id of the viewer's building whose controls the bar shows
+        selectedBuildings: new Set(), // ids of every selected building, selectedBuilding among them
         tiles: new Map(), // "x,z" -> {version, loaded}
         tilesExpected: 0,
     };
@@ -177,7 +178,7 @@
             state.mobs.clear();
             state.selected.clear();
             state.buildings.clear();
-            state.selectedBuilding = null;
+            setBuildingSelection([]);
             placing = null;
             view.setGame(game);
             if (game && newGame) {
@@ -342,10 +343,10 @@
                 state.selected.delete(id);
             }
         }
-        const building = state.buildings.get(state.selectedBuilding);
-        if (!building || !team || building.team !== team.id) {
-            state.selectedBuilding = null;
-        }
+        setBuildingSelection([...state.selectedBuildings].filter((id) => {
+            const b = state.buildings.get(id);
+            return b && team && b.team === team.id;
+        }), state.selectedBuilding);
         renderPanel();
         renderUnitBar();
         view.dirty = true;
@@ -690,13 +691,39 @@
             fill.style.width = Math.round(100 * (value || 0)) + "%";
         }
         const count = state.selected.size;
-        const workers = selectedWorkers().length;
-        let info = team.units ? "None selected" : "No units yet";
-        if (count) {
-            info = count + " selected" + (workers === count ? (count === 1 ? ", a worker" : ", all workers")
-                : workers ? ", " + workers + " workers" : "");
+        const info = el("span");
+        const idle = idleWorkers().length;
+        if (idle) {
+            const idleButton = iconButton("worker", idle + " idle", "Go to the next idle worker; shift-click selects"
+                + " every idle worker", (event) => selectIdleWorkers(event.shiftKey));
+            idleButton.classList.add("idle");
+            info.append(idleButton);
         }
-        document.getElementById("selection-info").textContent = info;
+        if (count) {
+            // How many of each kind are selected; clicking one narrows the selection, as in Age of Mythology.
+            const kinds = new Map();
+            for (const id of state.selected) {
+                const u = state.units.get(id);
+                if (u) {
+                    kinds.set(u.kind, (kinds.get(u.kind) || 0) + 1);
+                }
+            }
+            for (const [kind, n] of kinds) {
+                const k = unitKind(kind);
+                const name = k ? k.name.toLowerCase() + "s" : kind;
+                info.append(iconButton(kind, String(n), kinds.size > 1 ? "Click or ctrl-click: keep only the " + name
+                    + "; shift-click: drop the " + name : n + " " + name, (event) => {
+                    if (kinds.size > 1) {
+                        filterSelection(kind, event.shiftKey);
+                    }
+                }));
+            }
+        } else if (building && state.selectedBuildings.size > 1) {
+            info.append(document.createTextNode(state.selectedBuildings.size + " buildings selected"));
+        } else {
+            info.append(document.createTextNode(team.units ? "None selected" : "No units yet"));
+        }
+        swapIfChanged(document.getElementById("selection-info"), info);
         document.getElementById("stop-units").disabled = !count;
         document.getElementById("clear-selection").disabled = !count && !building;
         boxButton.classList.toggle("on", boxMode);
@@ -755,8 +782,9 @@
             return;
         }
         const title = el("span", "");
+        const alike = selectedBuildingList().filter((b) => b.type === building.type).length;
         title.append(sprite(building.type), document.createTextNode(type.name
-            + (building.level > 1 ? " " + roman(building.level) : "")));
+            + (building.level > 1 ? " " + roman(building.level) : "") + (alike > 1 ? " \u00D7" + alike : "")));
         actions.append(title);
         actions.append(el("span", "note", "Health " + building.health + "/" + building.maxHealth));
         if (type.workers) {
@@ -768,18 +796,23 @@
             if (!kind) {
                 continue;
             }
+            // With several buildings selected, training is shared out among those that train this kind.
+            const trainers = selectedBuildingList().filter((b) => b.complete
+                && (buildingType(b.type).trains || []).includes(kindId));
             const train = iconButton(kindId, kind.name + " (" + costText(kind.cost) + ")",
                 full ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
                     : "Your team has the most units it can have")
-                    : "Train a " + kind.name.toLowerCase() + "; shift-click for 5", async (event) => {
-                    const reply = await send("buildings.train",
-                        {building: building.id, unit: kindId, count: event.shiftKey ? 5 : 1});
-                    if (reply) {
-                        showToast(reply.count === 1 ? "Training a " + kind.name.toLowerCase()
-                            : "Training " + reply.count + " " + kind.name.toLowerCase() + "s");
+                    : "Train a " + kind.name.toLowerCase() + "; shift-click for 5"
+                    + (trainers.length > 1 ? ", shared out over the " + trainers.length + " selected" : ""),
+                async (event) => {
+                    const {total, buildings} = await trainSpread(trainers, kindId, event.shiftKey ? 5 : 1);
+                    if (total) {
+                        showToast((total === 1 ? "Training a " + kind.name.toLowerCase()
+                            : "Training " + total + " " + kind.name.toLowerCase() + "s")
+                            + (buildings > 1 ? " at " + buildings + " buildings" : ""));
                     }
                 });
-            train.disabled = full || !canAfford(team, kind.cost) || (building.queue || []).length >= 10;
+            train.disabled = full || !canAfford(team, kind.cost) || !trainers.some((b) => (b.queue || []).length < 10);
             actions.append(train);
         }
         if (building.queue && building.queue.length) {
@@ -812,7 +845,9 @@
         }
         for (const upgradeId of type.researches || []) {
             const upgrade = state.game.upgrades[upgradeId];
-            if (!upgrade || (team.upgrades || []).includes(upgradeId)) {
+            // Ones that need another upgrade first only show up once the team has it.
+            if (!upgrade || (team.upgrades || []).includes(upgradeId)
+                || (upgrade.requires && !(team.upgrades || []).includes(upgrade.requires))) {
                 continue;
             }
             const busy = [...state.buildings.values()].some((b) => b.team === team.id && b.research === upgradeId);
@@ -831,9 +866,84 @@
     }
 
     function selectBuilding(id) {
-        state.selectedBuilding = id;
+        setBuildingSelection([id]);
         state.selected.clear();
         changedSelection();
+    }
+
+    // Selects these buildings; the bar shows the controls of the first, or of primary if it is among them.
+    function setBuildingSelection(ids, primary) {
+        state.selectedBuildings = new Set(ids);
+        state.selectedBuilding = state.selectedBuildings.has(primary) ? primary : ids.length ? ids[0] : null;
+    }
+
+    function selectedBuildingList() {
+        return [...state.selectedBuildings].map((id) => state.buildings.get(id)).filter(Boolean);
+    }
+
+    // Workers with nothing to do.
+    function idleWorkers() {
+        return [...state.units.values()].filter((u) => isMine(u) && u.kind === "worker" && doingText(u) === "idle")
+            .sort((a, b) => a.number - b.number);
+    }
+
+    let lastIdle = 0; // number of the idle worker the idle button last went to
+
+    // Selects and goes to the next idle worker, or with shift every idle worker.
+    function selectIdleWorkers(all) {
+        const idle = idleWorkers();
+        if (!idle.length) {
+            return;
+        }
+        const next = idle.find((u) => u.number > lastIdle) || idle[0];
+        state.selected.clear();
+        for (const u of all ? idle : [next]) {
+            state.selected.add(u.id);
+        }
+        lastIdle = next.number;
+        setFollow(false);
+        view.focus(next.drawX, next.drawY, next.drawZ);
+        changedSelection();
+    }
+
+    // Narrows the selection by kind: keep only that kind, or with drop set, keep every other kind.
+    function filterSelection(kind, drop) {
+        for (const id of [...state.selected]) {
+            const u = state.units.get(id);
+            if (!u || (u.kind === kind) === drop) {
+                state.selected.delete(id);
+            }
+        }
+        changedSelection();
+    }
+
+    // Queues count units of a kind over the buildings, each going to whichever has the shortest queue then.
+    async function trainSpread(buildings, kindId, count) {
+        const queued = new Map(buildings.map((b) => [b.id, (b.queue || []).length]));
+        const plan = new Map();
+        for (let i = 0; i < count; i++) {
+            let best = null;
+            for (const b of buildings) {
+                const length = queued.get(b.id);
+                if (length < 10 && (best === null || length < queued.get(best))) {
+                    best = b.id;
+                }
+            }
+            if (best === null) {
+                break;
+            }
+            queued.set(best, queued.get(best) + 1);
+            plan.set(best, (plan.get(best) || 0) + 1);
+        }
+        let total = 0;
+        for (const [id, n] of plan) {
+            const reply = await send("buildings.train", {building: id, unit: kindId, count: n});
+            if (!reply) {
+                break;
+            }
+            total += reply.count || n;
+        }
+        return {total, buildings: plan.size};
     }
 
     let toastTimer = 0;
@@ -1001,7 +1111,7 @@
 
     document.getElementById("clear-selection").addEventListener("click", () => {
         state.selected.clear();
-        state.selectedBuilding = null;
+        setBuildingSelection([]);
         changedSelection();
     });
 
@@ -1012,7 +1122,7 @@
 
     function changedSelection() {
         if (state.selected.size) {
-            state.selectedBuilding = null;
+            setBuildingSelection([]);
         }
         if (placing && !selectedWorkers().length) {
             placing = null;
@@ -1182,10 +1292,24 @@
         }
         const building = hit ? null : buildingAt(px, py);
         if (building && building.team === myTeam().id) {
-            selectBuilding(building.id);
+            const now = performance.now();
+            const key = "building " + building.id;
+            if (lastClick.id === key && now - lastClick.time < 400) {
+                // A double click picks every building of that kind in view.
+                selectBuildingsInView(building);
+            } else if (shift || touch) {
+                const ids = [...state.selectedBuildings];
+                setBuildingSelection(state.selectedBuildings.has(building.id) ? ids.filter((id) => id !== building.id)
+                    : ids.concat([building.id]), state.selectedBuilding);
+                state.selected.clear();
+                changedSelection();
+            } else {
+                selectBuilding(building.id);
+            }
+            lastClick = {time: now, id: key};
         } else if (!shift && !touch && (state.selected.size || state.selectedBuilding !== null)) {
             state.selected.clear();
-            state.selectedBuilding = null;
+            setBuildingSelection([]);
             changedSelection();
         }
     }
@@ -1287,6 +1411,25 @@
         return true;
     }
 
+    // Selects the viewer's buildings of the same kind as this one that are in view.
+    function selectBuildingsInView(building) {
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+        const ids = [building.id];
+        for (const b of state.buildings.values()) {
+            if (b.id === building.id || b.type !== building.type || b.team !== building.team || !b.complete) {
+                continue;
+            }
+            const [x, y] = view.project(b.x + b.sizeX / 2, b.y + 1, b.z + b.sizeZ / 2);
+            if (x >= 0 && x <= width && y >= 0 && y <= height) {
+                ids.push(b.id);
+            }
+        }
+        setBuildingSelection(ids, building.id);
+        state.selected.clear();
+        changedSelection();
+    }
+
     function selectInView() {
         const width = canvas.clientWidth;
         const height = canvas.clientHeight;
@@ -1308,6 +1451,26 @@
             const [x, y] = view.project(u.drawX, u.drawY + 0.9 * s, u.drawZ);
             if (x >= left && x <= right && y >= top && y <= bottom) {
                 state.selected.add(u.id);
+            }
+        }
+        // With no units in it, the box picks the viewer's buildings in it instead.
+        const team = myTeam();
+        if (!state.selected.size && team) {
+            const ids = [];
+            for (const b of state.buildings.values()) {
+                if (b.team !== team.id) {
+                    continue;
+                }
+                const [x, y] = view.project(b.x + b.sizeX / 2, b.y + 1, b.z + b.sizeZ / 2);
+                if (x >= left && x <= right && y >= top && y <= bottom) {
+                    ids.push(b.id);
+                }
+            }
+            if (ids.length) {
+                setBuildingSelection(add ? [...state.selectedBuildings, ...ids] : ids, state.selectedBuilding);
+                renderUnitBar();
+                view.dirty = true;
+                return;
             }
         }
         changedSelection();
@@ -1434,6 +1597,7 @@
 
     const tip = document.getElementById("tip");
     let pointer = null; // {x, y} over the map, or null when the pointer is elsewhere
+    let hoverBuilding = null; // id of the shooting building under the pointer, whose range shows
     let tipTimer = 0;
 
     const ICONS = {
@@ -1611,6 +1775,10 @@
 
     canvas.addEventListener("pointerleave", () => {
         pointer = null;
+        if (hoverBuilding !== null) {
+            hoverBuilding = null;
+            view.dirty = true;
+        }
         updateTip();
     });
 
@@ -1623,6 +1791,12 @@
         cursorTimer = now;
         const hit = view.pick(px, py);
         document.getElementById("cursor").textContent = hit ? hit.x + ", " + hit.y + ", " + hit.z : "";
+        const over = pointer && !placing ? buildingAt(px, py) : null;
+        const hover = over && over.range ? over.id : null;
+        if (hover !== hoverBuilding) {
+            hoverBuilding = hover;
+            view.dirty = true;
+        }
         if (pointer) {
             tipTimer = now;
             updateTip();
@@ -1653,7 +1827,7 @@
             stopLighting();
         } else if (key === "escape" && (state.selected.size || state.selectedBuilding !== null)) {
             state.selected.clear();
-            state.selectedBuilding = null;
+            setBuildingSelection([]);
             changedSelection();
         }
     });
@@ -1806,8 +1980,7 @@
         return state.game ? state.game.seaLevel + 1 : 64;
     }
 
-    function ring(lines, x, y, z, radius, color) {
-        const segments = 16;
+    function ring(lines, x, y, z, radius, color, segments = 16) {
         for (let i = 0; i < segments; i++) {
             const a = 2 * Math.PI * i / segments;
             const b = 2 * Math.PI * (i + 1) / segments;
@@ -1818,6 +1991,7 @@
 
     const SELECTED = [0.45, 1, 0.5, 1];
     const ATTACK = [1, 0.3, 0.25, 1];
+    const RANGE = [1, 0.85, 0.35, 0.9];
 
     function rect(lines, x0, z0, x1, z1, y, color) {
         lines.push([[x0, y, z0], [x1, y, z0], color], [[x1, y, z0], [x1, y, z1], color],
@@ -1854,8 +2028,12 @@
             }
         }
         for (const b of state.buildings.values()) {
-            const color = b.id === state.selectedBuilding ? SELECTED : teamColor(b.team);
+            const color = state.selectedBuildings.has(b.id) ? SELECTED : teamColor(b.team);
             rect(lines, b.x - 0.5, b.z - 0.5, b.x + b.sizeX + 0.5, b.z + b.sizeZ + 0.5, b.y + 1.1, color);
+            // How far towers shoot, for the ones selected and the one under the pointer.
+            if (b.range && (state.selectedBuildings.has(b.id) || b.id === hoverBuilding)) {
+                ring(lines, b.x + b.sizeX / 2, b.y + 1.1, b.z + b.sizeZ / 2, b.range, RANGE, 64);
+            }
         }
         const spot = placingFootprint();
         if (spot) {
@@ -1901,7 +2079,7 @@
             const type = buildingType(b.type);
             const team = state.teamsById[b.team];
             const hurt = b.complete && b.health < b.maxHealth;
-            if (!type || !team || (b.type !== "town_hall" && b.id !== state.selectedBuilding && b.complete && !b.queue
+            if (!type || !team || (b.type !== "town_hall" && !state.selectedBuildings.has(b.id) && b.complete && !b.queue
                 && !b.research && !hurt)) {
                 continue;
             }

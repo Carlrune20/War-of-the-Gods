@@ -86,6 +86,9 @@ public class EntityTeamArrow extends EntityArrow {
         arrow.motionZ = motionZ;
         arrow.setDamage(getDamage());
         arrow.setIsCritical(getIsCritical());
+        if (isBurning()) {
+            arrow.setFire(100);
+        }
         return arrow;
     }
 

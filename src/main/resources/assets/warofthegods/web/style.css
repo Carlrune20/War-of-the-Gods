@@ -310,9 +310,16 @@ button.with-icon {
 }
 
 #selection-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     min-width: 88px;
-    text-align: center;
+    justify-content: center;
     color: var(--muted, #9aa3b2);
+}
+
+#selection-info button.idle {
+    color: #ffd76a;
 }
 
 button:disabled {
