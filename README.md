@@ -113,7 +113,8 @@ is built, and the finished building stands once the site is done; more workers b
 | Archer | 40 Food, 40 Wood | Shoots arrows from up to 14 blocks |
 
 Units walk as fast as a player. Warriors carry stone swords until the armory researches iron and then diamond ones,
-and always wear boots: leather, chainmail with padded armor and iron with plate. Workers hold the tool for their job,
+and always wear boots, leather until the armor upgrades. Warriors and archers wear the armor upgrades from helmet to
+boots: chainmail with padded armor and iron with plate. Workers hold the tool for their job,
 a hoe at a farm, a pickaxe at a quarry, an axe for building and chopping and a sword for hunting, and swing it as they
 work. Their tools are stone until the storehouse researches iron ones, and diamond after that in Age III. They hold
 what they carry only on the way to a store.
@@ -173,7 +174,7 @@ and units training there are lost. A destroyed town center does not come back.
 A team can have as many units as its town center and houses house, up to 100. Buildings need a spot inside the map,
 two blocks clear of other buildings, on ground that is mostly dry and not too steep; foundations fill in dips and
 anything above the building is cleared. The structures are drawn by `tools/structures/generate.py` into
-`assets/warofthegods/structures/<faction>`, and the skins and icons by `tools/textures/generate.py`.
+`assets/warofthegods/structures/<faction>`, and the skins and icons by `tools/textures/generate.py` (the resource and tool icons are copied from the Minecraft 1.7.10 client jar).
 
 A unit that has no orders guards the spot where it stopped. How it fights depends on its stance, set from the bar
 with warriors or archers selected:

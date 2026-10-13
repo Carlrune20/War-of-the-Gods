@@ -605,7 +605,7 @@
 
     // The building, unit and resource icons in icons.png, one 16 pixel square each, in this order.
     const SPRITES = ["town_hall", "house", "barracks", "storehouse", "quarry", "farm", "armory", "tower", "worker",
-        "soldier", "archer", "tree", "upgrade", "level", "food", "wood", "gold"];
+        "soldier", "archer", "tree", "upgrade", "level", "food", "wood", "gold", "sword", "axe", "pickaxe", "hoe"];
 
     function sprite(name) {
         const span = el("span", "sprite");
@@ -1893,6 +1893,11 @@
             + (b.level > 1 ? " (level " + b.level + ")" : "");
     }
 
+    // The tool workers use at a building: a hoe at a farm, a pickaxe at a quarry, else an axe.
+    function toolFor(type) {
+        return type === "farm" ? "hoe" : type === "quarry" ? "pickaxe" : "axe";
+    }
+
     // What the pointer at px, py is over, as {icon, text, action}, or null for nothing worth a tooltip.
     function hint(px, py) {
         if (!state.game || placing) {
@@ -1917,12 +1922,12 @@
         }
         if (hit) {
             if (workers && !fighters && hit.kind === "mob" && hit.thing.food) {
-                return {icon: ICONS.attack, text: "Hunt " + hit.thing.name + " \u00B7 " + hit.thing.food + " food",
+                return {icon: "sword", text: "Hunt " + hit.thing.name + " \u00B7 " + hit.thing.food + " food",
                     action: "attack"};
             }
             if (fighters && isEnemy(hit)) {
                 const name = hit.kind === "unit" ? unitName(hit.thing) : hit.thing.name;
-                return {icon: ICONS.attack, text: "Attack " + name + (hit.kind === "mob"
+                return {icon: "sword", text: "Attack " + name + (hit.kind === "mob"
                     ? " \u00B7 " + Math.ceil(hit.thing.health) + "/" + Math.ceil(hit.thing.maxHealth) : ""),
                 action: "attack"};
             }
@@ -1952,22 +1957,22 @@
             const tree = trackedTreeNear(block);
             const wood = tree ? " \u00B7 " + tree.wood + "/" + tree.maxWood + " wood" : "";
             if (workers) {
-                return {icon: "tree", text: "Chop tree" + wood, action: "build"};
+                return {icon: "axe", text: "Chop tree" + wood, action: "build"};
             }
             return {icon: "tree", text: "Tree" + wood + (team ? " \u00B7 select workers to chop it" : "")};
         }
         const type = buildingType(b.type);
         const mine = team && b.team === team.id;
         if (fighters && isEnemyTeam(b.team)) {
-            return {icon: ICONS.attack, text: "Attack " + buildingName(b) + " \u00B7 " + b.health + "/" + b.maxHealth,
+            return {icon: "sword", text: "Attack " + buildingName(b) + " \u00B7 " + b.health + "/" + b.maxHealth,
                 action: "attack"};
         }
         if (mine && workers && !b.complete) {
-            return {icon: "worker", text: "Build " + type.name.toLowerCase() + " \u00B7 "
+            return {icon: "axe", text: "Build " + type.name.toLowerCase() + " \u00B7 "
                 + Math.floor(100 * (b.built || 0)) + "% built", action: "build"};
         }
         if (mine && workers && type.workers) {
-            return {icon: b.type, text: "Work at " + type.name.toLowerCase() + " ("
+            return {icon: toolFor(b.type), text: "Work at " + type.name.toLowerCase() + " ("
                 + (b.workers || 0) + " of " + type.workers + " workers)", action: "build"};
         }
         let text = buildingName(b);

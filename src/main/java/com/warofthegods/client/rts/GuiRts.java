@@ -2,6 +2,7 @@ package com.warofthegods.client.rts;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +69,24 @@ public final class GuiRts extends GuiScreen {
         "level",
         "food",
         "wood",
-        "gold");
+        "gold",
+        "sword",
+        "axe",
+        "pickaxe",
+        "hoe");
+
+    /** Icons drawn as Minecraft items in the view; icons.png has the same pictures for the web map. */
+    private static final Map<String, ItemStack> VANILLA_ICONS = new HashMap<>();
+
+    static {
+        VANILLA_ICONS.put("food", new ItemStack(Items.beef));
+        VANILLA_ICONS.put("wood", new ItemStack(Blocks.log));
+        VANILLA_ICONS.put("gold", new ItemStack(Items.gold_ingot));
+        VANILLA_ICONS.put("sword", new ItemStack(Items.iron_sword));
+        VANILLA_ICONS.put("axe", new ItemStack(Items.iron_axe));
+        VANILLA_ICONS.put("pickaxe", new ItemStack(Items.iron_pickaxe));
+        VANILLA_ICONS.put("hoe", new ItemStack(Items.iron_hoe));
+    }
 
     private final RtsClient client;
     private final List<Widget> widgets = new ArrayList<>();
@@ -372,10 +390,9 @@ public final class GuiRts extends GuiScreen {
             candidates.add(new Object[] { "unit", unit });
         }
         for (RtsState.PlayerInfo player : state().players.values()) {
-            // A commanding player is picked by their body, which stays where they stood.
-            if (!player.id.equals(state().me)) {
-                candidates.add(new Object[] { "player", player });
-            }
+            // A commanding player, the viewer too, is where their body stands, so right-clicking your own body
+            // has the selected units follow you.
+            candidates.add(new Object[] { "player", player });
         }
         for (RtsState.MobInfo mob : state().mobs.values()) {
             candidates.add(new Object[] { "mob", mob });
@@ -1137,14 +1154,14 @@ public final class GuiRts extends GuiScreen {
                 && hit.thing instanceof RtsState.MobInfo
                 && ((RtsState.MobInfo) hit.thing).food > 0) {
                 RtsState.MobInfo mob = (RtsState.MobInfo) hit.thing;
-                return new Object[] { "soldier", "Hunt " + mob.name + " · " + mob.food + " food", "attack" };
+                return new Object[] { "sword", "Hunt " + mob.name + " · " + mob.food + " food", "attack" };
             }
             if (fighters > 0 && isEnemy(hit)) {
                 String name = hit.thing instanceof RtsState.UnitInfo ? unitName((RtsState.UnitInfo) hit.thing)
                     : hit.thing instanceof RtsState.PlayerInfo ? ((RtsState.PlayerInfo) hit.thing).name
                         : ((RtsState.MobInfo) hit.thing).name + " · "
                             + healthText(hit.thing.health, hit.thing.maxHealth);
-                return new Object[] { "soldier", "Attack " + name, "attack" };
+                return new Object[] { "sword", "Attack " + name, "attack" };
             }
             if (hit.thing instanceof RtsState.MobInfo) {
                 RtsState.MobInfo mob = (RtsState.MobInfo) hit.thing;
@@ -1174,7 +1191,7 @@ public final class GuiRts extends GuiScreen {
             RtsState.TreeInfo tree = trackedTreeNear(block);
             String wood = tree == null ? "" : " · " + tree.wood + "/" + tree.maxWood + " wood";
             if (workers > 0) {
-                return new Object[] { "tree", "Chop tree" + wood, "act" };
+                return new Object[] { "axe", "Chop tree" + wood, "act" };
             }
             return new Object[] { "tree", "Tree" + wood + (team != null ? " · select workers to chop it" : ""), null };
         }
@@ -1184,15 +1201,15 @@ public final class GuiRts extends GuiScreen {
         }
         boolean mine = team != null && b.team.equals(team.id);
         if (fighters > 0 && state().isEnemyTeam(b.team)) {
-            return new Object[] { "soldier", "Attack " + buildingName(b) + " · " + b.health + "/" + b.maxHealth,
+            return new Object[] { "sword", "Attack " + buildingName(b) + " · " + b.health + "/" + b.maxHealth,
                 "attack" };
         }
         if (mine && workers > 0 && !b.complete) {
-            return new Object[] { "worker",
+            return new Object[] { "axe",
                 "Build " + type.name.toLowerCase() + " · " + (int) Math.floor(100 * b.built) + "% built", "act" };
         }
         if (mine && workers > 0 && type.workers > 0) {
-            return new Object[] { b.type,
+            return new Object[] { toolFor(b.type),
                 "Work at " + type.name.toLowerCase() + " (" + b.workers + " of " + type.workers + " workers)", "act" };
         }
         String text = buildingName(b);
@@ -1218,8 +1235,23 @@ public final class GuiRts extends GuiScreen {
         return upgrade == null ? research : upgrade.name;
     }
 
+    /** The tool workers use at a building: a hoe at a farm, a pickaxe at a quarry, else an axe. */
+    private static String toolFor(String buildingType) {
+        return "farm".equals(buildingType) ? "hoe" : "quarry".equals(buildingType) ? "pickaxe" : "axe";
+    }
+
     /** Draws one of the icons, 16 pixels square, scaled to size. */
     private void drawIcon(String name, int x, int y, int size) {
+        ItemStack item = VANILLA_ICONS.get(name);
+        if (item != null) {
+            // The resources and tools are Minecraft's own items, drawn as the inventory draws them.
+            GL11.glPushMatrix();
+            GL11.glTranslatef(x, y, 0);
+            GL11.glScalef(size / 16F, size / 16F, 1);
+            drawItem(item, 0, 0);
+            GL11.glPopMatrix();
+            return;
+        }
         int index = ICON_NAMES.indexOf(name);
         if (index < 0) {
             return;

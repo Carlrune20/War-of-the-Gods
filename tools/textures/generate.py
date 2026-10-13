@@ -1,18 +1,21 @@
 """Draws the unit skins and the building and unit icons of War of the Gods.
 
-    python3 tools/textures/generate.py [--preview DIR]
+    python3 tools/textures/generate.py [--preview DIR] [--minecraft-jar JAR]
 
 Like the structures, the textures are drawn from code so they stay consistent and are easy to change. Skins use the
 64x32 player layout. Saradomin's people wear bright steel, white and blue; Zamorak's wear blackened iron, bone and
-red. A unit's team shows as a band of its team's color drawn over the skin from team_overlay.png.
+red. A unit's team shows as a band of its team's color drawn over the skin from team_overlay.png. The resource and
+tool icons are Minecraft's own, taken from the client jar.
 
 Writes into src/main/resources/assets/warofthegods/textures/entity/unit/ and
 src/main/resources/assets/warofthegods/textures/gui/icons.png, which the web map also serves.
 """
 
 import argparse
+import io
 import os
 import random
+import zipfile
 
 from PIL import Image
 
@@ -329,7 +332,15 @@ PALETTE = {
 
 ICON_ORDER = ["town_hall", "house", "barracks", "storehouse", "quarry", "farm", "armory", "tower",
               "worker", "soldier", "archer", "tree", "upgrade", "level",
-              "food", "wood", "gold"]
+              "food", "wood", "gold", "sword", "axe", "pickaxe", "hoe"]
+
+# Icons that are Minecraft's own item pictures, taken from the game's jar: the resources and the tools of the actions
+# in tooltips. An oak log is drawn as a little block, the way the inventory shows it.
+VANILLA = {
+    "food": "items/beef_raw.png", "gold": "items/gold_ingot.png", "sword": "items/iron_sword.png",
+    "axe": "items/iron_axe.png", "pickaxe": "items/iron_pickaxe.png", "hoe": "items/iron_hoe.png",
+}
+MINECRAFT_JAR = os.path.expanduser("~/.gradle/caches/retro_futura_gradle/mc-vanilla/1.7.10/client.jar")
 
 ICON_ART = {
     "town_hall": """
@@ -570,62 +581,55 @@ ICON_ART = {
         ..kSSSSSSSSSSk..
         ..kkkkkkkkkkkk..
         ................""",
-    # Raw beef, an oak log and a gold ingot, for the three resources.
-    "food": """
-        ................
-        ................
-        ....kkkkk.......
-        ...kmmmmmkkk....
-        ..kmlllmmmmmkk..
-        ..kmmmmllllmmmk.
-        .kmmmmmmmmmllmk.
-        .kmlllmmmmmmmmk.
-        .kmmmmllllmmmMk.
-        ..kmmmmmmmlllMk.
-        ..kMmmmmmmmmMMk.
-        ...kMMmmmmMMMk..
-        ....kkMMMMkkk...
-        ......kkkk......
-        ................
-        ................""",
-    "wood": """
-        ................
-        ..kkkkkkkkkkkk..
-        ..kttwwwwwwttk..
-        ..ktwttttttwtk..
-        ..ktwtwwwwtwtk..
-        ..ktwttttttwtk..
-        ..kttwwwwwwttk..
-        ..kkkkkkkkkkkk..
-        ..kdWdWWdWdWdk..
-        ..kdWdWWdWdWdk..
-        ..kWdWdWWdWdWk..
-        ..kdWdWWdWdWdk..
-        ..kdWWdWdWWdWk..
-        ..kWdWdWWdWdWk..
-        ..kkkkkkkkkkkk..
-        ................""",
-    "gold": """
-        ................
-        ................
-        ................
-        ................
-        ................
-        ....kkkkkkkkkk..
-        ...kuuuuuuuukYk.
-        ..kuuuuuuuukYYk.
-        .kkkkkkkkkkYYYk.
-        .kyyyyyyyykYYk..
-        .kyyyyyyyykYk...
-        .kkkkkkkkkkk....
-        ................
-        ................
-        ................
-        ................""",
 }
 
 
-def icon(name):
+def texture(jar, path):
+    with zipfile.ZipFile(jar) as archive:
+        with archive.open("assets/minecraft/textures/" + path) as file:
+            return Image.open(io.BytesIO(file.read())).convert("RGBA")
+
+
+def block_icon(top, side):
+    """A block seen from above at an angle, as in the inventory: the top and two shaded sides."""
+    image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    t, l, r, b = (8, 0.5), (0.5, 4.25), (15.5, 4.25), (8, 8)
+    drop = 7.5
+
+    def solve(p, o, a, c):
+        # p = o + u * a + v * c for u, v.
+        det = a[0] * c[1] - a[1] * c[0]
+        dx, dy = p[0] - o[0], p[1] - o[1]
+        return (dx * c[1] - dy * c[0]) / det, (a[0] * dy - a[1] * dx) / det
+
+    def sample(image, u, v, shade):
+        x = min(15, max(0, int(u * 16)))
+        y = min(15, max(0, int(v * 16)))
+        pr, pg, pb, pa = image.getpixel((x, y))
+        return int(pr * shade), int(pg * shade), int(pb * shade), pa
+
+    for y in range(16):
+        for x in range(16):
+            p = (x + 0.5, y + 0.5)
+            u, v = solve(p, t, (r[0] - t[0], r[1] - t[1]), (l[0] - t[0], l[1] - t[1]))
+            if 0 <= u <= 1 and 0 <= v <= 1:
+                image.putpixel((x, y), sample(top, u, v, 1.0))
+                continue
+            u, v = solve(p, l, (b[0] - l[0], b[1] - l[1]), (0, drop))
+            if 0 <= u <= 1 and 0 <= v <= 1:
+                image.putpixel((x, y), sample(side, u, v, 0.8))
+                continue
+            u, v = solve(p, b, (r[0] - b[0], r[1] - b[1]), (0, drop))
+            if 0 <= u <= 1 and 0 <= v <= 1:
+                image.putpixel((x, y), sample(side, u, v, 0.6))
+    return image
+
+
+def icon(name, jar):
+    if name in VANILLA:
+        return texture(jar, VANILLA[name])
+    if name == "wood":
+        return block_icon(texture(jar, "blocks/log_oak_top.png"), texture(jar, "blocks/log_oak.png"))
     rows = [row.strip() for row in ICON_ART[name].strip("\n").split("\n")]
     image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
     for y, row in enumerate(rows[:16]):
@@ -635,16 +639,18 @@ def icon(name):
     return image
 
 
-def icons():
+def icons(jar):
     sheet = Image.new("RGBA", (16 * len(ICON_ORDER), 16), (0, 0, 0, 0))
     for i, name in enumerate(ICON_ORDER):
-        sheet.paste(icon(name), (16 * i, 0))
+        sheet.paste(icon(name, jar), (16 * i, 0))
     return sheet
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--preview", help="also write enlarged pictures into this folder")
+    parser.add_argument("--minecraft-jar", default=MINECRAFT_JAR,
+                        help="the Minecraft 1.7.10 client jar to take item pictures from (the build downloads it)")
     args = parser.parse_args()
     os.makedirs(SKINS, exist_ok=True)
     os.makedirs(os.path.dirname(ICONS), exist_ok=True)
@@ -655,7 +661,7 @@ def main():
             skin(kind, faction).save(path)
             written.append(path)
     overlay().save(os.path.join(SKINS, "team_overlay.png"))
-    icons().save(ICONS)
+    icons(args.minecraft_jar).save(ICONS)
     if args.preview:
         os.makedirs(args.preview, exist_ok=True)
         for path in written + [ICONS]:
