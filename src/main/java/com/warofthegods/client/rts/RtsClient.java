@@ -372,14 +372,6 @@ public final class RtsClient {
         return fighters;
     }
 
-    /**
-     * Whether A, with warriors or archers selected, starts an attack move rather than moving the camera: so where
-     * A is the key to walk left, as it is unless changed.
-     */
-    public boolean attackMoveKey(int key) {
-        return key == Keyboard.KEY_A && !selectedFighters().isEmpty();
-    }
-
     public Set<String> selectedWorkers() {
         Set<String> workers = new LinkedHashSet<>();
         for (String id : selected) {
@@ -619,8 +611,7 @@ public final class RtsClient {
         if (down(mc.gameSettings.keyBindRight.getKeyCode()) || down(Keyboard.KEY_RIGHT)) {
             right += 1;
         }
-        int left = mc.gameSettings.keyBindLeft.getKeyCode();
-        if (down(left) && !attackMoveKey(left) || down(Keyboard.KEY_LEFT)) {
+        if (down(mc.gameSettings.keyBindLeft.getKeyCode()) || down(Keyboard.KEY_LEFT)) {
             right -= 1;
         }
         if (Config.rtsEdgeScroll && Display.isActive() && Mouse.isInsideWindow()) {

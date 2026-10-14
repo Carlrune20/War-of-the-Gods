@@ -899,7 +899,7 @@
             b.classList.toggle("on", formation === id);
             actions.append(b);
         }
-        const move = button("Attack move (A)", "Then click where to go: they fight any enemy they meet on the way",
+        const move = button("Attack move (Space)", "Then click where to go: they fight any enemy they meet on the way",
             startAttackMove);
         move.classList.toggle("on", attackMoving);
         actions.append(move);
@@ -2509,8 +2509,7 @@
             return;
         }
         const key = event.key.toLowerCase();
-        if (key === "a" && myTeam() && selectedFighters().length) {
-            // With warriors or archers selected, A starts an attack move rather than moving the view.
+        if (key === " " && myTeam() && selectedFighters().length) {
             startAttackMove();
             event.preventDefault();
         } else if (PAN_KEYS.includes(key)) {

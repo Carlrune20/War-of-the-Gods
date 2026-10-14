@@ -412,25 +412,26 @@ public final class GuiRts extends GuiScreen {
             client.leave();
         } else if (key == client.teamsKey.getKeyCode()) {
             mc.displayGuiScreen(new GuiTeams(client));
-        } else if (client.attackMoveKey(key)) {
-            startAttackMove();
-        } else if (key == Keyboard.KEY_Q) {
-            camera.turn(-1);
-        } else if (key == Keyboard.KEY_E) {
-            camera.turn(1);
-        } else if (key == Keyboard.KEY_R && client.placing != null) {
-            client.placing.rotation = (client.placing.rotation + 1) % 4;
-        } else if (key == Keyboard.KEY_H) {
-            goToTownHall();
-        } else if (key == Keyboard.KEY_SPACE) {
-            focusSelection();
-        } else if (key == mc.gameSettings.keyBindChat.getKeyCode()) {
-            client.openChat("");
-        } else if (key == mc.gameSettings.keyBindCommand.getKeyCode()) {
-            client.openChat("/");
-        } else if (key == Keyboard.KEY_F1) {
-            mc.gameSettings.hideGUI = !mc.gameSettings.hideGUI;
-        }
+        } else if (key == Keyboard.KEY_SPACE && !client.selectedFighters()
+            .isEmpty()) {
+                startAttackMove();
+            } else if (key == Keyboard.KEY_Q) {
+                camera.turn(-1);
+            } else if (key == Keyboard.KEY_E) {
+                camera.turn(1);
+            } else if (key == Keyboard.KEY_R && client.placing != null) {
+                client.placing.rotation = (client.placing.rotation + 1) % 4;
+            } else if (key == Keyboard.KEY_H) {
+                goToTownHall();
+            } else if (key == Keyboard.KEY_SPACE) {
+                focusSelection();
+            } else if (key == mc.gameSettings.keyBindChat.getKeyCode()) {
+                client.openChat("");
+            } else if (key == mc.gameSettings.keyBindCommand.getKeyCode()) {
+                client.openChat("/");
+            } else if (key == Keyboard.KEY_F1) {
+                mc.gameSettings.hideGUI = !mc.gameSettings.hideGUI;
+            }
     }
 
     private void goToTownHall() {
@@ -2130,7 +2131,7 @@ public final class GuiRts extends GuiScreen {
         }
         actions.add(
             button(
-                (client.attackMoving ? "» " : "") + "Attack move (A)",
+                (client.attackMoving ? "» " : "") + "Attack move (Space)",
                 "Then click where to go: they fight any enemy they meet on the way",
                 shift -> startAttackMove(),
                 true));
