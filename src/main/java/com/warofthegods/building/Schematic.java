@@ -61,6 +61,34 @@ public final class Schematic {
         }
     }
 
+    private Schematic(Schematic whole, int width) {
+        this.width = width;
+        height = whole.height;
+        length = whole.length;
+        ground = whole.ground;
+        blocks = new byte[width * height * length];
+        data = new byte[blocks.length];
+        for (int y = 0; y < height; y++) {
+            for (int z = 0; z < length; z++) {
+                for (int x = 0; x < width; x++) {
+                    blocks[index(x, y, z)] = whole.blocks[whole.index(x, y, z)];
+                    data[index(x, y, z)] = whole.data[whole.index(x, y, z)];
+                }
+            }
+        }
+        for (int i = 0; i < whole.signPositions.size(); i++) {
+            if (whole.signPositions.get(i)[0] < width) {
+                signPositions.add(whole.signPositions.get(i));
+                signTexts.add(whole.signTexts.get(i));
+            }
+        }
+    }
+
+    /** The first so many blocks of the structure along x, as for a short piece of wall. */
+    public Schematic cropped(int width) {
+        return width >= this.width ? this : new Schematic(this, Math.max(1, width));
+    }
+
     /** Reads assets/warofthegods/structures/name.schematic from the mod jar. */
     public static Schematic load(String name) {
         String path = "/assets/warofthegods/structures/" + name + ".schematic";

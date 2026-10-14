@@ -125,7 +125,16 @@ public final class RtsWorldRenderer {
         RtsState.BuildingTypeInfo placingType = spot == null ? null : state.buildingType(client.placing.type);
         if (spot != null && (!spot.ok || !blockGhost(placingType, spot.rotation, spot, partialTicks))) {
             tessellator.startDrawingQuads();
-            ghost(placingType, spot.rotation, spot.x, spot.z, spot.y, spot.ok ? GHOST : ATTACK, 0.4F);
+            ghost(
+                placingType,
+                spot.rotation,
+                spot.x,
+                spot.z,
+                spot.sizeX,
+                spot.sizeZ,
+                spot.y,
+                spot.ok ? GHOST : ATTACK,
+                0.4F);
             tessellator.draw();
         }
         RtsClient.WallSpot wall = client.wallSpot();
@@ -135,7 +144,16 @@ public final class RtsWorldRenderer {
                 RtsClient.Footprint piece = wall.pieces.get(i);
                 RtsState.BuildingTypeInfo pieceType = state.buildingType(wall.types.get(i));
                 if (pieceType != null) {
-                    ghost(pieceType, piece.rotation, piece.x, piece.z, piece.y, piece.ok ? GHOST : ATTACK, 0.4F);
+                    ghost(
+                        pieceType,
+                        piece.rotation,
+                        piece.x,
+                        piece.z,
+                        piece.sizeX,
+                        piece.sizeZ,
+                        piece.y,
+                        piece.ok ? GHOST : ATTACK,
+                        0.4F);
                 }
             }
             tessellator.draw();
@@ -265,18 +283,20 @@ public final class RtsWorldRenderer {
     }
 
     /** See-through boxes in the shape of a building: one per run of equal-height columns along x. */
-    private void ghost(RtsState.BuildingTypeInfo type, int rotation, int minX, int minZ, int groundY, float[] color,
-        float alpha) {
+    private void ghost(RtsState.BuildingTypeInfo type, int rotation, int minX, int minZ, int footX, int footZ,
+        int groundY, float[] color, float alpha) {
         int[] shape = RtsState.turnedShape(type, rotation);
         int sizeX = shape[0];
-        int sizeZ = shape[1];
+        // Cut to the footprint, for a short segment of wall.
+        int endX = Math.min(sizeX, footX);
+        int endZ = Math.min(shape[1], footZ);
         tessellator.setColorRGBA_F(color[0], color[1], color[2], alpha);
-        for (int z = 0; z < sizeZ; z++) {
+        for (int z = 0; z < endZ; z++) {
             int x = 0;
-            while (x < sizeX) {
+            while (x < endX) {
                 int h = shape[2 + x + z * sizeX];
                 int run = 1;
-                while (x + run < sizeX && shape[2 + x + run + z * sizeX] == h) {
+                while (x + run < endX && shape[2 + x + run + z * sizeX] == h) {
                     run++;
                 }
                 if (h > 0) {

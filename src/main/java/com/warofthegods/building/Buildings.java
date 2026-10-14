@@ -4,12 +4,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import net.minecraft.block.Block;
+import net.minecraft.block.BlockLog;
 import net.minecraft.block.material.Material;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.monster.EntityCreeper;
@@ -84,6 +86,8 @@ public final class Buildings {
     private final EnumMap<BuildingType, Schematic> schematics = new EnumMap<>(BuildingType.class);
     /** Every look of every building, by faction folder and name, such as zamorak/house_l2_d1. */
     private final Map<String, Schematic> variants = new HashMap<>();
+    /** Looks cut short, by the look they were cut from and how long they are. */
+    private final Map<Schematic, Schematic[]> shortCuts = new IdentityHashMap<>();
     private final Map<Integer, Integer> harvestTicks = new HashMap<>();
     private final Map<Integer, Integer> shotTicks = new HashMap<>();
     private final MapFeatures features = new MapFeatures();
@@ -120,6 +124,27 @@ public final class Buildings {
             variants.put(key, schematic);
         }
         return schematic;
+    }
+
+    /**
+     * A look cut to the building's footprint: a short segment of wall, closing a gap, is the first blocks of a full
+     * one. Any other building keeps the look as it is.
+     */
+    private Schematic fitted(Schematic schematic, Building building) {
+        if (building.type != BuildingType.WALL) {
+            return schematic;
+        }
+        boolean alongX = (building.rotation & 1) == 0;
+        int along = alongX ? building.sizeX : building.sizeZ;
+        int across = alongX ? building.sizeZ : building.sizeX;
+        if (across != schematic.length || along < 1 || along >= schematic.width) {
+            return schematic;
+        }
+        Schematic[] cuts = shortCuts.computeIfAbsent(schematic, whole -> new Schematic[whole.width]);
+        if (cuts[along] == null) {
+            cuts[along] = schematic.cropped(along);
+        }
+        return cuts[along];
     }
 
     /**
@@ -225,10 +250,56 @@ public final class Buildings {
             if (game.settlementOf(hall) == null) {
                 game.addSettlement(minX, minZ, sizeX, sizeZ, site.groundY, rotation);
             }
+            clearTrees(game, world, minX, minZ, sizeX, sizeZ, site.groundY);
             raise(world, hall);
             team.setTownHallDue(false);
             return;
         }
+    }
+
+    /** How far round a town center or settlement trees are cleared away, so none grows into it or blocks the way. */
+    private static final int TREE_MARGIN = 5;
+
+    /**
+     * Fells the trees on a town center's or settlement's footprint and a few blocks round it: their logs and leaves,
+     * where no building, settlement or gold mine stands. Leaves of trees further off that hang over decay by
+     * themselves.
+     */
+    public static void clearTrees(Game game, WorldServer world, int minX, int minZ, int sizeX, int sizeZ, int groundY) {
+        for (int x = minX - TREE_MARGIN; x < minX + sizeX + TREE_MARGIN; x++) {
+            for (int z = minZ - TREE_MARGIN; z < minZ + sizeZ + TREE_MARGIN; z++) {
+                if (x < game.getMinX() || x > game.getMaxX() || z < game.getMinZ() || z > game.getMaxZ()) {
+                    continue;
+                }
+                boolean taken = false;
+                for (Building building : game.getBuildings()) {
+                    taken |= building.covers(x + 0.5, z + 0.5, 0);
+                }
+                for (Settlement settlement : game.getSettlements()) {
+                    taken |= settlement.overlaps(x, z, 1, 1, 0);
+                }
+                for (GoldMine mine : game.getMines()) {
+                    taken |= mine.overlaps(x, z, 1, 1, 0);
+                }
+                if (taken) {
+                    continue;
+                }
+                // Top down, so nothing drops.
+                for (int y = Math.min(255, groundY + 40); y > Math.max(1, groundY - 4); y--) {
+                    Block block = world.getBlock(x, y, z);
+                    Material material = block.getMaterial();
+                    if (block instanceof BlockLog || material == Material.leaves || material == Material.vine) {
+                        world.setBlock(x, y, z, Blocks.air, 0, 2);
+                    }
+                }
+            }
+        }
+        WebMap.blocksChanged(
+            world,
+            minX - TREE_MARGIN - 1,
+            minZ - TREE_MARGIN - 1,
+            minX + sizeX + TREE_MARGIN,
+            minZ + sizeZ + TREE_MARGIN);
     }
 
     private static int clamp(int value, int min, int max) {
@@ -396,6 +467,9 @@ public final class Buildings {
         WarOfTheGods.LOG.info("Started {}", site.describe(game));
         WorldServer world = GameWorld.getWorld();
         if (world != null) {
+            if (site.type == BuildingType.TOWN_HALL) {
+                clearTrees(game, world, site.minX, site.minZ, site.sizeX, site.sizeZ, site.groundY);
+            }
             show(world, game, site);
         }
         return site;
@@ -506,7 +580,7 @@ public final class Buildings {
      */
     public boolean show(WorldServer world, Game game, Building building) {
         String look = lookOf(building);
-        Schematic schematic = variant(factionOf(game, building), look);
+        Schematic schematic = fitted(variant(factionOf(game, building), look), building);
         building.setShown(look);
         if (schematic.sizeX(building.rotation) != building.sizeX
             || schematic.sizeZ(building.rotation) != building.sizeZ) {
@@ -826,65 +900,82 @@ public final class Buildings {
             z2 = (int) Math.floor(to.getCenterZ());
         }
         List<WallLine.Piece> pieces = WallLine.pieces(x1, z1, x2, z2, (minX, minZ) -> {
+            int[] box = null;
             for (Building building : game.getBuildings(team)) {
                 if ((building.type == BuildingType.TOWER || building.type.isWall())
                     && building.overlaps(minX, minZ, WallLine.SIZE, WallLine.SIZE, 0)) {
-                    return true;
+                    box = union(box, building.minX, building.minZ, building.sizeX, building.sizeZ);
                 }
             }
-            return false;
-        }, to == null ? null : new int[] { to.minX, to.minZ, to.sizeX, to.sizeZ });
+            return box;
+        });
         List<Plan> plans = new ArrayList<>();
-        if (pieces.isEmpty()) {
-            return new WallPlan(plans, "There is wall there already");
-        }
         for (WallLine.Piece piece : pieces) {
             String problem = wallPieceProblem(game, world, piece);
             if (problem != null) {
+                if (piece.isShort()) {
+                    // A short segment only closes a gap; the wall stands without it.
+                    continue;
+                }
                 return new WallPlan(plans, problem);
             }
-            Site site = survey(world, piece.minX, piece.minZ, WallLine.SIZE, WallLine.SIZE);
+            Site site = survey(world, piece.minX, piece.minZ, piece.sizeX, piece.sizeZ);
             plans.add(
                 new Plan(
                     piece.type(),
                     piece.minX,
                     piece.minZ,
-                    WallLine.SIZE,
-                    WallLine.SIZE,
+                    piece.sizeX,
+                    piece.sizeZ,
                     piece.rotation,
                     site.groundY,
                     null));
         }
+        if (plans.isEmpty()) {
+            return new WallPlan(plans, "There is wall there already");
+        }
         return new WallPlan(plans, null);
+    }
+
+    /** The box holding box, if any, and the one given; each as min x, min z, size x, size z. */
+    private static int[] union(int[] box, int minX, int minZ, int sizeX, int sizeZ) {
+        if (box == null) {
+            return new int[] { minX, minZ, sizeX, sizeZ };
+        }
+        int x = Math.min(box[0], minX);
+        int z = Math.min(box[1], minZ);
+        return new int[] { x, z, Math.max(box[0] + box[2], minX + sizeX) - x,
+            Math.max(box[1] + box[3], minZ + sizeZ) - z };
     }
 
     /** Why a piece of wall cannot go where it is, or null. Walls follow the ground, however steep. */
     private static String wallPieceProblem(Game game, WorldServer world, WallLine.Piece piece) {
-        int size = WallLine.SIZE;
+        int sizeX = piece.sizeX;
+        int sizeZ = piece.sizeZ;
         if (piece.minX < game.getMinX() || piece.minZ < game.getMinZ()
-            || piece.minX + size - 1 > game.getMaxX()
-            || piece.minZ + size - 1 > game.getMaxZ()) {
+            || piece.minX + sizeX - 1 > game.getMaxX()
+            || piece.minZ + sizeZ - 1 > game.getMaxZ()) {
             return "The wall would run off the map";
         }
         for (Building other : game.getBuildings()) {
-            if (other.overlaps(piece.minX, piece.minZ, size, size, 0)) {
+            if (other.overlaps(piece.minX, piece.minZ, sizeX, sizeZ, 0)) {
                 return "The wall would run into a " + other.type.displayName.toLowerCase();
             }
         }
         for (Settlement settlement : game.getSettlements()) {
-            if (settlement.overlaps(piece.minX, piece.minZ, size, size, 1)) {
+            if (settlement.overlaps(piece.minX, piece.minZ, sizeX, sizeZ, 1)) {
                 return "The wall would run over a settlement";
             }
         }
         for (GoldMine mine : game.getMines()) {
-            if (mine.overlaps(piece.minX, piece.minZ, size, size, 1)) {
+            if (mine.overlaps(piece.minX, piece.minZ, sizeX, sizeZ, 1)) {
                 return "The wall would run into a gold mine";
             }
         }
-        if (MapFeatures.bridgeNear(game, piece.minX, piece.minZ, size, size, 1)) {
+        if (MapFeatures.bridgeNear(game, piece.minX, piece.minZ, sizeX, sizeZ, 1)) {
             return "The wall would block a bridge";
         }
-        if (survey(world, piece.minX, piece.minZ, size, size).water > 2) {
+        if (survey(world, piece.minX, piece.minZ, sizeX, sizeZ).water > 2) {
             return "The wall would run through water";
         }
         return null;
@@ -923,6 +1014,9 @@ public final class Buildings {
     public static String gateProblem(Building building) {
         if (building.type != BuildingType.WALL) {
             return "Only a wall segment can be made a gate";
+        }
+        if (building.sizeX < WallLine.SIZE || building.sizeZ < WallLine.SIZE) {
+            return "A short wall segment is too small for a gate";
         }
         if (!building.isComplete()) {
             return "It is not built yet";
@@ -1237,7 +1331,7 @@ public final class Buildings {
                 return;
             }
         }
-        Schematic ruin = variant(factionOf(game, building), building.type.id + "_ruin");
+        Schematic ruin = fitted(variant(factionOf(game, building), building.type.id + "_ruin"), building);
         if (building.isComplete() && ruin.sizeX(building.rotation) == building.sizeX
             && ruin.sizeZ(building.rotation) == building.sizeZ) {
             paste(world, building, ruin);
