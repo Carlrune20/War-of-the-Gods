@@ -227,6 +227,7 @@ echo "rts build blue barracks" >&3
 wait_for_log "Laid out Blue barracks #4" 30
 for _ in $(seq 30); do
     echo "rts buildings blue" >&3
+    echo "rts units blue" >&3
     sleep 2
     grep -q "Blue barracks #4 at .*% built by 1 workers" "$WEB_LOG" && break
 done
