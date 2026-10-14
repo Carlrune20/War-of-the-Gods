@@ -3,7 +3,7 @@
 # boot checks the game and its map came back from the save intact, then starts a new game to check numbering
 # continues and the old map is replaced by a fresh one. The third checks the web map, units and buildings: town
 # centers, a worker building a farm, working it and carrying the harvest home, a barracks training warriors and
-# archers, a storehouse and building health down to 0, a house, a tower, levels, upgrades, chopping a tree, an explosion and torches. The fourth checks that units and buildings come back after a restart, then that a team losing its
+# archers, a storehouse and building health down to 0, a house, a tower, levels, upgrades, chopping a tree, mining gold, an explosion and torches. The fourth checks that units and buildings come back after a restart, then that a team losing its
 # town center gets a countdown and a team with neither town center nor workers is defeated, leaving a winner.
 set -uo pipefail
 
@@ -306,6 +306,28 @@ done
 [ "${wood:-0}" -gt "${wood_before:-0}" ] || web_fail "no wood came in from the tree: $wood_before, then $wood"
 echo "ok: Blue wood went from $wood_before to $wood"
 
+# Settlements and gold mines are laid out once both teams have town centers; a worker mines gold and brings it home.
+echo "rts info" >&3
+wait_for_log "Settlements: " 30
+grep -qE "Settlements: [0-9]+, [1-9][0-9]* free; gold mines: [1-9]" "$WEB_LOG" || web_fail "no free settlements or gold mines"
+echo "ok: $(grep -oE 'Settlements: .*gold' "$WEB_LOG" | tail -1)"
+echo "rts units spawn blue 1 worker" >&3
+sleep 2
+echo "rts resources blue" >&3
+sleep 2
+gold_before=$(grep -oE 'Team Blue resources: .*Gold [0-9]+' "$WEB_LOG" | tail -1 | grep -oE '[0-9]+$')
+echo "rts mine blue" >&3
+wait_for_log "to the gold mine at" 30
+gold=0
+for _ in $(seq 60); do
+    echo "rts resources blue" >&3
+    sleep 2
+    gold=$(grep -oE 'Team Blue resources: .*Gold [0-9]+' "$WEB_LOG" | tail -1 | grep -oE '[0-9]+$')
+    [ "${gold:-0}" -gt "${gold_before:-0}" ] && break
+done
+[ "${gold:-0}" -gt "${gold_before:-0}" ] || web_fail "no gold came in from the mine: $gold_before, then $gold"
+echo "ok: Blue gold went from $gold_before to $gold"
+
 # An explosion beside the tower takes health off it but breaks none of its blocks.
 echo "rts explode 7" >&3
 wait_for_log "The explosion took" 30
@@ -367,7 +389,9 @@ wait_for_log "Destroyed Red town center #1" 30
 wait_for_log "Team Red has lost its last town center! It has 2:00 to raise a new one" 30
 echo "rts info" >&3
 wait_for_log "left to raise a new town center" 30
-echo "rts team base red -40 -70" >&3
+echo "rts build red town_center" >&3
+wait_for_log "Laid out Red town center #8" 30
+echo "rts finish red" >&3
 wait_for_log "Team Red has a town center again." 30
 echo "rts units kill red" >&3
 sleep 2
@@ -382,7 +406,7 @@ cat "$WEB_LOG"
 if grep -qE 'This crash report has been saved|Encountered an unexpected exception' "$WEB_LOG"; then
     fail "boot-4-units: server crashed"
 fi
-expect "$WEB_LOG" "Units: Red 3, Blue 8"
+expect "$WEB_LOG" "Units: Red 3, Blue 9"
 expect "$WEB_LOG" "Team Red has 3 units, room for 10"
 expect "$WEB_LOG" "Red warrior 1 at "
 grep -q "Red warrior 1 at .*, hold" "$WEB_LOG" || fail "boot-4-units: Red warrior 1 lost its stance"

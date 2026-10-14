@@ -14,6 +14,7 @@ import com.google.gson.JsonObject;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
+import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.Team;
 import com.warofthegods.web.WebCommand;
 import com.warofthegods.web.WebJson;
@@ -30,8 +31,9 @@ import com.warofthegods.world.GameWorld;
  *   {type: "units.attack", units: [id...], target: id}  attack an enemy unit or player, or a mob; workers do not
  *                                                       fight, but hunt cows, pigs, sheep and chickens
  *   {type: "units.attack", units: [id...], building: id}  attack an enemy building
- *   {type: "units.build", units: [id...], building: id}  workers build a building site or work a farm or quarry
- *   {type: "units.gather", units: [id...], x, y, z}  workers chop the tree at or near that block
+ *   {type: "units.build", units: [id...], building: id}  workers build a building site or work a farm
+ *   {type: "units.gather", units: [id...], x, y, z}  workers chop the tree at or near that block, or mine the gold
+ *                                                    mine there
  *   {type: "units.light", units: [id...], x1, z1, x2, z2}  workers put torches in the dark parts of that area
  *   {type: "units.stop", units: [id...]}        stop and guard where they stand
  *   {type: "units.follow", units: [id...], target: uuid, formation?}  follow a player of their team in formation
@@ -229,6 +231,24 @@ public final class UnitCommands {
         }
         Game game = GameManager.getGame();
         WorldServer world = GameWorld.getWorld();
+        GoldMine mine = game.mineAt(x, z, 1);
+        if (mine != null) {
+            if (mine.isDepleted()) {
+                request.replyError("That gold mine is mined out");
+                return;
+            }
+            int sent = Units.get()
+                .orderMine(units, mine);
+            if (sent == 0) {
+                request.replyError("Only workers mine gold");
+                return;
+            }
+            JsonObject reply = WebJson.message("ok");
+            reply.addProperty("units", sent);
+            reply.addProperty("mine", mine.id);
+            request.reply(reply);
+            return;
+        }
         double fromY = y != null ? y : world.getHeightValue((int) Math.floor(x), (int) Math.floor(z));
         int[] tree = Trees.findTree(world, game, x, fromY, z);
         if (tree == null || !game.isInside(tree[0], tree[2])) {

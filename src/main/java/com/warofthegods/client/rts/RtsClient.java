@@ -774,6 +774,8 @@ public final class RtsClient {
         public int sizeZ;
         /** The y of the ground's top block, which the building's ground floor replaces. */
         public int y;
+        /** The quarter turn the building is drawn with; a town center takes its settlement's. */
+        public int rotation;
         public boolean ok;
     }
 
@@ -787,6 +789,30 @@ public final class RtsClient {
             return null;
         }
         Footprint spot = new Footprint();
+        if ("town_hall".equals(placing.type)) {
+            // A town center goes on a free settlement, as the settlement lies.
+            RtsState.FeatureInfo settlement = state.freeSettlementNear(placing.cx + 0.5, placing.cz + 0.5, 4);
+            if (settlement == null) {
+                boolean turned = placing.rotation % 2 != 0;
+                spot.sizeX = turned ? type.length : type.width;
+                spot.sizeZ = turned ? type.width : type.length;
+                spot.x = placing.cx - spot.sizeX / 2;
+                spot.z = placing.cz - spot.sizeZ / 2;
+                spot.y = (int) groundHeight(placing.cx + 0.5, placing.cz + 0.5) - 1;
+                spot.rotation = placing.rotation;
+                spot.ok = false;
+                return spot;
+            }
+            spot.x = settlement.x;
+            spot.z = settlement.z;
+            spot.sizeX = settlement.sizeX;
+            spot.sizeZ = settlement.sizeZ;
+            spot.y = settlement.y;
+            spot.rotation = settlement.rotation;
+            spot.ok = true;
+            return spot;
+        }
+        spot.rotation = placing.rotation;
         boolean turned = placing.rotation % 2 != 0;
         spot.sizeX = turned ? type.length : type.width;
         spot.sizeZ = turned ? type.width : type.length;
@@ -801,6 +827,20 @@ public final class RtsClient {
             if (spot.x < b.x + b.sizeX + gap && b.x < spot.x + spot.sizeX + gap
                 && spot.z < b.z + b.sizeZ + gap
                 && b.z < spot.z + spot.sizeZ + gap) {
+                spot.ok = false;
+            }
+        }
+        for (RtsState.FeatureInfo f : state.settlements) {
+            if (spot.x < f.x + f.sizeX + gap && f.x < spot.x + spot.sizeX + gap
+                && spot.z < f.z + f.sizeZ + gap
+                && f.z < spot.z + spot.sizeZ + gap) {
+                spot.ok = false;
+            }
+        }
+        for (RtsState.FeatureInfo f : state.mines) {
+            if (spot.x < f.x + f.sizeX + gap && f.x < spot.x + spot.sizeX + gap
+                && spot.z < f.z + f.sizeZ + gap
+                && f.z < spot.z + spot.sizeZ + gap) {
                 spot.ok = false;
             }
         }

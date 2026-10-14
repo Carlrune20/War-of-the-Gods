@@ -123,9 +123,9 @@ public final class RtsWorldRenderer {
         GL11.glDepthMask(false);
         RtsClient.Footprint spot = client.footprint();
         RtsState.BuildingTypeInfo placingType = spot == null ? null : state.buildingType(client.placing.type);
-        if (spot != null && (!spot.ok || !blockGhost(placingType, client.placing.rotation, spot, partialTicks))) {
+        if (spot != null && (!spot.ok || !blockGhost(placingType, spot.rotation, spot, partialTicks))) {
             tessellator.startDrawingQuads();
-            ghost(placingType, client.placing.rotation, spot.x, spot.z, spot.y, spot.ok ? GHOST : ATTACK, 0.4F);
+            ghost(placingType, spot.rotation, spot.x, spot.z, spot.y, spot.ok ? GHOST : ATTACK, 0.4F);
             tessellator.draw();
         }
         GL11.glDepthMask(true);

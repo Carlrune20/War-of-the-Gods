@@ -29,6 +29,8 @@
         // progress, workers}
         buildings: new Map(),
         trees: [], // {x, y, z, top, wood, maxWood}: trees workers have started chopping
+        settlements: [], // {id, x, z, sizeX, sizeZ, y, rotation, free}: where town centers can stand
+        mines: [], // {id, x, z, sizeX, sizeZ, y, gold, maxGold}: gold mines
         selectedBuilding: null, // id of the viewer's building whose controls the bar shows
         selectedBuildings: new Set(), // ids of every selected building, selectedBuilding among them
         tiles: new Map(), // "x,z" -> {version, loaded}
@@ -335,6 +337,8 @@
             state.buildings.set(b.id, b);
         }
         state.trees = message.trees || [];
+        state.settlements = message.settlements || [];
+        state.mines = message.mines || [];
         state.winners = message.winners || null;
         renderBanner();
         joinRallyGroups();
@@ -1095,18 +1099,58 @@
             return null;
         }
         const type = buildingType(placing.type);
+        if (placing.type === "town_hall") {
+            // A town center snaps onto the free settlement under the pointer, facing the way it does.
+            const settlement = freeSettlementNear(placing.cx, placing.cz, 4);
+            if (settlement) {
+                return {x: settlement.x, z: settlement.z, sizeX: settlement.sizeX, sizeZ: settlement.sizeZ, ok: true,
+                    y: settlement.y, rotation: settlement.rotation};
+            }
+        }
         const [sizeX, sizeZ] = footprintSize(type, placing.rotation);
         const x = placing.cx - Math.floor(sizeX / 2);
         const z = placing.cz - Math.floor(sizeZ / 2);
         const g = state.game;
-        let ok = x >= g.minX && z >= g.minZ && x + sizeX - 1 <= g.maxX && z + sizeZ - 1 <= g.maxZ;
+        let ok = placing.type !== "town_hall" && x >= g.minX && z >= g.minZ && x + sizeX - 1 <= g.maxX
+            && z + sizeZ - 1 <= g.maxZ;
         const gap = g.buildingGap || 0;
+        const overlaps = (b, bx, bz) => x < bx + b.sizeX + gap && bx < x + sizeX + gap && z < bz + b.sizeZ + gap
+            && bz < z + sizeZ + gap;
         for (const b of state.buildings.values()) {
-            if (x < b.x + b.sizeX + gap && b.x < x + sizeX + gap && z < b.z + b.sizeZ + gap && b.z < z + sizeZ + gap) {
+            if (overlaps(b, b.x, b.z)) {
                 ok = false;
             }
         }
-        return {x, z, sizeX, sizeZ, ok, y: surfaceY(placing.cx, placing.cz) - 1};
+        // Settlements are kept for town centers, and gold mines clear.
+        for (const f of state.settlements.concat(state.mines)) {
+            if (overlaps(f, f.x, f.z)) {
+                ok = false;
+            }
+        }
+        return {x, z, sizeX, sizeZ, ok, y: surfaceY(placing.cx, placing.cz) - 1, rotation: placing.rotation};
+    }
+
+    // The free settlement whose footprint holds x, z or comes within margin blocks of it, nearest first.
+    function freeSettlementNear(x, z, margin) {
+        let best = null;
+        let bestDistance = Infinity;
+        for (const f of state.settlements) {
+            if (!f.free || x < f.x - margin || x >= f.x + f.sizeX + margin || z < f.z - margin
+                || z >= f.z + f.sizeZ + margin) {
+                continue;
+            }
+            const distance = (f.x + f.sizeX / 2 - x) ** 2 + (f.z + f.sizeZ / 2 - z) ** 2;
+            if (distance < bestDistance) {
+                best = f;
+                bestDistance = distance;
+            }
+        }
+        return best;
+    }
+
+    // The gold mine whose footprint holds x, z, or null.
+    function mineAt(x, z) {
+        return state.mines.find((m) => x >= m.x && x < m.x + m.sizeX && z >= m.z && z < m.z + m.sizeZ) || null;
     }
 
     function movePlacing(px, py) {
@@ -1130,7 +1174,8 @@
             return;
         }
         if (!spot.ok) {
-            showToast("It does not fit there", true);
+            showToast(placing.type === "town_hall" ? "A town center can only go on a free settlement"
+                : "It does not fit there", true);
             return;
         }
         const workers = selectedWorkers();
@@ -1396,7 +1441,8 @@
             const t = hit.thing;
             orderMark = {x: t.drawX, y: t.drawY, z: t.drawZ, color: [1, 0.3, 0.25, 1], time: performance.now()};
             send("units.attack", {units, target: entityId(hit)});
-        } else if (!hit && (orderBuild(px, py, shift) || orderAttackBuilding(px, py) || orderChop(px, py))) {
+        } else if (!hit && (orderBuild(px, py, shift) || orderAttackBuilding(px, py) || orderMine(px, py)
+            || orderChop(px, py))) {
             return;
         } else {
             const ground = groundUnder(px, py);
@@ -1612,7 +1658,7 @@
         return true;
     }
 
-    // Right-clicking one of the team's building sites, or a farm or quarry, sends the selected workers to build or
+    // Right-clicking one of the team's building sites, or a farm, sends the selected workers to build or
     // work it.
     function orderBuild(px, py, queue) {
         const building = buildingAt(px, py);
@@ -1657,6 +1703,21 @@
             }
         }
         return best;
+    }
+
+    // Right-clicking a gold mine sends the selected workers to mine it.
+    function orderMine(px, py) {
+        const hit = view.pick(px, py);
+        const mine = hit && mineAt(hit.x, hit.z);
+        const workers = selectedWorkers();
+        if (!mine || !workers.length) {
+            return false;
+        }
+        orderMark = {x: mine.x + mine.sizeX / 2, y: mine.y + 2, z: mine.z + mine.sizeZ / 2, color: [0.45, 1, 0.5, 1],
+            time: performance.now()};
+        send("units.gather", {units: workers, x: mine.x + mine.sizeX / 2, y: mine.y, z: mine.z + mine.sizeZ / 2});
+        view.dirty = true;
+        return true;
     }
 
     // Right-clicking a tree sends the selected workers to chop it.
@@ -1909,6 +1970,11 @@
                     return "taking " + amountsText(u.carrying || {}) + " to store";
                 }
                 return u.chopping ? "chopping a tree" : "on the way to a tree";
+            case "mine":
+                if (u.delivering) {
+                    return "taking " + amountsText(u.carrying || {}) + " to store";
+                }
+                return u.mining ? "mining gold" : "on the way to a gold mine";
             case "light":
                 return "putting up torches, " + (u.torches || 0) + " to go";
             case "follow": {
@@ -1938,9 +2004,9 @@
             + (b.level > 1 ? " (level " + b.level + ")" : "");
     }
 
-    // The tool workers use at a building: a hoe at a farm, a pickaxe at a quarry, else an axe.
+    // The tool workers use at a building: a hoe at a farm, else an axe.
     function toolFor(type) {
-        return type === "farm" ? "hoe" : type === "quarry" ? "pickaxe" : "axe";
+        return type === "farm" ? "hoe" : "axe";
     }
 
     // What the pointer at px, py is over, as {icon, text, action}, or null for nothing worth a tooltip.
@@ -1999,6 +2065,20 @@
         }
         const b = buildingAt(px, py);
         if (!b) {
+            const ground = view.pick(px, py);
+            const mine = ground && mineAt(ground.x, ground.z);
+            if (mine) {
+                const gold = mine.gold > 0 ? mine.gold + "/" + mine.maxGold + " gold" : "mined out";
+                if (workers && mine.gold > 0) {
+                    return {icon: "pickaxe", text: "Mine gold \u00B7 " + gold, action: "build"};
+                }
+                return {icon: "gold", text: "Gold mine \u00B7 " + gold
+                    + (team && mine.gold > 0 ? " \u00B7 select workers to mine it" : "")};
+            }
+            const settlement = ground && freeSettlementNear(ground.x, ground.z, 0);
+            if (settlement) {
+                return {icon: "town_hall", text: "Free settlement \u00B7 workers can raise a town center here"};
+            }
             const block = treeUnder(px, py);
             if (!block) {
                 return null;
@@ -2270,7 +2350,7 @@
         if (spot) {
             // As the building will look, see-through, or red where it does not fit.
             const color = spot.ok ? [0.93, 0.91, 0.86, 0.35] : [1, 0.3, 0.25, 0.4];
-            ghostBoxes(boxes, placing.type, placing.rotation, spot.x, spot.z, spot.y, color);
+            ghostBoxes(boxes, placing.type, spot.rotation, spot.x, spot.z, spot.y, color);
         }
         return boxes;
     }
@@ -2445,6 +2525,18 @@
             labelCtx.fillRect(x - width / 2 - 1, y - 1, width + 2, 5);
             labelCtx.fillStyle = "#c8963c";
             labelCtx.fillRect(x - width / 2, y, width * Math.max(0, Math.min(1, t.wood / t.maxWood)), 3);
+        }
+        // Gold left in mines that have been mined.
+        for (const m of dots ? [] : state.mines) {
+            if (m.gold >= m.maxGold || m.gold <= 0) {
+                continue;
+            }
+            const [x, y] = view.project(m.x + m.sizeX / 2, m.y + 7, m.z + m.sizeZ / 2);
+            const width = 32;
+            labelCtx.fillStyle = "rgba(0, 0, 0, 0.75)";
+            labelCtx.fillRect(x - width / 2 - 1, y - 1, width + 2, 5);
+            labelCtx.fillStyle = "#f2c94c";
+            labelCtx.fillRect(x - width / 2, y, width * Math.max(0, Math.min(1, m.gold / m.maxGold)), 3);
         }
         // Health bars over units that are hurt or selected; zoomed far out only over selected ones.
         for (const u of state.units.values()) {

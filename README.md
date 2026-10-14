@@ -36,11 +36,12 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts route <x1> <z1> <x2> <z2>` | (op) Show the way a unit would walk between two points, as waypoints. |
 | `/rts units stop <team>` | (op) Make a team's units stop and guard where they stand. |
 | `/rts units kill <team\|all>` | (op) Remove units. |
-| `/rts buildings [team]` | List buildings and building sites with their health, how far each site is built and how many workers work each farm or quarry. |
-| `/rts build <team> <type> [x z] [rotation]` | (op) Lay out a building site for free (farm, house, barracks, storehouse, quarry, armory or tower), near the town center unless x z is given, and send the team's idle workers to build it. |
+| `/rts buildings [team]` | List buildings and building sites with their health, how far each site is built and how many workers work each farm. |
+| `/rts build <team> <type> [x z] [rotation]` | (op) Lay out a building site for free (farm, house, barracks, storehouse, armory, tower or town center), near the town center unless x z is given (a town center goes on the nearest free settlement), and send the team's idle workers to build it. |
 | `/rts train <team> <worker\|warrior\|archer> [count]` | (op) Queue units for free at the team's town center or barracks. |
 | `/rts upgrade <building id>` | (op) Take a town center, and with it its whole town, into the next age at once, for free. |
 | `/rts research <team> <upgrade>` | (op) Give a team an upgrade at once, such as `forged_blades` or `fortified_walls`. |
+| `/rts mine <team>` | (op) Send a team's idle workers to the gold mine nearest its town center. |
 | `/rts chop <team>` | (op) Send a team's idle workers to chop the tree nearest its town center. |
 | `/rts light <team> [x1 z1 x2 z2]` | (op) Send a team's idle workers to put torches in the dark parts of an area, or around its town center. |
 | `/rts explode <building id>` | (op) Set off a creeper-sized explosion beside a building, hurting no one, to see what it does to the building. |
@@ -91,17 +92,24 @@ timber with blue banners; Zamorak's build in nether brick, obsidian and blackene
 skulls. Units wear their god's colors too: Saradomin's warriors bright steel and a blue tabard, Zamorak's black iron
 and red. Each unit has a band of its team's color round its arms and waist, and its name above it in that color.
 
-Each team gets a town center when a game starts, spread around the middle of the map and facing it. It trains
-workers and takes in what they gather. Workers build: pick a building, place it on the web map or in the RTS view,
+Each team gets a town center when a game starts, spread around the middle of the map and facing it. A town center is
+a camp in a fenced ring round a campfire, with a longhouse, a lodge and a granary: log cabins with thatch in Age I
+(black and red tents for Zamorak), timber and plaster in Age II and on a stone plinth under a flag in Age III. It trains
+workers and takes in what they gather.
+
+Town centers stand on settlements. A free settlement, one nobody holds, is a ring of standing stones round a cold
+hearth with a white flag. Once every team's first town center is up, 2 more settlements are laid out between the
+teams, a gold mine behind every settlement and 2 more gold mines near the middle of the map. Workers can raise a town
+center (300 Wood, 200 Gold) only on a free settlement, and a town center that is destroyed leaves its settlement free
+again. Settlements and gold mines cannot be built on or broken. Workers build: pick a building, place it on the web map or in the RTS view,
 and the selected workers walk to the site and build it. A site goes up as a wooden framework in three stages as it
 is built, and the finished building stands once the site is done; more workers build faster.
 
 | Building | What it does | Costs (default) | Health | Build time (one worker) |
 |---|---|---|---|---|
-| Town center | Trains workers, takes in what they gather, houses 10 units and 5 more each age; shoots arrows from Age II; researches fortified walls | | 1500 | |
+| Town center | Trains workers, takes in what they gather, houses 10 units and 5 more each age; shoots arrows from Age II; researches fortified walls; goes on a free settlement | 300 Wood, 200 Gold | 1500 | 60 s |
 | House | Houses 5 more units | 60 Wood | 300 | 12 s |
 | Farm | A worker there gathers food: 5 every 5 s, one worker per farm | 75 Wood | 300 | 15 s |
-| Quarry | A pit with ore in its walls; workers there gather 5 gold every 5 s, up to 3 workers | 100 Wood | 500 | 20 s |
 | Storehouse | Takes in what workers gather; researches economic upgrades | 100 Wood | 600 | 20 s |
 | Barracks | Trains warriors and archers | 150 Wood, 50 Gold | 800 | 25 s |
 | Armory | Researches military upgrades; needs Age II | 120 Wood, 60 Gold | 700 | 25 s |
@@ -109,13 +117,13 @@ is built, and the finished building stands once the site is done; more workers b
 
 | Unit | Costs (default) | |
 |---|---|---|
-| Worker | 50 Food | Builds, farms, quarries, chops trees and hunts; never fights |
+| Worker | 50 Food | Builds, farms, mines gold, chops trees and hunts; never fights |
 | Warrior | 50 Food, 20 Wood | Fights up close with a sword |
 | Archer | 40 Food, 40 Wood | Shoots arrows from up to 14 blocks |
 
 Units walk as fast as a player. Warriors carry stone swords until the armory researches iron and then diamond ones,
 and warriors and archers wear the armor upgrades from helmet to boots: chainmail with padded armor and iron with
-plate. Workers hold the tool for their job, a hoe at a farm, a pickaxe at a quarry, an axe for building and chopping and a sword for hunting, and swing it as they
+plate. Workers hold the tool for their job, a hoe at a farm, a pickaxe at a gold mine, an axe for building and chopping and a sword for hunting, and swing it as they
 work. Their tools are stone until the storehouse researches iron ones, and diamond after that in Age III. They hold
 what they carry only on the way to a store.
 
@@ -136,7 +144,12 @@ them to carve it. Carcasses are not kept when the server restarts.
 Wood comes from trees. Select workers and right-click a tree to chop it from as far as a player reaches, or from
 anywhere in among its leaves: a tree holds 25 wood per log, between 100 and 200, and a bar over it shows how much is left as cracks spread up its trunk. When it is chopped out it falls, and
 the workers go on to the nearest tree around. A worker carries up to 20 and then walks it to the nearest town center
-or storehouse, where it goes to the team, and walks back to work. A worker that built a farm or quarry stays to work it. Training takes 5 seconds per unit, one at a time per
+or storehouse, where it goes to the team, and walks back to work. A worker that built a farm stays to work it.
+
+Gold comes from gold mines, rocky mounds with gold ore in them that hold 2000 gold each. Select workers and right-click
+a mine: each worker there mines 4 gold every 3 seconds and carries it to the nearest town center or storehouse, and a
+bar over the mine shows how much is left. A mine that runs out is left as bare rock, and its workers go on to the
+nearest mine within 64 blocks. Training takes 5 seconds per unit, one at a time per
 building.
 
 A team's town center sets its age: taking it up a level advances the whole town from Age I to Age II, for 200 Food,
@@ -157,7 +170,7 @@ An upgrade that needs another one first only shows up once the team has that one
 | Plate armor | Armory, Age II, after padded armor | Warriors and archers have 8 more health, and wear iron |
 | Bigger baskets | Storehouse | Workers carry 10 more |
 | Iron axes | Storehouse | Workers chop half again as fast |
-| Iron pickaxes | Storehouse | Quarries yield half again as much |
+| Iron pickaxes | Storehouse | Workers mine gold half again as fast |
 | Iron hoes | Storehouse | Farms yield half again as much |
 | Diamond axes / pickaxes / hoes | Storehouse, Age III, after the iron one | Twice as fast or as much as with stone tools |
 | Masonry | Storehouse, Age II | Buildings have a fifth more health |
@@ -244,7 +257,7 @@ Commanding units, from the bar at the bottom of the page:
 | Town center | Select your town center |
 | Click one of your buildings | Select it and see its health; a site shows how far it is built, a town center or barracks its Train buttons and training progress. Each click queues one more, shift-click 5, up to 10 waiting; they train one at a time. Level takes it up a level (on the town center, Advance takes the town to the next age), and an armory or storehouse shows the upgrades it researches |
 | Farm / House / Barracks / ... | With workers selected: a see-through copy follows the pointer, pale where it fits and red where it does not (in the in-game view it shows the building's own blocks). R or Rotate turns it a quarter round, click places it, right-click or Esc cancels. Shift-click places more, and the workers build them one after another in the order they were placed; shift-right-click a building site to add it to their list |
-| Right-click one of your building sites, farms or quarries | Send the selected workers to build or work it |
+| Right-click one of your building sites or farms, or a gold mine | Send the selected workers to build or work it, or to mine gold |
 | Right-click a tree | Send the selected workers to chop it |
 | Torches | With workers selected: click two corners of an area for them to light up against mobs |
 | Click one of your units | Select it; shift-click adds or removes it |
@@ -352,7 +365,7 @@ starting resources per team, the game dimension id and the width of the terrain 
 section sets what warriors, archers and workers cost, how many a team may have, their health and how long training
 takes; the `buildings` section sets what each building costs, its health and build time, what going up a level
 costs, how many units the town center and houses house, how far and hard towers shoot, how much wood trees hold and
-how fast workers chop, how much farms and quarries bring in, how much a worker carries and how much damage warriors
+how fast workers chop, how much farms and gold mines bring in, how many settlements and gold mines a map gets, how much a worker carries and how much damage warriors
 and enemy players and explosions do to buildings. The `games` section sets whether players are shared out over the
 teams, whether it rains, the time of day games start at and how long a team that lost its last town center has to raise
 a new one; the `mobs` section how rare creepers are, whether

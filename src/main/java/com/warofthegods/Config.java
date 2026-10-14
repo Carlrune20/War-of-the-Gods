@@ -37,11 +37,10 @@ public class Config {
     public static final EnumMap<BuildingType, Integer> buildSeconds = new EnumMap<>(BuildingType.class);
 
     static {
-        defaults(BuildingType.TOWN_HALL, new long[3], 1500, 0);
+        defaults(BuildingType.TOWN_HALL, new long[] { 0, 300, 200 }, 1500, 60);
         defaults(BuildingType.FARM, new long[] { 0, 75, 0 }, 300, 15);
         defaults(BuildingType.BARRACKS, new long[] { 0, 150, 50 }, 800, 25);
         defaults(BuildingType.STOREHOUSE, new long[] { 0, 100, 0 }, 600, 20);
-        defaults(BuildingType.QUARRY, new long[] { 0, 100, 0 }, 500, 20);
         defaults(BuildingType.HOUSE, new long[] { 0, 60, 0 }, 300, 12);
         defaults(BuildingType.ARMORY, new long[] { 0, 120, 60 }, 700, 25);
         defaults(BuildingType.TOWER, new long[] { 0, 50, 100 }, 900, 25);
@@ -76,8 +75,14 @@ public class Config {
     public static int farmWorkers = 1;
     public static int farmYieldSeconds = 5;
     public static int farmFood = 5;
-    public static int quarryWorkers = 3;
-    public static int quarryGold = 5;
+    /** Gold a gold mine holds when the game starts. */
+    public static int goldMineGold = 2000;
+    /** Gold a worker mines per mineSeconds. */
+    public static int mineGold = 4;
+    public static int mineSeconds = 3;
+    /** Settlements no team starts on, and gold mines away from any settlement, laid out on each new map. */
+    public static int extraSettlements = 2;
+    public static int extraGoldMines = 2;
     /** Most a worker carries before taking it to the town center or a storehouse. */
     public static int carryCapacity = 20;
     /** Health a building loses to one hit of a warrior. */
@@ -259,8 +264,8 @@ public class Config {
         String buildings = "buildings";
         configuration.setCategoryComment(
             buildings,
-            "Buildings: the town center every team starts with, and the farms, barracks, storehouses, quarries,"
-                + " houses, armories and towers workers build.");
+            "Buildings: the town center every team starts with, the farms, barracks, storehouses, houses, armories,"
+                + " towers and town centers workers build, and the settlements and gold mines on the map.");
         for (BuildingType type : BuildingType.values()) {
             String name = type.displayName.toLowerCase();
             if (type.buildable) {
@@ -368,20 +373,37 @@ public class Config {
             .getInt("chopWood", buildings, chopWood, 1, 10000, "Wood a worker chops off a tree at a time.");
         chopSeconds = configuration
             .getInt("chopSeconds", buildings, chopSeconds, 1, 3600, "Seconds a worker takes to chop that much.");
-        quarryWorkers = configuration.getInt(
-            "quarryWorkers",
+        goldMineGold = configuration.getInt(
+            "goldMineGold",
             buildings,
-            quarryWorkers,
+            goldMineGold,
             1,
-            64,
-            "Most workers that can work one quarry at a time.");
-        quarryGold = configuration.getInt(
-            "quarryGold",
+            1000000,
+            "Gold each gold mine holds when a game starts.");
+        mineGold = configuration.getInt(
+            "mineGold",
             buildings,
-            quarryGold,
-            0,
+            mineGold,
+            1,
             100000,
-            "Gold each worker at a quarry gathers per harvest; harvests come as often as a farm's.");
+            "Gold a worker mines from a gold mine per mineSeconds.");
+        mineSeconds = configuration
+            .getInt("mineSeconds", buildings, mineSeconds, 1, 3600, "Seconds a worker takes to mine mineGold gold.");
+        extraSettlements = configuration.getInt(
+            "extraSettlements",
+            buildings,
+            extraSettlements,
+            0,
+            32,
+            "Free settlements laid out on each new map besides the ones the teams start on; workers can raise a town"
+                + " center on any free settlement.");
+        extraGoldMines = configuration.getInt(
+            "extraGoldMines",
+            buildings,
+            extraGoldMines,
+            0,
+            64,
+            "Gold mines laid out on each new map besides the one by each settlement.");
         carryCapacity = configuration.getInt(
             "carryCapacity",
             buildings,

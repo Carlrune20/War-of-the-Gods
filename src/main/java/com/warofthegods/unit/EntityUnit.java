@@ -25,6 +25,7 @@ import net.minecraft.util.DamageSource;
 import net.minecraft.util.IIcon;
 import net.minecraft.util.MathHelper;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
 
 import com.warofthegods.Config;
 import com.warofthegods.building.Buildings;
@@ -33,6 +34,7 @@ import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
+import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.Tree;
@@ -48,7 +50,7 @@ import cpw.mods.fml.relauncher.SideOnly;
  * A unit of a team, with the player model in its team's skin. Soldiers carry a sword or a bow and follow orders from
  * the web map: walk somewhere, attack something, or stand guard, in which case they fight enemies and enemy buildings
  * that come close and walk back to their post afterwards. Workers never fight: they walk, build at building sites,
- * work farms and quarries, chop trees and hunt animals, carrying what they gather to the nearest town hall or
+ * work farms, mine gold, chop trees and hunt animals, carrying what they gather to the nearest town hall or
  * storehouse whenever their hands are full. Swords and tools are stone in Age I, iron in Age II and diamond in Age
  * III; workers hold the tool for the job they are at, and what they carry only on the way to a store.
  *
@@ -64,7 +66,7 @@ public class EntityUnit extends EntityCreature {
         ATTACK,
         /** A worker building at a building site, or on its way there. */
         BUILD,
-        /** A worker working at a farm or quarry, or carrying what it gathered there to a store. */
+        /** A worker working at a farm, or carrying what it gathered there to a store. */
         WORK,
         /** A soldier attacking an enemy building. */
         ATTACK_BUILDING,
@@ -75,7 +77,9 @@ public class EntityUnit extends EntityCreature {
         /** A worker hunting an animal, carving food off its carcass, or carrying the food to a store. */
         HUNT,
         /** Keeping its place in formation behind a player. */
-        FOLLOW
+        FOLLOW,
+        /** A worker mining a gold mine, or carrying the gold to a store. */
+        MINE
     }
 
     /** How a unit fights when it has no orders to: how far it looks for enemies and how far it chases them. */
@@ -155,6 +159,10 @@ public class EntityUnit extends EntityCreature {
     private static final double LEAVES_REACH = 8;
     /** How close a worker has to be to where a torch goes. */
     private static final double TORCH_REACH = 2.5;
+    /** How close a worker has to be to a gold mine's rock to mine it. */
+    private static final double MINE_REACH = 2.5;
+    /** How far a worker looks for the next gold mine once one is mined out. */
+    private static final int NEXT_MINE_RANGE = 64;
     /** How far a worker looks for the next tree once one falls. */
     private static final int NEXT_TREE_RANGE = 14;
 
@@ -171,6 +179,9 @@ public class EntityUnit extends EntityCreature {
     private int treeY;
     private int treeZ;
     private int chopTicks;
+    /** The gold mine a worker mines. */
+    private int mineId;
+    private int mineTicks;
     /** Where a worker still has to put torches, in order: x, y, z each. */
     private final List<int[]> torches = new ArrayList<>();
     private Order order = Order.IDLE;
@@ -316,7 +327,7 @@ public class EntityUnit extends EntityCreature {
 
     /**
      * What it holds when its hands are free: an archer's bow, a warrior's sword, and for a worker the tool for its
-     * job: a hoe at a farm, a pickaxe at a quarry, a sword for hunting and otherwise an axe. They are stone until
+     * job: a hoe at a farm, a pickaxe at a gold mine, a sword for hunting and otherwise an axe. They are stone until
      * the team researches iron and then diamond ones.
      */
     private Item tool() {
@@ -327,11 +338,11 @@ public class EntityUnit extends EntityCreature {
         if (kind == UnitKind.SOLDIER || order == Order.HUNT) {
             return SWORDS[tier(team, Upgrade.FORGED_BLADES, Upgrade.TEMPERED_STEEL)];
         }
+        if (order == Order.MINE) {
+            return PICKAXES[tier(team, Upgrade.PICKAXES, Upgrade.DIAMOND_PICKAXES)];
+        }
         if (order == Order.WORK) {
             Building workplace = building();
-            if (workplace != null && workplace.type == BuildingType.QUARRY) {
-                return PICKAXES[tier(team, Upgrade.PICKAXES, Upgrade.DIAMOND_PICKAXES)];
-            }
             if (workplace != null && workplace.type == BuildingType.FARM) {
                 return HOES[tier(team, Upgrade.PLOUGHS, Upgrade.DIAMOND_HOES)];
             }
@@ -454,6 +465,16 @@ public class EntityUnit extends EntityCreature {
         return order == Order.CHOP ? new int[] { treeX, treeY, treeZ } : null;
     }
 
+    /** The gold mine a worker mines, or 0. */
+    public int getMineId() {
+        return order == Order.MINE ? mineId : 0;
+    }
+
+    /** Whether the unit is a worker at a gold mine, mining it. */
+    public boolean isMining() {
+        return order == Order.MINE && working && !delivering;
+    }
+
     /** Whether the unit is a worker at a tree, chopping it. */
     public boolean isChopping() {
         return order == Order.CHOP && working && !delivering;
@@ -469,14 +490,14 @@ public class EntityUnit extends EntityCreature {
         return order == Order.BUILD && working && buildingId == siteId;
     }
 
-    /** Whether the unit is a worker at the farm or quarry with that id, working with room left to carry more. */
+    /** Whether the unit is a worker at the farm with that id, working with room left to carry more. */
     public boolean isWorkingAt(int workplaceId) {
         return order == Order.WORK && working && !delivering && buildingId == workplaceId;
     }
 
     /** Whether a worker is on its way to a store with what it carries. */
     public boolean isDelivering() {
-        return (order == Order.WORK || order == Order.CHOP || order == Order.HUNT) && delivering;
+        return (order == Order.WORK || order == Order.CHOP || order == Order.HUNT || order == Order.MINE) && delivering;
     }
 
     /** Whether the unit is a worker carving a carcass. */
@@ -583,6 +604,14 @@ public class EntityUnit extends EntityCreature {
                 }
                 return working ? null : new double[] { treeX + 0.5, treeZ + 0.5 };
             }
+            case MINE: {
+                if (delivering) {
+                    Building store = store();
+                    return store == null ? null : store.nearestOutside(posX, posZ);
+                }
+                GoldMine mine = mine();
+                return working || mine == null ? null : mine.nearestOutside(posX, posZ);
+            }
             case FOLLOW: {
                 double[] slot = followSlot();
                 return slot == null || distanceTo(slot[0], slot[1]) <= ARRIVED ? null : slot;
@@ -622,7 +651,7 @@ public class EntityUnit extends EntityCreature {
         startOrder();
     }
 
-    /** Sends a worker to a building site to build it, or to a farm or quarry to work it. */
+    /** Sends a worker to a building site to build it, or to a farm to work it. */
     void orderBuild(Building building) {
         order = building.isComplete() ? Order.WORK : Order.BUILD;
         buildingId = building.id;
@@ -676,6 +705,19 @@ public class EntityUnit extends EntityCreature {
         treeZ = z;
         working = false;
         chopTicks = 0;
+        delivering = getCarried() >= capacity();
+        target = null;
+        targetId = null;
+        defending = false;
+        startOrder();
+    }
+
+    /** Sends a worker to mine a gold mine. */
+    void orderMine(GoldMine mine) {
+        order = Order.MINE;
+        mineId = mine.id;
+        working = false;
+        mineTicks = 0;
         delivering = getCarried() >= capacity();
         target = null;
         targetId = null;
@@ -944,6 +986,9 @@ public class EntityUnit extends EntityCreature {
             case CHOP:
                 tickChop();
                 break;
+            case MINE:
+                tickMine();
+                break;
             case LIGHT:
                 tickLight();
                 break;
@@ -989,7 +1034,7 @@ public class EntityUnit extends EntityCreature {
             return;
         }
         if (site.isComplete()) {
-            // Built, by this worker and others: on to the next queued site, or farmers and quarrymen stay to work it.
+            // Built, by this worker and others: on to the next queued site, or farmers stay to work it.
             if (buildNext()) {
                 return;
             }
@@ -1040,7 +1085,7 @@ public class EntityUnit extends EntityCreature {
             }
             getLookHelper()
                 .setLookPosition(workplace.getCenterX(), workplace.groundY + 1, workplace.getCenterZ(), 10, 30);
-            // Now and then, as a farmer hoeing or a quarryman picking at the rock.
+            // Now and then, as a farmer hoeing.
             if (rand.nextInt(25) == 0) {
                 swingItem();
             }
@@ -1129,6 +1174,84 @@ public class EntityUnit extends EntityCreature {
         }
         if (wood[Resource.WOOD.ordinal()] > 0) {
             gather(wood);
+        }
+    }
+
+    private GoldMine mine() {
+        Game game = GameManager.getGame();
+        return game == null ? null : game.getMine(mineId);
+    }
+
+    /**
+     * Mines the gold mine, carrying the gold to a store whenever its hands are full. When the mine is mined out it goes
+     * on to the nearest mine around; when there is none, it takes home what it has and waits there.
+     */
+    private void tickMine() {
+        if (delivering) {
+            deliver();
+            return;
+        }
+        Game game = GameManager.getGame();
+        GoldMine mine = mine();
+        if (game == null) {
+            return;
+        }
+        if (mine == null || mine.isDepleted()) {
+            GoldMine next = Units.nearestMine(game, posX, posZ, NEXT_MINE_RANGE);
+            if (next != null) {
+                orderMine(next);
+            } else if (getCarried() > 0) {
+                delivering = true;
+                working = false;
+                startOrder();
+            } else {
+                getNavigator().clearPathEntity();
+                guardHere();
+            }
+            return;
+        }
+        if (mine.distanceTo(posX, posZ) > MINE_REACH) {
+            working = false;
+            if (getNavigator().noPath() && --planTicks <= 0) {
+                planTicks = 20;
+                double[] spot = mine.nearestOutside(posX, posZ);
+                walkToward(spot[0], spot[1]);
+            }
+            if (!madeProgress()) {
+                guardHere();
+            }
+            return;
+        }
+        if (!working) {
+            working = true;
+            getNavigator().clearPathEntity();
+        }
+        progressTicks = 0;
+        getLookHelper().setLookPosition(mine.getCenterX(), mine.groundY + 1.5, mine.getCenterZ(), 10, 30);
+        if (ticksExisted % 12 == 0) {
+            swingItem();
+            worldObj.playSoundAtEntity(this, "dig.stone", 0.5F, 0.8F + rand.nextFloat() * 0.4F);
+        }
+        Team team = game.getTeam(teamId);
+        int needed = Config.mineSeconds * 20;
+        if (team != null && team.has(Upgrade.DIAMOND_PICKAXES)) {
+            needed = needed / 2;
+        } else if (team != null && team.has(Upgrade.PICKAXES)) {
+            needed = needed * 2 / 3;
+        }
+        if (++mineTicks < Math.max(1, needed)) {
+            return;
+        }
+        mineTicks = 0;
+        long[] gold = new long[carrying.length];
+        gold[Resource.GOLD.ordinal()] = game.mine(mine, Config.mineGold);
+        if (mine.isDepleted()) {
+            Buildings.get()
+                .features()
+                .deplete((WorldServer) worldObj, mine);
+        }
+        if (gold[Resource.GOLD.ordinal()] > 0) {
+            gather(gold);
         }
     }
 
@@ -1755,6 +1878,7 @@ public class EntityUnit extends EntityCreature {
         tag.setBoolean("Delivering", delivering);
         tag.setInteger("Number", number);
         tag.setIntArray("Tree", new int[] { treeX, treeY, treeZ });
+        tag.setInteger("Mine", mineId);
         int[] spots = new int[torches.size() * 3];
         for (int i = 0; i < torches.size(); i++) {
             System.arraycopy(torches.get(i), 0, spots, i * 3, 3);
@@ -1808,6 +1932,7 @@ public class EntityUnit extends EntityCreature {
             treeY = tree[1];
             treeZ = tree[2];
         }
+        mineId = tag.getInteger("Mine");
         torches.clear();
         int[] spots = tag.getIntArray("Torches");
         for (int i = 0; i + 2 < spots.length; i += 3) {

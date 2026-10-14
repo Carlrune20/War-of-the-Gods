@@ -13,17 +13,16 @@ public enum BuildingType {
 
     /**
      * Every team starts with one: trains workers, takes in what workers carry, houses units, and shoots arrows at
-     * enemies once upgraded. Workers cannot build more. Its id is from when it was called the town hall.
+     * enemies once upgraded. Workers can build more, but only on a free settlement. Its id is from when it was called
+     * the town hall.
      */
-    TOWN_HALL("town_hall", "Town center", "townHall", 3, false, true, UnitKind.WORKER),
+    TOWN_HALL("town_hall", "Town center", "townHall", 3, true, true, UnitKind.WORKER),
     /** Workers working at it gather food. */
     FARM("farm", "Farm", "farm", 2, true, false),
     /** Trains warriors and archers. */
     BARRACKS("barracks", "Barracks", "barracks", 2, true, false, UnitKind.SOLDIER, UnitKind.ARCHER),
     /** Takes in what workers carry, so they need not walk all the way home; researches economic upgrades. */
     STOREHOUSE("storehouse", "Storehouse", "storehouse", 2, true, true),
-    /** Workers working at it gather gold. */
-    QUARRY("quarry", "Quarry", "quarry", 2, true, false),
     /** Houses more units. */
     HOUSE("house", "House", "house", 2, true, false),
     /** Researches military upgrades. */
@@ -70,7 +69,7 @@ public enum BuildingType {
 
     /** Whether workers can work here, gathering resources. */
     public boolean isWorkplace() {
-        return this == FARM || this == QUARRY;
+        return this == FARM;
     }
 
     /** Whether it shoots at enemies at that level. */
@@ -136,15 +135,13 @@ public enum BuildingType {
         // The same at every level, which only changes how it looks.
         if (this == FARM) {
             amounts[Resource.FOOD.ordinal()] = Config.farmFood;
-        } else if (this == QUARRY) {
-            amounts[Resource.GOLD.ordinal()] = Config.quarryGold;
         }
         return amounts;
     }
 
     /** Most workers that can work here at once. */
     public int maxWorkers() {
-        return this == FARM ? Config.farmWorkers : this == QUARRY ? Config.quarryWorkers : 0;
+        return this == FARM ? Config.farmWorkers : 0;
     }
 
     /** Units it houses at a level: the town center houses more in each age, a house always as many. */

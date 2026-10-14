@@ -33,7 +33,8 @@ import com.google.gson.JsonPrimitive;
  * The screen of the RTS view: it frees the mouse over the world the camera shows and draws the panels on top, like
  * the web map. Click one of your units to select it (shift-click adds, double-click selects all of them in view),
  * drag a box around several, and right-click the ground to send them there, an enemy or a mob to attack it, or one of
- * your building sites, farms or quarries to send workers to it. Click a building to see what it trains. WASD or the
+ * your building sites or farms, a gold mine or a tree to send workers to it. Click a building to see what it trains.
+ * WASD or the
  * arrow keys (or the mouse at the window's edge) move the camera, Q and E turn it a quarter round, the wheel zooms,
  * the middle button dragged tilts and turns it, or with shift drags it along. The right button only ever gives orders,
  * however the mouse moves while it is down. V or Esc leaves.
@@ -57,6 +58,7 @@ public final class GuiRts extends GuiScreen {
         "house",
         "barracks",
         "storehouse",
+        // No longer a building, but still a picture in icons.png.
         "quarry",
         "farm",
         "armory",
@@ -655,7 +657,8 @@ public final class GuiRts extends GuiScreen {
             client.command("units.attack", body, null);
             return;
         }
-        if (hit == null && (orderBuild(px, py) || orderAttackBuilding(px, py) || orderChop(px, py))) {
+        if (hit == null
+            && (orderBuild(px, py) || orderAttackBuilding(px, py) || orderMine(px, py) || orderChop(px, py))) {
             return;
         }
         double[] ground = groundUnder(px, py);
@@ -690,7 +693,7 @@ public final class GuiRts extends GuiScreen {
         return true;
     }
 
-    /** Right-clicking one of the team's building sites, or a farm or quarry, sends the selected workers to it. */
+    /** Right-clicking one of the team's building sites, or a farm, sends the selected workers to it. */
     private boolean orderBuild(int px, int py) {
         RtsState.BuildingInfo building = buildingAt(px, py);
         Set<String> workers = client.selectedWorkers();
@@ -708,6 +711,30 @@ public final class GuiRts extends GuiScreen {
         body.addProperty("queue", isShiftKeyDown());
         client.command("units.build", body, null);
         return true;
+    }
+
+    /** Right-clicking a gold mine sends the selected workers to mine it. */
+    private boolean orderMine(int px, int py) {
+        RtsState.FeatureInfo mine = mineUnder(px, py);
+        Set<String> workers = client.selectedWorkers();
+        if (mine == null || workers.isEmpty()) {
+            return false;
+        }
+        double x = mine.x + mine.sizeX / 2.0;
+        double z = mine.z + mine.sizeZ / 2.0;
+        client.mark(x, mine.y + 1, z, false);
+        JsonObject body = unitsBody(workers);
+        body.addProperty("x", x);
+        body.addProperty("y", mine.y);
+        body.addProperty("z", z);
+        client.command("units.gather", body, null);
+        return true;
+    }
+
+    /** The gold mine under a screen point, or null. */
+    private RtsState.FeatureInfo mineUnder(int px, int py) {
+        double[] ground = groundUnder(px, py);
+        return ground == null ? null : state().mineAt(ground[0], ground[2]);
     }
 
     /** Right-clicking a tree sends the selected workers to chop it. */
@@ -1040,7 +1067,10 @@ public final class GuiRts extends GuiScreen {
             return;
         }
         if (!spot.ok) {
-            client.showToast("It does not fit there", true);
+            client.showToast(
+                "town_hall".equals(client.placing.type) ? "A town center can only go on a free settlement"
+                    : "It does not fit there",
+                true);
             return;
         }
         Set<String> workers = client.selectedWorkers();
@@ -1092,6 +1122,11 @@ public final class GuiRts extends GuiScreen {
                     return "taking " + RtsState.amountsText(unit.carrying) + " to store";
                 }
                 return unit.chopping ? "chopping a tree" : "on the way to a tree";
+            case "mine":
+                if (unit.delivering) {
+                    return "taking " + RtsState.amountsText(unit.carrying) + " to store";
+                }
+                return unit.mining ? "mining gold" : "on the way to a gold mine";
             case "light":
                 return "putting up torches, " + unit.torches + " to go";
             case "follow": {
@@ -1207,6 +1242,24 @@ public final class GuiRts extends GuiScreen {
         }
         RtsState.BuildingInfo b = buildingAt(px, py);
         if (b == null) {
+            RtsState.FeatureInfo goldMine = mineUnder(px, py);
+            if (goldMine != null) {
+                String gold = goldMine.gold + "/" + goldMine.maxGold + " gold";
+                if (goldMine.gold <= 0) {
+                    return new Object[] { "gold", "Mined out gold mine", null };
+                }
+                if (workers > 0) {
+                    return new Object[] { "pickaxe", "Mine gold · " + gold, "act" };
+                }
+                return new Object[] { "gold",
+                    "Gold mine · " + gold + (team != null ? " · select workers to mine it" : ""), null };
+            }
+            double[] ground = groundUnder(px, py);
+            RtsState.FeatureInfo settlement = ground == null ? null
+                : state().freeSettlementNear(ground[0], ground[2], 0);
+            if (settlement != null) {
+                return new Object[] { "town_hall", "Free settlement · workers can raise a town center here", null };
+            }
             int[] block = treeUnder(px, py);
             if (block == null) {
                 return null;
@@ -1258,9 +1311,9 @@ public final class GuiRts extends GuiScreen {
         return upgrade == null ? research : upgrade.name;
     }
 
-    /** The tool workers use at a building: a hoe at a farm, a pickaxe at a quarry, else an axe. */
+    /** The tool workers use at a building: a hoe at a farm, else an axe. */
     private static String toolFor(String buildingType) {
-        return "farm".equals(buildingType) ? "hoe" : "quarry".equals(buildingType) ? "pickaxe" : "axe";
+        return "farm".equals(buildingType) ? "hoe" : "axe";
     }
 
     /** Draws one of the icons, 16 pixels square, scaled to size. */

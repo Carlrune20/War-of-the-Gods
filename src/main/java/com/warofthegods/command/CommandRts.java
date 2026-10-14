@@ -30,7 +30,9 @@ import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
+import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.Resource;
+import com.warofthegods.game.Settlement;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.Tree;
 import com.warofthegods.game.UnitKind;
@@ -70,6 +72,7 @@ public class CommandRts extends CommandBase {
         "upgrade",
         "research",
         "chop",
+        "mine",
         "light",
         "route",
         "explode",
@@ -90,7 +93,7 @@ public class CommandRts extends CommandBase {
     @Override
     public String getCommandUsage(ICommandSender sender) {
         return "/rts <help|info|newgame|endgame|spawn|surrender|team|ally|unally|resources|units|buildings|build|train|damage"
-            + "|upgrade|research|chop|finish|web>";
+            + "|upgrade|research|chop|mine|finish|web>";
     }
 
     /** Everyone may run /rts; subcommands that change the game check for op themselves. */
@@ -167,6 +170,9 @@ public class CommandRts extends CommandBase {
             case "chop":
                 chop(sender, rest);
                 break;
+            case "mine":
+                mine(sender, rest);
+                break;
             case "light":
                 light(sender, rest);
                 break;
@@ -223,7 +229,7 @@ public class CommandRts extends CommandBase {
         send(sender, "/rts buildings [team] - list buildings and building sites");
         send(
             sender,
-            "/rts build <team> <farm|house|barracks|storehouse|quarry|armory|tower> [x z] [rotation] - lay out a site"
+            "/rts build <team> <farm|house|barracks|storehouse|armory|tower|town_center> [x z] [rotation] - lay out a site"
                 + " for the team's workers (op)");
         send(sender, "/rts train <team> <worker|warrior|archer> [count] - queue units for free at a building (op)");
         send(sender, "/rts upgrade <building id> - take a town center, and its town, into the next age at once (op)");
@@ -237,6 +243,7 @@ public class CommandRts extends CommandBase {
             sender,
             "/rts explode <building id> - set off a creeper-sized explosion beside a building that hurts no one (op)");
         send(sender, "/rts finish [team] - finish every building site at once (op)");
+        send(sender, "/rts mine <team> - send a team's idle workers to the nearest gold mine (op)");
         send(sender, "/rts damage <building id> <amount> - take health off a building; at 0 it is gone (op)");
         send(sender, "/rts web - get a link to the live web map");
         send(sender, "/rts web <player> - send a player a web map link (op)");
@@ -275,6 +282,26 @@ public class CommandRts extends CommandBase {
                         + " left to raise a new town center");
             }
         }
+        int free = 0;
+        for (Settlement settlement : game.getSettlements()) {
+            free += game.townCenterOn(settlement) == null ? 1 : 0;
+        }
+        long gold = 0;
+        for (GoldMine mine : game.getMines()) {
+            gold += mine.getGold();
+        }
+        send(
+            sender,
+            "Settlements: " + game.getSettlements()
+                .size()
+                + ", "
+                + free
+                + " free; gold mines: "
+                + game.getMines()
+                    .size()
+                + " with "
+                + gold
+                + " gold");
         if (game.isOver()) {
             List<String> winners = new ArrayList<>();
             for (Team team : game.getWinners()) {
@@ -692,7 +719,7 @@ public class CommandRts extends CommandBase {
         BuildingType type = BuildingType.byId(args[1]);
         if (type == null || !type.buildable) {
             throw new CommandException(
-                "Workers can build a farm, house, barracks, storehouse, quarry, armory or tower");
+                "Workers can build a farm, house, barracks, storehouse, armory, tower or town center");
         }
         WorldServer world = GameWorld.getWorld();
         Buildings.Plan plan;
@@ -709,7 +736,9 @@ public class CommandRts extends CommandBase {
             plan = Buildings.get()
                 .findSpot(game, world, team, type);
             if (plan == null) {
-                throw new CommandException("Found no room for a %s near the town hall", type.displayName.toLowerCase());
+                throw new CommandException(
+                    type == BuildingType.TOWN_HALL ? "There is no free settlement"
+                        : "Found no room for a " + type.displayName.toLowerCase() + " near the town hall");
             }
         }
         Building site = Buildings.get()
@@ -888,6 +917,43 @@ public class CommandRts extends CommandBase {
                 + " with "
                 + tracked.getWood()
                 + " wood");
+    }
+
+    /** Sends a team's idle workers to the gold mine nearest its town center that still has gold. */
+    private void mine(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        Game game = requireGame();
+        requireArgs(args, 1, "/rts mine <team>");
+        Team team = requireTeam(game, args[0]);
+        Building hall = game.getTownHall(team);
+        if (hall == null) {
+            throw new CommandException("Team %s has no town center", team.getName());
+        }
+        GoldMine mine = Units.nearestMine(game, hall.getCenterX(), hall.getCenterZ(), Double.MAX_VALUE);
+        if (mine == null) {
+            throw new CommandException("There is no gold mine with gold left");
+        }
+        List<EntityUnit> idle = new ArrayList<>();
+        for (EntityUnit unit : Units.get()
+            .getUnits(team)) {
+            if (unit.isWorker() && unit.getOrder() == EntityUnit.Order.IDLE) {
+                idle.add(unit);
+            }
+        }
+        int sent = Units.get()
+            .orderMine(idle, mine);
+        send(
+            sender,
+            "Sent " + sent
+                + " workers of "
+                + team.getColoredName()
+                + " to the gold mine at "
+                + (int) mine.getCenterX()
+                + ","
+                + (int) mine.getCenterZ()
+                + " with "
+                + mine.getGold()
+                + " gold");
     }
 
     private void light(ICommandSender sender, String[] args) {

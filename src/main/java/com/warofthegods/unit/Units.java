@@ -29,6 +29,7 @@ import com.warofthegods.Config;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
+import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.UnitRecord;
@@ -618,6 +619,32 @@ public final class Units {
             }
         }
         return sent;
+    }
+
+    /** Sends the workers to mine a gold mine; returns how many went. */
+    public int orderMine(List<EntityUnit> units, GoldMine mine) {
+        int sent = 0;
+        for (EntityUnit unit : units) {
+            if (unit.isWorker()) {
+                unit.orderMine(mine);
+                sent++;
+            }
+        }
+        return sent;
+    }
+
+    /** The gold mine with gold left nearest x, z, no further than range, or null. */
+    public static GoldMine nearestMine(Game game, double x, double z, double range) {
+        GoldMine best = null;
+        double bestDistance = range;
+        for (GoldMine mine : game.getMines()) {
+            double distance = mine.distanceTo(x, z);
+            if (!mine.isDepleted() && distance <= bestDistance) {
+                best = mine;
+                bestDistance = distance;
+            }
+        }
+        return best;
     }
 
     /**
