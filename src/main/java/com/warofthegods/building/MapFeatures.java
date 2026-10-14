@@ -99,6 +99,14 @@ public final class MapFeatures {
                         camp.sizeZ(rotation),
                         found[2],
                         rotation);
+                    Buildings.clearTrees(
+                        game,
+                        world,
+                        settlement.minX,
+                        settlement.minZ,
+                        settlement.sizeX,
+                        settlement.sizeZ,
+                        settlement.groundY);
                     showSettlement(world, settlement);
                 }
             }

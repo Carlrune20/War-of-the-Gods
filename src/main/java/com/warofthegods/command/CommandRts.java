@@ -37,6 +37,7 @@ import com.warofthegods.game.Team;
 import com.warofthegods.game.Tree;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.Upgrade;
+import com.warofthegods.game.WallLine;
 import com.warofthegods.game.WinConditions;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Routes;
@@ -749,9 +750,13 @@ public class CommandRts extends CommandBase {
                 .orderBuild(idle, sites.get(i), i > 0);
         }
         int posts = 0;
+        int shortOnes = 0;
         for (Building site : sites) {
             if (site.type == BuildingType.WALL_POST) {
                 posts++;
+            }
+            if (site.sizeX < WallLine.SIZE || site.sizeZ < WallLine.SIZE) {
+                shortOnes++;
             }
         }
         send(
@@ -761,7 +766,9 @@ public class CommandRts extends CommandBase {
                 + team.getColoredName()
                 + ", "
                 + posts
-                + " of them posts, from #"
+                + " of them posts"
+                + (shortOnes > 0 ? " and " + shortOnes + " short" : "")
+                + ", from #"
                 + sites.get(0).id
                 + " to #"
                 + sites.get(sites.size() - 1).id

@@ -1169,29 +1169,40 @@
         const [x2, z2] = end(placing.cx, placing.cz);
         const own = (b) => team && b.team === team.id && (b.type === "tower" || isWallType(b.type));
         const S = WALL_SIZE;
-        const pieces = wallPieces(x1, z1, x2, z2, (minX, minZ) => [...state.buildings.values()].some((b) => own(b)
-            && minX < b.x + b.sizeX && b.x < minX + S && minZ < b.z + b.sizeZ && b.z < minZ + S),
-        towerAt(placing.cx, placing.cz) || null);
-        const g = state.game;
-        let ok = pieces.length > 0;
-        for (const p of pieces) {
-            p.y = surfaceY(p.x + S / 2, p.z + S / 2) - 1;
-            if (p.x < g.minX || p.z < g.minZ || p.x + S - 1 > g.maxX || p.z + S - 1 > g.maxZ) {
-                ok = false;
+        const blocker = (minX, minZ) => {
+            let box = null;
+            for (const b of state.buildings.values()) {
+                if (own(b) && minX < b.x + b.sizeX && b.x < minX + S && minZ < b.z + b.sizeZ && b.z < minZ + S) {
+                    box = box ? union(box, b) : {x: b.x, z: b.z, sizeX: b.sizeX, sizeZ: b.sizeZ};
+                }
             }
-            const hits = (f, gap) => p.x < f.x + f.sizeX + gap && f.x < p.x + S + gap && p.z < f.z + f.sizeZ + gap
-                && f.z < p.z + S + gap;
+            return box;
+        };
+        const g = state.game;
+        const pieces = [];
+        for (const p of wallPieces(x1, z1, x2, z2, blocker)) {
+            p.y = surfaceY(p.x + p.sizeX / 2, p.z + p.sizeZ / 2) - 1;
+            let fits = p.x >= g.minX && p.z >= g.minZ && p.x + p.sizeX - 1 <= g.maxX && p.z + p.sizeZ - 1 <= g.maxZ;
+            const hits = (f, gap) => p.x < f.x + f.sizeX + gap && f.x < p.x + p.sizeX + gap
+                && p.z < f.z + f.sizeZ + gap && f.z < p.z + p.sizeZ + gap;
             for (const b of state.buildings.values()) {
                 if (hits(b, 0)) {
-                    ok = false;
+                    fits = false;
                 }
             }
             for (const f of state.settlements.concat(state.mines)) {
                 if (hits(f, 1)) {
-                    ok = false;
+                    fits = false;
                 }
             }
+            // The server leaves out a short segment that does not fit, as the wall stands without it.
+            if (!fits && (p.sizeX < S || p.sizeZ < S)) {
+                continue;
+            }
+            p.ok = fits;
+            pieces.push(p);
         }
+        const ok = pieces.length > 0 && pieces.every((p) => p.ok);
         return {pieces, ok};
     }
 
@@ -1209,9 +1220,17 @@
 
     const WALL_SIZE = 5;
 
+    // The box holding box a and box b.
+    function union(a, b) {
+        const x = Math.min(a.x, b.x);
+        const z = Math.min(a.z, b.z);
+        return {x, z, sizeX: Math.max(a.x + a.sizeX, b.x + b.sizeX) - x, sizeZ: Math.max(a.z + a.sizeZ, b.z + b.sizeZ) - z};
+    }
+
     // The 5 by 5 pieces of a wall from x1, z1 to x2, z2: straight where it can, a zigzag of single steps on a slant,
-    // posts where it turns or ends, the last moved up against the tower it runs to (endBox). The same as WallLine.java.
-    function wallPieces(x1, z1, x2, z2, skip, endBox) {
+    // posts where it turns or ends, left out where blocker finds a tower or wall, with short segments closing any gap
+    // left against one. The same as WallLine.java.
+    function wallPieces(x1, z1, x2, z2, blocker) {
         const S = WALL_SIZE;
         const ox = x1 - Math.floor(S / 2);
         const oz = z1 - Math.floor(S / 2);
@@ -1236,33 +1255,46 @@
             j += sj;
             cells.push([i, j]);
         }
-        const kept = cells.map(([ci, cj]) => !skip(ox + ci * S, oz + cj * S));
+        const boxes = cells.map(([ci, cj]) => blocker(ox + ci * S, oz + cj * S));
+        const kept = boxes.map((box) => !box);
+        cells.forEach(([ci, cj], k) => {
+            if (kept[k]) {
+                boxes[k] = {x: ox + ci * S, z: oz + cj * S, sizeX: S, sizeZ: S};
+            }
+        });
         const pieces = [];
         cells.forEach(([ci, cj], k) => {
-            if (!kept[k]) {
+            if (kept[k]) {
+                const before = k > 0 && kept[k - 1] ? [ci - cells[k - 1][0], cj - cells[k - 1][1]] : null;
+                const after = k < cells.length - 1 && kept[k + 1] ? [cells[k + 1][0] - ci, cells[k + 1][1] - cj] : null;
+                const post = !before || !after || before[0] !== after[0] || before[1] !== after[1];
+                pieces.push({x: boxes[k].x, z: boxes[k].z, sizeX: S, sizeZ: S, type: post ? "wall_post" : "wall",
+                    rotation: post ? 0 : before[0] !== 0 ? 0 : 1});
+            }
+            if (k === cells.length - 1 || (kept[k] && kept[k + 1])) {
                 return;
             }
-            const before = k > 0 && kept[k - 1] ? [ci - cells[k - 1][0], cj - cells[k - 1][1]] : null;
-            const after = k < cells.length - 1 && kept[k + 1] ? [cells[k + 1][0] - ci, cells[k + 1][1] - cj] : null;
-            const post = !before || !after || before[0] !== after[0] || before[1] !== after[1];
-            pieces.push({x: ox + ci * S, z: oz + cj * S, type: post ? "wall_post" : "wall",
-                rotation: post ? 0 : before[0] !== 0 ? 0 : 1});
-        });
-        let last = cells.length - 1;
-        while (last >= 0 && !kept[last]) {
-            last--;
-        }
-        if (endBox && last >= 0 && last < cells.length - 1 && pieces.length) {
-            const di = cells[last + 1][0] - cells[last][0];
-            const dj = cells[last + 1][1] - cells[last][1];
-            const p = pieces[pieces.length - 1];
-            const gap = di > 0 ? endBox.x - (p.x + S) : di < 0 ? p.x - (endBox.x + endBox.sizeX)
-                : dj > 0 ? endBox.z - (p.z + S) : p.z - (endBox.z + endBox.sizeZ);
-            if (gap > 0 && gap < S) {
-                p.x += di * gap;
-                p.z += dj * gap;
+            // Short segments closing the gap, if any, to the next box.
+            const di = cells[k + 1][0] - ci;
+            const dj = cells[k + 1][1] - cj;
+            const a = boxes[k];
+            const b = boxes[k + 1];
+            const from = di > 0 ? a.x + a.sizeX : di < 0 ? b.x + b.sizeX : dj > 0 ? a.z + a.sizeZ : b.z + b.sizeZ;
+            const to = di > 0 ? b.x : di < 0 ? a.x : dj > 0 ? b.z : a.z;
+            if (to - from <= 0 || to - from > 2 * S) {
+                return;
             }
-        }
+            const run = [];
+            for (let at = from; at < to; at += S) {
+                const length = Math.min(S, to - at);
+                run.push(di !== 0 ? {x: at, z: oz + cj * S, sizeX: length, sizeZ: S, type: "wall", rotation: 0}
+                    : {x: ox + ci * S, z: at, sizeX: S, sizeZ: length, type: "wall", rotation: 1});
+            }
+            if (di < 0 || dj < 0) {
+                run.reverse();
+            }
+            pieces.push(...run);
+        });
         return pieces;
     }
 
@@ -2458,15 +2490,18 @@
         return shape;
     }
 
-    // See-through boxes in the shape of a building: one per run of equal-height columns along x.
-    function ghostBoxes(boxes, typeId, rotation, minX, minZ, groundY, color) {
+    // See-through boxes in the shape of a building: one per run of equal-height columns along x. Cut to footX by
+    // footZ when given, for a short segment of wall.
+    function ghostBoxes(boxes, typeId, rotation, minX, minZ, groundY, color, footX = Infinity, footZ = Infinity) {
         const shape = turnedShape(typeId, rotation);
-        for (let z = 0; z < shape.sizeZ; z++) {
+        const endX = Math.min(shape.sizeX, footX);
+        const endZ = Math.min(shape.sizeZ, footZ);
+        for (let z = 0; z < endZ; z++) {
             let x = 0;
-            while (x < shape.sizeX) {
+            while (x < endX) {
                 const h = shape.heights[x + z * shape.sizeX];
                 let run = 1;
-                while (x + run < shape.sizeX && shape.heights[x + run + z * shape.sizeX] === h) {
+                while (x + run < endX && shape.heights[x + run + z * shape.sizeX] === h) {
                     run++;
                 }
                 if (h > 0) {
@@ -2532,7 +2567,7 @@
         if (wall) {
             const color = wall.ok ? [0.93, 0.91, 0.86, 0.35] : [1, 0.3, 0.25, 0.4];
             for (const p of wall.pieces) {
-                ghostBoxes(boxes, p.type, p.rotation, p.x, p.z, p.y, color);
+                ghostBoxes(boxes, p.type, p.rotation, p.x, p.z, p.y, p.ok ? color : [1, 0.3, 0.25, 0.4], p.sizeX, p.sizeZ);
             }
         }
         return boxes;
@@ -2619,7 +2654,7 @@
         }
         const wall = placingWall();
         for (const p of wall ? wall.pieces : []) {
-            rect(lines, p.x, p.z, p.x + WALL_SIZE, p.z + WALL_SIZE, p.y + 1.1, wall.ok ? SELECTED : ATTACK);
+            rect(lines, p.x, p.z, p.x + p.sizeX, p.z + p.sizeZ, p.y + 1.1, p.ok ? SELECTED : ATTACK);
         }
         return lines;
     }

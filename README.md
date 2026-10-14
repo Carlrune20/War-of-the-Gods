@@ -115,7 +115,8 @@ Town centers stand on settlements. A settlement nobody holds is an abandoned cam
 center, roofless and falling in, round a cold hearth, with a white flag at the gate. Once every team's first town
 center is up, the rest of the settlements and the gold mines are laid out (see the map above). Workers can raise a
 town center (300 Wood, 200 Gold) only on a settlement nobody holds, and a town center that is destroyed leaves an
-abandoned settlement again. Settlements and gold mines cannot be built on or broken.
+abandoned settlement again. Settlements and gold mines cannot be built on or broken. Trees are cleared from a
+settlement and a few blocks round it, so none grows into a town center or blocks the way.
 
 Workers build: pick a building, place it on the web map or in the RTS view, and the selected workers walk to the site
 and build it. A site goes up as a wooden framework in three stages as it
@@ -185,9 +186,10 @@ see enemies and shoot 8 blocks farther.
 Walls are laid out from one point to another and built of 5 by 5 pieces: straight where the line runs straight, and a
 zigzag of 5 block steps where it runs on a slant. A segment is three blocks thick and five to seven high with
 battlements, or a palisade of stakes in wood; a post, at each end and turn, stands a block higher. Towers are
-optional: a tower is 5 by 5 too, so a wall that starts on one lines up with it, and the last piece of a wall that
-ends on one is moved right up against it; a wall between two towers joins them. A gate has an opening three wide and
-three high. Every piece costs gold, and workers build the pieces one after another along the line. Select
+optional: a tower is 5 by 5 too, so a wall that starts on one lines up with it. Where there is not room for a full
+piece against a tower or wall it runs up to, a shorter segment, down to a block long, closes the gap, so a wall
+between two towers always joins them. A gate has an opening three wide and three high, and only a full segment can
+be made one. Every piece costs gold, and workers build the pieces one after another along the line. Select
 a finished segment and click Make gate to turn it into a gate at once, with no worker, for gold. Gates open for the
 team's own units and its allies' and stay shut to enemies, who have to break them down. Walls start as wood; stone
 walls at the town center in Age II rebuild every wall of the team in cobblestone (plain stone for Zamorak), and

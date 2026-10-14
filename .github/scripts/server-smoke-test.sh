@@ -432,6 +432,16 @@ wait_for_log "Team Blue has stone walls" 30
 echo "rts buildings blue" >&3
 wait_for_log "Blue gate (level 2) #" 30
 echo "ok: stone walls take the walls up a level"
+# A wall started two blocks short of the end of that one, back toward it: a full piece and a 2 block segment that
+# closes the gap.
+if [ "$tower_x" -ge "$hall_x" ]; then gap_from=$((tower_x + 22)); gap_to=$((tower_x + 17)); else gap_from=$((tower_x - 22)); gap_to=$((tower_x - 17)); fi
+echo "rts wall blue $gap_from $wall_z $gap_to $wall_z" >&3
+wait_for_log "Laid out a wall of 2 pieces for Blue, 1 of them posts and 1 short" 30
+echo "ok: $(grep -oE 'Laid out a wall of .*' "$WEB_LOG" | tail -1)"
+short_id=$(grep -oE "Laid out a wall of 2 pieces for Blue, 1 of them posts and 1 short, from #[0-9]+ to #[0-9]+" "$WEB_LOG" | tail -1 | grep -oE "[0-9]+$")
+echo "rts finish blue" >&3
+wait_for_log "Built Blue wall #$short_id " 30
+echo "ok: the short segment #$short_id is built"
 echo "rts units kill red" >&3
 sleep 2
 echo "rts damage 16 100000" >&3

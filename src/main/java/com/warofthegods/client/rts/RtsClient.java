@@ -883,9 +883,9 @@ public final class RtsClient {
         }
         RtsState.TeamInfo team = state.myTeam();
         int[] end = wallEnd(team, placing.cx, placing.cz);
-        RtsState.BuildingInfo endTower = towerNear(team, placing.cx, placing.cz);
         int[] start = placing.start == null ? end : wallEnd(team, placing.start[0], placing.start[1]);
         List<WallLine.Piece> pieces = WallLine.pieces(start[0], start[1], end[0], end[1], (minX, minZ) -> {
+            int[] box = null;
             for (RtsState.BuildingInfo b : state.buildings.values()) {
                 if (team != null && b.team.equals(team.id)
                     && ("tower".equals(b.type) || isWall(b.type))
@@ -893,46 +893,59 @@ public final class RtsClient {
                     && b.x < minX + WallLine.SIZE
                     && minZ < b.z + b.sizeZ
                     && b.z < minZ + WallLine.SIZE) {
-                    return true;
+                    if (box == null) {
+                        box = new int[] { b.x, b.z, b.sizeX, b.sizeZ };
+                    } else {
+                        int x = Math.min(box[0], b.x);
+                        int z = Math.min(box[1], b.z);
+                        box = new int[] { x, z, Math.max(box[0] + box[2], b.x + b.sizeX) - x,
+                            Math.max(box[1] + box[3], b.z + b.sizeZ) - z };
+                    }
                 }
             }
-            return false;
-        }, endTower == null ? null : new int[] { endTower.x, endTower.z, endTower.sizeX, endTower.sizeZ });
+            return box;
+        });
         WallSpot spot = new WallSpot();
-        spot.ok = !pieces.isEmpty();
+        spot.ok = true;
         RtsState.GameInfo game = state.game;
-        int size = WallLine.SIZE;
         for (WallLine.Piece piece : pieces) {
+            int sizeX = piece.sizeX;
+            int sizeZ = piece.sizeZ;
             Footprint footprint = new Footprint();
             footprint.x = piece.minX;
             footprint.z = piece.minZ;
-            footprint.sizeX = size;
-            footprint.sizeZ = size;
+            footprint.sizeX = sizeX;
+            footprint.sizeZ = sizeZ;
             footprint.rotation = piece.rotation;
             footprint.y = (int) groundHeight(piece.centerX(), piece.centerZ()) - 1;
             footprint.ok = piece.minX >= game.minX && piece.minZ >= game.minZ
-                && piece.minX + size - 1 <= game.maxX
-                && piece.minZ + size - 1 <= game.maxZ;
+                && piece.minX + sizeX - 1 <= game.maxX
+                && piece.minZ + sizeZ - 1 <= game.maxZ;
             for (RtsState.BuildingInfo b : state.buildings.values()) {
-                if (piece.minX < b.x + b.sizeX && b.x < piece.minX + size
+                if (piece.minX < b.x + b.sizeX && b.x < piece.minX + sizeX
                     && piece.minZ < b.z + b.sizeZ
-                    && b.z < piece.minZ + size) {
+                    && b.z < piece.minZ + sizeZ) {
                     footprint.ok = false;
                 }
             }
             for (List<RtsState.FeatureInfo> features : Arrays.asList(state.settlements, state.mines)) {
                 for (RtsState.FeatureInfo f : features) {
-                    if (piece.minX < f.x + f.sizeX + 1 && f.x < piece.minX + size + 1
+                    if (piece.minX < f.x + f.sizeX + 1 && f.x < piece.minX + sizeX + 1
                         && piece.minZ < f.z + f.sizeZ + 1
-                        && f.z < piece.minZ + size + 1) {
+                        && f.z < piece.minZ + sizeZ + 1) {
                         footprint.ok = false;
                     }
                 }
+            }
+            if (!footprint.ok && piece.isShort()) {
+                // The server leaves out a short segment that does not fit, as the wall stands without it.
+                continue;
             }
             spot.ok &= footprint.ok;
             spot.pieces.add(footprint);
             spot.types.add(piece.type().id);
         }
+        spot.ok &= !spot.pieces.isEmpty();
         return spot;
     }
 
