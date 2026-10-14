@@ -186,7 +186,8 @@ public final class AiPlayers {
         List<EntityUnit> builders = spareWorkers(workers, 2);
         Units.get()
             .orderBuild(builders, site);
-        WarOfTheGods.LOG.info("AI {} laid out {} with {} workers", team.getName(), site.describe(game), builders.size());
+        WarOfTheGods.LOG
+            .info("AI {} laid out {} with {} workers", team.getName(), site.describe(game), builders.size());
     }
 
     /** Sends a worker to every building site nobody is building. */
@@ -369,8 +370,7 @@ public final class AiPlayers {
      * than a mob comes. Otherwise, once enough fighters are at home, they go on an attack move at the nearest enemy
      * building; fighters out attacking go on to the next enemy building when they are done.
      */
-    private void fight(Game game, WorldServer world, Team team, Building hall, List<EntityUnit> fighters,
-        State state) {
+    private void fight(Game game, WorldServer world, Team team, Building hall, List<EntityUnit> fighters, State state) {
         double x = hall.getCenterX();
         double z = hall.getCenterZ();
         List<EntityUnit> home = new ArrayList<>();
