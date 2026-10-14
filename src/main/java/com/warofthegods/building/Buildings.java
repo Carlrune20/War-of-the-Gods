@@ -31,6 +31,8 @@ import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
+import com.warofthegods.game.GoldMine;
+import com.warofthegods.game.Settlement;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.Upgrade;
@@ -46,7 +48,7 @@ import cpw.mods.fml.common.gameevent.TickEvent;
 /**
  * Runs the buildings of the running game on the server thread: puts a town hall at every team's base, checks where
  * new buildings may go, raises them once workers have built the site, trains units, hands out harvests to the
- * workers at farms and quarries, and takes buildings down when enemies destroy them.
+ * workers at farms, and takes buildings down when enemies destroy them.
  *
  * <p>
  * Enemy players cannot break a building's blocks: the block stays and the building loses health instead.
@@ -76,6 +78,7 @@ public final class Buildings {
     private final Map<String, Schematic> variants = new HashMap<>();
     private final Map<Integer, Integer> harvestTicks = new HashMap<>();
     private final Map<Integer, Integer> shotTicks = new HashMap<>();
+    private final MapFeatures features = new MapFeatures();
     private int ticks;
 
     public Buildings() {
@@ -88,6 +91,11 @@ public final class Buildings {
 
     public static Buildings get() {
         return instance;
+    }
+
+    /** The settlements and gold mines of the map. */
+    public MapFeatures features() {
+        return features;
     }
 
     /** The structure of the type at its first level, which has the size and shape every look of it shares. */
@@ -137,6 +145,7 @@ public final class Buildings {
             return;
         }
         placeTownHalls(game, world);
+        features.placeIfDue(game, world);
         construct(game, world);
         train(game);
         harvest(game);
@@ -200,6 +209,9 @@ public final class Buildings {
             Building hall = game
                 .addBuilding(BuildingType.TOWN_HALL, team, minX, minZ, sizeX, sizeZ, site.groundY, rotation, false);
             hall.setLevel(game.getAge(team));
+            if (game.settlementOf(hall) == null) {
+                game.addSettlement(minX, minZ, sizeX, sizeZ, site.groundY, rotation);
+            }
             raise(world, hall);
             team.setTownHallDue(false);
             return;
@@ -283,6 +295,32 @@ public final class Buildings {
     public Plan plan(Game game, WorldServer world, BuildingType type, int centerX, int centerZ, int rotation) {
         rotation &= 3;
         Schematic schematic = schematic(type);
+        if (type == BuildingType.TOWN_HALL) {
+            // Town centers only go on free settlements, which decide where and which way.
+            Settlement settlement = game.freeSettlementNear(centerX, centerZ, 4);
+            if (settlement == null) {
+                int sizeX = schematic.sizeX(rotation);
+                int sizeZ = schematic.sizeZ(rotation);
+                return new Plan(
+                    type,
+                    centerX - sizeX / 2,
+                    centerZ - sizeZ / 2,
+                    sizeX,
+                    sizeZ,
+                    rotation,
+                    0,
+                    "A town center can only go on a free settlement");
+            }
+            return new Plan(
+                type,
+                settlement.minX,
+                settlement.minZ,
+                settlement.sizeX,
+                settlement.sizeZ,
+                settlement.rotation,
+                settlement.groundY,
+                null);
+        }
         int sizeX = schematic.sizeX(rotation);
         int sizeZ = schematic.sizeZ(rotation);
         int minX = centerX - sizeX / 2;
@@ -295,6 +333,24 @@ public final class Buildings {
         for (Building other : game.getBuildings()) {
             if (other.overlaps(minX, minZ, sizeX, sizeZ, GAP)) {
                 return new Plan(type, minX, minZ, sizeX, sizeZ, rotation, 0, "That is too close to another building");
+            }
+        }
+        for (Settlement settlement : game.getSettlements()) {
+            if (settlement.overlaps(minX, minZ, sizeX, sizeZ, GAP)) {
+                return new Plan(
+                    type,
+                    minX,
+                    minZ,
+                    sizeX,
+                    sizeZ,
+                    rotation,
+                    0,
+                    "That is too close to a settlement; only a town center can go there");
+            }
+        }
+        for (GoldMine mine : game.getMines()) {
+            if (mine.overlaps(minX, minZ, sizeX, sizeZ, GAP)) {
+                return new Plan(type, minX, minZ, sizeX, sizeZ, rotation, 0, "That is too close to a gold mine");
             }
         }
         Site site = survey(world, minX, minZ, sizeX, sizeZ);
@@ -338,6 +394,21 @@ public final class Buildings {
         }
         int cx = hall != null ? (int) hall.getCenterX() : base[0];
         int cz = hall != null ? (int) hall.getCenterZ() : base[1];
+        if (type == BuildingType.TOWN_HALL) {
+            // The nearest free settlement.
+            Settlement best = null;
+            double bestDistance = Double.MAX_VALUE;
+            for (Settlement settlement : game.getSettlements()) {
+                double dx = settlement.getCenterX() - cx;
+                double dz = settlement.getCenterZ() - cz;
+                if (game.townCenterOn(settlement) == null && dx * dx + dz * dz < bestDistance) {
+                    best = settlement;
+                    bestDistance = dx * dx + dz * dz;
+                }
+            }
+            return best == null ? null
+                : plan(game, world, type, (int) best.getCenterX(), (int) best.getCenterZ(), best.rotation);
+        }
         // Start far enough out that it clears the town hall with room to walk around it.
         Schematic schematic = schematic(type);
         int start = (hall == null ? 0 : Math.max(hall.sizeX, hall.sizeZ) / 2)
@@ -501,7 +572,7 @@ public final class Buildings {
 
     // ---------------------------------------------------------------- gathering
 
-    /** Workers working at a farm or quarry, up to how many it has work for. */
+    /** Workers working at a farm, up to how many it has work for. */
     public static int countWorkers(Building workplace) {
         return Math.min(workersAt(workplace).size(), workplace.type.maxWorkers());
     }
@@ -519,7 +590,7 @@ public final class Buildings {
         return workers;
     }
 
-    /** Hands each harvest to the workers at farms and quarries, who carry it to a town hall or storehouse. */
+    /** Hands each harvest to the workers at farms, who carry it to a town hall or storehouse. */
     private void harvest(Game game) {
         int ticksPerHarvest = Config.farmYieldSeconds * 20;
         for (Building workplace : game.getBuildings()) {
@@ -552,8 +623,6 @@ public final class Buildings {
         int halves = 2;
         if (team != null && workplace.type == BuildingType.FARM) {
             halves = team.has(Upgrade.DIAMOND_HOES) ? 4 : team.has(Upgrade.PLOUGHS) ? 3 : 2;
-        } else if (team != null && workplace.type == BuildingType.QUARRY) {
-            halves = team.has(Upgrade.DIAMOND_PICKAXES) ? 4 : team.has(Upgrade.PICKAXES) ? 3 : 2;
         }
         for (int i = 0; i < yield.length; i++) {
             yield[i] = yield[i] * halves / 2;
@@ -751,12 +820,12 @@ public final class Buildings {
         return range > 0 && team != null && team.has(Upgrade.FLETCHING) ? range + 4 : range;
     }
 
-    /** Blocks above the ground a building shoots from: a tower's deck, the town center's upper windows. */
+    /** Blocks above the ground a building shoots from: a tower's deck, the town center's gate posts. */
     private static int shootHeight(Building building) {
         if (building.type == BuildingType.TOWER) {
             return building.getLevel() >= 2 ? 14 : 11;
         }
-        return 9;
+        return 4;
     }
 
     /** The nearest finished town hall or storehouse of the team, or null. */
@@ -796,8 +865,32 @@ public final class Buildings {
         WarOfTheGods.LOG.info("Destroyed {} ({})", building.describe(game), cause);
     }
 
-    /** A destroyed building leaves its ruin; a destroyed building site leaves bare ground. */
+    /**
+     * A destroyed building leaves its ruin; a destroyed building site leaves bare ground. A town center or its site
+     * leaves its settlement, free for anyone to build on again.
+     */
     private void tearDown(WorldServer world, Game game, Building building) {
+        Settlement settlement = building.type == BuildingType.TOWN_HALL ? game.settlementOf(building) : null;
+        if (settlement != null) {
+            Schematic stones = features.schematic("settlement");
+            if (stones.sizeX(settlement.rotation) == building.sizeX
+                && stones.sizeZ(settlement.rotation) == building.sizeZ) {
+                // Clear the town center away first: the settlement leaves air only where it has blocks of its own.
+                Schematic schematic = schematic(building.type);
+                int top = building.groundY - schematic.ground + schematic.height;
+                for (int x = building.minX; x <= building.getMaxX(); x++) {
+                    for (int z = building.minZ; z <= building.getMaxZ(); z++) {
+                        for (int y = Math.min(255, top); y > building.groundY; y--) {
+                            if (!world.isAirBlock(x, y, z)) {
+                                world.setBlock(x, y, z, Blocks.air, 0, 2);
+                            }
+                        }
+                    }
+                }
+                paste(world, building, stones);
+                return;
+            }
+        }
         Schematic ruin = variant(factionOf(game, building), building.type.id + "_ruin");
         if (building.isComplete() && ruin.sizeX(building.rotation) == building.sizeX
             && ruin.sizeZ(building.rotation) == building.sizeZ) {
@@ -848,6 +941,16 @@ public final class Buildings {
         Game game = GameManager.getGame();
         Building building = game == null ? null : buildingWithBlock(game, event.x, event.y, event.z);
         if (building == null) {
+            if (game != null && (MapFeatures.mineWithBlock(game, event.x, event.y, event.z) != null
+                || MapFeatures.freeSettlementWithBlock(game, event.x, event.y, event.z) != null)) {
+                // Gold comes out of mines by workers mining them, and settlements stay for town centers.
+                event.setCanceled(true);
+                event.getPlayer()
+                    .addChatMessage(
+                        new ChatComponentText(
+                            EnumChatFormatting.GRAY
+                                + "That is part of a gold mine or a settlement and cannot be broken."));
+            }
             return;
         }
         event.setCanceled(true);
@@ -921,6 +1024,16 @@ public final class Buildings {
         }
         Explosion explosion = event.explosion;
         int pad = Config.explosionProtection;
+        Iterator<ChunkPosition> features = event.getAffectedBlocks()
+            .iterator();
+        while (features.hasNext()) {
+            ChunkPosition block = features.next();
+            if (MapFeatures.mineWithBlock(game, block.chunkPosX, block.chunkPosY, block.chunkPosZ) != null
+                || MapFeatures.freeSettlementWithBlock(game, block.chunkPosX, block.chunkPosY, block.chunkPosZ)
+                    != null) {
+                features.remove();
+            }
+        }
         // By now the explosion has doubled its size for working out what it hits; a creeper's is 3 to begin with.
         double size = explosion.explosionSize / 2;
         double reach = size * 2 + 1;

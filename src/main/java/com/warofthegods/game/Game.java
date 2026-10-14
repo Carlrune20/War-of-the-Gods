@@ -39,6 +39,13 @@ public class Game {
     private int lastBuildingId;
     /** Trees workers have started chopping, by {@link Tree#key()}. */
     private final Map<Long, Tree> trees = new LinkedHashMap<>();
+    /** Spots town centers stand on, by id. */
+    private final Map<Integer, Settlement> settlements = new LinkedHashMap<>();
+    /** Gold mines on the map, by id. */
+    private final Map<Integer, GoldMine> mines = new LinkedHashMap<>();
+    private int lastFeatureId;
+    /** Whether the neutral settlements and the gold mines have been laid out on the map. */
+    private boolean featuresPlaced;
     /** Whether a winner has been decided; nobody is defeated after that. */
     private boolean over;
     /** Ids of the teams that won, once the game is over; empty if nobody did. */
@@ -434,6 +441,99 @@ public class Game {
         }
     }
 
+    public Collection<Settlement> getSettlements() {
+        return Collections.unmodifiableCollection(settlements.values());
+    }
+
+    public Settlement addSettlement(int minX, int minZ, int sizeX, int sizeZ, int groundY, int rotation) {
+        lastFeatureId++;
+        Settlement settlement = new Settlement(lastFeatureId, minX, minZ, sizeX, sizeZ, groundY, rotation);
+        settlements.put(settlement.id, settlement);
+        changed();
+        return settlement;
+    }
+
+    /** The settlement the building stands on, or null. */
+    public Settlement settlementOf(Building building) {
+        for (Settlement settlement : settlements.values()) {
+            if (settlement.holds(building)) {
+                return settlement;
+            }
+        }
+        return null;
+    }
+
+    /** The town center or town center site on a settlement, or null when it is free. */
+    public Building townCenterOn(Settlement settlement) {
+        for (Building building : buildings.values()) {
+            if (building.type == BuildingType.TOWN_HALL && settlement.holds(building)) {
+                return building;
+            }
+        }
+        return null;
+    }
+
+    /** The free settlement whose footprint holds x, z or comes within margin blocks of it, nearest first; or null. */
+    public Settlement freeSettlementNear(double x, double z, double margin) {
+        Settlement best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (Settlement settlement : settlements.values()) {
+            if (!settlement.covers(x, z, margin) || townCenterOn(settlement) != null) {
+                continue;
+            }
+            double dx = settlement.getCenterX() - x;
+            double dz = settlement.getCenterZ() - z;
+            double distance = dx * dx + dz * dz;
+            if (distance < bestDistance) {
+                best = settlement;
+                bestDistance = distance;
+            }
+        }
+        return best;
+    }
+
+    public Collection<GoldMine> getMines() {
+        return Collections.unmodifiableCollection(mines.values());
+    }
+
+    public GoldMine getMine(int id) {
+        return mines.get(id);
+    }
+
+    public GoldMine addMine(int minX, int minZ, int size, int groundY, int gold) {
+        lastFeatureId++;
+        GoldMine mine = new GoldMine(lastFeatureId, minX, minZ, size, groundY, gold);
+        mines.put(mine.id, mine);
+        changed();
+        return mine;
+    }
+
+    /** The gold mine whose footprint holds x, z or comes within margin blocks of it, or null. */
+    public GoldMine mineAt(double x, double z, double margin) {
+        for (GoldMine mine : mines.values()) {
+            if (mine.covers(x, z, margin)) {
+                return mine;
+            }
+        }
+        return null;
+    }
+
+    /** Takes gold out of a mine; returns how much it gave. */
+    public int mine(GoldMine mine, int amount) {
+        int taken = mine.take(amount);
+        changed();
+        return taken;
+    }
+
+    public boolean areFeaturesPlaced() {
+        return featuresPlaced;
+    }
+
+    public void setFeaturesPlaced() {
+        featuresPlaced = true;
+        changed();
+    }
+
     /** Units the team's finished buildings house, up to the most any team may have. */
     public int getPopulationCap(Team team) {
         int cap = 0;
@@ -527,6 +627,18 @@ public class Game {
             treeList.appendTag(tree.writeToNBT());
         }
         tag.setTag("trees", treeList);
+        NBTTagList settlementList = new NBTTagList();
+        for (Settlement settlement : settlements.values()) {
+            settlementList.appendTag(settlement.writeToNBT());
+        }
+        tag.setTag("settlements", settlementList);
+        NBTTagList mineList = new NBTTagList();
+        for (GoldMine mine : mines.values()) {
+            mineList.appendTag(mine.writeToNBT());
+        }
+        tag.setTag("mines", mineList);
+        tag.setInteger("lastFeatureId", lastFeatureId);
+        tag.setBoolean("featuresPlaced", featuresPlaced);
         tag.setBoolean("over", over);
         NBTTagList winnerList = new NBTTagList();
         for (String id : winners) {
@@ -581,6 +693,22 @@ public class Game {
                 game.trees.put(tree.key(), tree);
             }
         }
+        NBTTagList settlementList = tag.getTagList("settlements", 10);
+        for (int i = 0; i < settlementList.tagCount(); i++) {
+            Settlement settlement = Settlement.readFromNBT(settlementList.getCompoundTagAt(i));
+            if (settlement != null) {
+                game.settlements.put(settlement.id, settlement);
+            }
+        }
+        NBTTagList mineList = tag.getTagList("mines", 10);
+        for (int i = 0; i < mineList.tagCount(); i++) {
+            GoldMine mine = GoldMine.readFromNBT(mineList.getCompoundTagAt(i));
+            if (mine != null) {
+                game.mines.put(mine.id, mine);
+            }
+        }
+        game.lastFeatureId = tag.getInteger("lastFeatureId");
+        game.featuresPlaced = tag.getBoolean("featuresPlaced");
         game.over = tag.getBoolean("over");
         NBTTagList winnerList = tag.getTagList("winners", 8);
         for (int i = 0; i < winnerList.tagCount(); i++) {

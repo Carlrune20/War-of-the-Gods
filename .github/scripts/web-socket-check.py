@@ -106,7 +106,7 @@ def main():
             if not str(game.get("mapId", "")).startswith(f"{game_number}-"):
                 fail(f"game message has no map id for game #{game_number}: {game.get('mapId')!r}")
             types = game.get("buildingTypes", {})
-            for type_id in ("town_hall", "farm", "barracks", "storehouse", "quarry"):
+            for type_id in ("town_hall", "farm", "barracks", "storehouse", "tower"):
                 shape = types.get(type_id)
                 if not shape or len(shape["heights"]) != shape["width"] * shape["length"]:
                     fail(f"game message has no usable {type_id} building type")
@@ -124,6 +124,9 @@ def main():
                 # Units may still be loading; wait for the next state.
                 print(f"waiting: {len(units)} of {expected_units} units in the live state")
                 continue
+            for key in ("settlements", "mines"):
+                if not isinstance(message.get(key), list):
+                    fail(f"live state has no {key} list: {sorted(message)}")
             if not isinstance(message.get("mobs"), list):
                 fail(f"live state has no mobs list: {sorted(message)}")
             for mob in message["mobs"]:

@@ -134,6 +134,7 @@ public final class RtsState {
         /** The foot of the tree it chops, or null. */
         public int[] tree;
         public boolean chopping;
+        public boolean mining;
         public boolean carving;
         /** Torches a worker still has to put up. */
         public int torches;
@@ -213,6 +214,27 @@ public final class RtsState {
         public int maxWood;
     }
 
+    /** A settlement, where a town center stands or can go up, or a gold mine: a footprint on the map. */
+    public static final class FeatureInfo {
+
+        public int id;
+        public int x;
+        public int z;
+        public int sizeX;
+        public int sizeZ;
+        public int y;
+        public int rotation;
+        /** For a settlement: whether no town center stands on it. */
+        public boolean free;
+        /** For a gold mine: the gold left in it, and what it started with. */
+        public int gold;
+        public int maxGold;
+
+        public boolean contains(double px, double pz, double margin) {
+            return px >= x - margin && px < x + sizeX + margin && pz >= z - margin && pz < z + sizeZ + margin;
+        }
+    }
+
     public GameInfo game;
     public final List<TeamInfo> teams = new ArrayList<>();
     /** The ids of the teams that won, once the game is over; null while it goes on. */
@@ -223,6 +245,8 @@ public final class RtsState {
     public final Map<String, MobInfo> mobs = new LinkedHashMap<>();
     public final Map<Integer, BuildingInfo> buildings = new LinkedHashMap<>();
     public final List<TreeInfo> trees = new ArrayList<>();
+    public final List<FeatureInfo> settlements = new ArrayList<>();
+    public final List<FeatureInfo> mines = new ArrayList<>();
     /** Entity id to unit, player or mob. */
     public final Map<Integer, Thing> byEntityId = new HashMap<>();
     /** The viewer's UUID, from the server. */
@@ -328,6 +352,8 @@ public final class RtsState {
         mobs.clear();
         buildings.clear();
         trees.clear();
+        settlements.clear();
+        mines.clear();
         byEntityId.clear();
     }
 
@@ -409,6 +435,7 @@ public final class RtsState {
                 }
             }
             info.chopping = bool(unit, "chopping");
+            info.mining = bool(unit, "mining");
             info.carving = bool(unit, "carving");
             info.stance = unit.has("stance") ? unit.get("stance")
                 .getAsString() : "defensive";
@@ -474,6 +501,12 @@ public final class RtsState {
             info.maxWood = integer(tree, "maxWood");
             trees.add(info);
         }
+        for (JsonElement element : array(json, "settlements")) {
+            settlements.add(feature(element.getAsJsonObject()));
+        }
+        for (JsonElement element : array(json, "mines")) {
+            mines.add(feature(element.getAsJsonObject()));
+        }
     }
 
     // ---------------------------------------------------------------- questions
@@ -507,6 +540,49 @@ public final class RtsState {
 
     public UnitKindInfo unitKind(String id) {
         return game == null ? null : game.unitKinds.get(id);
+    }
+
+    private static FeatureInfo feature(JsonObject json) {
+        FeatureInfo info = new FeatureInfo();
+        info.id = integer(json, "id");
+        info.x = integer(json, "x");
+        info.z = integer(json, "z");
+        info.sizeX = integer(json, "sizeX");
+        info.sizeZ = integer(json, "sizeZ");
+        info.y = integer(json, "y");
+        info.rotation = integer(json, "rotation");
+        info.free = bool(json, "free");
+        info.gold = integer(json, "gold");
+        info.maxGold = integer(json, "maxGold");
+        return info;
+    }
+
+    /** The free settlement whose footprint holds x, z or comes within margin blocks of it, nearest first; or null. */
+    public FeatureInfo freeSettlementNear(double x, double z, double margin) {
+        FeatureInfo best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (FeatureInfo settlement : settlements) {
+            if (!settlement.free || !settlement.contains(x, z, margin)) {
+                continue;
+            }
+            double dx = settlement.x + settlement.sizeX / 2.0 - x;
+            double dz = settlement.z + settlement.sizeZ / 2.0 - z;
+            if (dx * dx + dz * dz < bestDistance) {
+                best = settlement;
+                bestDistance = dx * dx + dz * dz;
+            }
+        }
+        return best;
+    }
+
+    /** The gold mine whose footprint holds x, z, or null. */
+    public FeatureInfo mineAt(double x, double z) {
+        for (FeatureInfo mine : mines) {
+            if (mine.contains(x, z, 0)) {
+                return mine;
+            }
+        }
+        return null;
     }
 
     public BuildingInfo buildingAt(double x, double z) {

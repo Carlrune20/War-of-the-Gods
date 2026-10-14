@@ -10,7 +10,7 @@ public enum UnitKind {
 
     /** Fights up close with a sword; trained at a barracks. Saved as soldier, from before archers. */
     SOLDIER("soldier", "Warrior"),
-    /** Builds, farms, quarries and chops trees, never fights; trained at the town center. */
+    /** Builds, farms, mines gold and chops trees, never fights; trained at the town center. */
     WORKER("worker", "Worker"),
     /** Shoots arrows from a distance; trained at a barracks. */
     ARCHER("archer", "Archer");

@@ -26,7 +26,9 @@ import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
+import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.Resource;
+import com.warofthegods.game.Settlement;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.Tree;
 import com.warofthegods.game.UnitKind;
@@ -420,6 +422,8 @@ public final class WebMap {
         message.add("mobs", game == null || world == null ? new JsonArray() : mobsJson(game, world));
         message.add("buildings", game == null ? new JsonArray() : buildingsJson(game));
         message.add("trees", game == null ? new JsonArray() : treesJson(game));
+        message.add("settlements", game == null ? new JsonArray() : settlementsJson(game));
+        message.add("mines", game == null ? new JsonArray() : minesJson(game));
         return message;
     }
 
@@ -437,6 +441,42 @@ public final class WebMap {
             trees.add(json);
         }
         return trees;
+    }
+
+    /** Settlements, and whether each is free for a town center. */
+    private static JsonArray settlementsJson(Game game) {
+        JsonArray settlements = new JsonArray();
+        for (Settlement settlement : game.getSettlements()) {
+            JsonObject json = new JsonObject();
+            json.addProperty("id", settlement.id);
+            json.addProperty("x", settlement.minX);
+            json.addProperty("z", settlement.minZ);
+            json.addProperty("sizeX", settlement.sizeX);
+            json.addProperty("sizeZ", settlement.sizeZ);
+            json.addProperty("y", settlement.groundY);
+            json.addProperty("rotation", settlement.rotation);
+            json.addProperty("free", game.townCenterOn(settlement) == null);
+            settlements.add(json);
+        }
+        return settlements;
+    }
+
+    /** Gold mines, with the gold left in them. */
+    private static JsonArray minesJson(Game game) {
+        JsonArray mines = new JsonArray();
+        for (GoldMine mine : game.getMines()) {
+            JsonObject json = new JsonObject();
+            json.addProperty("id", mine.id);
+            json.addProperty("x", mine.minX);
+            json.addProperty("z", mine.minZ);
+            json.addProperty("sizeX", mine.size);
+            json.addProperty("sizeZ", mine.size);
+            json.addProperty("y", mine.groundY);
+            json.addProperty("gold", mine.getGold());
+            json.addProperty("maxGold", mine.maxGold);
+            mines.add(json);
+        }
+        return mines;
     }
 
     /** Every building and building site, with what it is training. */
@@ -543,6 +583,12 @@ public final class WebMap {
                 json.add("tree", treeJson);
                 if (unit.isChopping()) {
                     json.addProperty("chopping", true);
+                }
+            }
+            if (unit.getMineId() != 0) {
+                json.addProperty("mine", unit.getMineId());
+                if (unit.isMining()) {
+                    json.addProperty("mining", true);
                 }
             }
             if (unit.getTorchesLeft() > 0) {
