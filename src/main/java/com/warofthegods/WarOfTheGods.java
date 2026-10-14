@@ -11,6 +11,7 @@ import com.warofthegods.building.Buildings;
 import com.warofthegods.command.CommandRts;
 import com.warofthegods.command.TeamCommands;
 import com.warofthegods.game.PlayerEvents;
+import com.warofthegods.game.WinConditions;
 import com.warofthegods.rts.Commanders;
 import com.warofthegods.rts.EntityCommanderBody;
 import com.warofthegods.rts.RtsNetwork;
@@ -104,6 +105,9 @@ public class WarOfTheGods {
             .register(buildings);
         MinecraftForge.EVENT_BUS.register(buildings);
         BuildingCommands.register();
+        FMLCommonHandler.instance()
+            .bus()
+            .register(new WinConditions());
         TeamCommands.register();
         FMLCommonHandler.instance()
             .bus()

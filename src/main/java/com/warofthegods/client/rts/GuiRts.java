@@ -1315,6 +1315,7 @@ public final class GuiRts extends GuiScreen {
             return;
         }
         drawLightArea();
+        drawBanner();
         drawTeamPanel();
         drawBar();
         drawHelp();
@@ -1570,6 +1571,44 @@ public final class GuiRts extends GuiScreen {
         drawRect(x, y, x + (int) Math.round(w * Math.max(0, Math.min(1, fraction))), y + 2, color);
     }
 
+    /**
+     * Across the top: who won once the game is over, otherwise how long each team that lost its last town center has
+     * left to raise a new one.
+     */
+    private void drawBanner() {
+        RtsState state = state();
+        List<String> lines = new ArrayList<>();
+        if (state.winners != null) {
+            List<String> names = new ArrayList<>();
+            for (String id : state.winners) {
+                RtsState.TeamInfo team = state.teamsById.get(id);
+                names.add(team == null ? id : team.name);
+            }
+            lines.add(
+                names.isEmpty() ? "Game over: nobody won"
+                    : "Game over: " + String.join(" and ", names) + (names.size() == 1 ? " wins!" : " win!"));
+        } else {
+            for (RtsState.TeamInfo team : state.teams) {
+                if (team.countdown >= 0) {
+                    lines.add(
+                        team.name + " lost its last town center: "
+                            + team.countdown / 60
+                            + ":"
+                            + String.format("%02d", team.countdown % 60)
+                            + " to raise a new one");
+                }
+            }
+        }
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
+            int w = fontRendererObj.getStringWidth(line) + 16;
+            int x = (width - w) / 2;
+            int y = 6 + i * 16;
+            drawRect(x, y, x + w, y + 14, 0xD0401008);
+            fontRendererObj.drawStringWithShadow(line, x + 8, y + 3, 0xFFD27A);
+        }
+    }
+
     private void drawTeamPanel() {
         RtsState state = state();
         List<String> lines = new ArrayList<>();
@@ -1587,6 +1626,10 @@ public final class GuiRts extends GuiScreen {
         } else {
             lines.add("Team " + team.name + " · " + ageName(team.age));
             colors.add(team.color);
+            if (team.defeated) {
+                lines.add("Your team has been defeated");
+                colors.add(0xFF6A5A);
+            }
             StringBuilder resources = new StringBuilder();
             for (String resource : RtsState.RESOURCES) {
                 Long amount = team.resources.get(resource);

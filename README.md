@@ -16,6 +16,7 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts newgame [teams] [mapSize] [seed]` | (op) End the current game and start a new one on a freshly generated map, moving everyone online onto it and sharing them out over the teams. Defaults: 2 teams, 1000x1000 map, random seed. Teams are named after their color: Red, Blue, Green... |
 | `/rts endgame` | (op) End the current game. |
 | `/rts spawn [player]` | Go to your team's town center on the game map, or its middle on no team (sending someone else needs op). |
+| `/rts surrender` | Give up: after `/rts surrender confirm`, your team is defeated. An op can make any team give up with `/rts surrender <team>`. |
 | `/rts team list` | List teams with their members and resources. |
 | `/rts team create <name> [color]` | (op) Add a team. |
 | `/rts team remove <name>` | (op) Remove a team and its alliances. |
@@ -170,7 +171,19 @@ the building loses 5 health, except for blocks that break in a moment, such as t
 wool, which do it no harm. Explosions, such as creepers going off, break nothing within 2 blocks of a building or
 building site; the building loses up to 120 health instead, the more the closer they go off. Below half health a
 building smokes, and below a quarter it burns, though the fire spreads nowhere. Players in creative mode break blocks as usual. At 0 health a building falls to a ruin,
-and units training there are lost. A destroyed town center does not come back.
+and units training there are lost.
+
+## Winning and losing
+
+A team that loses its last town center has 2 minutes to raise a new one, or it is defeated. Everyone is told when the
+countdown starts and again at 1 minute, 30 and 10 seconds left, and the web map and the in-game view show it across
+the top; a new town center stops it. A team with no town center and no workers left cannot raise one, so it is
+defeated at once. A team that gives up with `/rts surrender` is defeated too. A defeated team's units die and its
+buildings fall to ruins; its players can still watch the game.
+
+Once every team still standing is allied with all the others, they have won: everyone is told, the web map and the
+in-game view show it, and the game is over until an op starts a new one. A team's age stays when it loses its town
+centers.
 
 A team can have as many units as its town center and houses house, up to 100. Buildings need a spot inside the map,
 two blocks clear of other buildings, on ground that is mostly dry and not too steep; foundations fill in dips and
@@ -341,7 +354,8 @@ takes; the `buildings` section sets what each building costs, its health and bui
 costs, how many units the town center and houses house, how far and hard towers shoot, how much wood trees hold and
 how fast workers chop, how much farms and quarries bring in, how much a worker carries and how much damage warriors
 and enemy players and explosions do to buildings. The `games` section sets whether players are shared out over the
-teams, whether it rains and the time of day games start at; the `mobs` section how rare creepers are, whether
+teams, whether it rains, the time of day games start at and how long a team that lost its last town center has to raise
+a new one; the `mobs` section how rare creepers are, whether
 endermen spawn, how far from town centers mobs keep, how big wilderness groups get and how often mobs wear armor or
 carry swords. The `web`
 section turns the web map on or off and sets its port, listen address, public address, how long links and logins
@@ -365,5 +379,6 @@ the save intact with the same map, that a new game replaces the old map, and tha
 logs in with a one-time link, serves the map's blocks and streams live state over its WebSocket, and that
 workers build a farm, a barracks and a storehouse, the farm worker carries food home, warriors and archers train, a
 building is destroyed at 0 health, a house and a tower go up, the town center goes up a level and a worker chops a
-tree for wood
+tree for wood, and that a team losing its town center gets a countdown and a team with neither town center nor workers
+is defeated, leaving a winner
 (`.github/scripts/server-smoke-test.sh`).

@@ -35,6 +35,13 @@ public class Team {
     private int lastUnitNumber;
     private Faction faction;
     private final EnumSet<Upgrade> upgrades = EnumSet.noneOf(Upgrade.class);
+    /** The team's age, 1 to 3; 0 only while a save from before ages belonged to teams is read. */
+    private int age = 1;
+    /** Whether the team has had a finished town center; until then it cannot be defeated. */
+    private boolean hadTownCenter;
+    private boolean defeated;
+    /** Ticks left before the team is defeated for having no town center, or -1 while it has one. */
+    private int defeatTicks = -1;
 
     Team(Game game, String name, EnumChatFormatting color) {
         this.game = game;
@@ -84,6 +91,50 @@ public class Team {
 
     public void addUpgrade(Upgrade upgrade) {
         upgrades.add(upgrade);
+        game.changed();
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        this.age = Math.max(1, Math.min(3, age));
+        game.changed();
+    }
+
+    void setAgeQuietly(int age) {
+        this.age = Math.max(1, Math.min(3, age));
+    }
+
+    public boolean hasHadTownCenter() {
+        return hadTownCenter;
+    }
+
+    public void setHadTownCenter() {
+        if (!hadTownCenter) {
+            hadTownCenter = true;
+            game.changed();
+        }
+    }
+
+    public boolean isDefeated() {
+        return defeated;
+    }
+
+    public void setDefeated() {
+        defeated = true;
+        defeatTicks = -1;
+        game.changed();
+    }
+
+    /** Ticks left before the team is defeated for having no town center, or -1 when it is not counting down. */
+    public int getDefeatTicks() {
+        return defeatTicks;
+    }
+
+    public void setDefeatTicks(int ticks) {
+        defeatTicks = ticks;
         game.changed();
     }
 
@@ -259,6 +310,10 @@ public class Team {
             upgradeList.appendTag(new NBTTagString(upgrade.id));
         }
         tag.setTag("upgrades", upgradeList);
+        tag.setInteger("age", age);
+        tag.setBoolean("hadTownCenter", hadTownCenter);
+        tag.setBoolean("defeated", defeated);
+        tag.setInteger("defeatTicks", defeatTicks);
         return tag;
     }
 
@@ -296,6 +351,10 @@ public class Team {
                 team.upgrades.add(upgrade);
             }
         }
+        team.age = tag.hasKey("age") ? tag.getInteger("age") : 0;
+        team.hadTownCenter = tag.getBoolean("hadTownCenter");
+        team.defeated = tag.getBoolean("defeated");
+        team.defeatTicks = tag.hasKey("defeatTicks") ? tag.getInteger("defeatTicks") : -1;
         return team;
     }
 }

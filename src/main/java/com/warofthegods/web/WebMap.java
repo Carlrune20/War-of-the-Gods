@@ -367,7 +367,20 @@ public final class WebMap {
                     upgrades.add(new JsonPrimitive(upgrade.id));
                 }
                 json.add("upgrades", upgrades);
+                if (team.isDefeated()) {
+                    json.addProperty("defeated", true);
+                } else if (team.getDefeatTicks() >= 0) {
+                    // Seconds left to raise a new town center.
+                    json.addProperty("countdown", (team.getDefeatTicks() + 19) / 20);
+                }
                 teams.add(json);
+            }
+            if (game.isOver()) {
+                JsonArray winners = new JsonArray();
+                for (Team team : game.getWinners()) {
+                    winners.add(new JsonPrimitive(team.getId()));
+                }
+                message.add("winners", winners);
             }
             if (world != null) {
                 for (Object entity : world.playerEntities) {

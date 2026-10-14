@@ -39,6 +39,10 @@ public class Game {
     private int lastBuildingId;
     /** Trees workers have started chopping, by {@link Tree#key()}. */
     private final Map<Long, Tree> trees = new LinkedHashMap<>();
+    /** Whether a winner has been decided; nobody is defeated after that. */
+    private boolean over;
+    /** Ids of the teams that won, once the game is over; empty if nobody did. */
+    private final List<String> winners = new ArrayList<>();
     private Runnable changeListener = () -> {};
 
     public Game(int number, long startedAt, int centerX, int centerZ, int size, long seed) {
@@ -173,10 +177,20 @@ public class Game {
         return Team.COLORS[0];
     }
 
-    /** The team with the fewest players, the first such in order on a tie; null when there are no teams. */
+    /**
+     * The team with the fewest players, the first such in order on a tie, leaving out defeated teams while there are
+     * others; null when there are no teams.
+     */
     public Team getSmallestTeam() {
+        boolean anyStanding = false;
+        for (Team team : teams.values()) {
+            anyStanding |= !team.isDefeated();
+        }
         Team smallest = null;
         for (Team team : teams.values()) {
+            if (anyStanding && team.isDefeated()) {
+                continue;
+            }
             if (smallest == null || team.getMembers()
                 .size()
                 < smallest.getMembers()
@@ -276,10 +290,13 @@ public class Game {
     }
 
     /** Remembers where a unit is; only marks the game changed when the unit is new or moved to another chunk. */
-    public void updateUnitRecord(UUID id, String team, int chunkX, int chunkZ) {
+    public void updateUnitRecord(UUID id, String team, UnitKind kind, int chunkX, int chunkZ) {
         UnitRecord old = units.get(id);
-        if (old == null || old.chunkX != chunkX || old.chunkZ != chunkZ || !old.team.equals(team)) {
-            units.put(id, new UnitRecord(id, team, chunkX, chunkZ));
+        if (old == null || old.chunkX != chunkX
+            || old.chunkZ != chunkZ
+            || !old.team.equals(team)
+            || old.kind != kind) {
+            units.put(id, new UnitRecord(id, team, kind, chunkX, chunkZ));
             changed();
         }
     }
@@ -294,6 +311,20 @@ public class Game {
         int count = 0;
         for (UnitRecord unit : units.values()) {
             count += unit.team.equals(team.getId()) ? 1 : 0;
+        }
+        return count;
+    }
+
+    /**
+     * The team's workers, loaded or not. A unit saved before kinds were remembered counts until it is next seen, so a
+     * team is never thought to have none while its units are still loading.
+     */
+    public int countWorkers(Team team) {
+        int count = 0;
+        for (UnitRecord unit : units.values()) {
+            if (unit.team.equals(team.getId()) && (unit.kind == null || unit.kind == UnitKind.WORKER)) {
+                count++;
+            }
         }
         return count;
     }
@@ -316,13 +347,12 @@ public class Game {
         return result;
     }
 
-    /** The team's town hall, or null if it has none. */
-    /** A team's age: the level of its town center, so 1 to 3; 1 without one. */
+    /** A team's age, 1 to 3. It stays when the team loses its town centers. */
     public int getAge(Team team) {
-        Building center = getTownHall(team);
-        return center == null || !center.isComplete() ? 1 : center.getLevel();
+        return team.getAge();
     }
 
+    /** The team's first town center, or null if it has none. */
     public Building getTownHall(Team team) {
         for (Building building : buildings.values()) {
             if (building.team.equals(team.getId()) && building.type == BuildingType.TOWN_HALL) {
@@ -330,6 +360,44 @@ public class Game {
             }
         }
         return null;
+    }
+
+    /** How many finished town centers the team has. */
+    public int countTownCenters(Team team) {
+        int count = 0;
+        for (Building building : buildings.values()) {
+            if (building.team.equals(team.getId()) && building.type == BuildingType.TOWN_HALL
+                && building.isComplete()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public boolean isOver() {
+        return over;
+    }
+
+    /** The teams that won, once the game is over; empty if nobody did or it is not over. */
+    public List<Team> getWinners() {
+        List<Team> result = new ArrayList<>();
+        for (String id : winners) {
+            Team team = teams.get(id);
+            if (team != null) {
+                result.add(team);
+            }
+        }
+        return result;
+    }
+
+    /** Ends the game with the given teams as winners. */
+    public void setOver(List<Team> winningTeams) {
+        over = true;
+        winners.clear();
+        for (Team team : winningTeams) {
+            winners.add(team.getId());
+        }
+        changed();
     }
 
     /** The building whose footprint holds x, z, or null. */
@@ -462,6 +530,12 @@ public class Game {
             treeList.appendTag(tree.writeToNBT());
         }
         tag.setTag("trees", treeList);
+        tag.setBoolean("over", over);
+        NBTTagList winnerList = new NBTTagList();
+        for (String id : winners) {
+            winnerList.appendTag(new NBTTagString(id));
+        }
+        tag.setTag("winners", winnerList);
         return tag;
     }
 
@@ -508,6 +582,21 @@ public class Game {
             Tree tree = Tree.readFromNBT(treeList.getCompoundTagAt(i));
             if (tree != null) {
                 game.trees.put(tree.key(), tree);
+            }
+        }
+        game.over = tag.getBoolean("over");
+        NBTTagList winnerList = tag.getTagList("winners", 8);
+        for (int i = 0; i < winnerList.tagCount(); i++) {
+            game.winners.add(winnerList.getStringTagAt(i));
+        }
+        for (Team team : game.teams.values()) {
+            if (team.getAge() == 0) {
+                // Saved before ages belonged to teams: the age was the level of the town center.
+                Building center = game.getTownHall(team);
+                team.setAgeQuietly(center == null || !center.isComplete() ? 1 : center.getLevel());
+            }
+            if (game.countTownCenters(team) > 0) {
+                team.setHadTownCenter();
             }
         }
         return game;

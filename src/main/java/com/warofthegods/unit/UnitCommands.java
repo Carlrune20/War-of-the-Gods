@@ -76,6 +76,9 @@ public final class UnitCommands {
         Team team = game.getTeamOf(request.viewer.getPlayer());
         if (team == null) {
             request.replyError("Join a team to command units");
+        } else if (team.isDefeated()) {
+            request.replyError("Your team has been defeated");
+            return null;
         }
         return team;
     }

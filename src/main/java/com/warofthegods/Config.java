@@ -111,6 +111,8 @@ public class Config {
     public static boolean autoAssignTeams = true;
     public static boolean rain = false;
     public static int startTime = 0;
+    /** Seconds a team that lost its last town center, but still has workers, has to raise a new one. */
+    public static int defeatCountdownSeconds = 120;
 
     /** Seconds between tries at spawning a group of zombies or skeletons somewhere in the wilderness. */
     public static int mobSpawnSeconds = 45;
@@ -447,6 +449,14 @@ public class Config {
             0,
             23999,
             "Time of day each new game starts at, in ticks: 0 is sunrise, 6000 noon, 13000 nightfall.");
+        defeatCountdownSeconds = configuration.getInt(
+            "defeatCountdownSeconds",
+            games,
+            defeatCountdownSeconds,
+            10,
+            3600,
+            "Seconds a team that lost its last town center has to raise a new one before it is defeated. A team with"
+                + " no town center and no workers is defeated at once.");
 
         String mobs = "mobs";
         configuration.setCategoryComment(mobs, "Hostile mobs on the game map.");
