@@ -41,6 +41,8 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts train <team> <worker\|warrior\|archer> [count]` | (op) Queue units for free at the team's town center or barracks. |
 | `/rts upgrade <building id>` | (op) Take a town center, and with it its whole town, into the next age at once, for free. |
 | `/rts research <team> <upgrade>` | (op) Give a team an upgrade at once, such as `forged_blades` or `fortified_walls`. |
+| `/rts wall <team> <x1> <z1> <x2> <z2>` | (op) Lay out a wall from one point to another for free, running up to the team's towers at either end, and send the team's idle workers to build it. |
+| `/rts gate <building id>` | (op) Make a finished wall segment a gate, for free. |
 | `/rts mine <team>` | (op) Send a team's idle workers to the gold mine nearest its town center. |
 | `/rts chop <team>` | (op) Send a team's idle workers to chop the tree nearest its town center. |
 | `/rts light <team> [x1 z1 x2 z2]` | (op) Send a team's idle workers to put torches in the dark parts of an area, or around its town center. |
@@ -125,6 +127,8 @@ is built, and the finished building stands once the site is done; more workers b
 | Barracks | Trains warriors and archers; needs Age II | 150 Wood, 50 Gold | 800 | 25 s |
 | Armory | Researches military upgrades; needs Age II | 120 Wood, 60 Gold | 700 | 25 s |
 | Tower | Watches over the land round it; with watch towers (Age II) shoots arrows at enemies within 16 blocks, and with guard towers (Age III) within 24; researches both | 50 Wood, 100 Gold | 900 | 25 s |
+| Wall | Keeps enemies out; laid out from one point to another, a 3 by 3 piece at a time | 6 Gold a piece | 300 a segment, 400 a post | 6 s a piece |
+| Gate | A wall segment your own units and allies walk through; it opens as they come near | 30 Gold | 300 | at once |
 
 | Unit | Costs (default) | |
 |---|---|---|
@@ -175,6 +179,15 @@ all round it. Towers can be built from Age I. Researching watch towers at a towe
 team shoot: one arrow a second, flying as fast and hitting as hard as an archer's. Guard towers, in Age III, let them
 see enemies and shoot 8 blocks farther.
 
+Walls are laid out from one point to another and built of 3 by 3 pieces: straight where the line runs straight, and a
+zigzag of 3 block steps where it runs on a slant. A post stands at each end and turn, and a segment everywhere else.
+Towers are optional: a wall that starts or ends on one of the team's towers runs right up to it, so a wall between
+two towers joins them. Every piece costs gold, and workers build the pieces one after another along the line. Select
+a finished segment and click Make gate to turn it into a gate at once, with no worker, for gold. Gates open for the
+team's own units and its allies' and stay shut to enemies, who have to break them down. Walls start as wood; stone
+walls at the town center in Age II rebuild every wall of the team in cobblestone (plain stone for Zamorak), and
+citadel walls in Age III in stone brick (nether brick for Zamorak), with two and three times the health.
+
 An upgrade that needs another one first only shows up once the team has that one.
 
 | Upgrade | At | Does |
@@ -194,6 +207,8 @@ An upgrade that needs another one first only shows up once the team has that one
 | Fortified walls | Town center, Age II, for 150 Wood and 150 Gold | Buildings have half again as much health |
 | Watch towers | Tower, Age II, for 100 Wood and 100 Gold | Towers shoot arrows at enemies |
 | Guard towers | Tower, Age III, after watch towers, for 150 Wood and 200 Gold | Towers see and shoot 8 farther |
+| Stone walls | Town center, Age II, for 100 Wood and 150 Gold | Walls and gates are rebuilt in stone, with twice the health |
+| Citadel walls | Town center, Age III, after stone walls, for 150 Wood and 300 Gold | Walls and gates are rebuilt in stone brick, or nether brick, with three times the health |
 
 Buildings have health. A building site starts with a tenth of it and gains the rest as it is built. As a building
 loses health it looks it: at three quarters, half and a quarter it shows holes, cracks, cobwebs and rubble. Enemy
@@ -276,6 +291,8 @@ Commanding units, from the bar at the bottom of the page:
 | Town center | Select your town center |
 | Click one of your buildings | Select it and see its health; a site shows how far it is built, a town center or barracks its Train buttons and training progress. Each click queues one more, shift-click 5, up to 10 waiting; they train one at a time. Level takes it up a level (on the town center, Advance takes the town to the next age), and an armory or storehouse shows the upgrades it researches |
 | Farm / House / Barracks / ... | With workers selected: a see-through copy follows the pointer, pale where it fits and red where it does not (in the in-game view it shows the building's own blocks). R or Rotate turns it a quarter round, click places it, right-click or Esc cancels. Shift-click places more, and the workers build them one after another in the order they were placed; shift-right-click a building site to add it to their list |
+| Wall | With workers selected: click where the wall starts, or one of your towers, then where it ends (or another tower). A see-through wall follows the pointer, red where it does not fit, and the bar shows its pieces and cost. Shift-click to go on with the next wall from where this one ended |
+| Make gate | With one of your finished wall segments selected: turn it into a gate at once, for gold |
 | Right-click one of your building sites or farms, or a gold mine | Send the selected workers to build or work it, or to mine gold |
 | Right-click a tree | Send the selected workers to chop it |
 | Torches | With workers selected: click two corners of an area for them to light up against mobs |
@@ -365,6 +382,7 @@ are drawn while the view is open.
 | H / Space | Go to your town center / to the selected units |
 | Minimap (bottom right) | Click or drag to move the camera there; right-click to send the selected units there. It shows the map as far as your client has seen it, with buildings, units and hostile mobs, and the part in view outlined |
 | Torches | With workers selected: click two corners of an area for them to light up |
+| Wall / Make gate | With workers selected: click where a wall starts and where it ends, or two of your towers; with a wall segment selected, Make gate. As on the web map |
 | B | The team menu, in the view or in person: join or leave a team; ops click a player to move them, or fill or shuffle the teams |
 | T or / | Chat, without leaving the view |
 | V, or Esc with nothing selected | Back to playing in person |

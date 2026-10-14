@@ -36,6 +36,10 @@ import com.warofthegods.world.GameWorld;
  *   {type: "buildings.research", building: id, upgrade: id}  research an upgrade at an armory or storehouse
  *   {type: "buildings.rally", buildings: [id...], x?, z?}  send the units they train to x, z; with no x, z, keep
  *       them at the door
+ *   {type: "buildings.wall", x1, z1, x2, z2, units: [id...], queue?}  lay out a wall from x1, z1 to x2, z2,
+ *       paying for every piece, and send the workers to build it piece by piece; an end on one of the team's
+ *       towers runs up to the tower
+ *   {type: "buildings.gate", building: id}  make a finished wall segment a gate at once, paying for it
  * </pre>
  */
 public final class BuildingCommands {
@@ -50,6 +54,8 @@ public final class BuildingCommands {
         WebCommand.register("buildings.upgrade", BuildingCommands::upgrade);
         WebCommand.register("buildings.research", BuildingCommands::research);
         WebCommand.register("buildings.rally", BuildingCommands::rally);
+        WebCommand.register("buildings.wall", BuildingCommands::wall);
+        WebCommand.register("buildings.gate", BuildingCommands::gate);
     }
 
     /** The viewer's own building the request names, or null after replying why not. */
@@ -125,6 +131,10 @@ public final class BuildingCommands {
             request.replyError("Workers cannot build that");
             return;
         }
+        if (type == BuildingType.WALL) {
+            request.replyError("Lay a wall out from one point to another");
+            return;
+        }
         if (GameManager.getGame()
             .getAge(team) < type.age()) {
             request.replyError(
@@ -170,6 +180,80 @@ public final class BuildingCommands {
             .orderBuild(units, site, UnitCommands.boolField(request.body, "queue"));
         JsonObject reply = WebJson.message("buildings.placed");
         reply.addProperty("building", site.id);
+        request.reply(reply);
+    }
+
+    private static void wall(WebRequest request) {
+        Team team = UnitCommands.commander(request);
+        if (team == null) {
+            return;
+        }
+        Double x1 = UnitCommands.doubleField(request.body, "x1");
+        Double z1 = UnitCommands.doubleField(request.body, "z1");
+        Double x2 = UnitCommands.doubleField(request.body, "x2");
+        Double z2 = UnitCommands.doubleField(request.body, "z2");
+        if (x1 == null || z1 == null || x2 == null || z2 == null) {
+            request.replyError("From where to where?");
+            return;
+        }
+        List<EntityUnit> units = UnitCommands.ownUnits(request, team);
+        if (units == null) {
+            return;
+        }
+        units.removeIf(unit -> !unit.isWorker());
+        if (units.isEmpty()) {
+            request.replyError("Select a worker to build with");
+            return;
+        }
+        Game game = GameManager.getGame();
+        Buildings.WallPlan plan = Buildings.get()
+            .planWall(
+                game,
+                GameWorld.getWorld(),
+                team,
+                (int) Math.floor(x1),
+                (int) Math.floor(z1),
+                (int) Math.floor(x2),
+                (int) Math.floor(z2));
+        if (plan.problem != null) {
+            request.replyError(plan.problem);
+            return;
+        }
+        if (!team.spend(Buildings.wallCost(plan.pieces.size()))) {
+            request.replyError("Not enough gold for " + plan.pieces.size() + " pieces of wall");
+            return;
+        }
+        List<Building> sites = Buildings.get()
+            .startWall(game, team, plan);
+        boolean queue = UnitCommands.boolField(request.body, "queue");
+        for (int i = 0; i < sites.size(); i++) {
+            Units.get()
+                .orderBuild(units, sites.get(i), queue || i > 0);
+        }
+        JsonObject reply = WebJson.message("buildings.walled");
+        reply.addProperty("pieces", sites.size());
+        request.reply(reply);
+    }
+
+    private static void gate(WebRequest request) {
+        Team team = UnitCommands.commander(request);
+        Building building = team == null ? null : ownBuilding(request, team);
+        if (building == null) {
+            return;
+        }
+        String problem = Buildings.gateProblem(building);
+        if (problem != null) {
+            request.replyError(problem);
+            return;
+        }
+        if (!team.spend(BuildingType.GATE.cost())) {
+            request.replyError("Not enough gold for a gate");
+            return;
+        }
+        Building gate = Buildings.get()
+            .makeGate(GameManager.getGame(), GameWorld.getWorld(), building);
+        JsonObject reply = WebJson.message("buildings.gated");
+        reply.addProperty("building", gate.id);
         request.reply(reply);
     }
 

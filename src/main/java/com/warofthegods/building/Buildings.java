@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -12,6 +13,7 @@ import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.monster.EntityCreeper;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
 import net.minecraft.util.AxisAlignedBB;
@@ -21,6 +23,7 @@ import net.minecraft.world.ChunkPosition;
 import net.minecraft.world.Explosion;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.DimensionManager;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.world.BlockEvent;
 import net.minecraftforge.event.world.ExplosionEvent;
 
@@ -32,10 +35,12 @@ import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.GoldMine;
+import com.warofthegods.game.Resource;
 import com.warofthegods.game.Settlement;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.Upgrade;
+import com.warofthegods.game.WallLine;
 import com.warofthegods.unit.EntityTeamArrow;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Units;
@@ -57,6 +62,8 @@ public final class Buildings {
 
     /** Ticks between looking over all buildings. */
     private static final int INTERVAL = 10;
+    /** Blocks from a gate's middle within which the team's own people and its allies open it. */
+    private static final double GATE_REACH = 5;
     /** Blocks kept free between buildings. */
     public static final int GAP = 2;
     /** Most of a footprint that may be water. */
@@ -152,6 +159,7 @@ public final class Buildings {
         harvest(game);
         research(game);
         shoot(game, world);
+        gates(game, world);
         keepUpWithAge(game);
         updateLooks(game, world);
         smoulder(game, world);
@@ -694,7 +702,8 @@ public final class Buildings {
                 continue;
             }
             Team team = game.getTeam(building.team);
-            int level = Math.min(building.type.levels, team == null ? 1 : game.getAge(team));
+            int level = building.type.isWall() ? wallLevel(team)
+                : Math.min(building.type.levels, team == null ? 1 : game.getAge(team));
             if (building.getLevel() != level) {
                 if (Building.LEVEL_UP.equals(building.getResearch())) {
                     // Going up by itself from before ages did it for every building.
@@ -703,6 +712,14 @@ public final class Buildings {
                 building.setLevel(level);
             }
         }
+    }
+
+    /** The look of a team's walls: 1 wood, 2 stone with stone walls, 3 stone brick with citadel walls. */
+    public static int wallLevel(Team team) {
+        if (team == null) {
+            return 1;
+        }
+        return team.has(Upgrade.CITADEL_WALLS) ? 3 : team.has(Upgrade.STONE_WALLS) ? 2 : 1;
     }
 
     /** Why the upgrade cannot be researched at the building now, or null; leaves out whether the team can pay. */
@@ -771,6 +788,237 @@ public final class Buildings {
                 unit.applyUpgrades(team);
             }
             WarOfTheGods.LOG.info("{} researched {}", team.getName(), upgrade.displayName.toLowerCase());
+        }
+    }
+
+    // ---------------------------------------------------------------- walls
+
+    /** A wall laid out from one point to another: a plan for each of its pieces, or why it cannot go there. */
+    public static final class WallPlan {
+
+        public final List<Plan> pieces;
+        public final String problem;
+
+        WallPlan(List<Plan> pieces, String problem) {
+            this.pieces = pieces;
+            this.problem = problem;
+        }
+    }
+
+    /**
+     * Lays a wall out from x1, z1 to x2, z2 (see {@link WallLine}). An end on one of the team's towers starts from
+     * the tower's middle, and the pieces on the tower are left out, so the wall runs up to it; pieces where the team
+     * already has wall are left out too.
+     */
+    public WallPlan planWall(Game game, WorldServer world, Team team, int x1, int z1, int x2, int z2) {
+        Building from = towerAt(game, team, x1, z1);
+        if (from != null) {
+            x1 = (int) Math.floor(from.getCenterX());
+            z1 = (int) Math.floor(from.getCenterZ());
+        }
+        Building to = towerAt(game, team, x2, z2);
+        if (to != null) {
+            x2 = (int) Math.floor(to.getCenterX());
+            z2 = (int) Math.floor(to.getCenterZ());
+        }
+        List<WallLine.Piece> pieces = WallLine.pieces(x1, z1, x2, z2, (minX, minZ) -> {
+            for (Building building : game.getBuildings(team)) {
+                if ((building.type == BuildingType.TOWER || building.type.isWall())
+                    && building.overlaps(minX, minZ, WallLine.SIZE, WallLine.SIZE, 0)) {
+                    return true;
+                }
+            }
+            return false;
+        });
+        List<Plan> plans = new ArrayList<>();
+        if (pieces.isEmpty()) {
+            return new WallPlan(plans, "There is wall there already");
+        }
+        for (WallLine.Piece piece : pieces) {
+            String problem = wallPieceProblem(game, world, piece);
+            if (problem != null) {
+                return new WallPlan(plans, problem);
+            }
+            Site site = survey(world, piece.minX, piece.minZ, WallLine.SIZE, WallLine.SIZE);
+            plans.add(
+                new Plan(
+                    piece.type(),
+                    piece.minX,
+                    piece.minZ,
+                    WallLine.SIZE,
+                    WallLine.SIZE,
+                    piece.rotation,
+                    site.groundY,
+                    null));
+        }
+        return new WallPlan(plans, null);
+    }
+
+    /** Why a piece of wall cannot go where it is, or null. Walls follow the ground, however steep. */
+    private static String wallPieceProblem(Game game, WorldServer world, WallLine.Piece piece) {
+        int size = WallLine.SIZE;
+        if (piece.minX < game.getMinX() || piece.minZ < game.getMinZ()
+            || piece.minX + size - 1 > game.getMaxX()
+            || piece.minZ + size - 1 > game.getMaxZ()) {
+            return "The wall would run off the map";
+        }
+        for (Building other : game.getBuildings()) {
+            if (other.overlaps(piece.minX, piece.minZ, size, size, 0)) {
+                return "The wall would run into a " + other.type.displayName.toLowerCase();
+            }
+        }
+        for (Settlement settlement : game.getSettlements()) {
+            if (settlement.overlaps(piece.minX, piece.minZ, size, size, 1)) {
+                return "The wall would run over a settlement";
+            }
+        }
+        for (GoldMine mine : game.getMines()) {
+            if (mine.overlaps(piece.minX, piece.minZ, size, size, 1)) {
+                return "The wall would run into a gold mine";
+            }
+        }
+        if (MapFeatures.bridgeNear(game, piece.minX, piece.minZ, size, size, 1)) {
+            return "The wall would block a bridge";
+        }
+        if (survey(world, piece.minX, piece.minZ, size, size).water > 2) {
+            return "The wall would run through water";
+        }
+        return null;
+    }
+
+    /** The team's tower with its footprint at x, z, or within a block of it; null if none. */
+    private static Building towerAt(Game game, Team team, int x, int z) {
+        for (Building building : game.getBuildings(team)) {
+            if (building.type == BuildingType.TOWER && building.covers(x + 0.5, z + 0.5, 1)) {
+                return building;
+            }
+        }
+        return null;
+    }
+
+    /** What a wall of so many pieces costs: each piece, post or segment, what a wall does. */
+    public static Map<Resource, Long> wallCost(int pieces) {
+        Map<Resource, Long> cost = new LinkedHashMap<>();
+        for (Map.Entry<Resource, Long> entry : BuildingType.WALL.cost()
+            .entrySet()) {
+            cost.put(entry.getKey(), entry.getValue() * pieces);
+        }
+        return cost;
+    }
+
+    /** Lays out the building sites of a planned wall, in order along it; returns them. */
+    public List<Building> startWall(Game game, Team team, WallPlan plan) {
+        List<Building> sites = new ArrayList<>();
+        for (Plan piece : plan.pieces) {
+            sites.add(startSite(game, team, piece));
+        }
+        return sites;
+    }
+
+    /** Why a building cannot be made a gate, or null. */
+    public static String gateProblem(Building building) {
+        if (building.type != BuildingType.WALL) {
+            return "Only a wall segment can be made a gate";
+        }
+        if (!building.isComplete()) {
+            return "It is not built yet";
+        }
+        return null;
+    }
+
+    /**
+     * Makes a finished wall segment a gate at once, as damaged as the wall was; returns the gate, which has a new
+     * id.
+     */
+    public Building makeGate(Game game, WorldServer world, Building wall) {
+        Team team = game.getTeam(wall.team);
+        double health = wall.getHealth() / (double) wall.getMaxHealth();
+        game.removeBuilding(wall);
+        Building gate = game.addBuilding(
+            BuildingType.GATE,
+            team,
+            wall.minX,
+            wall.minZ,
+            wall.sizeX,
+            wall.sizeZ,
+            wall.groundY,
+            wall.rotation,
+            true);
+        gate.setLevel(wallLevel(team));
+        gate.damage(gate.getMaxHealth() - Math.max(1, (int) Math.round(gate.getMaxHealth() * health)));
+        show(world, game, gate);
+        WarOfTheGods.LOG.info("Made {} of wall #{}", gate.describe(game), wall.id);
+        return gate;
+    }
+
+    /** Gates stand open while a unit or player of their team or an ally is near, and shut otherwise. */
+    private void gates(Game game, WorldServer world) {
+        for (Building gate : game.getBuildings()) {
+            if (gate.type != BuildingType.GATE || !gate.isComplete()) {
+                continue;
+            }
+            boolean open = friendNear(game, world, gate, GATE_REACH);
+            for (int x = gate.minX; x <= gate.getMaxX(); x++) {
+                for (int z = gate.minZ; z <= gate.getMaxZ(); z++) {
+                    for (int y = gate.groundY + 1; y <= gate.groundY + 3; y++) {
+                        if (world.getBlock(x, y, z) != Blocks.fence_gate) {
+                            continue;
+                        }
+                        int meta = world.getBlockMetadata(x, y, z);
+                        if (((meta & 4) != 0) != open) {
+                            world.setBlockMetadataWithNotify(x, y, z, open ? meta | 4 : meta & ~4, 2);
+                            world.playAuxSFXAtEntity(null, 1003, x, y, z, 0);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** Whether a unit or player of the building's team or an ally is within reach of its middle. */
+    private static boolean friendNear(Game game, WorldServer world, Building building, double reach) {
+        Team owner = game.getTeam(building.team);
+        if (owner == null) {
+            return false;
+        }
+        double cx = building.getCenterX();
+        double cz = building.getCenterZ();
+        for (EntityUnit unit : Units.get()
+            .getLoaded()) {
+            Team team = game.getTeam(unit.getTeamId());
+            if (team != null && !game.areEnemies(owner, team)
+                && (unit.posX - cx) * (unit.posX - cx) + (unit.posZ - cz) * (unit.posZ - cz) <= reach * reach) {
+                return true;
+            }
+        }
+        for (Object object : world.playerEntities) {
+            EntityPlayer player = (EntityPlayer) object;
+            Team team = game.getTeamOf(player.getUniqueID());
+            if (team != null && !game.areEnemies(owner, team)
+                && (player.posX - cx) * (player.posX - cx) + (player.posZ - cz) * (player.posZ - cz) <= reach * reach) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Only a gate's own team and its allies open it by hand. */
+    @SubscribeEvent
+    public void onInteract(PlayerInteractEvent event) {
+        if (event.action != PlayerInteractEvent.Action.RIGHT_CLICK_BLOCK || event.world.isRemote
+            || event.world.provider.dimensionId != GameWorld.dimensionId()
+            || event.world.getBlock(event.x, event.y, event.z) != Blocks.fence_gate) {
+            return;
+        }
+        Game game = GameManager.getGame();
+        Building gate = game == null ? null : game.getBuildingAt(event.x + 0.5, event.z + 0.5);
+        if (gate == null || gate.type != BuildingType.GATE) {
+            return;
+        }
+        Team owner = game.getTeam(gate.team);
+        Team team = game.getTeamOf(event.entityPlayer.getUniqueID());
+        if (owner != null && (team == null || game.areEnemies(owner, team))) {
+            event.setCanceled(true);
         }
     }
 
