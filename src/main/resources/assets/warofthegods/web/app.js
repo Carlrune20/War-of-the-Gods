@@ -335,6 +335,8 @@
             state.buildings.set(b.id, b);
         }
         state.trees = message.trees || [];
+        state.winners = message.winners || null;
+        renderBanner();
         joinRallyGroups();
         tidyGroups();
         // Dead units, and units of a team the viewer has left, drop out of the selection, as do lost buildings.
@@ -352,6 +354,35 @@
         renderPanel();
         renderUnitBar();
         view.dirty = true;
+    }
+
+    // m:ss, such as 1:05.
+    function clock(seconds) {
+        return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
+    }
+
+    // Across the top of the map: who won once the game is over, otherwise how long each team that lost its last
+    // town center has left to raise a new one.
+    function renderBanner() {
+        const banner = document.getElementById("banner");
+        const lines = [];
+        if (state.winners) {
+            const names = state.winners.map((id) => state.teamsById[id] ? state.teamsById[id].name : id);
+            lines.push(names.length ? "Game over: " + names.join(" and ") + (names.length === 1 ? " wins!" : " win!")
+                : "Game over: nobody won");
+        } else {
+            for (const team of state.teams) {
+                if (team.countdown !== undefined) {
+                    lines.push(team.name + " lost its last town center: " + clock(team.countdown)
+                        + " to raise a new one");
+                }
+            }
+        }
+        const text = lines.join("\n");
+        if (banner.textContent !== text) {
+            banner.textContent = text;
+        }
+        banner.hidden = !lines.length;
     }
 
     function myTeam() {
@@ -407,6 +438,12 @@
                 resources.append(cell);
             }
             box.append(resources);
+
+            if (team.defeated) {
+                box.append(el("div", "bad", "Defeated"));
+            } else if (team.countdown !== undefined) {
+                box.append(el("div", "bad", "No town center: " + clock(team.countdown) + " to raise a new one"));
+            }
 
             if (state.game && team.units !== undefined) {
                 const units = el("div", "muted", "Units " + team.units + " of " + (team.population || 0));

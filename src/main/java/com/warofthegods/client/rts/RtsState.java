@@ -99,6 +99,9 @@ public final class RtsState {
         public int age = 1;
         public String faction;
         public final List<String> upgrades = new ArrayList<>();
+        public boolean defeated;
+        /** Seconds left to raise a new town center, or -1 when it has one. */
+        public int countdown = -1;
     }
 
     /** Something with a place in the world: a unit, player or mob. */
@@ -212,6 +215,8 @@ public final class RtsState {
 
     public GameInfo game;
     public final List<TeamInfo> teams = new ArrayList<>();
+    /** The ids of the teams that won, once the game is over; null while it goes on. */
+    public List<String> winners;
     public final Map<String, TeamInfo> teamsById = new HashMap<>();
     public final Map<String, UnitInfo> units = new LinkedHashMap<>();
     public final Map<String, PlayerInfo> players = new LinkedHashMap<>();
@@ -328,6 +333,13 @@ public final class RtsState {
 
     public void setState(JsonObject json) {
         clearState();
+        winners = null;
+        if (json.has("winners")) {
+            winners = new ArrayList<>();
+            for (JsonElement winner : array(json, "winners")) {
+                winners.add(winner.getAsString());
+            }
+        }
         for (JsonElement element : array(json, "teams")) {
             JsonObject team = element.getAsJsonObject();
             TeamInfo info = new TeamInfo();
@@ -352,6 +364,8 @@ public final class RtsState {
             for (JsonElement upgrade : array(team, "upgrades")) {
                 info.upgrades.add(upgrade.getAsString());
             }
+            info.defeated = team.has("defeated");
+            info.countdown = team.has("countdown") ? integer(team, "countdown") : -1;
             teams.add(info);
             teamsById.put(info.id, info);
         }

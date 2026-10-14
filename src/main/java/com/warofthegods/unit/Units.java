@@ -104,8 +104,8 @@ public final class Units {
                 continue;
             }
             Team team = game.getTeam(unit.getTeamId());
-            if (team == null) {
-                // Its team was removed.
+            if (team == null || team.isDefeated()) {
+                // Its team was removed, or defeated while it was not loaded.
                 unit.setDead();
                 game.removeUnitRecord(unit.getUniqueID());
                 continue;
@@ -133,6 +133,7 @@ public final class Units {
         game.updateUnitRecord(
             unit.getUniqueID(),
             unit.getTeamId(),
+            unit.getKind(),
             MathHelper.floor_double(unit.posX) >> 4,
             MathHelper.floor_double(unit.posZ) >> 4);
     }

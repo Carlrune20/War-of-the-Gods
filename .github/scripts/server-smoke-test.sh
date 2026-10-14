@@ -3,7 +3,8 @@
 # boot checks the game and its map came back from the save intact, then starts a new game to check numbering
 # continues and the old map is replaced by a fresh one. The third checks the web map, units and buildings: town
 # centers, a worker building a farm, working it and carrying the harvest home, a barracks training warriors and
-# archers, a storehouse and building health down to 0, a house, a tower, levels, upgrades, chopping a tree, an explosion and torches. The fourth checks that units and buildings come back after a restart.
+# archers, a storehouse and building health down to 0, a house, a tower, levels, upgrades, chopping a tree, an explosion and torches. The fourth checks that units and buildings come back after a restart, then that a team losing its
+# town center gets a countdown and a team with neither town center nor workers is defeated, leaving a winner.
 set -uo pipefail
 
 TIMEOUT="${SERVER_TIMEOUT:-600}"
@@ -226,6 +227,7 @@ echo "rts build blue barracks" >&3
 wait_for_log "Laid out Blue barracks #4" 30
 for _ in $(seq 30); do
     echo "rts buildings blue" >&3
+    echo "rts units blue" >&3
     sleep 2
     grep -q "Blue barracks #4 at .*% built by 1 workers" "$WEB_LOG" && break
 done
@@ -354,6 +356,27 @@ echo "rts buildings" >&3
 echo "rts units blue" >&3
 wait_for_log "Team Blue has" 30
 sleep 2
+
+# Win conditions. Red loses its town center but still has a worker, so it gets a countdown to raise a new one; a new
+# town center stops it. Then with no workers and no town center Red is defeated at once, and Blue wins.
+echo "rts units spawn red 1 worker" >&3
+wait_for_log "Spawned 1 units for Red" 30
+sleep 2
+echo "rts damage 1 100000" >&3
+wait_for_log "Destroyed Red town center #1" 30
+wait_for_log "Team Red has lost its last town center! It has 2:00 to raise a new one" 30
+echo "rts info" >&3
+wait_for_log "left to raise a new town center" 30
+echo "rts team base red -40 -70" >&3
+wait_for_log "Team Red has a town center again." 30
+echo "rts units kill red" >&3
+sleep 2
+echo "rts damage 8 100000" >&3
+wait_for_log "Team Red has no town center and no workers left and has been defeated!" 30
+wait_for_log "Game #3 is over! Blue wins!" 30
+echo "rts info" >&3
+wait_for_log "The game is over. Won: Blue" 30
+echo "ok: Red was defeated and Blue won"
 stop_server
 cat "$WEB_LOG"
 if grep -qE 'This crash report has been saved|Encountered an unexpected exception' "$WEB_LOG"; then

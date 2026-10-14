@@ -35,6 +35,7 @@ import com.warofthegods.game.Team;
 import com.warofthegods.game.Tree;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.Upgrade;
+import com.warofthegods.game.WinConditions;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Routes;
 import com.warofthegods.unit.Torches;
@@ -56,6 +57,7 @@ public class CommandRts extends CommandBase {
         "newgame",
         "endgame",
         "spawn",
+        "surrender",
         "team",
         "ally",
         "unally",
@@ -87,7 +89,7 @@ public class CommandRts extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/rts <help|info|newgame|endgame|spawn|team|ally|unally|resources|units|buildings|build|train|damage"
+        return "/rts <help|info|newgame|endgame|spawn|surrender|team|ally|unally|resources|units|buildings|build|train|damage"
             + "|upgrade|research|chop|finish|web>";
     }
 
@@ -124,6 +126,9 @@ public class CommandRts extends CommandBase {
                 break;
             case "spawn":
                 spawn(sender, rest);
+                break;
+            case "surrender":
+                surrender(sender, rest);
                 break;
             case "team":
                 team(sender, rest);
@@ -188,6 +193,8 @@ public class CommandRts extends CommandBase {
         send(sender, "/rts newgame [teams] [mapSize] [seed] - start a new game on a fresh map (op)");
         send(sender, "/rts endgame - end the current game (op)");
         send(sender, "/rts spawn [player] - go to the game map");
+        send(sender, "/rts surrender - give up: your team is defeated");
+        send(sender, "/rts surrender <team> - make a team give up (op)");
         send(sender, "/rts team list");
         send(sender, "/rts team create <name> [color] (op)");
         send(sender, "/rts team remove <name> (op)");
@@ -256,6 +263,27 @@ public class CommandRts extends CommandBase {
         int[] spawn = GameWorld.findSpawn(GameWorld.getWorld(), game);
         send(sender, "Spawn: " + spawn[0] + "," + spawn[1] + "," + spawn[2]);
         teamList(sender);
+        for (Team team : game.getTeams()) {
+            if (team.isDefeated()) {
+                send(sender, "Team " + team.getColoredName() + " has been defeated");
+            } else if (team.getDefeatTicks() >= 0) {
+                send(
+                    sender,
+                    "Team " + team.getColoredName()
+                        + " has "
+                        + WinConditions.clock((team.getDefeatTicks() + 19) / 20)
+                        + " left to raise a new town center");
+            }
+        }
+        if (game.isOver()) {
+            List<String> winners = new ArrayList<>();
+            for (Team team : game.getWinners()) {
+                winners.add(team.getColoredName());
+            }
+            send(
+                sender,
+                "The game is over. " + (winners.isEmpty() ? "Nobody won" : "Won: " + String.join(", ", winners)));
+        }
         unitSummary(sender, game);
         List<Team[]> alliances = game.getAlliances();
         if (alliances.isEmpty()) {
@@ -320,6 +348,40 @@ public class CommandRts extends CommandBase {
         Game game = requireGame();
         GameManager.endGame();
         broadcast("Game #" + game.getNumber() + " has ended.");
+    }
+
+    /**
+     * Your team gives up and is defeated, after you confirm; an op can make any team give up at once. Its units die
+     * and its buildings fall to ruins.
+     */
+    private void surrender(ICommandSender sender, String[] args) {
+        Game game = requireGame();
+        if (game.isOver()) {
+            throw new CommandException("Game #%d is already over", game.getNumber());
+        }
+        Team team;
+        if (args.length > 0 && !args[0].equalsIgnoreCase("confirm")) {
+            requireOp(sender);
+            team = requireTeam(game, args[0]);
+        } else {
+            team = sender instanceof EntityPlayer ? game.getTeamOf(((EntityPlayer) sender).getUniqueID()) : null;
+            if (team == null) {
+                throw new CommandException("You are on no team");
+            }
+            if (args.length == 0) {
+                send(
+                    sender,
+                    EnumChatFormatting.RED + "This defeats team "
+                        + team.getColoredName()
+                        + EnumChatFormatting.RED
+                        + " for everyone on it. Type /rts surrender confirm to give up.");
+                return;
+            }
+        }
+        if (team.isDefeated()) {
+            throw new CommandException("Team %s has already been defeated", team.getName());
+        }
+        WinConditions.defeat(game, team, "surrendered");
     }
 
     private void spawn(ICommandSender sender, String[] args) {
@@ -734,7 +796,8 @@ public class CommandRts extends CommandBase {
             throw new CommandException(
                 "Only town centers go up a level; the other buildings follow their town into each new age");
         }
-        if (!building.isComplete() || building.getLevel() >= building.type.levels) {
+        Team owner = game.getTeam(building.team);
+        if (!building.isComplete() || owner == null || game.getAge(owner) >= building.type.levels) {
             throw new CommandException("%s cannot go up a level", building.describe(game));
         }
         building.cancelResearch();

@@ -183,7 +183,7 @@ public final class Buildings {
             if (base == null || !team.isTownHallDue()) {
                 continue;
             }
-            if (game.getTownHall(team) != null) {
+            if (game.getTownHall(team) != null || team.isDefeated()) {
                 team.setTownHallDue(false);
                 continue;
             }
@@ -199,6 +199,7 @@ public final class Buildings {
             Site site = survey(world, minX, minZ, sizeX, sizeZ);
             Building hall = game
                 .addBuilding(BuildingType.TOWN_HALL, team, minX, minZ, sizeX, sizeZ, site.groundY, rotation, false);
+            hall.setLevel(game.getAge(team));
             raise(world, hall);
             team.setTownHallDue(false);
             return;
@@ -582,31 +583,41 @@ public final class Buildings {
         if (!building.isComplete()) {
             return "It is not built yet";
         }
-        if (building.getLevel() >= building.type.levels) {
-            return "It is at its highest level";
+        Team team = game.getTeam(building.team);
+        if (team == null || game.getAge(team) >= building.type.levels) {
+            return "Your town is in its last age";
         }
         if (building.getResearch() != null) {
             return "It is busy";
+        }
+        for (Building other : game.getBuildings(team)) {
+            if (Building.LEVEL_UP.equals(other.getResearch())) {
+                return "Another town center is already advancing";
+            }
         }
         return null;
     }
 
     /**
-     * Takes the team of a town center into the next age: the town center goes up a level, and every other building
-     * of the team takes on the new age's look with it.
+     * Takes the team of a town center into the next age: its town centers go up a level, and every other building of
+     * the team takes on the new age's look with them.
      */
     public static void advanceAge(Game game, Building center) {
-        center.levelUp();
+        Team team = game.getTeam(center.team);
+        if (team != null) {
+            team.setAge(game.getAge(team) + 1);
+        }
         keepUpWithAge(game);
     }
 
     /**
      * Every finished building looks the age its team is in, as far as it has a look for it. Levels change only how
-     * buildings look, so this takes nothing from them and gives them nothing.
+     * buildings look, so this takes nothing from them and gives them nothing. The age belongs to the team, so it stays
+     * when the team loses its town centers.
      */
     private static void keepUpWithAge(Game game) {
         for (Building building : game.getBuildings()) {
-            if (building.type == BuildingType.TOWN_HALL || !building.isComplete()) {
+            if (!building.isComplete()) {
                 continue;
             }
             Team team = game.getTeam(building.team);
