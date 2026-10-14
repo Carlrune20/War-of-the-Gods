@@ -325,7 +325,7 @@ Commanding units, from the bar at the bottom of the page:
 | Formation / Stance | With warriors or archers selected: how they line up where they are sent (box, line, wedge), and how they fight on their own (aggressive, defensive, hold, passive) |
 | Right-click an enemy unit, player or building, or any mob | Attack it (workers stay out of it). Shift-right-click more enemies to have them attacked one after another |
 | Right-drag, with warriors or archers selected | A red box: every enemy unit and player in it (or with none, the hostile mobs) is attacked. The enemies are shared out by their health, so a strong one draws more attackers than a weak one and every one draws at least one while there are units enough; each unit then goes on to the rest, nearest first. Shift adds them after the enemies already ordered. Ctrl and a right drag still turns the view |
-| A, or Attack move on the bar, then click the ground | With warriors or archers selected: they go there and fight any enemy or enemy building they meet on the way, going on once it is down. A moves the view only with no warriors or archers selected; the arrow keys always do |
+| Space, or Attack move on the bar, then click the ground | With warriors or archers selected: they go there and fight any enemy or enemy building they meet on the way, going on once it is down |
 | Hover a unit or building | A tooltip says what it is and what it is doing, or what a right-click would do with the selected units, such as Attack Blue warrior 3 |
 | Stop | Stop and guard where they stand |
 | On a touch screen | Tap your units to select them, then tap the ground or an enemy to give the order |
@@ -392,9 +392,9 @@ are drawn while the view is open.
 | 1 … 0, Ctrl/Shift + number | Control groups, as on the web map (Ctrl + number makes a group) |
 | Right-click with buildings selected / a player of your team | Rally point / follow them, as on the web map |
 | Right-click | Move, attack (enemies and mobs), build or work, as on the web map; shift-right-click enemies to attack them in turn |
-| Right-drag / A then click | With warriors or archers selected: a red box of enemies to attack, shared out by their health / an attack move, as on the web map. A moves the camera only with no warriors or archers selected |
+| Right-drag / Space then click | With warriors or archers selected: a red box of enemies to attack, shared out by their health / an attack move, as on the web map |
 | Click one of your buildings | Its controls in the bar, such as Train |
-| H / Space | Go to your town center / to the selected units |
+| H / Space | Go to your town center / to the selected units (Space starts an attack move instead when warriors or archers are selected) |
 | Minimap (bottom right) | Click or drag to move the camera there; right-click to send the selected units there. It shows the map as far as your client has seen it, with buildings, units and hostile mobs, and the part in view outlined |
 | Torches | With workers selected: click two corners of an area for them to light up |
 | Wall / Make gate | With workers selected: click where a wall starts and where it ends, or two of your towers; with a wall segment selected, Make gate. As on the web map |
