@@ -85,7 +85,7 @@ public class CommandRts extends CommandBase {
     private static final List<String> TEAM_SUBCOMMANDS = Arrays
         .asList("list", "create", "remove", "color", "faction", "join", "leave", "auto", "base");
     private static final List<String> UNIT_ACTIONS = Arrays
-        .asList("spawn", "move", "attackmove", "attack", "stop", "stance", "kill");
+        .asList("spawn", "move", "attackmove", "attack", "repair", "stop", "stance", "kill");
     /** Units /rts units spawn makes at most at once. */
     private static final int MAX_SPAWN = 50;
     private static final List<String> RESOURCE_ACTIONS = Arrays.asList("give", "take", "set");
@@ -677,6 +677,30 @@ public class CommandRts extends CommandBase {
                         + targets.size()
                         + " units of "
                         + enemy.getColoredName());
+                break;
+            }
+            case "repair": {
+                requireArgs(args, 3, "/rts units repair <team> <building id>");
+                Team team = requireTeam(game, args[1]);
+                Building building = game.getBuilding(parseInt(sender, args[2]));
+                if (building == null || !building.team.equals(team.getId()) || !building.isDamaged()) {
+                    throw new CommandException("Team %s has no damaged building #%s", team.getName(), args[2]);
+                }
+                List<EntityUnit> workers = new ArrayList<>();
+                for (EntityUnit unit : requireUnits(team)) {
+                    if (unit.isWorker() && unit.getOrder() == EntityUnit.Order.IDLE) {
+                        workers.add(unit);
+                    }
+                }
+                if (workers.isEmpty()) {
+                    throw new CommandException("Team %s has no idle workers", team.getName());
+                }
+                Units.get()
+                    .orderBuild(workers, building);
+                send(
+                    sender,
+                    "Sent " + workers
+                        .size() + " workers of " + team.getColoredName() + " to repair " + building.describe(game));
                 break;
             }
             case "stance": {

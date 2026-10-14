@@ -143,6 +143,17 @@ public final class Building {
         game.changed();
     }
 
+    /** Whether a finished building has lost health that workers can repair. */
+    public boolean isDamaged() {
+        return complete && health < getMaxHealth();
+    }
+
+    /** Adds ticks of workers' repairs, each worth as much health as a tick of building it; up to full health. */
+    public void mend(int ticks) {
+        health = Math.min(getMaxHealth(), health + Math.max(1, getMaxHealth() * ticks / type.buildTicks()));
+        game.changed();
+    }
+
     /** Health back to full, as when an op repairs it. */
     public void repair() {
         health = getMaxHealth();

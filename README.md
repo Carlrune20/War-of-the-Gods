@@ -34,6 +34,7 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts units move <team> <x> <z> [box\|line\|wedge]` | (op) Send all of a team's units somewhere, in formation. |
 | `/rts units attackmove <team> <x> <z> [box\|line\|wedge]` | (op) Send a team's units somewhere, fighting any enemy they meet on the way. |
 | `/rts units attack <team> <enemy team>` | (op) Send a team's warriors and archers at all of another team's units, shared out by health as an attack box does. |
+| `/rts units repair <team> <building id>` | (op) Send a team's idle workers to repair one of its damaged buildings. |
 | `/rts units stance <team> <aggressive\|defensive\|hold\|passive>` | (op) Set how a team's units fight when not ordered to. |
 | `/rts route <x1> <z1> <x2> <z2>` | (op) Show the way a unit would walk between two points, as waypoints. |
 | `/rts units stop <team>` | (op) Make a team's units stop and guard where they stand. |
@@ -304,7 +305,7 @@ Commanding units, from the bar at the bottom of the page:
 | Farm / House / Barracks / ... | With workers selected: a see-through copy follows the pointer, pale where it fits and red where it does not (in the in-game view it shows the building's own blocks). R or Rotate turns it a quarter round, click places it, right-click or Esc cancels. Shift-click places more, and the workers build them one after another in the order they were placed; shift-right-click a building site to add it to their list |
 | Wall | With workers selected: click where the wall starts, or one of your towers, then where it ends (or another tower). A see-through wall follows the pointer, red where it does not fit, and the bar shows its pieces and cost. Shift-click to go on with the next wall from where this one ended |
 | Make gate | With one of your finished wall segments selected: turn it into a gate at once, for gold |
-| Right-click one of your building sites or farms, or a gold mine | Send the selected workers to build or work it, or to mine gold. Sent to an unbuilt piece of wall, they go on to build the rest of that wall after it |
+| Right-click one of your building sites or farms, or a gold mine | Send the selected workers to build or work it, or to mine gold. Sent to an unbuilt piece of wall, they go on to build the rest of that wall after it. Right-click one of your damaged buildings to have them repair it, as fast as they would build it, for free |
 | Right-click a tree | Send the selected workers to chop it |
 | Torches | With workers selected: click two corners of an area for them to light up against mobs |
 | Click one of your units | Select it; shift-click adds or removes it |

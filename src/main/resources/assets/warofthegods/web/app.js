@@ -1973,7 +1973,7 @@
         const workers = selectedWorkers();
         const type = building && buildingType(building.type);
         if (!building || building.team !== myTeam().id || !workers.length
-            || (building.complete && !(type && type.workers))) {
+            || (building.complete && building.health >= building.maxHealth && !(type && type.workers))) {
             return false;
         }
         orderMark = {x: building.x + building.sizeX / 2, y: building.y + 1, z: building.z + building.sizeZ / 2,
