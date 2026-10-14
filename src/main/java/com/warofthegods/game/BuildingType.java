@@ -27,7 +27,7 @@ public enum BuildingType {
     HOUSE("house", "House", "house", 2, true, false),
     /** Researches military upgrades. */
     ARMORY("armory", "Armory", "armory", 2, true, false),
-    /** Shoots arrows at enemies that come near. */
+    /** Watches over the land round it; shoots arrows at enemies once its team has watch towers. */
     TOWER("tower", "Tower", "tower", 2, true, false);
 
     public final String id;
@@ -46,9 +46,12 @@ public enum BuildingType {
     /** The units it trains, if any. */
     public final List<UnitKind> trains;
 
-    /** The age a team has to reach, by taking its town center up a level, before it can build this. */
+    /**
+     * The age a team has to reach, by taking its town center up a level, before it can build this. Age I has no
+     * military and no farms: food comes from hunting until then.
+     */
     public int age() {
-        return this == ARMORY || this == TOWER ? 2 : 1;
+        return this == ARMORY || this == BARRACKS || this == FARM ? 2 : 1;
     }
 
     /** The name of an age, such as "Age II". */
@@ -72,14 +75,14 @@ public enum BuildingType {
         return this == FARM;
     }
 
-    /** Whether it shoots at enemies at that level. */
+    /** Whether it can shoot at enemies at that level; a tower only once its team has watch towers. */
     public boolean shoots(int level) {
         return this == TOWER || (this == TOWN_HALL && level >= 2);
     }
 
     /** Whether upgrades are researched here. */
     public boolean researches() {
-        return this == ARMORY || this == STOREHOUSE || this == TOWN_HALL;
+        return this == ARMORY || this == STOREHOUSE || this == TOWN_HALL || this == TOWER;
     }
 
     /** What building one costs, leaving out resources it costs none of. */

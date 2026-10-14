@@ -5,9 +5,9 @@ import java.util.Map;
 
 /**
  * Team-wide improvements researched at a building: military ones at the armory, economic ones at the storehouse,
- * and fortified walls at the town center. Some need another first: diamond tools and swords their iron ones, plate
- * armor padded armor and fire arrows fletching. Each is researched once and lasts the game. Ids are stored in save
- * data, so only add new values.
+ * fortified walls at the town center, and watch and guard towers at a tower. Some need another first: diamond tools
+ * and swords their iron ones, plate armor padded armor, fire arrows fletching and guard towers watch towers. Each is
+ * researched once and lasts the game. Ids are stored in save data, so only add new values.
  */
 public enum Upgrade {
 
@@ -40,7 +40,12 @@ public enum Upgrade {
     MASONRY("masonry", "Masonry", "Buildings have a fifth more health", BuildingType.STOREHOUSE, 2, null, 0, 100, 100,
         40),
     FORTIFIED_WALLS("fortified_walls", "Fortified walls", "Buildings have half again as much health",
-        BuildingType.TOWN_HALL, 2, null, 0, 150, 150, 45);
+        BuildingType.TOWN_HALL, 2, null, 0, 150, 150, 45),
+    WATCH_TOWER("watch_tower", "Watch towers",
+        "Towers shoot arrows at enemies, flying as fast and hitting as hard as archers'", BuildingType.TOWER, 2, null,
+        0, 100, 100, 40),
+    GUARD_TOWER("guard_tower", "Guard towers", "Towers see enemies and shoot 8 farther", BuildingType.TOWER, 3,
+        "watch_tower", 0, 150, 200, 50);
 
     public final String id;
     public final String displayName;
