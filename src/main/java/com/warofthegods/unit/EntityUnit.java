@@ -660,10 +660,10 @@ public class EntityUnit extends EntityCreature {
         startOrder();
     }
 
-    /** Sends a worker to a building site to build it, or to a farm to work it. */
+    /** Sends a worker to a building site to build it, to a damaged building to repair it, or to a farm to work it. */
     void orderBuild(Building building) {
         dropPlans();
-        order = building.isComplete() ? Order.WORK : Order.BUILD;
+        order = building.isComplete() && !building.isDamaged() ? Order.WORK : Order.BUILD;
         buildingId = building.id;
         working = false;
         delivering = order == Order.WORK && getCarried() >= capacity();
@@ -678,7 +678,7 @@ public class EntityUnit extends EntityCreature {
      * starts on it now.
      */
     void queueBuild(Building building) {
-        if (order != Order.BUILD || building.isComplete()) {
+        if (order != Order.BUILD || building.isComplete() && !building.isDamaged()) {
             orderBuild(building);
             return;
         }
@@ -697,7 +697,7 @@ public class EntityUnit extends EntityCreature {
         Game game = GameManager.getGame();
         while (game != null && !buildQueue.isEmpty()) {
             Building next = game.getBuilding(buildQueue.remove(0));
-            if (next != null && next.team.equals(teamId) && !next.isComplete()) {
+            if (next != null && next.team.equals(teamId) && (!next.isComplete() || next.isDamaged())) {
                 List<Integer> rest = new ArrayList<>(buildQueue);
                 orderBuild(next);
                 buildQueue.addAll(rest);
@@ -1166,8 +1166,8 @@ public class EntityUnit extends EntityCreature {
             }
             return;
         }
-        if (site.isComplete()) {
-            // Built, by this worker and others: on to the next queued site, or farmers stay to work it.
+        if (site.isComplete() && !site.isDamaged()) {
+            // Built or repaired, by this worker and others: on to the next queued site, or farmers stay to work it.
             if (buildNext()) {
                 return;
             }

@@ -533,10 +533,20 @@ public final class Buildings {
         return count;
     }
 
-    /** Puts the work of the workers at each building site in, and raises the sites that are done. */
+    /**
+     * Puts the work of the workers at each building site in, and raises the sites that are done. Workers at a
+     * damaged building repair it, as fast as they would build it.
+     */
     private void construct(Game game, WorldServer world) {
         for (Building site : new ArrayList<>(game.getBuildings())) {
             if (site.isComplete()) {
+                int repairers = site.isDamaged() ? countBuilders(site) : 0;
+                if (repairers > 0) {
+                    site.mend(INTERVAL * repairers);
+                    if (!site.isDamaged()) {
+                        WarOfTheGods.LOG.info("Repaired {}", site.describe(game));
+                    }
+                }
                 continue;
             }
             int builders = countBuilders(site);

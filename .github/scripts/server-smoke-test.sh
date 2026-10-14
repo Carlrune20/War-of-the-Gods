@@ -465,6 +465,15 @@ wait_for_log " units of Blue on an attack move to " 30
 echo "rts units blue" >&3
 wait_for_log "(attack move)" 30
 echo "ok: Blue's soldiers are on an attack move"
+# A worker repairs a damaged tower.
+echo "rts damage 15 200" >&3
+sleep 1
+echo "rts units spawn blue 1 worker" >&3
+sleep 2
+echo "rts units repair blue 15" >&3
+wait_for_log " workers of Blue to repair " 30
+wait_for_log "Repaired Blue tower (level 2) #15" 120
+echo "ok: a worker repaired Blue's tower"
 echo "rts units kill red" >&3
 sleep 2
 echo "rts damage 16 100000" >&3

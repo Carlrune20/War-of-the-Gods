@@ -35,7 +35,8 @@ import com.warofthegods.world.GameWorld;
  *   {type: "units.attack", units: [id...], targets: [id...]}  attack all of them, shared out among the units by
  *                                                             health, each going on to the rest after its own
  *   units.attack takes queue: true to attack after the enemies the units were already ordered at
- *   {type: "units.build", units: [id...], building: id}  workers build a building site or work a farm
+ *   {type: "units.build", units: [id...], building: id}  workers build a building site, repair a damaged
+ *                                                        building or work a farm
  *   {type: "units.gather", units: [id...], x, y, z}  workers chop the tree at or near that block, or mine the gold
  *                                                    mine there
  *   {type: "units.light", units: [id...], x1, z1, x2, z2}  workers put torches in the dark parts of that area
@@ -263,8 +264,8 @@ public final class UnitCommands {
             request.replyError("That is not your building");
             return;
         }
-        if (building.isComplete() && !building.type.isWorkplace()) {
-            request.replyError("That is already built");
+        if (building.isComplete() && !building.type.isWorkplace() && !building.isDamaged()) {
+            request.replyError("That is already built and needs no repair");
             return;
         }
         int sent = Units.get()

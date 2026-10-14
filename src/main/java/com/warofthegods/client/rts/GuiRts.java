@@ -818,7 +818,7 @@ public final class GuiRts extends GuiScreen {
         if (building == null || team == null
             || !building.team.equals(team.id)
             || workers.isEmpty()
-            || (building.complete && (type == null || type.workers == 0))) {
+            || (building.complete && building.health >= building.maxHealth && (type == null || type.workers == 0))) {
             return false;
         }
         client.mark(building.x + building.sizeX / 2.0, building.y + 1, building.z + building.sizeZ / 2.0, false);
