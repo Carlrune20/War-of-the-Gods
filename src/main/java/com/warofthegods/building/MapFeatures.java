@@ -49,9 +49,10 @@ public final class MapFeatures {
     }
 
     /**
-     * Lays out the map's settlements, gold mines and herds once every team has its first town center. Each team gets
-     * the same: free settlements and a gold mine out to its sides, turned the same way round the middle of the map as
-     * the team is, a gold mine behind every settlement, and chickens and livestock grazing near its town center.
+     * Lays out the map's towers, settlements, gold mines and herds once every team has its first town center. Each
+     * team gets the same: four towers round its town center, free settlements and a gold mine out to its sides, turned
+     * the same way round the middle of the map as the team is, a gold mine behind every settlement, and chickens and
+     * livestock grazing near its town center.
      */
     void placeIfDue(Game game, WorldServer world) {
         if (game.areFeaturesPlaced()) {
@@ -62,6 +63,10 @@ public final class MapFeatures {
             if (team.getBase() == null || team.isTownHallDue()) {
                 return;
             }
+        }
+        for (Team team : teams) {
+            Buildings.get()
+                .raiseStartingTowers(game, world, team);
         }
         int n = Math.max(2, teams.size());
         Schematic camp = Buildings.get()

@@ -120,11 +120,11 @@ is built, and the finished building stands once the site is done; more workers b
 |---|---|---|---|---|
 | Town center | Trains workers, takes in what they gather, houses 10 units and 5 more each age; shoots arrows from Age II; researches fortified walls; goes on a free settlement | 300 Wood, 200 Gold | 1500 | 60 s |
 | House | Houses 5 more units | 60 Wood | 300 | 12 s |
-| Farm | A worker there gathers food: 5 every 5 s, one worker per farm | 75 Wood | 300 | 15 s |
+| Farm | A worker there gathers food: 5 every 5 s, one worker per farm; needs Age II | 75 Wood | 300 | 15 s |
 | Storehouse | Takes in what workers gather; researches economic upgrades | 100 Wood | 600 | 20 s |
-| Barracks | Trains warriors and archers | 150 Wood, 50 Gold | 800 | 25 s |
+| Barracks | Trains warriors and archers; needs Age II | 150 Wood, 50 Gold | 800 | 25 s |
 | Armory | Researches military upgrades; needs Age II | 120 Wood, 60 Gold | 700 | 25 s |
-| Tower | Shoots arrows at enemies within 16 blocks; needs Age II | 50 Wood, 100 Gold | 900 | 25 s |
+| Tower | Watches over the land round it; with watch towers (Age II) shoots arrows at enemies within 16 blocks, and with guard towers (Age III) within 24; researches both | 50 Wood, 100 Gold | 900 | 25 s |
 
 | Unit | Costs (default) | |
 |---|---|---|
@@ -166,8 +166,14 @@ building.
 A team's town center sets its age: taking it up a level advances the whole town from Age I to Age II, for 200 Food,
 200 Wood and 150 Gold, and then to Age III, for 400 Food, 300 Wood and 400 Gold. Every other building
 of the team takes on the new age's look with it, at once, and buildings put up later look the age too; nothing else
-about them changes. In Age II the town center houses 5 more units and starts shooting, and the second row of upgrades
-opens up. Armories and towers need Age II. For more health, research fortified walls at the town center.
+about them changes. Age I has no military and no farms: workers build, chop, mine and hunt, and towers stand watch
+but do not shoot. In Age II the town center houses 5 more units and starts shooting, the second row of upgrades opens
+up, and barracks, farms and armories can be built. For more health, research fortified walls at the town center.
+
+Each team starts with four towers, one off each corner of its town center, so between them they cover the ground
+all round it. Towers can be built from Age I. Researching watch towers at a tower in Age II makes every tower of the
+team shoot: one arrow a second, flying as fast and hitting as hard as an archer's. Guard towers, in Age III, let them
+see enemies and shoot 8 blocks farther.
 
 An upgrade that needs another one first only shows up once the team has that one.
 
@@ -186,6 +192,8 @@ An upgrade that needs another one first only shows up once the team has that one
 | Diamond axes / pickaxes / hoes | Storehouse, Age III, after the iron one | Twice as fast or as much as with stone tools |
 | Masonry | Storehouse, Age II | Buildings have a fifth more health |
 | Fortified walls | Town center, Age II, for 150 Wood and 150 Gold | Buildings have half again as much health |
+| Watch towers | Tower, Age II, for 100 Wood and 100 Gold | Towers shoot arrows at enemies |
+| Guard towers | Tower, Age III, after watch towers, for 150 Wood and 200 Gold | Towers see and shoot 8 farther |
 
 Buildings have health. A building site starts with a tenth of it and gains the rest as it is built. As a building
 loses health it looks it: at three quarters, half and a quarter it shows holes, cracks, cobwebs and rubble. Enemy

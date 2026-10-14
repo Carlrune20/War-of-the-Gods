@@ -170,6 +170,10 @@ wait_for_log "Web map of game #3 drawn" 300
 echo "ok: map drawn"
 wait_for_log "Built Red town center #1" 30
 wait_for_log "Built Blue town center #2" 30
+# Once both town centers are up, each gets four towers round it, which do not shoot yet.
+wait_for_log "Raised 4 towers round the town center of Blue" 60
+expect "$WEB_LOG" "Raised 4 towers round the town center of Red"
+expect "$WEB_LOG" "Built Blue tower #10"
 curl -sf -b "$jar" "$WEB/api/tile?x=0&z=0&v=1" -o run/tile.bin || web_fail "tile 0,0 not served"
 python3 .github/scripts/map-tile-check.py run/tile.bin || web_fail "tile 0,0 does not hold the blocks of the map"
 [ "$(http_status -b "$jar" "$WEB/api/tile?x=0&z=0&v=1&m=1-old")" = 404 ] || web_fail "tile of an old map was served"
@@ -211,30 +215,30 @@ echo "ok: $red1_before, then $red1_after"
 echo "rts units spawn blue 1 worker" >&3
 wait_for_log "Spawned 1 units for Blue" 30
 echo "rts build blue farm" >&3
-wait_for_log "Laid out Blue farm #3" 30
+wait_for_log "Laid out Blue farm #11" 30
 expect "$WEB_LOG" "1 workers on the way"
-wait_for_log "Built Blue farm #3" 120
+wait_for_log "Built Blue farm #11" 120
 echo "rts train blue worker 1" >&3
 wait_for_log "trained Blue worker 4" 60
 for _ in $(seq 30); do
     echo "rts buildings blue" >&3
     sleep 2
-    grep -qF "Blue farm #3 at" "$WEB_LOG" && grep -q "Blue farm #3 at .*, 1 working" "$WEB_LOG" && break
+    grep -qF "Blue farm #11 at" "$WEB_LOG" && grep -q "Blue farm #11 at .*, 1 working" "$WEB_LOG" && break
 done
-grep -q "Blue farm #3 at .*, 1 working" "$WEB_LOG" || web_fail "the worker is not working the farm"
+grep -q "Blue farm #11 at .*, 1 working" "$WEB_LOG" || web_fail "the worker is not working the farm"
 echo "ok: the worker works the farm"
 echo "rts build blue barracks" >&3
-wait_for_log "Laid out Blue barracks #4" 30
+wait_for_log "Laid out Blue barracks #12" 30
 for _ in $(seq 30); do
     echo "rts buildings blue" >&3
     echo "rts units blue" >&3
     sleep 2
-    grep -q "Blue barracks #4 at .*% built by 1 workers" "$WEB_LOG" && break
+    grep -q "Blue barracks #12 at .*% built by 1 workers" "$WEB_LOG" && break
 done
-grep -q "Blue barracks #4 at .*(building site), health [0-9]*/800, [0-9]*% built by 1 workers" "$WEB_LOG" \
+grep -q "Blue barracks #12 at .*(building site), health [0-9]*/800, [0-9]*% built by 1 workers" "$WEB_LOG" \
     || web_fail "the barracks site does not show the worker building it"
-echo "ok: $(grep -oE 'Blue barracks #4 at .*% built by 1 workers' "$WEB_LOG" | tail -1)"
-wait_for_log "Built Blue barracks #4" 120
+echo "ok: $(grep -oE 'Blue barracks #12 at .*% built by 1 workers' "$WEB_LOG" | tail -1)"
+wait_for_log "Built Blue barracks #12" 120
 echo "rts train blue warrior 1" >&3
 wait_for_log "trained Blue warrior 5" 60
 echo "rts train blue archer 1" >&3
@@ -251,32 +255,32 @@ done
 echo "ok: Blue has $food food from the farm"
 
 echo "rts build blue storehouse" >&3
-wait_for_log "Laid out Blue storehouse #5" 30
-wait_for_log "Built Blue storehouse #5" 120
-echo "rts damage 5 100" >&3
+wait_for_log "Laid out Blue storehouse #13" 30
+wait_for_log "Built Blue storehouse #13" 120
+echo "rts damage 13 100" >&3
 wait_for_log "has 500/600 health" 30
-echo "rts damage 5 1000" >&3
-wait_for_log "Destroyed Blue storehouse #5" 30
+echo "rts damage 13 1000" >&3
+wait_for_log "Destroyed Blue storehouse #13" 30
 echo "ok: the storehouse lost health and was destroyed at 0"
 
 # New buildings, levels and upgrades: a house and a tower go up, the town center goes up a level, and an upgrade
 # is given.
 echo "rts build blue house" >&3
-wait_for_log "Laid out Blue house #6" 30
-wait_for_log "Built Blue house #6" 120
+wait_for_log "Laid out Blue house #14" 30
+wait_for_log "Built Blue house #14" 120
 echo "rts units blue" >&3
 wait_for_log "units, room for 15" 30
 echo "ok: the house makes room for more units"
 echo "rts build blue tower" >&3
-wait_for_log "Laid out Blue tower #7" 30
-wait_for_log "Built Blue tower #7" 120
+wait_for_log "Laid out Blue tower #15" 30
+wait_for_log "Built Blue tower #15" 120
 echo "rts upgrade 2" >&3
 wait_for_log "Upgraded Blue town center (level 2) #2" 30
 # The rest of the town follows the town center into Age II, looking it but gaining nothing else.
 echo "rts buildings blue" >&3
-wait_for_log "Blue tower (level 2) #7 at" 30
+wait_for_log "Blue tower (level 2) #15 at" 30
 sleep 1
-grep -q "Blue house (level 2) #6 at .*health 300/300" "$WEB_LOG" || web_fail "the house did not follow into Age II as it was"
+grep -q "Blue house (level 2) #14 at .*health 300/300" "$WEB_LOG" || web_fail "the house did not follow into Age II as it was"
 echo "ok: the town followed its town center into Age II"
 echo "rts research blue forged_blades" >&3
 wait_for_log "Team Blue has iron swords" 30
@@ -284,8 +288,12 @@ echo "rts research blue fortified_walls" >&3
 wait_for_log "Team Blue has fortified walls" 30
 echo "rts buildings blue" >&3
 sleep 2
-grep -q "Blue house (level 2) #6 at .*health 450/450" "$WEB_LOG" || web_fail "fortified walls did not raise the house's health"
+grep -q "Blue house (level 2) #14 at .*health 450/450" "$WEB_LOG" || web_fail "fortified walls did not raise the house's health"
 echo "ok: fortified walls give buildings half again as much health"
+echo "rts research blue watch_tower" >&3
+wait_for_log "Team Blue has watch towers" 30
+echo "rts research blue guard_tower" >&3
+wait_for_log "Team Blue has guard towers" 30
 
 # A worker chops a tree near the town center and brings the wood home.
 echo "rts units spawn blue 1 worker" >&3
@@ -331,9 +339,9 @@ done
 echo "ok: Blue gold went from $gold_before to $gold"
 
 # An explosion beside the tower takes health off it but breaks none of its blocks.
-echo "rts explode 7" >&3
+echo "rts explode 15" >&3
 wait_for_log "The explosion took" 30
-grep -qE "The explosion took [1-9][0-9]? health off Blue tower (\(level 2\) )?#7 .* and broke 0 of its blocks|The explosion took 1[0-2][0-9] health off Blue tower (\(level 2\) )?#7 .* and broke 0 of its blocks" "$WEB_LOG" \
+grep -qE "The explosion took [1-9][0-9]? health off Blue tower (\(level 2\) )?#15 .* and broke 0 of its blocks|The explosion took 1[0-2][0-9] health off Blue tower (\(level 2\) )?#15 .* and broke 0 of its blocks" "$WEB_LOG" \
     || web_fail "the explosion did not just damage the tower: $(grep -oE 'The explosion took .*' "$WEB_LOG" | tail -1)"
 echo "ok: $(grep -oE 'The explosion took .*' "$WEB_LOG" | tail -1)"
 
@@ -392,12 +400,12 @@ wait_for_log "Team Red has lost its last town center! It has 2:00 to raise a new
 echo "rts info" >&3
 wait_for_log "left to raise a new town center" 30
 echo "rts build red town_center" >&3
-wait_for_log "Laid out Red town center #8" 30
+wait_for_log "Laid out Red town center #16" 30
 echo "rts finish red" >&3
 wait_for_log "Team Red has a town center again." 30
 echo "rts units kill red" >&3
 sleep 2
-echo "rts damage 8 100000" >&3
+echo "rts damage 16 100000" >&3
 wait_for_log "Team Red has no town center and no workers left and has been defeated!" 30
 wait_for_log "Game #3 is over! Blue wins!" 30
 echo "rts info" >&3
@@ -415,10 +423,10 @@ grep -q "Red warrior 1 at .*, hold" "$WEB_LOG" || fail "boot-4-units: Red warrio
 echo "ok: stances are saved"
 expect "$WEB_LOG" "Red town center #1 at"
 expect "$WEB_LOG" "Blue town center (level 2) #2 at"
-expect "$WEB_LOG" "Blue tower (level 2) #7 at"
-expect "$WEB_LOG" "Blue barracks (level 2) #4 at"
+expect "$WEB_LOG" "Blue tower (level 2) #15 at"
+expect "$WEB_LOG" "Blue barracks (level 2) #12 at"
 grep -q "Blue worker 3 at .* work" "$WEB_LOG" || fail "boot-4-units: the farm lost its worker"
-if grep -q "Blue storehouse #5" "$WEB_LOG"; then
+if grep -q "Blue storehouse #13" "$WEB_LOG"; then
     fail "boot-4-units: the destroyed storehouse came back"
 fi
 echo "ok: buildings and the farm worker came back"

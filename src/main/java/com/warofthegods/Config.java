@@ -57,7 +57,9 @@ public class Config {
     public static int towerDamage = 6;
     /** Damage of an archer's arrow before upgrades; a crit adds up to half again, as for a player's full draw. */
     public static int archerDamage = 6;
-    public static int towerShotTicks = 30;
+    public static int towerShotTicks = 20;
+    /** Blocks guard towers see and shoot farther than watch towers. */
+    public static int guardTowerRange = 8;
     /** Wood one log of a tree holds; a tree holds between treeWoodMin and treeWoodMax in all. */
     public static int woodPerLog = 25;
     public static int treeWoodMin = 100;
@@ -149,7 +151,7 @@ public class Config {
     public static boolean rtsEdgeScroll = true;
 
     /** Bumped when defaults change in a way that should replace what older config files hold. */
-    private static final int CONFIG_VERSION = 3;
+    private static final int CONFIG_VERSION = 4;
 
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
@@ -174,6 +176,10 @@ public class Config {
             for (String category : new String[] { "startingResources", "units", "buildings" }) {
                 forgetStoneAndMetal(configuration, category);
             }
+        }
+        if (oldVersion < 4) {
+            // Watch towers shoot as often as archers.
+            forget(configuration, "buildings", "towerShotTicks");
         }
         version.set(CONFIG_VERSION);
 
@@ -354,7 +360,7 @@ public class Config {
             towerRange,
             1,
             64,
-            "Blocks a tower shoots at enemies; level 2 towers and town centers from level 2 shoot 4 farther.");
+            "Blocks a watch tower, or a town center from Age II, sees and shoots enemies at.");
         towerDamage = configuration.getInt(
             "towerDamage",
             buildings,
@@ -369,7 +375,14 @@ public class Config {
             towerShotTicks,
             5,
             1200,
-            "Ticks between a tower's shots; level 2 shoots a third faster.");
+            "Ticks between the shots of a watch tower or a town center from Age II.");
+        guardTowerRange = configuration.getInt(
+            "guardTowerRange",
+            buildings,
+            guardTowerRange,
+            0,
+            64,
+            "Blocks guard towers see and shoot farther than watch towers.");
         woodPerLog = configuration
             .getInt("woodPerLog", buildings, woodPerLog, 1, 10000, "Wood each log of a tree is worth.");
         treeWoodMin = configuration

@@ -776,10 +776,12 @@ public final class Buildings {
 
     // ---------------------------------------------------------------- towers
 
-    /** Towers, and town centers from level 2, shoot arrows at the nearest enemy in range. */
+    /** Watch towers, and town centers from level 2, shoot arrows at the nearest enemy in range. */
     private void shoot(Game game, WorldServer world) {
         for (Building building : game.getBuildings()) {
-            if (!building.isComplete() || !building.type.shoots(building.getLevel())) {
+            Team team = game.getTeam(building.team);
+            int range = building.isComplete() ? rangeOf(team, building) : 0;
+            if (range <= 0) {
                 shotTicks.remove(building.id);
                 continue;
             }
@@ -789,11 +791,6 @@ public final class Buildings {
                 shotTicks.put(building.id, elapsed);
                 continue;
             }
-            Team team = game.getTeam(building.team);
-            if (team == null) {
-                continue;
-            }
-            int range = rangeOf(team, building);
             double y = building.groundY + shootHeight(building);
             EntityLivingBase target = Units.get()
                 .findEnemyNear(world, team, building.getCenterX(), y, building.getCenterZ(), range);
@@ -818,10 +815,65 @@ public final class Buildings {
         }
     }
 
-    /** How far a building shoots, with its team's upgrades; 0 for one that does not shoot. */
+    /**
+     * How far a building shoots, with its team's upgrades; 0 for one that does not shoot, such as a tower before its
+     * team has watch towers.
+     */
     public static int rangeOf(Team team, Building building) {
         int range = building.type.range(building.getLevel());
-        return range > 0 && team != null && team.has(Upgrade.FLETCHING) ? range + 4 : range;
+        if (range <= 0 || team == null) {
+            return 0;
+        }
+        if (building.type == BuildingType.TOWER) {
+            if (!team.has(Upgrade.WATCH_TOWER)) {
+                return 0;
+            }
+            if (team.has(Upgrade.GUARD_TOWER)) {
+                range += Config.guardTowerRange;
+            }
+        }
+        return team.has(Upgrade.FLETCHING) ? range + 4 : range;
+    }
+
+    /**
+     * Four towers round a team's first town center, one off each corner, so between them they watch over the ground
+     * all round it. They only shoot once the team has watch towers.
+     */
+    public void raiseStartingTowers(Game game, WorldServer world, Team team) {
+        Building center = game.getTownHall(team);
+        if (center == null) {
+            return;
+        }
+        int raised = 0;
+        for (int corner = 0; corner < 4; corner++) {
+            int signX = corner % 2 == 0 ? -1 : 1;
+            int signZ = corner < 2 ? -1 : 1;
+            Plan plan = null;
+            // Off the corner, a little further out if the ground there will not do.
+            for (int step = 0; step < 6 && (plan == null || plan.problem != null); step++) {
+                double out = 6 + step * 2;
+                int x = (int) Math.round(center.getCenterX() + signX * (center.sizeX / 2.0 + out));
+                int z = (int) Math.round(center.getCenterZ() + signZ * (center.sizeZ / 2.0 + out));
+                plan = plan(game, world, BuildingType.TOWER, x, z, center.rotation);
+            }
+            if (plan.problem != null) {
+                continue;
+            }
+            Building tower = game.addBuilding(
+                BuildingType.TOWER,
+                team,
+                plan.minX,
+                plan.minZ,
+                plan.sizeX,
+                plan.sizeZ,
+                plan.groundY,
+                plan.rotation,
+                false);
+            tower.setLevel(Math.min(BuildingType.TOWER.levels, game.getAge(team)));
+            raise(world, tower);
+            raised++;
+        }
+        WarOfTheGods.LOG.info("Raised {} towers round the town center of {}", raised, team.getName());
     }
 
     /** Blocks above the ground a building shoots from: a tower's deck, the town center's gate posts. */
