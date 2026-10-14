@@ -56,9 +56,18 @@ A game with no enemy teams is fine: build and fight the wilderness mobs.
 ## The game map
 
 Games are played in their own dimension (id 77 by default). Each `/rts newgame` throws away the previous game's
-world and generates a new one from the game's seed: grassland, hills, lakes and forests over the playable square,
-centred on 0,0. Around it a margin of terrain (48 blocks by default) slopes down into a sea that goes on forever, so
-the map is an island.
+world and generates a new one from the game's seed. The first map is Misthalin: grassland, low hills and forests over
+the playable square, centred on 0,0, with no sand, beaches or lakes. The land goes on across a margin round the
+square (48 blocks by default) and then stops, cut off sheer, with nothing beyond.
+
+A river 7 blocks wide always runs right across the map, straight along x or z wherever it passes furthest from the
+teams' town centers, so with two teams it runs between them. Units can swim it, slowly, but three stone bridges cross
+it: one in the middle and one either side. The bridges cannot be broken, nothing can be built right next to them, and
+the river runs straight where it passes under them.
+
+The map is laid out the same way round every team. Besides the settlement each team starts on, it gets a free
+settlement and a gold mine out to its sides, a gold mine behind every settlement, and a flock of chickens and a herd
+of pigs, cows or sheep (the same for every team) grazing either side of its town center. No other animals spawn.
 
 An invisible wall at the edge of the playable square stops players and mobs: anything that crosses it is put back
 inside, arrows are removed, mobs do not spawn outside it and blocks outside it cannot be broken or placed.
@@ -98,8 +107,8 @@ a camp in a fenced ring round a campfire, with a longhouse, a lodge and a granar
 workers and takes in what they gather.
 
 Town centers stand on settlements. A free settlement, one nobody holds, is a ring of standing stones round a cold
-hearth with a white flag. Once every team's first town center is up, 2 more settlements are laid out between the
-teams, a gold mine behind every settlement and 2 more gold mines near the middle of the map. Workers can raise a town
+hearth with a white flag. Once every team's first town center is up, each team gets a free settlement and a gold mine
+out to its sides and a gold mine behind every settlement. Workers can raise a town
 center (300 Wood, 200 Gold) only on a free settlement, and a town center that is destroyed leaves its settlement free
 again. Settlements and gold mines cannot be built on or broken.
 
@@ -331,7 +340,8 @@ container port and map a different host port (`"8200:8124"`) with `publicUrl` en
 Players with the mod can command from inside Minecraft too: press **V** on the game map (rebind it under Controls,
 War of the Gods) and the camera lifts above the world, looking down at an angle like the web map. The mouse is free,
 and the same panels, buttons and tooltips as on the web map are drawn over the real world. Everything works the same
-way and goes through the same commands, so the web map and the in-game view can be used side by side.
+way and goes through the same commands, so the web map and the in-game view can be used side by side. No clouds
+are drawn while the view is open.
 
 | Control | What it does |
 |---|---|

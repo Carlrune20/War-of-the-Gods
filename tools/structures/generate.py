@@ -665,7 +665,45 @@ def gold_mine(depleted):
     return s
 
 
+def bridge():
+    """A stone bridge over the river, 17 long and 7 wide with its parapets. The deck lies level with the banks, so
+    units walk straight across; two arches on a middle pier carry it over the water, which runs 7 wide and 2 deep
+    under it. It cannot be broken."""
+    s = Struct(7, 17, 3, 3)
+    deck = (STONE_BRICK, 0)
+    mossy = (STONE_BRICK, 1)
+    cracked = (STONE_BRICK, 2)
+    rng = random.Random(77)
+    for z in range(17):
+        water = 5 <= z <= 11
+        for x in range(7):
+            # Below the deck: the river bed, water in the channel, and the arches and pier.
+            s.set(x, -3, z, (STONE_BRICK, 0) if not water or z == 8 else (GRAVEL, 0))
+            for y in (-2, -1):
+                if not water or z == 8:
+                    s.set(x, y, z, rng.choice([deck, deck, mossy]) if water or z in (4, 12) else (DIRT, 0))
+                else:
+                    s.set(x, y, z, (WATER, 0))
+            s.set(x, 0, z, rng.choice([deck, deck, deck, cracked]) if 1 <= x <= 5 else deck)
+    # The arches: upside down steps against the abutments and the pier.
+    for x in range(7):
+        s.set(x, -1, 5, (STONE_BRICK_STAIRS, UP_NORTH | UPSIDE_DOWN))
+        s.set(x, -1, 7, (STONE_BRICK_STAIRS, UP_SOUTH | UPSIDE_DOWN))
+        s.set(x, -1, 9, (STONE_BRICK_STAIRS, UP_NORTH | UPSIDE_DOWN))
+        s.set(x, -1, 11, (STONE_BRICK_STAIRS, UP_SOUTH | UPSIDE_DOWN))
+    # Parapets along both sides, with posts and lamps at the ends and over the pier.
+    for x in (0, 6):
+        for z in range(17):
+            s.set(x, 1, z, deck)
+            s.set(x, 2, z, (SLAB, 5))
+        for z in (0, 8, 16):
+            s.set(x, 2, z, deck)
+            s.set(x, 3, z, (TORCH, 5))
+    return s
+
+
 NEUTRAL = {
+    "bridge": bridge,
     "settlement": settlement,
     "gold_mine": lambda: gold_mine(False),
     "gold_mine_depleted": lambda: gold_mine(True),

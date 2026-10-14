@@ -16,6 +16,7 @@ import java.util.function.Consumer;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiChat;
+import net.minecraft.client.multiplayer.WorldClient;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
@@ -27,6 +28,7 @@ import net.minecraft.potion.PotionEffect;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MathHelper;
+import net.minecraftforge.client.IRenderHandler;
 import net.minecraftforge.client.event.EntityViewRenderEvent;
 import net.minecraftforge.client.event.FOVUpdateEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
@@ -94,6 +96,12 @@ public final class RtsClient {
     private RtsCamera camera;
     private float savedFov;
     private int savedThirdPerson;
+    /** Draws no clouds; the world's cloud renderer while the view is open. */
+    private static final IRenderHandler NO_CLOUDS = new IRenderHandler() {
+
+        @Override
+        public void render(float partialTicks, WorldClient world, Minecraft mc) {}
+    };
     private long lastFrame;
     private double sentX = Double.NaN;
     private double sentZ = Double.NaN;
@@ -418,6 +426,8 @@ public final class RtsClient {
         savedThirdPerson = mc.gameSettings.thirdPersonView;
         mc.gameSettings.fovSetting = camera.fov;
         mc.gameSettings.thirdPersonView = 0;
+        // No clouds between the camera and the map.
+        mc.theWorld.provider.setCloudRenderer(NO_CLOUDS);
         mc.renderViewEntity = camera;
         // Commanders see in the dark. Only this client knows, and only while the view is open.
         if (!mc.thePlayer.isPotionActive(Potion.nightVision)) {
@@ -454,6 +464,9 @@ public final class RtsClient {
         }
         nightVision = false;
         mc.gameSettings.thirdPersonView = savedThirdPerson;
+        if (mc.theWorld != null && mc.theWorld.provider.getCloudRenderer() == NO_CLOUDS) {
+            mc.theWorld.provider.setCloudRenderer(null);
+        }
         for (Map.Entry<Entity, Double> entry : renderWeights.entrySet()) {
             entry.getKey().renderDistanceWeight = entry.getValue();
         }

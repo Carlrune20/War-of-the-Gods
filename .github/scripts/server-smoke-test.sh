@@ -311,6 +311,8 @@ echo "rts info" >&3
 wait_for_log "Settlements: " 30
 grep -qE "Settlements: [0-9]+, [1-9][0-9]* free; gold mines: [1-9]" "$WEB_LOG" || web_fail "no free settlements or gold mines"
 echo "ok: $(grep -oE 'Settlements: .*gold' "$WEB_LOG" | tail -1)"
+expect "$WEB_LOG" "Built 3 bridges over the river"
+expect "$WEB_LOG" "Laid out 4 settlements"
 echo "rts units spawn blue 1 worker" >&3
 sleep 2
 echo "rts resources blue" >&3

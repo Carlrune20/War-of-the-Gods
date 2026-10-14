@@ -80,9 +80,15 @@ public class Config {
     /** Gold a worker mines per mineSeconds. */
     public static int mineGold = 4;
     public static int mineSeconds = 3;
-    /** Settlements no team starts on, and gold mines away from any settlement, laid out on each new map. */
-    public static int extraSettlements = 2;
-    public static int extraGoldMines = 2;
+    /**
+     * Settlements no team starts on, and gold mines away from any settlement, laid out on each new map for each team,
+     * the same way round every team's town center.
+     */
+    public static int extraSettlements = 1;
+    public static int extraGoldMines = 1;
+    /** Animals that graze near each team's first town center: a flock of chickens and a herd of pigs, cows or sheep. */
+    public static int startingChickens = 6;
+    public static int startingLivestock = 4;
     /** Most a worker carries before taking it to the town center or a storehouse. */
     public static int carryCapacity = 20;
     /** Health a building loses to one hit of a warrior. */
@@ -395,15 +401,29 @@ public class Config {
             extraSettlements,
             0,
             32,
-            "Free settlements laid out on each new map besides the ones the teams start on; workers can raise a town"
-                + " center on any free settlement.");
+            "Free settlements laid out on each new map for each team, besides the ones the teams start on; workers can"
+                + " raise a town center on any free settlement.");
         extraGoldMines = configuration.getInt(
             "extraGoldMines",
             buildings,
             extraGoldMines,
             0,
             64,
-            "Gold mines laid out on each new map besides the one by each settlement.");
+            "Gold mines laid out on each new map for each team, besides the one by each settlement.");
+        startingChickens = configuration.getInt(
+            "startingChickens",
+            buildings,
+            startingChickens,
+            0,
+            32,
+            "Chickens that graze near each team's first town center on a new map.");
+        startingLivestock = configuration.getInt(
+            "startingLivestock",
+            buildings,
+            startingLivestock,
+            0,
+            32,
+            "Pigs, cows or sheep (the same for every team) that graze near each team's first town center on a new map.");
         carryCapacity = configuration.getInt(
             "carryCapacity",
             buildings,

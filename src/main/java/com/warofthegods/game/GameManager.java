@@ -49,6 +49,7 @@ public final class GameManager {
         for (int i = 0; i < teamCount; i++) {
             game.addDefaultTeam(Config.startingResources);
         }
+        game.setMapTeams(teamCount);
         data.setGame(game);
         WarOfTheGods.LOG
             .info("Started game #{} with size {}, {} teams and seed {}", game.getNumber(), size, teamCount, seed);

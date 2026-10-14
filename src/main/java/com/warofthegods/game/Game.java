@@ -46,6 +46,10 @@ public class Game {
     private int lastFeatureId;
     /** Whether the neutral settlements and the gold mines have been laid out on the map. */
     private boolean featuresPlaced;
+    /** How many teams the map was laid out for, which places its river and bridges; 0 for maps from before. */
+    private int mapTeams;
+    /** Whether the bridges are in the world. */
+    private boolean bridgesPlaced;
     /** Whether a winner has been decided; nobody is defeated after that. */
     private boolean over;
     /** Ids of the teams that won, once the game is over; empty if nobody did. */
@@ -525,6 +529,24 @@ public class Game {
         return taken;
     }
 
+    public int getMapTeams() {
+        return mapTeams;
+    }
+
+    public void setMapTeams(int mapTeams) {
+        this.mapTeams = mapTeams;
+        changed();
+    }
+
+    public boolean areBridgesPlaced() {
+        return bridgesPlaced;
+    }
+
+    public void setBridgesPlaced() {
+        bridgesPlaced = true;
+        changed();
+    }
+
     public boolean areFeaturesPlaced() {
         return featuresPlaced;
     }
@@ -639,6 +661,8 @@ public class Game {
         tag.setTag("mines", mineList);
         tag.setInteger("lastFeatureId", lastFeatureId);
         tag.setBoolean("featuresPlaced", featuresPlaced);
+        tag.setInteger("mapTeams", mapTeams);
+        tag.setBoolean("bridgesPlaced", bridgesPlaced);
         tag.setBoolean("over", over);
         NBTTagList winnerList = new NBTTagList();
         for (String id : winners) {
@@ -709,6 +733,8 @@ public class Game {
         }
         game.lastFeatureId = tag.getInteger("lastFeatureId");
         game.featuresPlaced = tag.getBoolean("featuresPlaced");
+        game.mapTeams = tag.getInteger("mapTeams");
+        game.bridgesPlaced = tag.getBoolean("bridgesPlaced");
         game.over = tag.getBoolean("over");
         NBTTagList winnerList = tag.getTagList("winners", 8);
         for (int i = 0; i < winnerList.tagCount(); i++) {

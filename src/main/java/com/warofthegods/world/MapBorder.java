@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.IProjectile;
+import net.minecraft.entity.passive.EntityAnimal;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
@@ -92,9 +93,15 @@ public class MapBorder {
         return game != null && !game.isInside(x, z);
     }
 
+    /**
+     * Nothing spawns outside the map, and no animals spawn on their own anywhere on it: every team gets the same herds
+     * near its town center instead.
+     */
     @SubscribeEvent
     public void onCheckSpawn(LivingSpawnEvent.CheckSpawn event) {
-        if (isOutside(event.world, (int) Math.floor(event.x), (int) Math.floor(event.z))) {
+        if (isOutside(event.world, (int) Math.floor(event.x), (int) Math.floor(event.z))
+            || event.entityLiving instanceof EntityAnimal && !event.world.isRemote
+                && GameWorld.isGameWorld(event.world)) {
             event.setResult(Event.Result.DENY);
         }
     }
