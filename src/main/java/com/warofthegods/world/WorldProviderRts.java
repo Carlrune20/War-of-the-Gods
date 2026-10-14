@@ -27,7 +27,11 @@ public class WorldProviderRts extends WorldProvider {
 
     @Override
     public IChunkProvider createChunkGenerator() {
-        return new ChunkProviderRts(worldObj, GameWorld.mapArea(game), GameWorld.seedOf(game, worldObj.getSeed()));
+        return new ChunkProviderRts(
+            worldObj,
+            GameWorld.mapArea(game),
+            GameWorld.seedOf(game, worldObj.getSeed()),
+            GameWorld.mapTeams(game));
     }
 
     @Override
@@ -62,6 +66,6 @@ public class WorldProviderRts extends WorldProvider {
     @Override
     public ChunkCoordinates getSpawnPoint() {
         MapArea area = GameWorld.mapArea(game);
-        return new ChunkCoordinates(area.getCenterX(), ChunkProviderRts.SEA_LEVEL + 2, area.getCenterZ());
+        return new ChunkCoordinates(area.getCenterX(), ChunkProviderRts.BANK + 1, area.getCenterZ());
     }
 }

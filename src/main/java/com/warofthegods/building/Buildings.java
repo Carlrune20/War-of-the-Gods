@@ -145,6 +145,7 @@ public final class Buildings {
             return;
         }
         placeTownHalls(game, world);
+        features.placeBridgesIfDue(game, world);
         features.placeIfDue(game, world);
         construct(game, world);
         train(game);
@@ -352,6 +353,9 @@ public final class Buildings {
             if (mine.overlaps(minX, minZ, sizeX, sizeZ, GAP)) {
                 return new Plan(type, minX, minZ, sizeX, sizeZ, rotation, 0, "That is too close to a gold mine");
             }
+        }
+        if (MapFeatures.bridgeNear(game, minX, minZ, sizeX, sizeZ, GAP + 4)) {
+            return new Plan(type, minX, minZ, sizeX, sizeZ, rotation, 0, "That would block a bridge");
         }
         Site site = survey(world, minX, minZ, sizeX, sizeZ);
         String problem = null;
@@ -941,15 +945,15 @@ public final class Buildings {
         Game game = GameManager.getGame();
         Building building = game == null ? null : buildingWithBlock(game, event.x, event.y, event.z);
         if (building == null) {
-            if (game != null && (MapFeatures.mineWithBlock(game, event.x, event.y, event.z) != null
-                || MapFeatures.freeSettlementWithBlock(game, event.x, event.y, event.z) != null)) {
-                // Gold comes out of mines by workers mining them, and settlements stay for town centers.
+            String feature = game == null ? null : MapFeatures.featureWithBlock(game, event.x, event.y, event.z);
+            if (feature != null) {
+                // Gold comes out of mines by workers mining them, settlements stay for town centers and bridges
+                // stay up.
                 event.setCanceled(true);
                 event.getPlayer()
                     .addChatMessage(
                         new ChatComponentText(
-                            EnumChatFormatting.GRAY
-                                + "That is part of a gold mine or a settlement and cannot be broken."));
+                            EnumChatFormatting.GRAY + "That is part of " + feature + " and cannot be broken."));
             }
             return;
         }
@@ -1028,9 +1032,7 @@ public final class Buildings {
             .iterator();
         while (features.hasNext()) {
             ChunkPosition block = features.next();
-            if (MapFeatures.mineWithBlock(game, block.chunkPosX, block.chunkPosY, block.chunkPosZ) != null
-                || MapFeatures.freeSettlementWithBlock(game, block.chunkPosX, block.chunkPosY, block.chunkPosZ)
-                    != null) {
+            if (MapFeatures.featureWithBlock(game, block.chunkPosX, block.chunkPosY, block.chunkPosZ) != null) {
                 features.remove();
             }
         }

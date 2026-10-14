@@ -8,7 +8,6 @@ import net.minecraft.entity.EnumCreatureType;
 import net.minecraft.init.Blocks;
 import net.minecraft.util.IProgressUpdate;
 import net.minecraft.world.ChunkPosition;
-import net.minecraft.world.SpawnerAnimals;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.BiomeGenBase;
 import net.minecraft.world.chunk.Chunk;
@@ -19,15 +18,18 @@ import net.minecraft.world.gen.feature.WorldGenForest;
 import net.minecraft.world.gen.feature.WorldGenTrees;
 
 /**
- * Simple terrain for a game map: rolling grassland with hills, lakes and forests inside the playable area. Across the
- * margin around it the land slopes down into sea, and beyond the margin there is only sea, so the map reads as an
- * island.
+ * The terrain of a Misthalin map: rolling grassland with low hills and forests, and a river right across it with
+ * three stone bridges, laid out by {@link Misthalin}. There is no sand and there are no lakes. The land goes on across
+ * the margin round the playable area and then stops, cut off sheer, with nothing beyond.
  */
 public class ChunkProviderRts implements IChunkProvider {
 
     /** Highest y that is filled with water. */
     public static final int SEA_LEVEL = 62;
-    private static final int OCEAN_FLOOR = 45;
+    /** The top of the river bed in the middle of the river, so the water is 2 deep. */
+    private static final int RIVER_BED = SEA_LEVEL - 2;
+    /** The banks of the river and the ground the bridges sit on: the top block is one above the water. */
+    public static final int BANK = SEA_LEVEL + 1;
 
     private final World world;
     private final MapArea area;
@@ -35,30 +37,48 @@ public class ChunkProviderRts implements IChunkProvider {
     private final TerrainNoise heightNoise;
     private final TerrainNoise hillNoise;
     private final TerrainNoise forestNoise;
+    private final Misthalin layout;
     private final Random random = new Random();
 
-    public ChunkProviderRts(World world, MapArea area, long seed) {
+    public ChunkProviderRts(World world, MapArea area, long seed, int teams) {
         this.world = world;
         this.area = area;
         this.seed = seed;
+        this.layout = new Misthalin(area, seed, teams);
         this.heightNoise = new TerrainNoise(seed);
         this.hillNoise = new TerrainNoise(seed * 31 + 7);
         this.forestNoise = new TerrainNoise(seed * 17 + 3);
     }
 
-    /** The y of the top solid block of the column. */
+    /** The y of the top solid block of the column; under the river, of its bed. */
     public int heightAt(int x, int z) {
-        double height = 66 + heightNoise.fbm(x / 300.0, z / 300.0, 4) * 9
-            + heightNoise.fbm(x / 60.0 + 500, z / 60.0 + 500, 3) * 3
-            + Math.max(0, hillNoise.fbm(x / 200.0, z / 200.0, 3) - 0.15) * 55;
+        double land = 68 + heightNoise.fbm(x / 300.0, z / 300.0, 4) * 6
+            + heightNoise.fbm(x / 60.0 + 500, z / 60.0 + 500, 3) * 2
+            + Math.max(0, hillNoise.fbm(x / 200.0, z / 200.0, 3) - 0.2) * 35;
+        // Never below the banks, so there are no lakes.
+        land = Math.max(BANK + 1, land);
 
-        double outside = area.distanceOutside(x, z);
-        if (outside > 0) {
-            double t = area.getMargin() == 0 ? 1 : Math.min(1, outside / area.getMargin());
-            double smooth = t * t * (3 - 2 * t);
-            height = height * (1 - smooth) + OCEAN_FLOOR * smooth;
+        double river = layout.riverDistance(x, z);
+        if (river <= Misthalin.RIVER_HALF_WIDTH + 0.5) {
+            return river <= Misthalin.RIVER_HALF_WIDTH - 1.5 ? RIVER_BED : RIVER_BED + 1;
+        }
+        // Down to the banks beside the river, over a wider slope where the land is higher.
+        double bank = 3 + (land - BANK) * 1.2;
+        double t = Math.min(1, (river - Misthalin.RIVER_HALF_WIDTH - 0.5) / bank);
+        double height = BANK + (land - BANK) * t * t * (3 - 2 * t);
+        // Level ground at the ends of the bridges.
+        double approach = layout.bridgeApproach(x, z);
+        if (approach < 1) {
+            height = BANK + (height - BANK) * approach * approach * (3 - 2 * approach);
         }
         return Math.max(1, Math.min(250, (int) Math.round(height)));
+    }
+
+    /** Whether the column lies past the margin, where the land is cut off. */
+    private boolean isCutOff(int x, int z) {
+        int dx = Math.max(Math.max(area.getMinX() - x, x - area.getMaxX()), 0);
+        int dz = Math.max(Math.max(area.getMinZ() - z, z - area.getMaxZ()), 0);
+        return Math.max(dx, dz) > area.getMargin();
     }
 
     /** 0 for open land, rising to about 1 in thick forest. */
@@ -77,23 +97,25 @@ public class ChunkProviderRts implements IChunkProvider {
             for (int localZ = 0; localZ < 16; localZ++) {
                 int x = chunkX * 16 + localX;
                 int z = chunkZ * 16 + localZ;
+                if (isCutOff(x, z)) {
+                    biomes[localZ << 4 | localX] = (byte) BiomeGenBase.plains.biomeID;
+                    continue;
+                }
                 int height = heightAt(x, z);
                 int column = (localX * 16 + localZ) * 256;
+                boolean river = layout.isRiver(x, z);
 
                 Block top;
-                Block filler;
-                if (height <= SEA_LEVEL - 4) {
-                    top = height < SEA_LEVEL - 8 ? Blocks.sand : Blocks.gravel;
-                    filler = Blocks.sand;
-                } else if (height <= SEA_LEVEL + 1) {
-                    top = Blocks.sand;
-                    filler = Blocks.sand;
+                Block filler = Blocks.dirt;
+                if (river) {
+                    // A bed of gravel and clay; no sand anywhere.
+                    int roll = random.nextInt(6);
+                    top = roll == 0 ? Blocks.clay : roll < 3 ? Blocks.gravel : Blocks.dirt;
                 } else {
                     top = Blocks.grass;
-                    filler = Blocks.dirt;
                 }
 
-                for (int y = 0; y <= Math.max(height, SEA_LEVEL); y++) {
+                for (int y = 0; y <= (river ? SEA_LEVEL : height); y++) {
                     Block block;
                     if (y == 0 || y <= 2 && random.nextInt(y + 1) == 0) {
                         block = Blocks.bedrock;
@@ -110,10 +132,8 @@ public class ChunkProviderRts implements IChunkProvider {
                 }
 
                 BiomeGenBase biome;
-                if (height <= SEA_LEVEL - 4) {
-                    biome = BiomeGenBase.ocean;
-                } else if (height <= SEA_LEVEL + 1) {
-                    biome = BiomeGenBase.beach;
+                if (river) {
+                    biome = BiomeGenBase.river;
                 } else if (forestAt(x, z) > 0.2) {
                     biome = BiomeGenBase.forest;
                 } else {
@@ -139,7 +159,10 @@ public class ChunkProviderRts implements IChunkProvider {
         return true;
     }
 
-    /** Trees, grass and flowers on land, and animals inside the playable area. */
+    /**
+     * Trees, grass and flowers on land, none by the river or at the ends of the bridges. Animals are not spawned
+     * here: each team gets the same herds near its town center once the game is under way.
+     */
     @Override
     public void populate(IChunkProvider provider, int chunkX, int chunkZ) {
         int originX = chunkX * 16 + 8;
@@ -152,7 +175,11 @@ public class ChunkProviderRts implements IChunkProvider {
             int x = originX + random.nextInt(16);
             int z = originZ + random.nextInt(16);
             int y = world.getHeightValue(x, z);
-            if (world.getBlock(x, y - 1, z) == Blocks.grass) {
+            if (world.getBlock(x, y - 1, z) == Blocks.grass
+                && layout.riverDistance(x, z) > Misthalin.RIVER_HALF_WIDTH + 4
+                && layout.bridgeApproach(x, z) >= 1
+                && !isCutOff(x + 3, z + 3)
+                && !isCutOff(x - 3, z - 3)) {
                 treeGenerator().generate(world, random, x, y, z);
             }
         }
@@ -173,10 +200,6 @@ public class ChunkProviderRts implements IChunkProvider {
             }
         }
 
-        if (area.isInside(originX + 8, originZ + 8)) {
-            BiomeGenBase biome = world.getBiomeGenForCoords(originX + 8, originZ + 8);
-            SpawnerAnimals.performWorldGenSpawning(world, biome, originX, originZ, 16, 16, random);
-        }
     }
 
     private WorldGenAbstractTree treeGenerator() {

@@ -1,9 +1,15 @@
 package com.warofthegods.building;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import net.minecraft.entity.passive.EntityAnimal;
+import net.minecraft.entity.passive.EntityChicken;
+import net.minecraft.entity.passive.EntityCow;
+import net.minecraft.entity.passive.EntityPig;
+import net.minecraft.entity.passive.EntitySheep;
 import net.minecraft.world.WorldServer;
 
 import com.warofthegods.Config;
@@ -15,12 +21,15 @@ import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.Settlement;
 import com.warofthegods.game.Team;
 import com.warofthegods.web.WebMap;
+import com.warofthegods.world.ChunkProviderRts;
+import com.warofthegods.world.GameWorld;
+import com.warofthegods.world.Misthalin;
 
 /**
- * The things on a map that belong to no team: settlements, where town centers stand, and gold mines, the only source
- * of gold. Once every team's first town center is up, free settlements are laid out between the teams, a gold mine
- * behind every settlement, and a few more mines out in the open, so each team has gold close to home and more worth
- * fighting over.
+ * The things on a map that belong to no team: the bridges over the river, settlements, where town centers stand, gold
+ * mines, the only source of gold, and the animals that graze near each town center. Bridges are built as soon as the
+ * game world is up. Once every team's first town center is up, the rest is laid out the same way round each team, so
+ * no team starts better off.
  */
 public final class MapFeatures {
 
@@ -39,36 +48,54 @@ public final class MapFeatures {
         return schematic;
     }
 
-    /** Lays out the map's settlements and gold mines once every team has its first town center. */
+    /**
+     * Lays out the map's settlements, gold mines and herds once every team has its first town center. Each team gets
+     * the same: free settlements and a gold mine out to its sides, turned the same way round the middle of the map as
+     * the team is, a gold mine behind every settlement, and chickens and livestock grazing near its town center.
+     */
     void placeIfDue(Game game, WorldServer world) {
         if (game.areFeaturesPlaced()) {
             return;
         }
-        List<Team> teams = new java.util.ArrayList<>(game.getTeams());
+        List<Team> teams = new ArrayList<>(game.getTeams());
         for (Team team : teams) {
             if (team.getBase() == null || team.isTownHallDue()) {
                 return;
             }
         }
         int n = Math.max(2, teams.size());
-        double radius = game.getSize() * 0.3;
         Schematic camp = Buildings.get()
             .schematic(BuildingType.TOWN_HALL);
-        for (int k = 0; k < Config.extraSettlements; k++) {
-            // Between the teams' bases, on the same circle.
-            double angle = -Math.PI / 2 + Math.PI / n + 2 * Math.PI * k / Math.max(1, Config.extraSettlements);
-            int x = (int) Math.round(game.getCenterX() + Math.cos(angle) * radius);
-            int z = (int) Math.round(game.getCenterZ() + Math.sin(angle) * radius);
-            int rotation = facingMiddle(game, x, z);
-            int[] spot = findSpot(game, world, x, z, camp.sizeX(rotation), camp.sizeZ(rotation), 6, 64);
-            if (spot != null) {
-                Settlement settlement = game
-                    .addSettlement(spot[0], spot[1], camp.sizeX(rotation), camp.sizeZ(rotation), spot[2], rotation);
-                showSettlement(world, settlement);
+        for (int i = 0; i < teams.size(); i++) {
+            double angle = -Math.PI / 2 + 2 * Math.PI * i / n;
+            for (int k = 0; k < Config.extraSettlements; k++) {
+                // To one side of the team, then the other, further round each time.
+                double turn = (k % 2 == 0 ? 1 : -1) * Math.PI / 3 * (1 + k / 2) / Math.max(1, n / 2.0);
+                int[] spot = around(game, angle + turn, 0.32);
+                int rotation = facingMiddle(game, spot[0], spot[1]);
+                int[] found = findSpot(
+                    game,
+                    world,
+                    spot[0],
+                    spot[1],
+                    camp.sizeX(rotation),
+                    camp.sizeZ(rotation),
+                    6,
+                    64);
+                if (found != null) {
+                    Settlement settlement = game.addSettlement(
+                        found[0],
+                        found[1],
+                        camp.sizeX(rotation),
+                        camp.sizeZ(rotation),
+                        found[2],
+                        rotation);
+                    showSettlement(world, settlement);
+                }
             }
         }
         Schematic mine = schematic("gold_mine");
-        for (Settlement settlement : new java.util.ArrayList<>(game.getSettlements())) {
+        for (Settlement settlement : new ArrayList<>(game.getSettlements())) {
             // Behind the settlement, away from the middle of the map.
             double dx = settlement.getCenterX() - game.getCenterX();
             double dz = settlement.getCenterZ() - game.getCenterZ();
@@ -82,11 +109,17 @@ public final class MapFeatures {
             int z = (int) Math.round(settlement.getCenterZ() + dz / length * out);
             addMine(game, world, x, z, 32);
         }
-        for (int k = 0; k < Config.extraGoldMines; k++) {
-            double angle = Math.PI / 4 + 2 * Math.PI * k / Math.max(1, Config.extraGoldMines);
-            int x = (int) Math.round(game.getCenterX() + Math.cos(angle) * game.getSize() * 0.15);
-            int z = (int) Math.round(game.getCenterZ() + Math.sin(angle) * game.getSize() * 0.15);
-            addMine(game, world, x, z, 48);
+        for (int i = 0; i < teams.size(); i++) {
+            double angle = -Math.PI / 2 + 2 * Math.PI * i / n;
+            for (int k = 0; k < Config.extraGoldMines; k++) {
+                // Between the team and the middle, off to the side its extra settlement is not on.
+                double turn = (k % 2 == 0 ? -1 : 1) * Math.PI / 4.5 * (1 + k / 2) / Math.max(1, n / 2.0);
+                int[] spot = around(game, angle + turn, 0.2);
+                addMine(game, world, spot[0], spot[1], 48);
+            }
+        }
+        for (Team team : teams) {
+            placeHerds(game, world, team);
         }
         game.setFeaturesPlaced();
         WarOfTheGods.LOG.info(
@@ -95,6 +128,56 @@ public final class MapFeatures {
                 .size(),
             game.getMines()
                 .size());
+    }
+
+    /** The spot at an angle round the middle of the map, a fraction of the map's size out. */
+    private static int[] around(Game game, double angle, double fraction) {
+        return new int[] { (int) Math.round(game.getCenterX() + Math.cos(angle) * game.getSize() * fraction),
+            (int) Math.round(game.getCenterZ() + Math.sin(angle) * game.getSize() * fraction) };
+    }
+
+    /**
+     * A flock of chickens to one side of the team's town center and a herd of livestock to the other, the same for
+     * every team: pigs, cows or sheep, picked by the map's seed.
+     */
+    private static void placeHerds(Game game, WorldServer world, Team team) {
+        Building center = game.getTownHall(team);
+        if (center == null) {
+            return;
+        }
+        double cx = center.minX + center.sizeX / 2.0;
+        double cz = center.minZ + center.sizeZ / 2.0;
+        double dx = cx - game.getCenterX();
+        double dz = cz - game.getCenterZ();
+        double length = Math.max(1, Math.sqrt(dx * dx + dz * dz));
+        // Across the line from the middle of the map, and a little out from the town center.
+        double sideX = -dz / length;
+        double sideZ = dx / length;
+        double reach = Math.max(center.sizeX, center.sizeZ) / 2.0 + 12;
+        int livestock = (int) Math.floorMod(game.getSeed(), 3L);
+        herd(world, cx + sideX * reach, cz + sideZ * reach, -1, Config.startingChickens);
+        herd(world, cx - sideX * reach, cz - sideZ * reach, livestock, Config.startingLivestock);
+    }
+
+    /** Animals of a kind round x, z: -1 chickens, 0 pigs, 1 cows, 2 sheep. */
+    private static void herd(WorldServer world, double x, double z, int kind, int count) {
+        int[] ground = GameWorld.findDryGround(world, (int) Math.floor(x), (int) Math.floor(z), 16);
+        for (int i = 0; i < count; i++) {
+            EntityAnimal animal = kind < 0 ? new EntityChicken(world)
+                : kind == 0 ? new EntityPig(world) : kind == 1 ? new EntityCow(world) : new EntitySheep(world);
+            if (animal instanceof EntitySheep) {
+                ((EntitySheep) animal).setFleeceColor(EntitySheep.getRandomFleeceColor(world.rand));
+            }
+            int ax = ground[0] + world.rand.nextInt(5) - 2;
+            int az = ground[2] + world.rand.nextInt(5) - 2;
+            animal.setLocationAndAngles(
+                ax + 0.5,
+                world.getTopSolidOrLiquidBlock(ax, az),
+                az + 0.5,
+                world.rand.nextFloat() * 360,
+                0);
+            world.spawnEntityInWorld(animal);
+        }
     }
 
     private void addMine(Game game, WorldServer world, int x, int z, int search) {
@@ -160,7 +243,23 @@ public final class MapFeatures {
                 return false;
             }
         }
-        return true;
+        return !bridgeNear(game, minX, minZ, sizeX, sizeZ, SPACING + 4);
+    }
+
+    /** Whether a footprint comes within margin blocks of a bridge. */
+    public static boolean bridgeNear(Game game, int minX, int minZ, int sizeX, int sizeZ, int margin) {
+        Misthalin layout = GameWorld.layout(game);
+        if (layout == null) {
+            return false;
+        }
+        for (Misthalin.Bridge bridge : layout.getBridges()) {
+            if (minX < bridge.minX + bridge.sizeX + margin && bridge.minX < minX + sizeX + margin
+                && minZ < bridge.minZ + bridge.sizeZ + margin
+                && bridge.minZ < minZ + sizeZ + margin) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Puts a free settlement's standing stones into the world. */
@@ -186,6 +285,55 @@ public final class MapFeatures {
         int groundY, int rotation) {
         schematic.paste(world, minX, minZ, groundY, rotation);
         WebMap.blocksChanged(world, minX - 1, minZ - 1, minX + sizeX, minZ + sizeZ);
+    }
+
+    /** What map feature x, y, z is a block of, as "a gold mine", "a settlement" or "a bridge"; null for none. */
+    public static String featureWithBlock(Game game, int x, int y, int z) {
+        if (mineWithBlock(game, x, y, z) != null) {
+            return "a gold mine";
+        }
+        if (freeSettlementWithBlock(game, x, y, z) != null) {
+            return "a settlement";
+        }
+        if (bridgeWithBlock(game, x, y, z) != null) {
+            return "a bridge";
+        }
+        return null;
+    }
+
+    /** Whether x, y, z is one of a bridge's blocks, down to the river bed. */
+    public static Misthalin.Bridge bridgeWithBlock(Game game, int x, int y, int z) {
+        Misthalin layout = game.areBridgesPlaced() ? GameWorld.layout(game) : null;
+        Misthalin.Bridge bridge = layout == null ? null : layout.bridgeAt(x, z);
+        return bridge != null && y >= ChunkProviderRts.BANK - 3 && y <= ChunkProviderRts.BANK + 3 ? bridge : null;
+    }
+
+    /** Builds the bridges over the river once the game world is up; they cannot be broken. */
+    void placeBridgesIfDue(Game game, WorldServer world) {
+        if (game.areBridgesPlaced()) {
+            return;
+        }
+        Misthalin layout = GameWorld.layout(game);
+        if (layout == null) {
+            return;
+        }
+        Schematic schematic = schematic("bridge");
+        for (Misthalin.Bridge bridge : layout.getBridges()) {
+            paste(
+                world,
+                schematic,
+                bridge.minX,
+                bridge.minZ,
+                bridge.sizeX,
+                bridge.sizeZ,
+                ChunkProviderRts.BANK,
+                bridge.rotation);
+        }
+        game.setBridgesPlaced();
+        WarOfTheGods.LOG.info(
+            "Built {} bridges over the river",
+            layout.getBridges()
+                .size());
     }
 
     /** Whether x, y, z is one of a gold mine's blocks. */

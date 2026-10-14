@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Checks a web map tile (see MapTiles.java): zlib-compressed, starts with "WOTG" and format 1, holds 64 chunks of
-which some have blocks, and every chunk's columns add up to its length. Prints how many blocks it holds.
+which some have blocks, every chunk's columns add up to its length, and there is no sand. Prints how many blocks it
+holds.
 
 Usage: map-tile-check.py <tile file>
 """
@@ -21,6 +22,8 @@ pos = 5
 chunks = 0
 blocks = 0
 grass = 0
+sand = 0
+water = 0
 for _ in range(64):
     (length,) = struct.unpack_from(">I", data, pos)
     pos += 4
@@ -33,10 +36,14 @@ for _ in range(64):
         fail(f"chunk length {length} does not match its {counts} blocks")
     values = struct.unpack_from(f">{counts}H", chunk, 512)
     grass += sum(1 for v in values if v >> 4 == 2)
+    sand += sum(1 for v in values if v >> 4 == 12)
+    water += sum(1 for v in values if v >> 4 in (8, 9))
     blocks += counts
     chunks += 1
 if pos != len(data):
     fail(f"{len(data) - pos} bytes left over")
 if not chunks or not grass:
     fail(f"{chunks} chunks with {grass} grass blocks")
-print(f"ok: map tile with {chunks} chunks, {blocks} blocks, {grass} of them grass")
+if sand:
+    fail(f"{sand} sand blocks; maps have no sand")
+print(f"ok: map tile with {chunks} chunks, {blocks} blocks, {grass} of them grass, {water} water and no sand")

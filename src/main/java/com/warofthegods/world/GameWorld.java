@@ -73,6 +73,33 @@ public final class GameWorld {
         return MapArea.of(game, Config.mapMargin);
     }
 
+    /** How many teams the map is laid out for. */
+    static int mapTeams(Game game) {
+        if (game == null) {
+            return 2;
+        }
+        return Math.max(
+            2,
+            game.getMapTeams() > 0 ? game.getMapTeams()
+                : game.getTeams()
+                    .size());
+    }
+
+    private static Misthalin layout;
+    private static int layoutGame = -1;
+
+    /** The river and bridges of the running game's map; null for no game, or a map from before there were any. */
+    public static Misthalin layout(Game game) {
+        if (game == null || game.getMapTeams() == 0) {
+            return null;
+        }
+        if (layout == null || layoutGame != game.getNumber()) {
+            layout = new Misthalin(mapArea(game), game.getSeed(), mapTeams(game));
+            layoutGame = game.getNumber();
+        }
+        return layout;
+    }
+
     static long seedOf(Game game, long worldSeed) {
         return game == null ? worldSeed : game.getSeed();
     }
