@@ -88,11 +88,8 @@ public final class WinConditions {
         for (int warning : WARNINGS) {
             if (before > warning && now <= warning) {
                 CommandRts.broadcast(
-                    "Team " + team.getColoredName()
-                        + gold()
-                        + " has "
-                        + clock(now)
-                        + " left to raise a new town center.");
+                    "Team " + team
+                        .getColoredName() + gold() + " has " + clock(now) + " left to raise a new town center.");
             }
         }
     }
@@ -164,10 +161,7 @@ public final class WinConditions {
             plain.add(team.getName());
         }
         CommandRts.broadcast(
-            "Game #" + game.getNumber()
-                + " is over! "
-                + join(names)
-                + (standing.size() == 1 ? " wins!" : " win!"));
+            "Game #" + game.getNumber() + " is over! " + join(names) + (standing.size() == 1 ? " wins!" : " win!"));
         WarOfTheGods.LOG.info("Game #{} is over: {} won", game.getNumber(), join(plain));
     }
 

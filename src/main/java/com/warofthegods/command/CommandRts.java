@@ -280,7 +280,9 @@ public class CommandRts extends CommandBase {
             for (Team team : game.getWinners()) {
                 winners.add(team.getColoredName());
             }
-            send(sender, "The game is over. " + (winners.isEmpty() ? "Nobody won" : "Won: " + String.join(", ", winners)));
+            send(
+                sender,
+                "The game is over. " + (winners.isEmpty() ? "Nobody won" : "Won: " + String.join(", ", winners)));
         }
         unitSummary(sender, game);
         List<Team[]> alliances = game.getAlliances();

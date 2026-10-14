@@ -292,10 +292,7 @@ public class Game {
     /** Remembers where a unit is; only marks the game changed when the unit is new or moved to another chunk. */
     public void updateUnitRecord(UUID id, String team, UnitKind kind, int chunkX, int chunkZ) {
         UnitRecord old = units.get(id);
-        if (old == null || old.chunkX != chunkX
-            || old.chunkZ != chunkZ
-            || !old.team.equals(team)
-            || old.kind != kind) {
+        if (old == null || old.chunkX != chunkX || old.chunkZ != chunkZ || !old.team.equals(team) || old.kind != kind) {
             units.put(id, new UnitRecord(id, team, kind, chunkX, chunkZ));
             changed();
         }
