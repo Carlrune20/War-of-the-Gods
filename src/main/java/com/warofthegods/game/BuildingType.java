@@ -28,7 +28,13 @@ public enum BuildingType {
     /** Researches military upgrades. */
     ARMORY("armory", "Armory", "armory", 2, true, false),
     /** Watches over the land round it; shoots arrows at enemies once its team has watch towers. */
-    TOWER("tower", "Tower", "tower", 2, true, false);
+    TOWER("tower", "Tower", "tower", 2, true, false),
+    /** A straight piece of wall, laid out with others in a line by {@link WallLine}. */
+    WALL("wall", "Wall", "wall", 3, true, false),
+    /** Where a wall turns or ends; comes with walls. */
+    WALL_POST("wall_post", "Wall post", "wallPost", 3, false, false),
+    /** A wall segment made into a gate, which opens for the team and its allies. */
+    GATE("gate", "Gate", "gate", 3, false, false);
 
     public final String id;
     public final String displayName;
@@ -68,6 +74,13 @@ public enum BuildingType {
         this.buildable = buildable;
         this.storesResources = storesResources;
         this.trains = Collections.unmodifiableList(Arrays.asList(trains));
+    }
+
+    /**
+     * Whether it is a piece of wall: a segment, a post or a gate. Walls look their team's wall upgrades, not its age.
+     */
+    public boolean isWall() {
+        return this == WALL || this == WALL_POST || this == GATE;
     }
 
     /** Whether workers can work here, gathering resources. */
@@ -122,9 +135,12 @@ public enum BuildingType {
         return Config.buildingHealth.get(this);
     }
 
-    /** Health at a level: the same at every level, which only changes how it looks. */
+    /**
+     * Health at a level: the same at every level, which only changes how it looks, except for walls, which have
+     * twice as much in stone and three times as much in stone brick.
+     */
     public int maxHealth(int level) {
-        return maxHealth();
+        return isWall() ? maxHealth() * level : maxHealth();
     }
 
     /** Ticks of work one worker puts in to build it; two workers take half as long. */

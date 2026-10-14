@@ -995,7 +995,77 @@ def tower(p, level):
     return s
 
 
+# ---------------------------------------------------------------- walls
+#
+# Walls are 3 by 3 pieces laid along a line: straight segments, posts where the line turns or ends, and gates made
+# from segments. A segment runs along x at rotation 0, its wall in the middle row. Level 1 is a wooden palisade,
+# level 2 stone and level 3 stone brick with battlements; Zamorak's are dark oak, smooth stone and nether brick.
+
+
+def wall_style(p, level):
+    """The body, foot and top of a wall at a level, and how tall its body stands."""
+    if zam(p):
+        return [((LOG2, 1), (NETHERRACK, 0), (NETHER_FENCE, 0), 3),
+                ((STONE, 0), (COBBLE, 0), (SLAB, 0), 3),
+                ((NETHER_BRICK, 0), (NETHER_BRICK, 0), (NETHER_FENCE, 0), 4)][level - 1]
+    return [((LOG, 0), (COBBLE, 0), (FENCE, 0), 3),
+            ((COBBLE, 0), (COBBLE, 0), (COBBLE_WALL, 0), 3),
+            ((STONE_BRICK, 0), (STONE_BRICK, 0), (SLAB, 5), 4)][level - 1]
+
+
+def wall_ground(s):
+    """Ground under and round a wall piece, so it sits in the terrain without a hole round it."""
+    s.fill(0, -1, 0, 2, -1, 2, (DIRT, 0))
+    s.fill(0, 0, 0, 2, 0, 2, (GRASS, 0))
+
+
+def wall(p, level, gate=False):
+    body, foot, top, height = wall_style(p, level)
+    s = Struct(3, 3, 6, 1)
+    wall_ground(s)
+    for x in range(3):
+        s.set(x, 0, 1, foot)
+        s.fill(x, 1, 1, x, height, 1, body)
+    # Spikes or battlements on every other block.
+    for x in (0, 2):
+        s.set(x, height + 1, 1, top)
+    if level == 1:
+        s.set(1, height + 1, 1, top)
+    if gate:
+        # An opening two high with a gate in it, which opens for the team's own people and its allies.
+        s.set(1, 1, 1, (FENCE_GATE, 0))
+        s.set(1, 2, 1, (FENCE_GATE, 0))
+        s.set(1, 0, 1, foot)
+        if level == 1:
+            s.set(1, height, 1, body)
+        s.set(0, height + 1, 1, (p.light, 5) if level > 1 else top)
+        s.set(2, height + 1, 1, (p.light, 5) if level > 1 else top)
+        if level > 1:
+            # A lintel over the opening, with the team's colour hanging from it.
+            s.set(1, height + 1, 1, body)
+            s.set(1, 3, 0, p.banner)
+            s.set(1, 3, 2, p.banner)
+    return s
+
+
+def wall_post(p, level):
+    """Where a wall turns or ends: a pillar a block taller than the wall, with stubs of wall all four ways so it
+    meets the wall whichever way the wall comes in."""
+    body, foot, top, height = wall_style(p, level)
+    s = Struct(3, 3, 6, 1)
+    wall_ground(s)
+    for x, z in ((1, 1), (0, 1), (2, 1), (1, 0), (1, 2)):
+        s.set(x, 0, z, foot)
+        s.fill(x, 1, z, x, height, z, body)
+    s.fill(1, height + 1, 1, 1, height + 1, 1, foot if level > 1 else body)
+    s.set(1, height + 2, 1, (p.light, 5) if level > 1 else top)
+    return s
+
+
 BUILDINGS = {
+    "wall": (wall, 3),
+    "wall_post": (wall_post, 3),
+    "gate": (lambda p, level: wall(p, level, gate=True), 3),
     "town_hall": (town_center, 3),
     "house": (house, 2),
     "barracks": (barracks, 2),

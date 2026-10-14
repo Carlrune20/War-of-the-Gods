@@ -646,7 +646,8 @@
 
     // The building, unit and resource icons in icons.png, one 16 pixel square each, in this order.
     const SPRITES = ["town_hall", "house", "barracks", "storehouse", "quarry", "farm", "armory", "tower", "worker",
-        "soldier", "archer", "tree", "upgrade", "level", "food", "wood", "gold", "sword", "axe", "pickaxe", "hoe"];
+        "soldier", "archer", "tree", "upgrade", "level", "food", "wood", "gold", "sword", "axe", "pickaxe", "hoe", "wall",
+        "gate"];
 
     function sprite(name) {
         const span = el("span", "sprite");
@@ -687,7 +688,14 @@
         }
         const actions = el("span");
         const building = state.buildings.get(state.selectedBuilding);
-        if (placing) {
+        if (placing && placing.type === "wall") {
+            const wall = placingWall();
+            actions.append(el("span", "note", placing.start
+                ? "Wall: click where it ends" + (wall ? ", " + wall.pieces.length + " pieces for "
+                    + costText(wallCost(wall.pieces.length)) : "")
+                : "Wall: click where it starts, or on one of your towers to run it from there"));
+            actions.append(button("Cancel", "Esc or right-click", () => stopPlacing()));
+        } else if (placing) {
             const type = buildingType(placing.type);
             actions.append(el("span", "note", "Place " + type.name.toLowerCase() + ": click to place, R to rotate"));
             actions.append(button("Rotate", "Turn it a quarter round (R)", () => rotatePlacing()));
@@ -704,9 +712,12 @@
                     continue;
                 }
                 const aged = (team.age || 1) >= (type.age || 1);
-                const b = iconButton(id, type.name, aged ? "Build a " + type.name.toLowerCase() + " for "
-                    + costText(type.cost) + ", then click on the map where it goes"
-                    : "Needs " + ageName(type.age) + ": take your town center up a level", () => startPlacing(id));
+                const title = !aged ? "Needs " + ageName(type.age) + ": take your town center up a level"
+                    : id === "wall" ? "Build a wall, " + costText(type.cost)
+                        + " a piece: click where it starts and where it ends, or on two of your towers"
+                        : "Build a " + type.name.toLowerCase() + " for " + costText(type.cost)
+                            + ", then click on the map where it goes";
+                const b = iconButton(id, type.name, title, () => startPlacing(id));
                 b.disabled = !aged || !canAfford(team, type.cost);
                 actions.append(b);
             }
@@ -839,6 +850,17 @@
             + (building.level > 1 ? " " + roman(building.level) : "") + (alike > 1 ? " \u00D7" + alike : "")));
         actions.append(title);
         actions.append(el("span", "note", "Health " + building.health + "/" + building.maxHealth));
+        if (building.type === "wall" && building.team === team.id) {
+            const gateCost = buildingType("gate").cost || {};
+            const gate = iconButton("gate", "Make gate (" + costText(gateCost) + ")",
+                "Make this piece of wall a gate at once, which opens for your units and your allies'", async () => {
+                    if (await send("buildings.gate", {building: building.id})) {
+                        showToast("Gate made");
+                    }
+                });
+            gate.disabled = !canAfford(team, gateCost);
+            actions.append(gate);
+        }
         if (type.workers) {
             actions.append(el("span", "note", (building.workers || 0) + " of " + type.workers + " workers"));
         }
@@ -1070,7 +1092,7 @@
 
     function startPlacing(type) {
         lighting = null;
-        placing = {type, rotation: placing ? placing.rotation : 0, cx: null, cz: null};
+        placing = {type, rotation: placing ? placing.rotation : 0, cx: null, cz: null, start: null};
         renderUnitBar();
         view.dirty = true;
     }
@@ -1095,7 +1117,7 @@
     // Where the footprint of the building being placed goes and whether it fits: inside the map and clear of
     // other buildings. The server also checks the ground is dry and level enough.
     function placingFootprint() {
-        if (!placing || placing.cx === null) {
+        if (!placing || placing.cx === null || placing.type === "wall") {
             return null;
         }
         const type = buildingType(placing.type);
@@ -1128,6 +1150,100 @@
             }
         }
         return {x, z, sizeX, sizeZ, ok, y: surfaceY(placing.cx, placing.cz) - 1, rotation: placing.rotation};
+    }
+
+    // The wall being laid out, from where it starts to the pointer (or the pointer alone before the first click), as
+    // its pieces and whether it fits; see WallLine.java, which the server lays the wall out with.
+    function placingWall() {
+        if (!placing || placing.type !== "wall" || placing.cx === null) {
+            return null;
+        }
+        const team = myTeam();
+        const towerAt = (x, z) => [...state.buildings.values()].find((b) => team && b.team === team.id
+            && b.type === "tower" && x >= b.x - 1 && x < b.x + b.sizeX + 1 && z >= b.z - 1 && z < b.z + b.sizeZ + 1);
+        const end = (x, z) => {
+            const tower = towerAt(x, z);
+            return tower ? [Math.floor(tower.x + tower.sizeX / 2), Math.floor(tower.z + tower.sizeZ / 2)] : [x, z];
+        };
+        const [x1, z1] = placing.start ? end(placing.start.x, placing.start.z) : end(placing.cx, placing.cz);
+        const [x2, z2] = end(placing.cx, placing.cz);
+        const own = (b) => team && b.team === team.id && (b.type === "tower" || isWallType(b.type));
+        const pieces = wallPieces(x1, z1, x2, z2, (minX, minZ) => [...state.buildings.values()].some((b) => own(b)
+            && minX < b.x + b.sizeX && b.x < minX + 3 && minZ < b.z + b.sizeZ && b.z < minZ + 3));
+        const g = state.game;
+        let ok = pieces.length > 0;
+        for (const p of pieces) {
+            p.y = surfaceY(p.x + 1, p.z + 1) - 1;
+            if (p.x < g.minX || p.z < g.minZ || p.x + 2 > g.maxX || p.z + 2 > g.maxZ) {
+                ok = false;
+            }
+            const hits = (f, gap) => p.x < f.x + f.sizeX + gap && f.x < p.x + 3 + gap && p.z < f.z + f.sizeZ + gap
+                && f.z < p.z + 3 + gap;
+            for (const b of state.buildings.values()) {
+                if (hits(b, 0)) {
+                    ok = false;
+                }
+            }
+            for (const f of state.settlements.concat(state.mines)) {
+                if (hits(f, 1)) {
+                    ok = false;
+                }
+            }
+        }
+        return {pieces, ok};
+    }
+
+    function isWallType(type) {
+        return type === "wall" || type === "wall_post" || type === "gate";
+    }
+
+    function wallCost(pieces) {
+        const cost = {};
+        for (const [resource, amount] of Object.entries(buildingType("wall").cost || {})) {
+            cost[resource] = amount * pieces;
+        }
+        return cost;
+    }
+
+    // The 3 by 3 pieces of a wall from x1, z1 to x2, z2: straight where it can, a zigzag of single steps on a slant,
+    // posts where it turns or ends. The same as WallLine.java.
+    function wallPieces(x1, z1, x2, z2, skip) {
+        const ox = x1 - 1;
+        const oz = z1 - 1;
+        const endI = Math.floor((x2 - ox) / 3);
+        const endJ = Math.floor((z2 - oz) / 3);
+        const cells = [[0, 0]];
+        let i = 0;
+        let j = 0;
+        while ((i !== endI || j !== endJ) && cells.length < 64) {
+            let si = Math.sign(endI - i);
+            let sj = Math.sign(endJ - j);
+            if (si !== 0 && sj !== 0) {
+                const alongI = Math.abs(endJ * (i + si) - endI * j);
+                const alongJ = Math.abs(endJ * i - endI * (j + sj));
+                if (alongJ < alongI) {
+                    si = 0;
+                } else {
+                    sj = 0;
+                }
+            }
+            i += si;
+            j += sj;
+            cells.push([i, j]);
+        }
+        const kept = cells.map(([ci, cj]) => !skip(ox + ci * 3, oz + cj * 3));
+        const pieces = [];
+        cells.forEach(([ci, cj], k) => {
+            if (!kept[k]) {
+                return;
+            }
+            const before = k > 0 && kept[k - 1] ? [ci - cells[k - 1][0], cj - cells[k - 1][1]] : null;
+            const after = k < cells.length - 1 && kept[k + 1] ? [cells[k + 1][0] - ci, cells[k + 1][1] - cj] : null;
+            const post = !before || !after || before[0] !== after[0] || before[1] !== after[1];
+            pieces.push({x: ox + ci * 3, z: oz + cj * 3, type: post ? "wall_post" : "wall",
+                rotation: post ? 0 : before[0] !== 0 ? 0 : 1});
+        });
+        return pieces;
     }
 
     // The free settlement whose footprint holds x, z or comes within margin blocks of it, nearest first.
@@ -1169,6 +1285,10 @@
 
     async function place(px, py, keep) {
         movePlacing(px, py);
+        if (placing.type === "wall") {
+            placeWall(keep);
+            return;
+        }
         const spot = placingFootprint();
         if (!spot) {
             return;
@@ -1193,6 +1313,42 @@
             queue: Boolean(keep)});
         if (reply) {
             showToast(buildingType(type).name + " site laid out");
+        }
+    }
+
+    // The first click says where a wall starts, the second where it ends, and the selected workers go to build it.
+    async function placeWall(keep) {
+        if (placing.cx === null) {
+            return;
+        }
+        if (!placing.start) {
+            placing.start = {x: placing.cx, z: placing.cz};
+            renderUnitBar();
+            view.dirty = true;
+            return;
+        }
+        const wall = placingWall();
+        if (!wall || !wall.ok) {
+            showToast("The wall does not fit there", true);
+            return;
+        }
+        const workers = selectedWorkers();
+        if (!workers.length) {
+            showToast("Select a worker to build with", true);
+            stopPlacing();
+            return;
+        }
+        const {start, cx, cz} = placing;
+        // Shift starts the next wall where this one ends.
+        if (keep) {
+            placing.start = {x: cx, z: cz};
+        } else {
+            stopPlacing();
+        }
+        const reply = await send("buildings.wall", {x1: start.x, z1: start.z, x2: cx, z2: cz, units: workers,
+            queue: Boolean(keep)});
+        if (reply) {
+            showToast("Wall of " + reply.pieces + " pieces laid out");
         }
     }
 
@@ -2352,6 +2508,13 @@
             const color = spot.ok ? [0.93, 0.91, 0.86, 0.35] : [1, 0.3, 0.25, 0.4];
             ghostBoxes(boxes, placing.type, spot.rotation, spot.x, spot.z, spot.y, color);
         }
+        const wall = placingWall();
+        if (wall) {
+            const color = wall.ok ? [0.93, 0.91, 0.86, 0.35] : [1, 0.3, 0.25, 0.4];
+            for (const p of wall.pieces) {
+                ghostBoxes(boxes, p.type, p.rotation, p.x, p.z, p.y, color);
+            }
+        }
         return boxes;
     }
 
@@ -2433,6 +2596,10 @@
         if (spot) {
             const color = spot.ok ? SELECTED : ATTACK;
             rect(lines, spot.x, spot.z, spot.x + spot.sizeX, spot.z + spot.sizeZ, spot.y + 1.1, color);
+        }
+        const wall = placingWall();
+        for (const p of wall ? wall.pieces : []) {
+            rect(lines, p.x, p.z, p.x + 3, p.z + 3, p.y + 1.1, wall.ok ? SELECTED : ATTACK);
         }
         return lines;
     }

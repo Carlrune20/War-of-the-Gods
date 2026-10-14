@@ -1777,7 +1777,7 @@ public class EntityUnit extends EntityCreature {
         }
         if (route == null || Math.abs(routeX - x) > 3 || Math.abs(routeZ - z) > 3) {
             Game game = GameManager.getGame();
-            route = game == null ? null : Routes.find(worldObj, game, posX, posZ, x, z);
+            route = game == null ? null : Routes.find(worldObj, game, teamId, posX, posZ, x, z);
             routeX = x;
             routeZ = z;
             if (route == null) {

@@ -8,11 +8,14 @@ import java.util.PriorityQueue;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
+import net.minecraft.init.Blocks;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 
 import com.warofthegods.game.Building;
+import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
+import com.warofthegods.game.Team;
 
 /**
  * Long-range paths across the map. Minecraft's own pathfinder only looks a few dozen blocks ahead, so a unit sent
@@ -47,6 +50,15 @@ public final class Routes {
      * search this tick or no way was found, in which case the unit heads straight for the goal as before.
      */
     public static List<double[]> find(World world, Game game, double fromX, double fromZ, double toX, double toZ) {
+        return find(world, game, null, fromX, fromZ, toX, toZ);
+    }
+
+    /**
+     * Waypoints for a unit of a team, which may go through the gates of its own team and its allies; null for no
+     * team, which goes through none.
+     */
+    public static List<double[]> find(World world, Game game, String team, double fromX, double fromZ, double toX,
+        double toZ) {
         long tick = world.getTotalWorldTime();
         if (tick != searchTick) {
             searchTick = tick;
@@ -55,7 +67,7 @@ public final class Routes {
         if (++searches > SEARCHES_PER_TICK) {
             return null;
         }
-        return new Search(world, game, floor(fromX), floor(fromZ), floor(toX), floor(toZ)).run();
+        return new Search(world, game, team, floor(fromX), floor(fromZ), floor(toX), floor(toZ)).run();
     }
 
     private static int floor(double value) {
@@ -99,7 +111,7 @@ public final class Routes {
         final Map<Long, Double> best = new HashMap<>();
         final List<Building> buildings = new ArrayList<>();
 
-        Search(World world, Game game, int startX, int startZ, int goalX, int goalZ) {
+        Search(World world, Game game, String team, int startX, int startZ, int goalX, int goalZ) {
             this.world = world;
             this.game = game;
             this.startX = startX;
@@ -110,8 +122,16 @@ public final class Routes {
             maxX = Math.min(game.getMaxX(), Math.max(startX, goalX) + MARGIN);
             minZ = Math.max(game.getMinZ(), Math.min(startZ, goalZ) - MARGIN);
             maxZ = Math.min(game.getMaxZ(), Math.max(startZ, goalZ) + MARGIN);
+            Team own = team == null ? null : game.getTeam(team);
             for (Building building : game.getBuildings()) {
-                // A unit sent onto a building's footprint, such as into a farm, may go in.
+                // A unit sent onto a building's footprint, such as into a farm, may go in. A gate of its own team or
+                // an ally lets it through its opening.
+                Team owner = game.getTeam(building.team);
+                if (building.type == BuildingType.GATE && own != null
+                    && owner != null
+                    && !game.areEnemies(own, owner)) {
+                    continue;
+                }
                 if (building.getShown() != null && !building.covers(goalX + 0.5, goalZ + 0.5, 0)
                     && !building.covers(startX + 0.5, startZ + 0.5, 0)) {
                     buildings.add(building);
@@ -232,6 +252,11 @@ public final class Routes {
                     || material == Material.vine
                     || material == Material.snow
                     || !material.blocksMovement() && !material.isLiquid()) {
+                    y--;
+                    continue;
+                }
+                if (block == Blocks.fence_gate) {
+                    // The opening of a gate, which opens as the unit comes up to it.
                     y--;
                     continue;
                 }

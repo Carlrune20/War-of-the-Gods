@@ -75,7 +75,9 @@ public final class GuiRts extends GuiScreen {
         "sword",
         "axe",
         "pickaxe",
-        "hoe");
+        "hoe",
+        "wall",
+        "gate");
 
     /** Icons drawn as Minecraft items in the view; icons.png has the same pictures for the web map. */
     private static final Map<String, ItemStack> VANILLA_ICONS = new HashMap<>();
@@ -1062,6 +1064,10 @@ public final class GuiRts extends GuiScreen {
 
     private void place(int px, int py, boolean keep) {
         movePlacing(px, py);
+        if (RtsClient.isWall(client.placing.type)) {
+            placeWall(keep);
+            return;
+        }
         RtsClient.Footprint spot = client.footprint();
         if (spot == null) {
             return;
@@ -1092,6 +1098,59 @@ public final class GuiRts extends GuiScreen {
         body.addProperty("queue", keep);
         RtsState.BuildingTypeInfo type = state().buildingType(placing.type);
         client.command("buildings.place", body, reply -> client.showToast(type.name + " site laid out", false));
+    }
+
+    /**
+     * A click while laying out a wall: the first sets where it starts, the second where it ends, and sends it. With
+     * shift the next wall starts where this one ended.
+     */
+    private void placeWall(boolean keep) {
+        RtsClient.Placing placing = client.placing;
+        if (placing.start == null) {
+            placing.start = new int[] { placing.cx, placing.cz };
+            return;
+        }
+        RtsClient.WallSpot spot = client.wallSpot();
+        if (spot == null) {
+            return;
+        }
+        if (!spot.ok) {
+            client.showToast("The wall does not fit there", true);
+            return;
+        }
+        Set<String> workers = client.selectedWorkers();
+        if (workers.isEmpty()) {
+            client.showToast("Select a worker to build with", true);
+            client.stopPlacing();
+            return;
+        }
+        JsonObject body = unitsBody(workers);
+        body.addProperty("x1", placing.start[0]);
+        body.addProperty("z1", placing.start[1]);
+        body.addProperty("x2", placing.cx);
+        body.addProperty("z2", placing.cz);
+        body.addProperty("queue", keep);
+        if (keep) {
+            placing.start = new int[] { placing.cx, placing.cz };
+        } else {
+            client.stopPlacing();
+        }
+        client.command(
+            "buildings.wall",
+            body,
+            reply -> client.showToast(
+                "Wall of " + (reply.has("pieces") ? reply.get("pieces")
+                    .getAsInt() : spot.pieces.size()) + " pieces laid out",
+                false));
+    }
+
+    /** What a wall of so many pieces costs: a segment's cost for each, as the server charges. */
+    private static Map<String, Long> wallCost(RtsState.BuildingTypeInfo type, int pieces) {
+        Map<String, Long> cost = new LinkedHashMap<>();
+        for (Map.Entry<String, Long> entry : type.cost.entrySet()) {
+            cost.put(entry.getKey(), entry.getValue() * pieces);
+        }
+        return cost;
     }
 
     // ---------------------------------------------------------------- tooltips
@@ -1747,14 +1806,28 @@ public final class GuiRts extends GuiScreen {
         RtsState.BuildingInfo building = state.buildings.get(client.selectedBuilding);
         if (client.placing != null) {
             RtsState.BuildingTypeInfo type = state.buildingType(client.placing.type);
-            actions.add(label("Place " + type.name.toLowerCase() + ": click to place, R to rotate", 0xC8C8C8));
-            actions.add(
-                button(
-                    "Rotate",
-                    "Turn it a quarter round (R)",
-                    shift -> { client.placing.rotation = (client.placing.rotation + 1) % 4; },
-                    true));
-            actions.add(button("Cancel", "Esc or right-click", shift -> client.stopPlacing(), true));
+            if (RtsClient.isWall(client.placing.type)) {
+                RtsClient.WallSpot wall = client.wallSpot();
+                int pieces = wall == null ? 0 : wall.pieces.size();
+                actions.add(
+                    label(
+                        client.placing.start == null ? "Wall: click where it starts, or on one of your towers"
+                            : "Wall: click where it ends; " + pieces
+                                + (pieces == 1 ? " piece, " : " pieces, ")
+                                + RtsState.costText(wallCost(type, pieces))
+                                + "; shift to go on",
+                        0xC8C8C8));
+                actions.add(button("Cancel", "Esc or right-click", shift -> client.stopPlacing(), true));
+            } else {
+                actions.add(label("Place " + type.name.toLowerCase() + ": click to place, R to rotate", 0xC8C8C8));
+                actions.add(
+                    button(
+                        "Rotate",
+                        "Turn it a quarter round (R)",
+                        shift -> { client.placing.rotation = (client.placing.rotation + 1) % 4; },
+                        true));
+                actions.add(button("Cancel", "Esc or right-click", shift -> client.stopPlacing(), true));
+            }
         } else if (client.lighting) {
             actions.add(
                 label(
@@ -1775,11 +1848,14 @@ public final class GuiRts extends GuiScreen {
                     boolean aged = team.age >= type.age;
                     Widget build = button(
                         type.name,
-                        aged ? "Build a " + type.name.toLowerCase()
-                            + " for "
-                            + RtsState.costText(type.cost)
-                            + ", then click where it goes"
-                            : "Needs " + ageName(type.age) + ": take your town center up a level",
+                        !aged ? "Needs " + ageName(type.age) + ": take your town center up a level"
+                            : RtsClient.isWall(id)
+                                ? "Build a wall for " + RtsState.costText(type.cost)
+                                    + " a piece: click where it starts, or a tower, then where it ends"
+                                : "Build a " + type.name.toLowerCase()
+                                    + " for "
+                                    + RtsState.costText(type.cost)
+                                    + ", then click where it goes",
                         shift -> client.startPlacing(id),
                         aged && RtsState.canAfford(team, type.cost));
                     withIcon(build, id);
@@ -1985,6 +2061,22 @@ public final class GuiRts extends GuiScreen {
         actions.add(label("Health " + building.health + "/" + building.maxHealth, 0xC8C8C8));
         if (type.workers > 0) {
             actions.add(label(building.workers + " of " + type.workers + " workers", 0xC8C8C8));
+        }
+        RtsState.BuildingTypeInfo gate = state.buildingType("gate");
+        if ("wall".equals(building.type) && building.team.equals(team.id) && gate != null) {
+            int wallId = building.id;
+            actions.add(
+                withIcon(
+                    button(
+                        "Make gate (" + RtsState.costText(gate.cost) + ")",
+                        "Turn this wall segment into a gate your units can walk through",
+                        shift -> {
+                            JsonObject body = new JsonObject();
+                            body.addProperty("building", wallId);
+                            client.command("buildings.gate", body, reply -> client.showToast("Gate made", false));
+                        },
+                        RtsState.canAfford(team, gate.cost)),
+                    "gate"));
         }
         boolean full = state.teamUnitCount(team) >= team.population;
         // Each click queues one more (shift-click five), up to ten waiting; training goes on one at a time. With

@@ -403,6 +403,33 @@ echo "rts build red town_center" >&3
 wait_for_log "Laid out Red town center #16" 30
 echo "rts finish red" >&3
 wait_for_log "Team Red has a town center again." 30
+
+# Walls: a wall runs out from Blue's tower, away from the town center, and is built; a segment of it becomes a gate,
+# and stone walls rebuild it all a level up.
+read -r hall_x _ < <(grep -oE "Blue town center (\(level [0-9]\) )?#2 at -?[0-9]+,-?[0-9]+" "$WEB_LOG" | tail -1 | grep -oE -- "-?[0-9]+,-?[0-9]+$" | tr , ' ')
+read -r tower_x tower_z < <(grep -oE "Blue tower (\(level [0-9]\) )?#15 at -?[0-9]+,-?[0-9]+" "$WEB_LOG" | tail -1 | grep -oE -- "-?[0-9]+,-?[0-9]+$" | tr , ' ')
+wall_x=$((tower_x + 1))
+wall_z=$((tower_z + 1))
+if [ "$tower_x" -ge "$hall_x" ]; then wall_to=$((wall_x + 15)); else wall_to=$((wall_x - 15)); fi
+echo "rts wall blue $wall_x $wall_z $wall_to $wall_z" >&3
+wait_for_log "Laid out a wall of" 30
+grep -qE "Laid out a wall of [3-9] pieces for Blue, [1-9][0-9]* of them posts" "$WEB_LOG" \
+    || fail "boot-4-units: the wall was not laid out: $(grep -oE '(Laid out a wall|That would|runs into|off the map).*' "$WEB_LOG" | tail -1)"
+echo "ok: $(grep -oE 'Laid out a wall of .*' "$WEB_LOG" | tail -1)"
+echo "rts finish blue" >&3
+wait_for_log "Built Blue wall #" 30
+echo "rts buildings blue" >&3
+wait_for_log "Blue wall post #" 30
+sleep 1
+wall_id=$(grep -oE "Blue wall #[0-9]+ at" "$WEB_LOG" | tail -1 | grep -oE "[0-9]+")
+echo "rts gate $wall_id" >&3
+wait_for_log "Made wall #$wall_id " 30
+echo "ok: wall #$wall_id is a gate"
+echo "rts research blue stone_walls" >&3
+wait_for_log "Team Blue has stone walls" 30
+echo "rts buildings blue" >&3
+wait_for_log "Blue gate (level 2) #" 30
+echo "ok: stone walls take the walls up a level"
 echo "rts units kill red" >&3
 sleep 2
 echo "rts damage 16 100000" >&3

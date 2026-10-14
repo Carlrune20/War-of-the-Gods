@@ -128,6 +128,18 @@ public final class RtsWorldRenderer {
             ghost(placingType, spot.rotation, spot.x, spot.z, spot.y, spot.ok ? GHOST : ATTACK, 0.4F);
             tessellator.draw();
         }
+        RtsClient.WallSpot wall = client.wallSpot();
+        if (wall != null) {
+            tessellator.startDrawingQuads();
+            for (int i = 0; i < wall.pieces.size(); i++) {
+                RtsClient.Footprint piece = wall.pieces.get(i);
+                RtsState.BuildingTypeInfo pieceType = state.buildingType(wall.types.get(i));
+                if (pieceType != null) {
+                    ghost(pieceType, piece.rotation, piece.x, piece.z, piece.y, piece.ok ? GHOST : ATTACK, 0.4F);
+                }
+            }
+            tessellator.draw();
+        }
         GL11.glDepthMask(true);
 
         GL11.glLineWidth(2.5F);
@@ -171,6 +183,19 @@ public final class RtsWorldRenderer {
                 spot.y + 1.1,
                 spot.ok ? SELECTED : ATTACK,
                 alpha);
+        }
+        RtsClient.WallSpot wall = client.wallSpot();
+        if (wall != null) {
+            for (RtsClient.Footprint piece : wall.pieces) {
+                rect(
+                    piece.x,
+                    piece.z,
+                    piece.x + piece.sizeX,
+                    piece.z + piece.sizeZ,
+                    piece.y + 1.1,
+                    piece.ok ? SELECTED : ATTACK,
+                    alpha);
+            }
         }
         for (String id : client.selected) {
             RtsState.UnitInfo unit = state.units.get(id);

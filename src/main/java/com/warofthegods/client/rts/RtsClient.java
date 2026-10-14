@@ -1,6 +1,7 @@
 package com.warofthegods.client.rts;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -48,6 +49,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import com.warofthegods.Config;
+import com.warofthegods.game.WallLine;
 import com.warofthegods.rts.RtsNetwork;
 import com.warofthegods.world.GameWorld;
 
@@ -159,6 +161,8 @@ public final class RtsClient {
         public int rotation;
         public int cx = Integer.MIN_VALUE;
         public int cz;
+        /** For a wall, where it starts once the first click has said; null before. */
+        public int[] start;
 
         Placing(String type, int rotation) {
             this.type = type;
@@ -798,7 +802,7 @@ public final class RtsClient {
      */
     public Footprint footprint() {
         RtsState.BuildingTypeInfo type = placing == null ? null : state.buildingType(placing.type);
-        if (type == null || placing.cx == Integer.MIN_VALUE || state.game == null) {
+        if (type == null || placing.cx == Integer.MIN_VALUE || state.game == null || "wall".equals(placing.type)) {
             return null;
         }
         Footprint spot = new Footprint();
@@ -859,6 +863,95 @@ public final class RtsClient {
         }
         spot.y = (int) groundHeight(placing.cx + 0.5, placing.cz + 0.5) - 1;
         return spot;
+    }
+
+    /** The wall being laid out, as its pieces' footprints, and whether it fits. */
+    public static final class WallSpot {
+
+        public final List<Footprint> pieces = new ArrayList<>();
+        public final List<String> types = new ArrayList<>();
+        public boolean ok;
+    }
+
+    /**
+     * The wall being laid out, from where it starts to the pointer, or at the pointer before the first click; null
+     * when no wall is being laid out. See {@link WallLine}, which the server lays the wall out with too.
+     */
+    public WallSpot wallSpot() {
+        if (placing == null || !"wall".equals(placing.type) || placing.cx == Integer.MIN_VALUE || state.game == null) {
+            return null;
+        }
+        RtsState.TeamInfo team = state.myTeam();
+        int[] end = wallEnd(team, placing.cx, placing.cz);
+        int[] start = placing.start == null ? end : wallEnd(team, placing.start[0], placing.start[1]);
+        List<WallLine.Piece> pieces = WallLine.pieces(start[0], start[1], end[0], end[1], (minX, minZ) -> {
+            for (RtsState.BuildingInfo b : state.buildings.values()) {
+                if (team != null && b.team.equals(team.id)
+                    && ("tower".equals(b.type) || isWall(b.type))
+                    && minX < b.x + b.sizeX
+                    && b.x < minX + WallLine.SIZE
+                    && minZ < b.z + b.sizeZ
+                    && b.z < minZ + WallLine.SIZE) {
+                    return true;
+                }
+            }
+            return false;
+        });
+        WallSpot spot = new WallSpot();
+        spot.ok = !pieces.isEmpty();
+        RtsState.GameInfo game = state.game;
+        int size = WallLine.SIZE;
+        for (WallLine.Piece piece : pieces) {
+            Footprint footprint = new Footprint();
+            footprint.x = piece.minX;
+            footprint.z = piece.minZ;
+            footprint.sizeX = size;
+            footprint.sizeZ = size;
+            footprint.rotation = piece.rotation;
+            footprint.y = (int) groundHeight(piece.centerX(), piece.centerZ()) - 1;
+            footprint.ok = piece.minX >= game.minX && piece.minZ >= game.minZ
+                && piece.minX + size - 1 <= game.maxX
+                && piece.minZ + size - 1 <= game.maxZ;
+            for (RtsState.BuildingInfo b : state.buildings.values()) {
+                if (piece.minX < b.x + b.sizeX && b.x < piece.minX + size
+                    && piece.minZ < b.z + b.sizeZ
+                    && b.z < piece.minZ + size) {
+                    footprint.ok = false;
+                }
+            }
+            for (List<RtsState.FeatureInfo> features : Arrays.asList(state.settlements, state.mines)) {
+                for (RtsState.FeatureInfo f : features) {
+                    if (piece.minX < f.x + f.sizeX + 1 && f.x < piece.minX + size + 1
+                        && piece.minZ < f.z + f.sizeZ + 1
+                        && f.z < piece.minZ + size + 1) {
+                        footprint.ok = false;
+                    }
+                }
+            }
+            spot.ok &= footprint.ok;
+            spot.pieces.add(footprint);
+            spot.types.add(piece.type().id);
+        }
+        return spot;
+    }
+
+    /** A wall end at x, z: the middle of the team's tower there, if there is one, else x, z itself. */
+    private int[] wallEnd(RtsState.TeamInfo team, int x, int z) {
+        for (RtsState.BuildingInfo b : state.buildings.values()) {
+            if (team != null && b.team.equals(team.id)
+                && "tower".equals(b.type)
+                && x >= b.x - 1
+                && x < b.x + b.sizeX + 1
+                && z >= b.z - 1
+                && z < b.z + b.sizeZ + 1) {
+                return new int[] { (int) Math.floor(b.x + b.sizeX / 2.0), (int) Math.floor(b.z + b.sizeZ / 2.0) };
+            }
+        }
+        return new int[] { x, z };
+    }
+
+    public static boolean isWall(String type) {
+        return "wall".equals(type) || "wall_post".equals(type) || "gate".equals(type);
     }
 
     /**

@@ -67,6 +67,8 @@ public class CommandRts extends CommandBase {
         "units",
         "buildings",
         "build",
+        "wall",
+        "gate",
         "train",
         "damage",
         "upgrade",
@@ -92,7 +94,7 @@ public class CommandRts extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/rts <help|info|newgame|endgame|spawn|surrender|team|ally|unally|resources|units|buildings|build|train|damage"
+        return "/rts <help|info|newgame|endgame|spawn|surrender|team|ally|unally|resources|units|buildings|build|wall|gate|train|damage"
             + "|upgrade|research|chop|mine|finish|web>";
     }
 
@@ -185,6 +187,12 @@ public class CommandRts extends CommandBase {
             case "finish":
                 finish(sender, rest);
                 break;
+            case "wall":
+                wall(sender, rest);
+                break;
+            case "gate":
+                gate(sender, rest);
+                break;
             case "web":
                 web(sender, rest);
                 break;
@@ -243,6 +251,11 @@ public class CommandRts extends CommandBase {
             sender,
             "/rts explode <building id> - set off a creeper-sized explosion beside a building that hurts no one (op)");
         send(sender, "/rts finish [team] - finish every building site at once (op)");
+        send(
+            sender,
+            "/rts wall <team> <x1> <z1> <x2> <z2> - lay out a wall for free and send the team's idle workers to build"
+                + " it (op)");
+        send(sender, "/rts gate <building id> - make a finished wall segment a gate, for free (op)");
         send(sender, "/rts mine <team> - send a team's idle workers to the nearest gold mine (op)");
         send(sender, "/rts damage <building id> <amount> - take health off a building; at 0 it is gone (op)");
         send(sender, "/rts web - get a link to the live web map");
@@ -707,6 +720,74 @@ public class CommandRts extends CommandBase {
         }
     }
 
+    /** Lays out a wall for a team, for free, and sends its workers that have nothing to do to build it. */
+    private void wall(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        Game game = requireGame();
+        requireArgs(args, 5, "/rts wall <team> <x1> <z1> <x2> <z2>");
+        Team team = requireTeam(game, args[0]);
+        int x1 = MathHelper.floor_double(coordinate(sender, args[1], true));
+        int z1 = MathHelper.floor_double(coordinate(sender, args[2], false));
+        int x2 = MathHelper.floor_double(coordinate(sender, args[3], true));
+        int z2 = MathHelper.floor_double(coordinate(sender, args[4], false));
+        Buildings.WallPlan plan = Buildings.get()
+            .planWall(game, GameWorld.getWorld(), team, x1, z1, x2, z2);
+        if (plan.problem != null) {
+            throw new CommandException(plan.problem);
+        }
+        List<Building> sites = Buildings.get()
+            .startWall(game, team, plan);
+        List<EntityUnit> idle = new ArrayList<>();
+        for (EntityUnit unit : Units.get()
+            .getUnits(team)) {
+            if (unit.isWorker() && unit.getOrder() == EntityUnit.Order.IDLE) {
+                idle.add(unit);
+            }
+        }
+        for (int i = 0; i < sites.size(); i++) {
+            Units.get()
+                .orderBuild(idle, sites.get(i), i > 0);
+        }
+        int posts = 0;
+        for (Building site : sites) {
+            if (site.type == BuildingType.WALL_POST) {
+                posts++;
+            }
+        }
+        send(
+            sender,
+            "Laid out a wall of " + sites.size()
+                + " pieces for "
+                + team.getColoredName()
+                + ", "
+                + posts
+                + " of them posts, from #"
+                + sites.get(0).id
+                + " to #"
+                + sites.get(sites.size() - 1).id
+                + ", "
+                + idle.size()
+                + " workers on the way");
+    }
+
+    /** Makes a finished wall segment a gate, for free. */
+    private void gate(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        Game game = requireGame();
+        requireArgs(args, 1, "/rts gate <building id>");
+        Building building = game.getBuilding(parseInt(sender, args[0]));
+        if (building == null) {
+            throw new CommandException("There is no building #%s", args[0]);
+        }
+        String problem = Buildings.gateProblem(building);
+        if (problem != null) {
+            throw new CommandException(problem);
+        }
+        Building gate = Buildings.get()
+            .makeGate(game, GameWorld.getWorld(), building);
+        send(sender, "Made wall #" + building.id + " " + gate.describe(game));
+    }
+
     /**
      * Lays out a building site for a team, for free, and sends its workers that have nothing to do. Without x and z
      * it finds a spot near the team's town hall.
@@ -720,6 +801,9 @@ public class CommandRts extends CommandBase {
         if (type == null || !type.buildable) {
             throw new CommandException(
                 "Workers can build a farm, house, barracks, storehouse, armory, tower or town center");
+        }
+        if (type == BuildingType.WALL) {
+            throw new CommandException("Lay a wall out with /rts wall <team> <x1> <z1> <x2> <z2>");
         }
         WorldServer world = GameWorld.getWorld();
         Buildings.Plan plan;

@@ -44,6 +44,10 @@ public class Config {
         defaults(BuildingType.HOUSE, new long[] { 0, 60, 0 }, 300, 12);
         defaults(BuildingType.ARMORY, new long[] { 0, 120, 60 }, 700, 25);
         defaults(BuildingType.TOWER, new long[] { 0, 50, 100 }, 900, 25);
+        // Walls cost gold for every piece, post or segment.
+        defaults(BuildingType.WALL, new long[] { 0, 0, 6 }, 300, 6);
+        defaults(BuildingType.WALL_POST, new long[] { 0, 0, 6 }, 400, 6);
+        defaults(BuildingType.GATE, new long[] { 0, 0, 30 }, 300, 6);
     }
 
     /** Food, Wood and Gold the town center costs to go up to level 2, and to level 3. */
@@ -277,10 +281,12 @@ public class Config {
         configuration.setCategoryComment(
             buildings,
             "Buildings: the town center every team starts with, the farms, barracks, storehouses, houses, armories,"
-                + " towers and town centers workers build, and the settlements and gold mines on the map.");
+                + " towers, walls and town centers workers build, and the settlements and gold mines on the map. Each"
+                + " piece of wall, segment or post, costs what a wall does.");
         for (BuildingType type : BuildingType.values()) {
             String name = type.displayName.toLowerCase();
-            if (type.buildable) {
+            if (type.buildable || type == BuildingType.GATE) {
+                // A gate is made from a wall segment at once, for its cost.
                 long[] cost = buildingCost.get(type);
                 for (Resource resource : Resource.values()) {
                     cost[resource.ordinal()] = configuration.getInt(
@@ -291,6 +297,8 @@ public class Config {
                         Integer.MAX_VALUE,
                         resource.displayName + " a " + name + " costs.");
                 }
+            }
+            if (type.buildable) {
                 buildSeconds.put(
                     type,
                     configuration.getInt(
