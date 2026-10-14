@@ -197,9 +197,10 @@ echo "rts route -100 -100 100 100" >&3
 wait_for_log "Route from -100,-100 to 100,100" 30
 grep -qE "Route from -100,-100 to 100,100: [1-9][0-9]* waypoints" "$WEB_LOG" || web_fail "no route across the map"
 echo "ok: $(grep -oE 'Route from -100,-100 to 100,100: [0-9]+ waypoints' "$WEB_LOG" | tail -1)"
-# Into Red's own corner, out of reach of Blue's towers, which shoot once Blue has watch towers.
-echo "rts units move red 128 -128 wedge" >&3
-wait_for_log "Sent 3 units of Red to 128,-128" 30
+# A short way within Red's own town, where no mobs spawn, and out of reach of Blue's towers, which shoot once Blue
+# has watch towers: out in the wilds, mobs can pick the warriors off before the next boot counts them.
+echo "rts units move red 20 -100 wedge" >&3
+wait_for_log "Sent 3 units of Red to 20,-100" 30
 echo "rts units stance red hold" >&3
 wait_for_log "Set 3 units of Red to hold ground" 30
 sleep 15
