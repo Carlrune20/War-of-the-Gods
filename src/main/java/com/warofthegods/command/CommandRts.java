@@ -14,6 +14,7 @@ import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.NumberInvalidException;
 import net.minecraft.command.WrongUsageException;
+import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.event.ClickEvent;
@@ -83,7 +84,8 @@ public class CommandRts extends CommandBase {
         "web");
     private static final List<String> TEAM_SUBCOMMANDS = Arrays
         .asList("list", "create", "remove", "color", "faction", "join", "leave", "auto", "base");
-    private static final List<String> UNIT_ACTIONS = Arrays.asList("spawn", "move", "stop", "stance", "kill");
+    private static final List<String> UNIT_ACTIONS = Arrays
+        .asList("spawn", "move", "attackmove", "attack", "stop", "stance", "kill");
     /** Units /rts units spawn makes at most at once. */
     private static final int MAX_SPAWN = 50;
     private static final List<String> RESOURCE_ACTIONS = Arrays.asList("give", "take", "set");
@@ -629,6 +631,54 @@ public class CommandRts extends CommandBase {
                         + MathHelper.floor_double(z));
                 break;
             }
+            case "attackmove": {
+                requireArgs(args, 4, "/rts units attackmove <team> <x> <z> [box|line|wedge]");
+                Team team = requireTeam(game, args[1]);
+                double x = coordinate(sender, args[2], true);
+                double z = coordinate(sender, args[3], false);
+                Units.Formation formation = args.length > 4 ? Units.Formation.byId(args[4]) : Units.Formation.BOX;
+                if (formation == null) {
+                    throw new CommandException("Unknown formation '%s': box, line or wedge", args[4]);
+                }
+                List<EntityUnit> units = requireUnits(team);
+                Units.get()
+                    .orderAttackMove(units, x, z, formation);
+                send(
+                    sender,
+                    "Sent " + units.size()
+                        + " units of "
+                        + team.getColoredName()
+                        + " on an attack move to "
+                        + MathHelper.floor_double(x)
+                        + ","
+                        + MathHelper.floor_double(z));
+                break;
+            }
+            case "attack": {
+                requireArgs(args, 3, "/rts units attack <team> <enemy team>");
+                Team team = requireTeam(game, args[1]);
+                Team enemy = requireTeam(game, args[2]);
+                List<EntityUnit> fighters = new ArrayList<>(requireUnits(team));
+                fighters.removeIf(EntityUnit::isWorker);
+                List<EntityLivingBase> targets = new ArrayList<>(
+                    Units.get()
+                        .getUnits(enemy));
+                if (fighters.isEmpty() || targets.isEmpty()) {
+                    throw new CommandException("There is no one to fight");
+                }
+                Units.get()
+                    .orderAttackAll(fighters, targets, false);
+                send(
+                    sender,
+                    "Sent " + fighters.size()
+                        + " units of "
+                        + team.getColoredName()
+                        + " at "
+                        + targets.size()
+                        + " units of "
+                        + enemy.getColoredName());
+                break;
+            }
             case "stance": {
                 requireArgs(args, 3, "/rts units stance <team> <aggressive|defensive|hold|passive>");
                 Team team = requireTeam(game, args[1]);
@@ -745,10 +795,9 @@ public class CommandRts extends CommandBase {
                 idle.add(unit);
             }
         }
-        for (int i = 0; i < sites.size(); i++) {
-            Units.get()
-                .orderBuild(idle, sites.get(i), i > 0);
-        }
+        // Sent to the first piece, they go on along the rest of the wall.
+        Units.get()
+            .orderBuild(idle, sites.get(0), false);
         int posts = 0;
         int shortOnes = 0;
         for (Building site : sites) {
@@ -848,19 +897,22 @@ public class CommandRts extends CommandBase {
 
     private static String unitActivity(EntityUnit unit) {
         if (!unit.isWorker()) {
-            return "";
+            int queued = unit.getQueuedAttacks();
+            return (unit.isAttackMoving() ? " (attack move)" : "")
+                + (queued > 0 ? " (" + queued + " more to attack)" : "");
         }
+        String queued = unit.getQueuedBuilds() > 0 ? " (" + unit.getQueuedBuilds() + " more queued)" : "";
         String carrying = unit.getCarried() > 0 ? " carrying " + unit.getCarried() : "";
         if (unit.isDelivering()) {
-            return " (delivering" + carrying + ")";
+            return " (delivering" + carrying + ")" + queued;
         }
         if (unit.isBuildingAt(unit.getBuildingId())) {
-            return " (building)";
+            return " (building)" + queued;
         }
         if (unit.isWorkingAt(unit.getBuildingId())) {
-            return " (working" + carrying + ")";
+            return " (working" + carrying + ")" + queued;
         }
-        return carrying.isEmpty() ? "" : " (" + carrying.trim() + ")";
+        return (carrying.isEmpty() ? "" : " (" + carrying.trim() + ")") + queued;
     }
 
     private void damage(ICommandSender sender, String[] args) {

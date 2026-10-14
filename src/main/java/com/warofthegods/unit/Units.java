@@ -1,6 +1,7 @@
 package com.warofthegods.unit;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -583,6 +584,9 @@ public final class Units {
      * sites they are on and were given before; returns how many went.
      */
     public int orderBuild(List<EntityUnit> units, Building building, boolean queue) {
+        // Sent to a piece of wall, they build the rest of that wall after it.
+        Game game = GameManager.getGame();
+        List<Building> rest = game == null ? new ArrayList<>() : wallAfter(game, building);
         int sent = 0;
         for (EntityUnit unit : units) {
             if (unit.isWorker()) {
@@ -591,10 +595,78 @@ public final class Units {
                 } else {
                     unit.orderBuild(building);
                 }
+                for (Building next : rest) {
+                    unit.queueBuild(next);
+                }
                 sent++;
             }
         }
         return sent;
+    }
+
+    /** Most pieces of wall followed from one piece. */
+    private static final int MAX_WALL = 256;
+
+    /**
+     * The unbuilt pieces of the wall the site is a piece of, in the order to build them after it: along the wall one
+     * way to its end, then the other way. Pieces join where they touch side to side; built pieces carry the wall on.
+     * Empty for anything but an unbuilt piece of wall.
+     */
+    static List<Building> wallAfter(Game game, Building site) {
+        List<Building> rest = new ArrayList<>();
+        if (!site.type.isWall() || site.isComplete()) {
+            return rest;
+        }
+        List<Building> pieces = new ArrayList<>();
+        for (Building building : game.getBuildings()) {
+            if (building.type.isWall() && building.team.equals(site.team)) {
+                pieces.add(building);
+            }
+        }
+        Set<Integer> seen = new HashSet<>();
+        seen.add(site.id);
+        for (Building start : neighbours(site, pieces)) {
+            if (!seen.add(start.id)) {
+                continue;
+            }
+            // Out along this way from the site, nearest first.
+            List<Building> frontier = new ArrayList<>();
+            frontier.add(start);
+            while (!frontier.isEmpty() && seen.size() < MAX_WALL) {
+                List<Building> next = new ArrayList<>();
+                for (Building piece : frontier) {
+                    if (!piece.isComplete()) {
+                        rest.add(piece);
+                    }
+                    for (Building on : neighbours(piece, pieces)) {
+                        if (seen.add(on.id)) {
+                            next.add(on);
+                        }
+                    }
+                }
+                frontier = next;
+            }
+        }
+        return rest;
+    }
+
+    /** The pieces touching piece side to side, in id order. */
+    private static List<Building> neighbours(Building piece, List<Building> pieces) {
+        List<Building> touching = new ArrayList<>();
+        for (Building other : pieces) {
+            if (other == piece) {
+                continue;
+            }
+            boolean overlapX = other.minX <= piece.getMaxX() && piece.minX <= other.getMaxX();
+            boolean overlapZ = other.minZ <= piece.getMaxZ() && piece.minZ <= other.getMaxZ();
+            boolean nextX = other.minX == piece.getMaxX() + 1 || piece.minX == other.getMaxX() + 1;
+            boolean nextZ = other.minZ == piece.getMaxZ() + 1 || piece.minZ == other.getMaxZ() + 1;
+            if (overlapZ && nextX || overlapX && nextZ) {
+                touching.add(other);
+            }
+        }
+        touching.sort(Comparator.comparingInt(b -> b.id));
+        return touching;
     }
 
     /** Sends workers to carve food off a carcass and carry it home; returns how many went. */
@@ -738,6 +810,128 @@ public final class Units {
             archers.get(i)
                 .orderAttack(target, x, z);
         }
+    }
+
+    /** Sends the units to x, z in formation, the warriors and archers fighting any enemy they meet on the way. */
+    public void orderAttackMove(List<EntityUnit> units, double x, double z, Formation formation) {
+        orderMove(units, x, z, formation);
+        for (EntityUnit unit : units) {
+            unit.makeAttackMove();
+        }
+    }
+
+    /** Has the units attack the target once done with the enemies they were already ordered at. */
+    public void queueAttack(List<EntityUnit> units, EntityLivingBase target) {
+        for (EntityUnit unit : units) {
+            unit.queueAttack(target);
+        }
+    }
+
+    /**
+     * Shares the targets out among the units by their health, so a strong enemy draws more of them than a weak one
+     * and every enemy draws at least one while there are units enough; each goes for the nearest target still
+     * wanting attackers. After that each attacks the rest of the targets, nearest first, from where its own was.
+     * With queue, the targets come after the enemies the units were already ordered at.
+     */
+    public void orderAttackAll(List<EntityUnit> units, List<EntityLivingBase> targets, boolean queue) {
+        if (units.isEmpty() || targets.isEmpty()) {
+            return;
+        }
+        int[] wanted = shareByHealth(units.size(), targets);
+        // Every unit and target pair, nearest first: each unit takes the nearest target still wanting one.
+        List<int[]> pairs = new ArrayList<>();
+        for (int u = 0; u < units.size(); u++) {
+            for (int t = 0; t < targets.size(); t++) {
+                pairs.add(new int[] { u, t });
+            }
+        }
+        pairs.sort(
+            Comparator.comparingDouble(
+                pair -> units.get(pair[0])
+                    .getDistanceSqToEntity(targets.get(pair[1]))));
+        int[] first = new int[units.size()];
+        Arrays.fill(first, -1);
+        for (int[] pair : pairs) {
+            if (first[pair[0]] < 0 && wanted[pair[1]] > 0) {
+                first[pair[0]] = pair[1];
+                wanted[pair[1]]--;
+            }
+        }
+        for (int u = 0; u < units.size(); u++) {
+            EntityUnit unit = units.get(u);
+            int own = first[u] < 0 ? 0 : first[u];
+            EntityLivingBase from = targets.get(own);
+            List<EntityLivingBase> order = new ArrayList<>(targets);
+            order.remove(from);
+            order.sort(Comparator.comparingDouble(from::getDistanceSqToEntity));
+            order.add(0, from);
+            for (int i = 0; i < order.size(); i++) {
+                if (i == 0 && !queue) {
+                    unit.orderAttack(order.get(i));
+                } else {
+                    unit.queueAttack(order.get(i));
+                }
+            }
+        }
+    }
+
+    /**
+     * How many of so many units each target should draw: in proportion to its health, but at least one each while
+     * there are units for that.
+     */
+    static int[] shareByHealth(int units, List<EntityLivingBase> targets) {
+        int n = targets.size();
+        int[] wanted = new int[n];
+        if (units < n) {
+            // Too few to go round: the healthiest take one each.
+            Integer[] byHealth = new Integer[n];
+            for (int t = 0; t < n; t++) {
+                byHealth[t] = t;
+            }
+            Arrays.sort(
+                byHealth,
+                (a, b) -> Float.compare(
+                    targets.get(b)
+                        .getHealth(),
+                    targets.get(a)
+                        .getHealth()));
+            for (int i = 0; i < units; i++) {
+                wanted[byHealth[i]] = 1;
+            }
+            return wanted;
+        }
+        double total = 0;
+        for (EntityLivingBase target : targets) {
+            total += Math.max(1, target.getHealth());
+        }
+        double[] share = new double[n];
+        int given = 0;
+        for (int t = 0; t < n; t++) {
+            share[t] = units * Math.max(
+                1,
+                targets.get(t)
+                    .getHealth())
+                / total;
+            wanted[t] = Math.max(1, (int) Math.floor(share[t]));
+            given += wanted[t];
+        }
+        // Round to the units there are: one more to whichever is furthest short of its share, or one less from
+        // whichever is furthest over it.
+        while (given != units) {
+            int best = -1;
+            for (int t = 0; t < n; t++) {
+                if (given > units && wanted[t] <= 1) {
+                    continue;
+                }
+                double gap = share[t] - wanted[t];
+                if (best < 0 || (given < units ? gap > share[best] - wanted[best] : gap < share[best] - wanted[best])) {
+                    best = t;
+                }
+            }
+            wanted[best] += given < units ? 1 : -1;
+            given += given < units ? 1 : -1;
+        }
+        return wanted;
     }
 
     /** Sends workers to hunt the animal; returns how many went. */

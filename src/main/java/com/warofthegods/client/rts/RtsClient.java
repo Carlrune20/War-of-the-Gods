@@ -139,6 +139,8 @@ public final class RtsClient {
 
     /** Whether workers wait for two corners of an area to light up with torches. */
     public boolean lighting;
+    /** Whether the next click sends the selected warriors and archers on an attack move. */
+    public boolean attackMoving;
     /** The first corner of that area, x, y, z, once clicked; null before. */
     public double[] lightCorner;
     final Minimap minimap = new Minimap();
@@ -353,6 +355,29 @@ public final class RtsClient {
         if (lighting && selectedWorkers().isEmpty()) {
             stopLighting();
         }
+        if (attackMoving && selectedFighters().isEmpty()) {
+            attackMoving = false;
+        }
+    }
+
+    /** The selected warriors and archers. */
+    public Set<String> selectedFighters() {
+        Set<String> fighters = new LinkedHashSet<>();
+        for (String id : selected) {
+            RtsState.UnitInfo unit = state.units.get(id);
+            if (unit != null && !unit.isWorker()) {
+                fighters.add(id);
+            }
+        }
+        return fighters;
+    }
+
+    /**
+     * Whether A, with warriors or archers selected, starts an attack move rather than moving the camera: so where
+     * A is the key to walk left, as it is unless changed.
+     */
+    public boolean attackMoveKey(int key) {
+        return key == Keyboard.KEY_A && !selectedFighters().isEmpty();
     }
 
     public Set<String> selectedWorkers() {
@@ -594,7 +619,8 @@ public final class RtsClient {
         if (down(mc.gameSettings.keyBindRight.getKeyCode()) || down(Keyboard.KEY_RIGHT)) {
             right += 1;
         }
-        if (down(mc.gameSettings.keyBindLeft.getKeyCode()) || down(Keyboard.KEY_LEFT)) {
+        int left = mc.gameSettings.keyBindLeft.getKeyCode();
+        if (down(left) && !attackMoveKey(left) || down(Keyboard.KEY_LEFT)) {
             right -= 1;
         }
         if (Config.rtsEdgeScroll && Display.isActive() && Mouse.isInsideWindow()) {

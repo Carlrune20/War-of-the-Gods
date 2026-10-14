@@ -26,11 +26,15 @@ import com.warofthegods.world.GameWorld;
  * team's units:
  *
  * <pre>
- *   {type: "units.move", units: [id...], x, z, formation?}  walk there, in a box, line or wedge
+ *   {type: "units.move", units: [id...], x, z, formation?}  walk there, in a box, line or wedge; with attack: true
+ *                                                   warriors and archers fight any enemy they meet on the way
  *   {type: "units.stance", units: [id...], stance}  aggressive, defensive, hold or passive
  *   {type: "units.attack", units: [id...], target: id}  attack an enemy unit or player, or a mob; workers do not
  *                                                       fight, but hunt cows, pigs, sheep and chickens
  *   {type: "units.attack", units: [id...], building: id}  attack an enemy building
+ *   {type: "units.attack", units: [id...], targets: [id...]}  attack all of them, shared out among the units by
+ *                                                             health, each going on to the rest after its own
+ *   units.attack takes queue: true to attack after the enemies the units were already ordered at
  *   {type: "units.build", units: [id...], building: id}  workers build a building site or work a farm
  *   {type: "units.gather", units: [id...], x, y, z}  workers chop the tree at or near that block, or mine the gold
  *                                                    mine there
@@ -104,8 +108,13 @@ public final class UnitCommands {
             request.body.get("formation")
                 .getAsString())
             : null;
-        Units.get()
-            .orderMove(units, x, z, formation == null ? Units.Formation.BOX : formation);
+        if (boolField(request.body, "attack")) {
+            Units.get()
+                .orderAttackMove(units, x, z, formation == null ? Units.Formation.BOX : formation);
+        } else {
+            Units.get()
+                .orderMove(units, x, z, formation == null ? Units.Formation.BOX : formation);
+        }
         ok(request, units.size());
     }
 
@@ -139,6 +148,10 @@ public final class UnitCommands {
                 request,
                 Units.get()
                     .orderAttackBuilding(units, building));
+            return;
+        }
+        if (request.body.has("targets")) {
+            attackAll(request, team, units);
             return;
         }
         JsonElement targetField = request.body.get("target");
@@ -180,9 +193,59 @@ public final class UnitCommands {
             request.replyError("You can only attack enemies");
             return;
         }
-        Units.get()
-            .orderAttack(units, target);
+        if (boolField(request.body, "queue")) {
+            Units.get()
+                .queueAttack(units, target);
+        } else {
+            Units.get()
+                .orderAttack(units, target);
+        }
         ok(request, units.size() + hunters);
+    }
+
+    /** Most targets one attack box may name. */
+    private static final int MAX_TARGETS = 200;
+
+    /** The fighters attack every enemy named, shared out among them; workers stay out of it. */
+    private static void attackAll(WebRequest request, Team team, List<EntityUnit> units) {
+        units.removeIf(EntityUnit::isWorker);
+        if (units.isEmpty()) {
+            request.replyError("Workers do not fight");
+            return;
+        }
+        JsonElement field = request.body.get("targets");
+        if (!field.isJsonArray()) {
+            request.replyError("Attack what?");
+            return;
+        }
+        WorldServer world = GameWorld.getWorld();
+        List<EntityLivingBase> targets = new ArrayList<>();
+        for (JsonElement element : field.getAsJsonArray()) {
+            if (targets.size() >= MAX_TARGETS) {
+                break;
+            }
+            UUID id = uuid(element);
+            EntityLivingBase target = id == null ? null
+                : Units.get()
+                    .findLiving(world, id);
+            // Enemies, and mobs; anything else in the box is left alone.
+            if (target != null && target.isEntityAlive()
+                && !targets.contains(target)
+                && (Units.isMob(target) || Units.get()
+                    .isEnemy(units.get(0), target))) {
+                targets.add(target);
+            }
+        }
+        if (targets.isEmpty()) {
+            request.replyError("There are no enemies there");
+            return;
+        }
+        Units.get()
+            .orderAttackAll(units, targets, boolField(request.body, "queue"));
+        JsonObject reply = WebJson.message("ok");
+        reply.addProperty("units", units.size());
+        reply.addProperty("targets", targets.size());
+        request.reply(reply);
     }
 
     private static void build(WebRequest request) {

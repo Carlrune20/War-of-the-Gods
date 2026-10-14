@@ -196,6 +196,12 @@ public class EntityUnit extends EntityCreature {
     private EntityLivingBase target;
     /** Whether the target was picked up while guarding rather than ordered. */
     private boolean defending;
+    /** Enemies to attack one after another once the target is down, from a shift-click or an attack box. */
+    private final List<UUID> attackQueue = new ArrayList<>();
+    /** Whether the unit is on an attack move: going to x, z, fighting whatever enemies it meets on the way. */
+    private boolean attackMove;
+    private double attackMoveX;
+    private double attackMoveZ;
     /** The building a build, work or attack order is for. */
     private int buildingId;
     /** Building sites a worker builds next, one after another, once done with the one it is on. */
@@ -644,6 +650,7 @@ public class EntityUnit extends EntityCreature {
     // ---------------------------------------------------------------- orders
 
     void orderMove(double x, double z) {
+        dropPlans();
         order = Order.MOVE;
         goalX = x;
         goalZ = z;
@@ -655,6 +662,7 @@ public class EntityUnit extends EntityCreature {
 
     /** Sends a worker to a building site to build it, or to a farm to work it. */
     void orderBuild(Building building) {
+        dropPlans();
         order = building.isComplete() ? Order.WORK : Order.BUILD;
         buildingId = building.id;
         working = false;
@@ -745,6 +753,7 @@ public class EntityUnit extends EntityCreature {
     }
 
     void orderAttackBuilding(Building building) {
+        dropPlans();
         order = Order.ATTACK_BUILDING;
         buildingId = building.id;
         target = null;
@@ -754,12 +763,117 @@ public class EntityUnit extends EntityCreature {
     }
 
     void orderAttack(EntityLivingBase target) {
+        dropPlans();
+        engage(target);
+    }
+
+    /**
+     * Makes the move the unit was just ordered on an attack move: it attacks any enemy, or enemy building, it comes
+     * across on the way, and goes on once that is down. Workers, who do not fight, just go.
+     */
+    void makeAttackMove() {
+        if (order == Order.MOVE && !isWorker()) {
+            attackMove = true;
+            attackMoveX = goalX;
+            attackMoveZ = goalZ;
+        }
+    }
+
+    /**
+     * Attacks the target once done with the enemies it was already ordered at; a unit doing anything else attacks it
+     * now.
+     */
+    void queueAttack(EntityLivingBase target) {
+        if (order != Order.ATTACK || defending || resolveTarget() == null) {
+            orderAttack(target);
+            return;
+        }
+        UUID id = target.getUniqueID();
+        if (!id.equals(targetId) && !attackQueue.contains(id)) {
+            attackQueue.add(id);
+        }
+    }
+
+    /** Whether the unit is on an attack move. */
+    public boolean isAttackMoving() {
+        return attackMove;
+    }
+
+    /** Enemies still queued to attack after the one the unit is on. */
+    public int getQueuedAttacks() {
+        return order == Order.ATTACK ? attackQueue.size() : 0;
+    }
+
+    /** Attacks the target, keeping the attack move and the queue it is on. */
+    private void engage(EntityLivingBase target) {
         order = Order.ATTACK;
         this.target = target;
         targetId = target.getUniqueID();
         defending = false;
         hasSpot = false;
         startOrder();
+    }
+
+    /** Forgets the enemies queued to attack and any attack move, as a new order does. */
+    private void dropPlans() {
+        attackQueue.clear();
+        attackMove = false;
+    }
+
+    /**
+     * Done with a target it was ordered at: on to the next queued enemy still alive, else on with the attack move,
+     * else guards where it stands. Returns false only when it guards.
+     */
+    private boolean nextAttack() {
+        while (!attackQueue.isEmpty()) {
+            EntityLivingBase next = Units.get()
+                .findLiving(worldObj, attackQueue.remove(0));
+            if (next != null && next.isEntityAlive()) {
+                engage(next);
+                return true;
+            }
+        }
+        if (attackMove) {
+            order = Order.MOVE;
+            goalX = attackMoveX;
+            goalZ = attackMoveZ;
+            target = null;
+            targetId = null;
+            defending = false;
+            hasSpot = false;
+            startOrder();
+            return true;
+        }
+        getNavigator().clearPathEntity();
+        guardHere();
+        return false;
+    }
+
+    /** On an attack move: the nearest enemy, or else enemy building, in sight to fight; false when there is none. */
+    private boolean attackOnTheWay() {
+        if (--scanTicks > 0) {
+            return false;
+        }
+        scanTicks = 10 + rand.nextInt(5);
+        double range = Math.max(GUARD_RANGE, guardRange());
+        EntityLivingBase enemy = Units.get()
+            .findEnemyNear(this, range);
+        if (enemy != null) {
+            engage(enemy);
+            return true;
+        }
+        Building building = Units.get()
+            .findEnemyBuildingNear(this, kind == UnitKind.ARCHER ? ARCHER_BUILDING_RANGE : GUARD_RANGE);
+        if (building != null) {
+            order = Order.ATTACK_BUILDING;
+            buildingId = building.id;
+            target = null;
+            targetId = null;
+            defending = false;
+            startOrder();
+            return true;
+        }
+        return false;
     }
 
     /** An archer's attack, shooting from x, z, in a line with the other archers sent along. */
@@ -774,6 +888,7 @@ public class EntityUnit extends EntityCreature {
 
     /** Sends a worker to hunt the animal, carve food off its carcass and carry the food home. */
     void orderHunt(EntityLivingBase animal) {
+        dropPlans();
         order = Order.HUNT;
         prey = animal;
         preyId = animal.getUniqueID();
@@ -791,6 +906,7 @@ public class EntityUnit extends EntityCreature {
 
     /** Sends a worker to carve food off a carcass and carry it home, then hunt on around there. */
     void orderCarve(Hunting.Carcass carcass) {
+        dropPlans();
         order = Order.HUNT;
         prey = null;
         preyId = null;
@@ -809,6 +925,7 @@ public class EntityUnit extends EntityCreature {
     /** Stops and guards the spot the unit is standing on. */
     void orderStop() {
         buildQueue.clear();
+        dropPlans();
         guardHere();
         getNavigator().clearPathEntity();
     }
@@ -832,6 +949,7 @@ public class EntityUnit extends EntityCreature {
      * behind them, as they go.
      */
     void orderFollow(Entity leader, double across, double behind) {
+        dropPlans();
         order = Order.FOLLOW;
         leaderId = leader.getUniqueID();
         followAcross = across;
@@ -879,6 +997,7 @@ public class EntityUnit extends EntityCreature {
     }
 
     private void guardHere() {
+        dropPlans();
         order = Order.IDLE;
         hasSpot = false;
         working = false;
@@ -1016,7 +1135,11 @@ public class EntityUnit extends EntityCreature {
     private void tickMove() {
         if (distanceTo(goalX, goalZ) < ARRIVED) {
             getNavigator().clearPathEntity();
+            attackMove = false;
             guardHere();
+            return;
+        }
+        if (attackMove && !isWorker() && attackOnTheWay()) {
             return;
         }
         if (getNavigator().noPath() && --planTicks <= 0) {
@@ -1523,18 +1646,21 @@ public class EntityUnit extends EntityCreature {
             if (defending) {
                 backToPost();
             } else {
-                getNavigator().clearPathEntity();
-                guardHere();
+                nextAttack();
             }
             return;
         }
-        // Enemies coming at a unit on guard come first.
-        if (defending && --scanTicks <= 0) {
+        // Enemies coming at a unit on guard, or on an attack move, come first.
+        if ((defending || attackMove) && --scanTicks <= 0) {
             scanTicks = 10 + rand.nextInt(5);
             EntityLivingBase enemy = Units.get()
                 .findEnemyNear(this, guardRange());
             if (enemy != null) {
-                defend(enemy);
+                if (defending) {
+                    defend(enemy);
+                } else {
+                    engage(enemy);
+                }
                 return;
             }
         }
@@ -1619,8 +1745,7 @@ public class EntityUnit extends EntityCreature {
             if (defending) {
                 backToPost();
             } else {
-                getNavigator().clearPathEntity();
-                guardHere();
+                nextAttack();
             }
             return;
         }
@@ -1672,7 +1797,8 @@ public class EntityUnit extends EntityCreature {
             if (defending) {
                 backToPost();
             } else {
-                guardHere();
+                // Out of reach: on to the next enemy queued, if any.
+                nextAttack();
             }
         }
     }
@@ -1973,6 +2099,15 @@ public class EntityUnit extends EntityCreature {
         if (targetId != null && !defending) {
             tag.setString("Target", targetId.toString());
         }
+        StringBuilder enemies = new StringBuilder();
+        for (UUID id : attackQueue) {
+            enemies.append(enemies.length() > 0 ? "," : "")
+                .append(id);
+        }
+        tag.setString("AttackQueue", enemies.toString());
+        tag.setBoolean("AttackMove", attackMove);
+        tag.setDouble("AttackMoveX", attackMoveX);
+        tag.setDouble("AttackMoveZ", attackMoveZ);
         if (order == Order.HUNT && preyId != null) {
             tag.setString("Prey", preyId.toString());
         }
@@ -2034,6 +2169,20 @@ public class EntityUnit extends EntityCreature {
                 order = Order.IDLE;
             }
         }
+        attackQueue.clear();
+        for (String id : tag.getString("AttackQueue")
+            .split(",")) {
+            try {
+                if (!id.isEmpty()) {
+                    attackQueue.add(UUID.fromString(id));
+                }
+            } catch (IllegalArgumentException e) {
+                // Skip it.
+            }
+        }
+        attackMove = tag.getBoolean("AttackMove");
+        attackMoveX = tag.getDouble("AttackMoveX");
+        attackMoveZ = tag.getDouble("AttackMoveZ");
         if (order == Order.ATTACK && targetId == null) {
             order = Order.IDLE;
         }

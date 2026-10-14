@@ -566,7 +566,9 @@
     const boxButton = document.getElementById("box-select");
     const toast = document.getElementById("toast");
     let boxMode = false;
-    let selectionBox = null; // {x0, y0, x1, y1} in CSS pixels while dragging one
+    let selectionBox = null; // {x0, y0, x1, y1, attack} in CSS pixels while dragging one; attack draws it red
+    // Whether the next click sends the selected warriors and archers on an attack move.
+    let attackMoving = false;
     let orderMark = null; // {x, y, z, color, time} where the last order went
     let lastClick = {time: 0, id: null};
     // A building being placed: {type, rotation, cx, cz} with the footprint centred on cx, cz under the pointer.
@@ -614,6 +616,95 @@
         setFollow(false);
         view.focus(b.x + b.sizeX / 2, b.y + 1, b.z + b.sizeZ / 2);
         view.cam.zoom = Math.min(view.cam.zoom, 40);
+    }
+
+    function selectedFighters() {
+        return [...state.selected].filter((id) => {
+            const u = state.units.get(id);
+            return u && u.kind !== "worker";
+        });
+    }
+
+    // The next click sends the selected warriors and archers on an attack move.
+    function startAttackMove() {
+        if (placing) {
+            stopPlacing();
+        }
+        if (lighting) {
+            stopLighting();
+        }
+        attackMoving = true;
+        showToast("Attack move: click where to go", false);
+        renderUnitBar();
+    }
+
+    // Sends the selected warriors and archers on an attack move to the ground clicked, fighting whatever enemies
+    // they meet; an enemy clicked they attack straight away.
+    function attackMove(px, py, hit, shift) {
+        attackMoving = false;
+        renderUnitBar();
+        const units = selectedFighters();
+        if (!units.length) {
+            return;
+        }
+        if (hit && isEnemy(hit)) {
+            const t = hit.thing;
+            orderMark = {x: t.drawX, y: t.drawY, z: t.drawZ, color: [1, 0.3, 0.25, 1], time: performance.now()};
+            send("units.attack", {units, target: entityId(hit), queue: Boolean(shift)});
+            return;
+        }
+        const ground = groundUnder(px, py);
+        if (!ground) {
+            return;
+        }
+        orderMark = {x: ground[0], y: ground[1], z: ground[2], color: [1, 0.3, 0.25, 1], time: performance.now()};
+        send("units.move", {units, x: ground[0], z: ground[2], formation, attack: true}).then((reply) => {
+            if (reply) {
+                showToast("Attack move", false);
+            }
+        });
+        view.dirty = true;
+    }
+
+    // Sends the selected warriors and archers at the enemies drawn inside a screen rectangle, shared out among them,
+    // after the enemies they were already ordered at with add. With no enemy units or players in it, at the hostile
+    // mobs in it. Returns whether there was anything to attack.
+    function attackIn(x0, y0, x1, y1, add) {
+        const [left, right] = [Math.min(x0, x1), Math.max(x0, x1)];
+        const [top, bottom] = [Math.min(y0, y1), Math.max(y0, y1)];
+        const s = figureScale();
+        const inside = (t) => {
+            const [x, y] = view.project(t.drawX, t.drawY + 0.9 * s, t.drawZ);
+            return x >= left && x <= right && y >= top && y <= bottom;
+        };
+        const enemies = [];
+        for (const u of state.units.values()) {
+            if (isEnemyTeam(u.team) && inside(u)) {
+                enemies.push(u);
+            }
+        }
+        for (const p of state.players.values()) {
+            if (isEnemyTeam(p.team) && inside(p)) {
+                enemies.push(p);
+            }
+        }
+        const targets = enemies.length ? enemies
+            : [...state.mobs.values()].filter((m) => m.hostile && !m.carcass && inside(m));
+        if (!targets.length) {
+            return false;
+        }
+        const units = selectedFighters();
+        const n = targets.length;
+        orderMark = {x: targets.reduce((a, t) => a + t.drawX, 0) / n, y: targets.reduce((a, t) => a + t.drawY, 0) / n,
+            z: targets.reduce((a, t) => a + t.drawZ, 0) / n, color: [1, 0.3, 0.25, 1], time: performance.now()};
+        send("units.attack", {units, targets: targets.map((t) => t.uuid || t.id), queue: Boolean(add)})
+            .then((reply) => {
+                if (reply) {
+                    showToast("Attacking " + n + (n === 1 ? " enemy" : " enemies"), false);
+                }
+            });
+        view.dirty = true;
+        return true;
     }
 
     function selectedWorkers() {
@@ -808,6 +899,10 @@
             b.classList.toggle("on", formation === id);
             actions.append(b);
         }
+        const move = button("Attack move (A)", "Then click where to go: they fight any enemy they meet on the way",
+            startAttackMove);
+        move.classList.toggle("on", attackMoving);
+        actions.append(move);
         actions.append(el("span", "note", "Stance"));
         for (const [id, name, tip] of STANCES) {
             const b = button(name, tip, () => {
@@ -1573,6 +1668,10 @@
             return;
         }
         const hit = entityAt(px, py);
+        if (attackMoving && (button === 0 || button === 2)) {
+            attackMove(px, py, hit, shift);
+            return;
+        }
         const ordering = button === 2 || (touch && state.selected.size && !(hit && hit.kind === "unit" && isMine(hit.thing)));
         if (ordering) {
             if (state.selected.size) {
@@ -1648,7 +1747,8 @@
         } else if (hit && isEnemy(hit)) {
             const t = hit.thing;
             orderMark = {x: t.drawX, y: t.drawY, z: t.drawZ, color: [1, 0.3, 0.25, 1], time: performance.now()};
-            send("units.attack", {units, target: entityId(hit)});
+            // Shift-clicking enemies one after another lines them up to attack in turn.
+            send("units.attack", {units, target: entityId(hit), queue: Boolean(shift)});
         } else if (!hit && (orderBuild(px, py, shift) || orderAttackBuilding(px, py) || orderMine(px, py)
             || orderChop(px, py))) {
             return;
@@ -2029,10 +2129,15 @@
             startY: event.offsetY,
             moved: false,
             box: false,
+            attackBox: false,
         };
         if (!pointers.size) {
             multiTouch = false;
             point.box = event.button === 0 && (event.shiftKey || boxMode) && Boolean(myTeam()) && !placing && !lighting;
+            // With warriors or archers selected, a right drag draws a box of enemies to attack; ctrl and a right
+            // drag still turns the view.
+            point.attackBox = event.button === 2 && !event.ctrlKey && Boolean(myTeam()) && !placing && !lighting
+                && selectedFighters().length > 0;
         }
         pointers.set(event.pointerId, point);
         canvas.classList.add("dragging");
@@ -2058,8 +2163,9 @@
         const dx = point.x - last.x;
         const dy = point.y - last.y;
         pointers.set(event.pointerId, point);
-        if (pointers.size === 1 && point.box) {
-            selectionBox = point.moved ? {x0: point.startX, y0: point.startY, x1: point.x, y1: point.y} : null;
+        if (pointers.size === 1 && (point.box || point.attackBox)) {
+            selectionBox = point.moved ? {x0: point.startX, y0: point.startY, x1: point.x, y1: point.y,
+                attack: point.attackBox} : null;
             view.dirty = true;
         } else if (pointers.size === 1) {
             if (last.button === 2) {
@@ -2098,6 +2204,10 @@
             if (boxMode) {
                 boxMode = false;
                 renderUnitBar();
+            }
+        } else if (point.attackBox && point.moved) {
+            if (!attackIn(point.startX, point.startY, point.x, point.y, event.shiftKey)) {
+                showToast("There are no enemies there", true);
             }
         } else if (!point.moved) {
             click(point.x, point.y, point.button, event.shiftKey, event.pointerType === "touch");
@@ -2399,7 +2509,11 @@
             return;
         }
         const key = event.key.toLowerCase();
-        if (PAN_KEYS.includes(key)) {
+        if (key === "a" && myTeam() && selectedFighters().length) {
+            // With warriors or archers selected, A starts an attack move rather than moving the view.
+            startAttackMove();
+            event.preventDefault();
+        } else if (PAN_KEYS.includes(key)) {
             keys.add(key);
             setFollow(false);
             event.preventDefault();
@@ -2409,6 +2523,9 @@
             view.turn(1);
         } else if (key === "r" && placing) {
             rotatePlacing();
+        } else if (key === "escape" && attackMoving) {
+            attackMoving = false;
+            renderUnitBar();
         } else if (key === "escape" && placing) {
             stopPlacing();
         } else if (key === "escape" && lighting) {
@@ -2789,8 +2906,8 @@
         }
         if (selectionBox) {
             const b = selectionBox;
-            labelCtx.fillStyle = "rgba(115, 255, 128, 0.12)";
-            labelCtx.strokeStyle = "rgba(115, 255, 128, 0.9)";
+            labelCtx.fillStyle = b.attack ? "rgba(255, 64, 64, 0.12)" : "rgba(115, 255, 128, 0.12)";
+            labelCtx.strokeStyle = b.attack ? "rgba(255, 64, 64, 0.9)" : "rgba(115, 255, 128, 0.9)";
             labelCtx.lineWidth = 1;
             labelCtx.fillRect(Math.min(b.x0, b.x1), Math.min(b.y0, b.y1), Math.abs(b.x1 - b.x0), Math.abs(b.y1 - b.y0));
             labelCtx.strokeRect(Math.min(b.x0, b.x1) + 0.5, Math.min(b.y0, b.y1) + 0.5, Math.abs(b.x1 - b.x0), Math.abs(b.y1 - b.y0));

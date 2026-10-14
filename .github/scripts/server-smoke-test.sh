@@ -413,11 +413,18 @@ read -r tower_x tower_z < <(grep -oE "Blue tower (\(level [0-9]\) )?#15 at -?[0-
 wall_x=$((tower_x + 1))
 wall_z=$((tower_z + 1))
 if [ "$tower_x" -ge "$hall_x" ]; then wall_to=$((wall_x + 15)); else wall_to=$((wall_x - 15)); fi
+# A worker sent to the first piece goes on along the rest of the wall.
+echo "rts units spawn blue 1 worker" >&3
+wait_for_log "Spawned 1 units for Blue" 30
+sleep 1
 echo "rts wall blue $wall_x $wall_z $wall_to $wall_z" >&3
 wait_for_log "Laid out a wall of" 30
 grep -qE "Laid out a wall of [3-9] pieces for Blue, [1-9][0-9]* of them posts" "$WEB_LOG" \
     || fail "boot-4-units: the wall was not laid out: $(grep -oE '(Laid out a wall|That would|runs into|off the map).*' "$WEB_LOG" | tail -1)"
 echo "ok: $(grep -oE 'Laid out a wall of .*' "$WEB_LOG" | tail -1)"
+echo "rts units blue" >&3
+wait_for_log "more queued)" 30
+echo "ok: $(grep -oE 'Blue worker [0-9]+ at .*more queued\)' "$WEB_LOG" | tail -1)"
 echo "rts finish blue" >&3
 wait_for_log "Built Blue wall #" 30
 echo "rts buildings blue" >&3
@@ -442,6 +449,22 @@ short_id=$(grep -oE "Laid out a wall of 2 pieces for Blue, 1 of them posts and 1
 echo "rts finish blue" >&3
 wait_for_log "Built Blue wall #$short_id " 30
 echo "ok: the short segment #$short_id is built"
+# Army orders: Blue's warriors and archers go at Red's units, shared out among them, then on an attack move.
+echo "rts units spawn red 2" >&3
+wait_for_log "Spawned 2 units for Red" 30
+echo "rts units attack blue red" >&3
+wait_for_log " units of Blue at " 30
+echo "ok: $(grep -oE 'Sent [0-9]+ units of Blue at .*' "$WEB_LOG" | tail -1)"
+echo "rts units blue" >&3
+sleep 2
+grep -qE "Blue (warrior|archer) [0-9]+ at -?[0-9]+,-?[0-9]+,-?[0-9]+ attack" "$WEB_LOG" \
+    || fail "boot-4-units: no Blue soldier is attacking"
+echo "ok: Blue's soldiers attack"
+echo "rts units attackmove blue $hall_x $wall_z" >&3
+wait_for_log " units of Blue on an attack move to " 30
+echo "rts units blue" >&3
+wait_for_log "(attack move)" 30
+echo "ok: Blue's soldiers are on an attack move"
 echo "rts units kill red" >&3
 sleep 2
 echo "rts damage 16 100000" >&3

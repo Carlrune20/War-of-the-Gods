@@ -32,6 +32,8 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts units [team]` | List a team's units with where they are and what they are doing (your own team by default), or every team's unit count. |
 | `/rts units spawn <team> [count] [warrior\|archer\|worker]` | (op) Spawn units for a team at its town center, for free, even with no room for them. |
 | `/rts units move <team> <x> <z> [box\|line\|wedge]` | (op) Send all of a team's units somewhere, in formation. |
+| `/rts units attackmove <team> <x> <z> [box\|line\|wedge]` | (op) Send a team's units somewhere, fighting any enemy they meet on the way. |
+| `/rts units attack <team> <enemy team>` | (op) Send a team's warriors and archers at all of another team's units, shared out by health as an attack box does. |
 | `/rts units stance <team> <aggressive\|defensive\|hold\|passive>` | (op) Set how a team's units fight when not ordered to. |
 | `/rts route <x1> <z1> <x2> <z2>` | (op) Show the way a unit would walk between two points, as waypoints. |
 | `/rts units stop <team>` | (op) Make a team's units stop and guard where they stand. |
@@ -302,7 +304,7 @@ Commanding units, from the bar at the bottom of the page:
 | Farm / House / Barracks / ... | With workers selected: a see-through copy follows the pointer, pale where it fits and red where it does not (in the in-game view it shows the building's own blocks). R or Rotate turns it a quarter round, click places it, right-click or Esc cancels. Shift-click places more, and the workers build them one after another in the order they were placed; shift-right-click a building site to add it to their list |
 | Wall | With workers selected: click where the wall starts, or one of your towers, then where it ends (or another tower). A see-through wall follows the pointer, red where it does not fit, and the bar shows its pieces and cost. Shift-click to go on with the next wall from where this one ended |
 | Make gate | With one of your finished wall segments selected: turn it into a gate at once, for gold |
-| Right-click one of your building sites or farms, or a gold mine | Send the selected workers to build or work it, or to mine gold |
+| Right-click one of your building sites or farms, or a gold mine | Send the selected workers to build or work it, or to mine gold. Sent to an unbuilt piece of wall, they go on to build the rest of that wall after it |
 | Right-click a tree | Send the selected workers to chop it |
 | Torches | With workers selected: click two corners of an area for them to light up against mobs |
 | Click one of your units | Select it; shift-click adds or removes it |
@@ -320,7 +322,9 @@ Commanding units, from the bar at the bottom of the page:
 | All / Clear / Esc | Select all your units, or none |
 | Right-click the ground | Send the selected units there, in the formation picked on the bar |
 | Formation / Stance | With warriors or archers selected: how they line up where they are sent (box, line, wedge), and how they fight on their own (aggressive, defensive, hold, passive) |
-| Right-click an enemy unit, player or building, or any mob | Attack it (workers stay out of it) |
+| Right-click an enemy unit, player or building, or any mob | Attack it (workers stay out of it). Shift-right-click more enemies to have them attacked one after another |
+| Right-drag, with warriors or archers selected | A red box: every enemy unit and player in it (or with none, the hostile mobs) is attacked. The enemies are shared out by their health, so a strong one draws more attackers than a weak one and every one draws at least one while there are units enough; each unit then goes on to the rest, nearest first. Shift adds them after the enemies already ordered. Ctrl and a right drag still turns the view |
+| A, or Attack move on the bar, then click the ground | With warriors or archers selected: they go there and fight any enemy or enemy building they meet on the way, going on once it is down. A moves the view only with no warriors or archers selected; the arrow keys always do |
 | Hover a unit or building | A tooltip says what it is and what it is doing, or what a right-click would do with the selected units, such as Attack Blue warrior 3 |
 | Stop | Stop and guard where they stand |
 | On a touch screen | Tap your units to select them, then tap the ground or an enemy to give the order |
@@ -386,7 +390,8 @@ are drawn while the view is open.
 | Click, shift-click, double-click, drag a box | Select your units, as on the web map |
 | 1 … 0, Ctrl/Shift + number | Control groups, as on the web map (Ctrl + number makes a group) |
 | Right-click with buildings selected / a player of your team | Rally point / follow them, as on the web map |
-| Right-click | Move, attack (enemies and mobs), build or work, as on the web map |
+| Right-click | Move, attack (enemies and mobs), build or work, as on the web map; shift-right-click enemies to attack them in turn |
+| Right-drag / A then click | With warriors or archers selected: a red box of enemies to attack, shared out by their health / an attack move, as on the web map. A moves the camera only with no warriors or archers selected |
 | Click one of your buildings | Its controls in the bar, such as Train |
 | H / Space | Go to your town center / to the selected units |
 | Minimap (bottom right) | Click or drag to move the camera there; right-click to send the selected units there. It shows the map as far as your client has seen it, with buildings, units and hostile mobs, and the part in view outlined |
