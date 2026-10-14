@@ -6,6 +6,7 @@ import net.minecraftforge.common.MinecraftForge;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.warofthegods.ai.AiPlayers;
 import com.warofthegods.building.BuildingCommands;
 import com.warofthegods.building.Buildings;
 import com.warofthegods.command.CommandRts;
@@ -108,6 +109,9 @@ public class WarOfTheGods {
         FMLCommonHandler.instance()
             .bus()
             .register(new WinConditions());
+        FMLCommonHandler.instance()
+            .bus()
+            .register(new AiPlayers());
         TeamCommands.register();
         FMLCommonHandler.instance()
             .bus()

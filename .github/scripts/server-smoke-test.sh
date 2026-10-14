@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Boots the dev dedicated server four times. The first boot sets up a game through /rts and saves it; the second
+# Boots the dev dedicated server five times. The first boot sets up a game through /rts and saves it; the second
 # boot checks the game and its map came back from the save intact, then starts a new game to check numbering
 # continues and the old map is replaced by a fresh one. The third checks the web map, units and buildings: town
 # centers, a worker building a farm, working it and carrying the harvest home, a barracks training warriors and
 # archers, a storehouse and building health down to 0, a house, a tower, levels, upgrades, chopping a tree, mining gold, an explosion and torches. The fourth checks that units and buildings come back after a restart, then that a team losing its
-# town center gets a countdown and a team with neither town center nor workers is defeated, leaving a winner.
+# town center gets a countdown and a team with neither town center nor workers is defeated, leaving a winner. The
+# fifth has the computer play a team.
 set -uo pipefail
 
 TIMEOUT="${SERVER_TIMEOUT:-600}"
@@ -501,5 +502,39 @@ if grep -q "Blue storehouse #13" "$WEB_LOG"; then
     fail "boot-4-units: the destroyed storehouse came back"
 fi
 echo "ok: buildings and the farm worker came back"
+
+# Boot 5: the computer plays Blue on a fresh map: it trains workers and puts them to gathering, without errors.
+WEB_LOG=boot-5-ai.log
+rm -f run/web-input
+mkfifo run/web-input
+echo "=== Booting server: boot-5-ai"
+timeout "$TIMEOUT" ./gradlew runServer < run/web-input > "$WEB_LOG" 2>&1 &
+server_pid=$!
+exec 3> run/web-input
+wait_for_log "Done (" "$TIMEOUT"
+echo "rts newgame 2 256 777" >&3
+wait_for_log "has started on a 256x256 map with 2 teams" 120
+echo "rts ai blue on" >&3
+wait_for_log "Team Blue is now played by the computer" 30
+echo "rts ai" >&3
+wait_for_log "AI teams: Blue" 30
+wait_for_log "trained Blue worker" 120
+wait_for_log "AI Blue put idle workers to work" 60
+echo "ok: $(grep -oE 'AI Blue put idle workers to work.*' "$WEB_LOG" | head -1)"
+# Give it a minute to play, then show where it got to.
+sleep 60
+echo "rts resources blue" >&3
+echo "rts buildings blue" >&3
+echo "rts units blue" >&3
+sleep 2
+stop_server
+cat "$WEB_LOG"
+if grep -qE 'This crash report has been saved|Encountered an unexpected exception' "$WEB_LOG"; then
+    fail "boot-5-ai: server crashed"
+fi
+if grep -q "at com.warofthegods.ai." "$WEB_LOG"; then
+    fail "boot-5-ai: the AI threw an exception"
+fi
+echo "ok: the AI played Blue without errors"
 
 echo "Server smoke test passed"

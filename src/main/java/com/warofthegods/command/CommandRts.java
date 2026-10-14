@@ -81,6 +81,7 @@ public class CommandRts extends CommandBase {
         "route",
         "explode",
         "finish",
+        "ai",
         "web");
     private static final List<String> TEAM_SUBCOMMANDS = Arrays
         .asList("list", "create", "remove", "color", "faction", "join", "leave", "auto", "base");
@@ -98,7 +99,7 @@ public class CommandRts extends CommandBase {
     @Override
     public String getCommandUsage(ICommandSender sender) {
         return "/rts <help|info|newgame|endgame|spawn|surrender|team|ally|unally|resources|units|buildings|build|wall|gate|train|damage"
-            + "|upgrade|research|chop|mine|finish|web>";
+            + "|upgrade|research|chop|mine|finish|ai|web>";
     }
 
     /** Everyone may run /rts; subcommands that change the game check for op themselves. */
@@ -196,6 +197,9 @@ public class CommandRts extends CommandBase {
             case "gate":
                 gate(sender, rest);
                 break;
+            case "ai":
+                ai(sender, rest);
+                break;
             case "web":
                 web(sender, rest);
                 break;
@@ -261,6 +265,8 @@ public class CommandRts extends CommandBase {
         send(sender, "/rts gate <building id> - make a finished wall segment a gate, for free (op)");
         send(sender, "/rts mine <team> - send a team's idle workers to the nearest gold mine (op)");
         send(sender, "/rts damage <building id> <amount> - take health off a building; at 0 it is gone (op)");
+        send(sender, "/rts ai - list the teams the computer plays");
+        send(sender, "/rts ai <team> [on|off] - have the computer play a team, or stop it (op)");
         send(sender, "/rts web - get a link to the live web map");
         send(sender, "/rts web <player> - send a player a web map link (op)");
         send(sender, "/rts web observer - get a link that views the map without a team (op)");
@@ -1366,11 +1372,44 @@ public class CommandRts extends CommandBase {
             send(
                 sender,
                 "Team " + team.getColoredName()
+                    + (team.isAi() ? " (AI)" : "")
                     + " ["
                     + resourceSummary(team)
                     + "] members: "
                     + (names.isEmpty() ? "none" : String.join(", ", names)));
         }
+    }
+
+    /** Lists the teams the computer plays, or hands a team to the computer or takes it back. */
+    private void ai(ICommandSender sender, String[] args) {
+        Game game = requireGame();
+        if (args.length == 0) {
+            List<String> names = new ArrayList<>();
+            for (Team team : game.getTeams()) {
+                if (team.isAi()) {
+                    names.add(team.getColoredName());
+                }
+            }
+            send(sender, "AI teams: " + (names.isEmpty() ? "none" : String.join(", ", names)));
+            return;
+        }
+        requireOp(sender);
+        Team team = requireTeam(game, args[0]);
+        boolean on;
+        if (args.length < 2) {
+            on = !team.isAi();
+        } else if ("on".equalsIgnoreCase(args[1])) {
+            on = true;
+        } else if ("off".equalsIgnoreCase(args[1])) {
+            on = false;
+        } else {
+            throw new WrongUsageException("/rts ai <team> [on|off]");
+        }
+        team.setAi(on);
+        broadcast(
+            "Team " + team.getColoredName()
+                + EnumChatFormatting.GOLD
+                + (on ? " is now played by the computer" : " is no longer played by the computer"));
     }
 
     private void ally(ICommandSender sender, String[] args, boolean allied) {
@@ -1516,6 +1555,11 @@ public class CommandRts extends CommandBase {
                     return getListOfStringsFromIterableMatchingLastWord(args, teams);
                 }
                 return null;
+            case "ai":
+                if (args.length == 2) {
+                    return getListOfStringsFromIterableMatchingLastWord(args, teams);
+                }
+                return args.length == 3 ? getListOfStringsMatchingLastWord(args, "on", "off") : null;
             case "ally":
             case "unally":
                 return args.length <= 3 ? getListOfStringsFromIterableMatchingLastWord(args, teams) : null;
