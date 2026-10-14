@@ -103,6 +103,8 @@ public final class GuiRts extends GuiScreen {
     private int lastY;
     private boolean moved;
     private boolean box;
+    /** Whether a right drag draws a box of enemies to attack, as it does with warriors or archers selected. */
+    private boolean attackBox;
     private Widget pressedWidget;
     private long lastClickTime;
     private String lastClickId;
@@ -248,6 +250,10 @@ public final class GuiRts extends GuiScreen {
         downY = lastY = py;
         moved = false;
         box = button == 0 && client.placing == null && !client.lighting && state().myTeam() != null;
+        attackBox = button == 1 && client.placing == null
+            && !client.lighting
+            && !client.selectedFighters()
+                .isEmpty();
     }
 
     private void drag(int px, int py) {
@@ -297,11 +303,78 @@ public final class GuiRts extends GuiScreen {
         downButton = -1;
         if (box && moved) {
             selectIn(downX, downY, px, py, isShiftKeyDown());
+        } else if (attackBox && moved && attackIn(downX, downY, px, py, isShiftKeyDown())) {
+            // Done: the fighters go at the enemies in the box.
         } else if (!moved || button == 1) {
             // A right click orders the units even if the mouse slipped while it was down.
             click(px, py, button, isShiftKeyDown());
         }
         box = false;
+        attackBox = false;
+    }
+
+    /**
+     * Sends the selected warriors and archers at the enemies drawn inside a screen rectangle, shared out among them,
+     * after the enemies they were already ordered at with add. With no enemy units or players in it, at the hostile
+     * mobs in it. Returns whether there was anything to attack.
+     */
+    private boolean attackIn(int x0, int y0, int x1, int y1, boolean add) {
+        int left = Math.min(x0, x1);
+        int right = Math.max(x0, x1);
+        int top = Math.min(y0, y1);
+        int bottom = Math.max(y0, y1);
+        List<RtsState.Thing> enemies = new ArrayList<>();
+        List<RtsState.Thing> mobs = new ArrayList<>();
+        List<RtsState.Thing> things = new ArrayList<>(state().units.values());
+        things.addAll(state().players.values());
+        things.addAll(state().mobs.values());
+        for (RtsState.Thing thing : things) {
+            boolean enemy = thing instanceof RtsState.UnitInfo ? state().isEnemyTeam(((RtsState.UnitInfo) thing).team)
+                : thing instanceof RtsState.PlayerInfo && state().isEnemyTeam(((RtsState.PlayerInfo) thing).team);
+            boolean mob = thing instanceof RtsState.MobInfo && ((RtsState.MobInfo) thing).hostile
+                && !((RtsState.MobInfo) thing).carcass;
+            if (!enemy && !mob) {
+                continue;
+            }
+            double[] at = client.positionOf(thing, 1);
+            double[] p = project(at[0], at[1] + at[3] / 2, at[2]);
+            if (p != null && p[0] >= left && p[0] <= right && p[1] >= top && p[1] <= bottom) {
+                (enemy ? enemies : mobs).add(thing);
+            }
+        }
+        List<RtsState.Thing> targets = enemies.isEmpty() ? mobs : enemies;
+        if (targets.isEmpty()) {
+            return false;
+        }
+        JsonObject body = unitsBody(client.selectedFighters());
+        JsonArray ids = new JsonArray();
+        double x = 0;
+        double y = 0;
+        double z = 0;
+        for (RtsState.Thing target : targets) {
+            ids.add(new JsonPrimitive(target.id));
+            double[] at = client.positionOf(target, 1);
+            x += at[0] / targets.size();
+            y += at[1] / targets.size();
+            z += at[2] / targets.size();
+        }
+        body.add("targets", ids);
+        body.addProperty("queue", add);
+        client.mark(x, y, z, true);
+        int count = targets.size();
+        client.command(
+            "units.attack",
+            body,
+            reply -> client.showToast("Attacking " + count + (count == 1 ? " enemy" : " enemies"), false));
+        return true;
+    }
+
+    /** Starts an attack move: the next click sends the selected warriors and archers there. */
+    private void startAttackMove() {
+        client.stopPlacing();
+        client.stopLighting();
+        client.attackMoving = true;
+        client.showToast("Attack move: click where to go", false);
     }
 
     @Override
@@ -311,7 +384,9 @@ public final class GuiRts extends GuiScreen {
             return;
         }
         if (key == Keyboard.KEY_ESCAPE) {
-            if (client.placing != null) {
+            if (client.attackMoving) {
+                client.attackMoving = false;
+            } else if (client.placing != null) {
                 client.stopPlacing();
             } else if (client.lighting) {
                 client.stopLighting();
@@ -337,6 +412,8 @@ public final class GuiRts extends GuiScreen {
             client.leave();
         } else if (key == client.teamsKey.getKeyCode()) {
             mc.displayGuiScreen(new GuiTeams(client));
+        } else if (client.attackMoveKey(key)) {
+            startAttackMove();
         } else if (key == Keyboard.KEY_Q) {
             camera.turn(-1);
         } else if (key == Keyboard.KEY_E) {
@@ -546,6 +623,11 @@ public final class GuiRts extends GuiScreen {
             return;
         }
         Hit hit = entityAt(px, py);
+        if (client.attackMoving && (button == 0 || button == 1)) {
+            client.attackMoving = false;
+            attackMove(px, py, hit);
+            return;
+        }
         if (button == 1) {
             if (!client.selected.isEmpty()) {
                 order(px, py, hit);
@@ -656,6 +738,8 @@ public final class GuiRts extends GuiScreen {
             client.mark(hit.position[0], hit.position[1], hit.position[2], true);
             JsonObject body = unitsBody(client.selected);
             body.addProperty("target", hit.thing.id);
+            // Shift-clicking enemies one after another lines them up to attack in turn.
+            body.addProperty("queue", isShiftKeyDown());
             client.command("units.attack", body, null);
             return;
         }
@@ -673,6 +757,36 @@ public final class GuiRts extends GuiScreen {
         body.addProperty("z", ground[2]);
         body.addProperty("formation", client.formation);
         client.command("units.move", body, null);
+    }
+
+    /**
+     * Sends the selected warriors and archers on an attack move to the ground clicked, fighting whatever enemies they
+     * meet; an enemy clicked they attack straight away.
+     */
+    private void attackMove(int px, int py, Hit hit) {
+        Set<String> fighters = client.selectedFighters();
+        if (fighters.isEmpty()) {
+            return;
+        }
+        if (hit != null && isEnemy(hit)) {
+            client.mark(hit.position[0], hit.position[1], hit.position[2], true);
+            JsonObject body = unitsBody(fighters);
+            body.addProperty("target", hit.thing.id);
+            body.addProperty("queue", isShiftKeyDown());
+            client.command("units.attack", body, null);
+            return;
+        }
+        double[] ground = groundUnder(px, py);
+        if (ground == null) {
+            return;
+        }
+        client.mark(ground[0], ground[1], ground[2], true);
+        JsonObject body = unitsBody(fighters);
+        body.addProperty("x", ground[0]);
+        body.addProperty("z", ground[2]);
+        body.addProperty("formation", client.formation);
+        body.addProperty("attack", true);
+        client.command("units.move", body, reply -> client.showToast("Attack move", false));
     }
 
     /** Right-clicking an enemy building sends the selected soldiers to attack it. */
@@ -1423,6 +1537,14 @@ public final class GuiRts extends GuiScreen {
             drawRect(x0, y0, x1, y1, 0x2073FF80);
             drawOutline(x0, y0, x1, y1, 0xE073FF80);
         }
+        if (attackBox && moved && downButton == 1) {
+            int x0 = guiX(Math.min(downX, mouseX));
+            int y0 = guiY(Math.min(downY, mouseY));
+            int x1 = guiX(Math.max(downX, mouseX));
+            int y1 = guiY(Math.max(downY, mouseY));
+            drawRect(x0, y0, x1, y1, 0x20FF4040);
+            drawOutline(x0, y0, x1, y1, 0xE0FF4040);
+        }
         if (mc.gameSettings.hideGUI) {
             return;
         }
@@ -2006,6 +2128,12 @@ public final class GuiRts extends GuiScreen {
                     shift -> client.formation = formation[0],
                     true));
         }
+        actions.add(
+            button(
+                (client.attackMoving ? "» " : "") + "Attack move (A)",
+                "Then click where to go: they fight any enemy they meet on the way",
+                shift -> startAttackMove(),
+                true));
         actions.add(label("Stance", 0xC8C8C8));
         for (String[] stance : STANCES) {
             boolean on = !mixed && stance[0].equals(common);
