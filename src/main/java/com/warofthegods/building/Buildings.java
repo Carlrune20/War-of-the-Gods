@@ -13,6 +13,7 @@ import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.monster.EntityCreeper;
+import net.minecraft.entity.passive.EntityAnimal;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
@@ -63,7 +64,7 @@ public final class Buildings {
     /** Ticks between looking over all buildings. */
     private static final int INTERVAL = 10;
     /** Blocks from a gate's middle within which the team's own people and its allies open it. */
-    private static final double GATE_REACH = 5;
+    private static final double GATE_REACH = 7;
     /** Blocks kept free between buildings. */
     public static final int GAP = 2;
     /** Most of a footprint that may be water. */
@@ -160,6 +161,9 @@ public final class Buildings {
         research(game);
         shoot(game, world);
         gates(game, world);
+        if (ticks % (INTERVAL * 2) == 0) {
+            keepAnimalsOut(game, world);
+        }
         keepUpWithAge(game);
         updateLooks(game, world);
         smoulder(game, world);
@@ -318,7 +322,7 @@ public final class Buildings {
                     sizeZ,
                     rotation,
                     0,
-                    "A town center can only go on a free settlement");
+                    "A town center can only go on a settlement");
             }
             return new Plan(
                 type,
@@ -829,7 +833,7 @@ public final class Buildings {
                 }
             }
             return false;
-        });
+        }, to == null ? null : new int[] { to.minX, to.minZ, to.sizeX, to.sizeZ });
         List<Plan> plans = new ArrayList<>();
         if (pieces.isEmpty()) {
             return new WallPlan(plans, "There is wall there already");
@@ -975,6 +979,44 @@ public final class Buildings {
         }
     }
 
+    /**
+     * Animals that wander onto a town center, a building site or any other building are put back outside it, at the
+     * nearest edge, so herds graze round towns rather than in them.
+     */
+    private static void keepAnimalsOut(Game game, WorldServer world) {
+        for (Object object : world.loadedEntityList) {
+            if (!(object instanceof EntityAnimal)) {
+                continue;
+            }
+            EntityAnimal animal = (EntityAnimal) object;
+            Building building = game.getBuildingAt(animal.posX, animal.posZ);
+            if (building == null) {
+                continue;
+            }
+            // Out over the nearest side, a block clear of it.
+            double toWest = animal.posX - building.minX;
+            double toEast = building.minX + building.sizeX - animal.posX;
+            double toNorth = animal.posZ - building.minZ;
+            double toSouth = building.minZ + building.sizeZ - animal.posZ;
+            double nearest = Math.min(Math.min(toWest, toEast), Math.min(toNorth, toSouth));
+            double x = animal.posX;
+            double z = animal.posZ;
+            if (nearest == toWest) {
+                x = building.minX - 1.5;
+            } else if (nearest == toEast) {
+                x = building.minX + building.sizeX + 1.5;
+            } else if (nearest == toNorth) {
+                z = building.minZ - 1.5;
+            } else {
+                z = building.minZ + building.sizeZ + 1.5;
+            }
+            int y = world.getTopSolidOrLiquidBlock((int) Math.floor(x), (int) Math.floor(z));
+            animal.getNavigator()
+                .clearPathEntity();
+            animal.setPositionAndUpdate(x, y, z);
+        }
+    }
+
     /** Whether a unit or player of the building's team or an ally is within reach of its middle. */
     private static boolean friendNear(Game game, WorldServer world, Building building, double reach) {
         Team owner = game.getTeam(building.team);
@@ -1099,7 +1141,7 @@ public final class Buildings {
             Plan plan = null;
             // Off the corner, a little further out if the ground there will not do.
             for (int step = 0; step < 6 && (plan == null || plan.problem != null); step++) {
-                double out = 6 + step * 2;
+                double out = 14 + step * 2;
                 int x = (int) Math.round(center.getCenterX() + signX * (center.sizeX / 2.0 + out));
                 int z = (int) Math.round(center.getCenterZ() + signZ * (center.sizeZ / 2.0 + out));
                 plan = plan(game, world, BuildingType.TOWER, x, z, center.rotation);

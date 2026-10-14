@@ -1168,17 +1168,19 @@
         const [x1, z1] = placing.start ? end(placing.start.x, placing.start.z) : end(placing.cx, placing.cz);
         const [x2, z2] = end(placing.cx, placing.cz);
         const own = (b) => team && b.team === team.id && (b.type === "tower" || isWallType(b.type));
+        const S = WALL_SIZE;
         const pieces = wallPieces(x1, z1, x2, z2, (minX, minZ) => [...state.buildings.values()].some((b) => own(b)
-            && minX < b.x + b.sizeX && b.x < minX + 3 && minZ < b.z + b.sizeZ && b.z < minZ + 3));
+            && minX < b.x + b.sizeX && b.x < minX + S && minZ < b.z + b.sizeZ && b.z < minZ + S),
+        towerAt(placing.cx, placing.cz) || null);
         const g = state.game;
         let ok = pieces.length > 0;
         for (const p of pieces) {
-            p.y = surfaceY(p.x + 1, p.z + 1) - 1;
-            if (p.x < g.minX || p.z < g.minZ || p.x + 2 > g.maxX || p.z + 2 > g.maxZ) {
+            p.y = surfaceY(p.x + S / 2, p.z + S / 2) - 1;
+            if (p.x < g.minX || p.z < g.minZ || p.x + S - 1 > g.maxX || p.z + S - 1 > g.maxZ) {
                 ok = false;
             }
-            const hits = (f, gap) => p.x < f.x + f.sizeX + gap && f.x < p.x + 3 + gap && p.z < f.z + f.sizeZ + gap
-                && f.z < p.z + 3 + gap;
+            const hits = (f, gap) => p.x < f.x + f.sizeX + gap && f.x < p.x + S + gap && p.z < f.z + f.sizeZ + gap
+                && f.z < p.z + S + gap;
             for (const b of state.buildings.values()) {
                 if (hits(b, 0)) {
                     ok = false;
@@ -1205,13 +1207,16 @@
         return cost;
     }
 
-    // The 3 by 3 pieces of a wall from x1, z1 to x2, z2: straight where it can, a zigzag of single steps on a slant,
-    // posts where it turns or ends. The same as WallLine.java.
-    function wallPieces(x1, z1, x2, z2, skip) {
-        const ox = x1 - 1;
-        const oz = z1 - 1;
-        const endI = Math.floor((x2 - ox) / 3);
-        const endJ = Math.floor((z2 - oz) / 3);
+    const WALL_SIZE = 5;
+
+    // The 5 by 5 pieces of a wall from x1, z1 to x2, z2: straight where it can, a zigzag of single steps on a slant,
+    // posts where it turns or ends, the last moved up against the tower it runs to (endBox). The same as WallLine.java.
+    function wallPieces(x1, z1, x2, z2, skip, endBox) {
+        const S = WALL_SIZE;
+        const ox = x1 - Math.floor(S / 2);
+        const oz = z1 - Math.floor(S / 2);
+        const endI = Math.floor((x2 - ox) / S);
+        const endJ = Math.floor((z2 - oz) / S);
         const cells = [[0, 0]];
         let i = 0;
         let j = 0;
@@ -1231,7 +1236,7 @@
             j += sj;
             cells.push([i, j]);
         }
-        const kept = cells.map(([ci, cj]) => !skip(ox + ci * 3, oz + cj * 3));
+        const kept = cells.map(([ci, cj]) => !skip(ox + ci * S, oz + cj * S));
         const pieces = [];
         cells.forEach(([ci, cj], k) => {
             if (!kept[k]) {
@@ -1240,9 +1245,24 @@
             const before = k > 0 && kept[k - 1] ? [ci - cells[k - 1][0], cj - cells[k - 1][1]] : null;
             const after = k < cells.length - 1 && kept[k + 1] ? [cells[k + 1][0] - ci, cells[k + 1][1] - cj] : null;
             const post = !before || !after || before[0] !== after[0] || before[1] !== after[1];
-            pieces.push({x: ox + ci * 3, z: oz + cj * 3, type: post ? "wall_post" : "wall",
+            pieces.push({x: ox + ci * S, z: oz + cj * S, type: post ? "wall_post" : "wall",
                 rotation: post ? 0 : before[0] !== 0 ? 0 : 1});
         });
+        let last = cells.length - 1;
+        while (last >= 0 && !kept[last]) {
+            last--;
+        }
+        if (endBox && last >= 0 && last < cells.length - 1 && pieces.length) {
+            const di = cells[last + 1][0] - cells[last][0];
+            const dj = cells[last + 1][1] - cells[last][1];
+            const p = pieces[pieces.length - 1];
+            const gap = di > 0 ? endBox.x - (p.x + S) : di < 0 ? p.x - (endBox.x + endBox.sizeX)
+                : dj > 0 ? endBox.z - (p.z + S) : p.z - (endBox.z + endBox.sizeZ);
+            if (gap > 0 && gap < S) {
+                p.x += di * gap;
+                p.z += dj * gap;
+            }
+        }
         return pieces;
     }
 
@@ -1294,7 +1314,7 @@
             return;
         }
         if (!spot.ok) {
-            showToast(placing.type === "town_hall" ? "A town center can only go on a free settlement"
+            showToast(placing.type === "town_hall" ? "A town center can only go on a settlement"
                 : "It does not fit there", true);
             return;
         }
@@ -2233,7 +2253,7 @@
             }
             const settlement = ground && freeSettlementNear(ground.x, ground.z, 0);
             if (settlement) {
-                return {icon: "town_hall", text: "Free settlement \u00B7 workers can raise a town center here"};
+                return {icon: "town_hall", text: "Settlement \u00B7 workers can raise a town center here"};
             }
             const block = treeUnder(px, py);
             if (!block) {
@@ -2599,7 +2619,7 @@
         }
         const wall = placingWall();
         for (const p of wall ? wall.pieces : []) {
-            rect(lines, p.x, p.z, p.x + 3, p.z + 3, p.y + 1.1, wall.ok ? SELECTED : ATTACK);
+            rect(lines, p.x, p.z, p.x + WALL_SIZE, p.z + WALL_SIZE, p.y + 1.1, wall.ok ? SELECTED : ATTACK);
         }
         return lines;
     }

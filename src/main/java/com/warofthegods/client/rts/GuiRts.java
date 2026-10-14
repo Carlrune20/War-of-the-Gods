@@ -1074,7 +1074,7 @@ public final class GuiRts extends GuiScreen {
         }
         if (!spot.ok) {
             client.showToast(
-                "town_hall".equals(client.placing.type) ? "A town center can only go on a free settlement"
+                "town_hall".equals(client.placing.type) ? "A town center can only go on a settlement"
                     : "It does not fit there",
                 true);
             return;
@@ -1317,7 +1317,7 @@ public final class GuiRts extends GuiScreen {
             RtsState.FeatureInfo settlement = ground == null ? null
                 : state().freeSettlementNear(ground[0], ground[2], 0);
             if (settlement != null) {
-                return new Object[] { "town_hall", "Free settlement · workers can raise a town center here", null };
+                return new Object[] { "town_hall", "Settlement · workers can raise a town center here", null };
             }
             int[] block = treeUnder(px, py);
             if (block == null) {

@@ -50,9 +50,9 @@ public final class MapFeatures {
 
     /**
      * Lays out the map's towers, settlements, gold mines and herds once every team has its first town center. Each
-     * team gets the same: four towers round its town center, free settlements and a gold mine out to its sides, turned
-     * the same way round the middle of the map as the team is, a gold mine behind every settlement, and chickens and
-     * livestock grazing near its town center.
+     * team gets the same: four towers round its town center, settlements spread over its side of the map, turned
+     * the same way round the middle of the map as the team is, a gold mine behind every settlement and one more,
+     * chickens and livestock grazing near its town center and wild herds over its side of the map.
      */
     void placeIfDue(Game game, WorldServer world) {
         if (game.areFeaturesPlaced()) {
@@ -71,12 +71,16 @@ public final class MapFeatures {
         int n = Math.max(2, teams.size());
         Schematic camp = Buildings.get()
             .schematic(BuildingType.TOWN_HALL);
+        int settlements = settlementsPerTeam(game);
+        double sector = 2 * Math.PI / n;
         for (int i = 0; i < teams.size(); i++) {
             double angle = -Math.PI / 2 + 2 * Math.PI * i / n;
-            for (int k = 0; k < Config.extraSettlements; k++) {
-                // To one side of the team, then the other, further round each time.
-                double turn = (k % 2 == 0 ? 1 : -1) * Math.PI / 3 * (1 + k / 2) / Math.max(1, n / 2.0);
-                int[] spot = around(game, angle + turn, 0.32);
+            for (int k = 0; k < settlements; k++) {
+                // Spread over the team's side of the map: far round to either side out near the edge, and nearer
+                // the middle in between, so every team has the same spread on its side.
+                double t = settlements == 1 ? 0.6 : -1 + 2.0 * k / (settlements - 1);
+                double out = Math.abs(t) > 0.5 ? 0.36 - 0.04 * (k % 2) : 0.15 + 0.04 * (k % 2);
+                int[] spot = around(game, angle + t * 0.42 * sector, out);
                 int rotation = facingMiddle(game, spot[0], spot[1]);
                 int[] found = findSpot(
                     game,
@@ -126,6 +130,9 @@ public final class MapFeatures {
         for (Team team : teams) {
             placeHerds(game, world, team);
         }
+        for (int i = 0; i < teams.size(); i++) {
+            placeWildHerds(game, world, -Math.PI / 2 + 2 * Math.PI * i / n, sector);
+        }
         game.setFeaturesPlaced();
         WarOfTheGods.LOG.info(
             "Laid out {} settlements and {} gold mines",
@@ -133,6 +140,28 @@ public final class MapFeatures {
                 .size(),
             game.getMines()
                 .size());
+    }
+
+    /** Settlements laid out for each team besides the one it starts on, by the size of the map. */
+    static int settlementsPerTeam(Game game) {
+        return Math.max(1, (int) Math.round(game.getSize() / (double) Config.settlementEvery));
+    }
+
+    /**
+     * Herds of chickens, pigs, cows and sheep spread over a team's side of the map, the same on every side: more on
+     * bigger maps.
+     */
+    private static void placeWildHerds(Game game, WorldServer world, double angle, double sector) {
+        int herds = Math.max(1, (int) Math.round(game.getSize() / (double) Config.herdEvery));
+        long seed = game.getSeed();
+        for (int k = 0; k < herds; k++) {
+            double t = -1 + 2.0 * (k + 0.5) / herds;
+            // From near the middle out toward the edge, by the golden ratio so they do not line up.
+            double out = 0.08 + 0.32 * ((k * 0.618034 + 0.3) % 1);
+            int[] spot = around(game, angle + t * 0.45 * sector, out);
+            int kind = (int) Math.floorMod(seed + k, 4L) - 1;
+            herd(world, spot[0], spot[1], kind, kind < 0 ? 5 : 4);
+        }
     }
 
     /** The spot at an angle round the middle of the map, a fraction of the map's size out. */
@@ -267,7 +296,7 @@ public final class MapFeatures {
         return false;
     }
 
-    /** Puts a free settlement's standing stones into the world. */
+    /** Puts an abandoned settlement into the world. */
     public void showSettlement(WorldServer world, Settlement settlement) {
         paste(
             world,
@@ -347,7 +376,7 @@ public final class MapFeatures {
         return mine != null && y >= mine.groundY - 1 && y <= mine.groundY + 6 ? mine : null;
     }
 
-    /** Whether x, y, z is one of the standing stones of a settlement nobody holds. */
+    /** Whether x, y, z is one of the blocks of a settlement nobody holds. */
     public static Settlement freeSettlementWithBlock(Game game, int x, int y, int z) {
         Settlement settlement = game.freeSettlementNear(x + 0.5, z + 0.5, 0);
         return settlement != null && y >= settlement.groundY - 2 && y <= settlement.groundY + 8 ? settlement : null;

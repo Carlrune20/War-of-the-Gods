@@ -47,7 +47,7 @@ FENCE_GATE, BRICK_STAIRS, STONE_BRICK_STAIRS, NETHER_BRICK, NETHER_FENCE, NETHER
     107, 108, 109, 112, 113, 114, 115)
 CAULDRON, WOOD_SLAB, SPRUCE_STAIRS, COBBLE_WALL, FLOWER_POT, CARROTS, POTATOES = 118, 126, 134, 139, 140, 141, 142
 SKULL, ANVIL, REDSTONE_BLOCK, QUARTZ, CLAY, PANE_STAINED, LOG2 = 144, 145, 152, 155, 159, 160, 162
-DARK_OAK_STAIRS, HAY, CARPET, COAL_BLOCK, COBWEB, FIRE = 164, 170, 171, 173, 30, 51
+DARK_OAK_STAIRS, HAY, CARPET, COAL_BLOCK, COBWEB, FIRE, TALL_GRASS = 164, 170, 171, 173, 30, 51, 31
 
 # Wool and stained clay colours.
 WHITE, ORANGE, LIGHT_GRAY, GRAY, BLUE, BROWN, RED, BLACK = 0, 1, 8, 7, 11, 12, 14, 15
@@ -59,7 +59,7 @@ UPSIDE_DOWN = 4
 # Blocks that hang on others, are thin, or are furniture: never left floating in damage and ruins.
 DECOR = {TORCH, REDSTONE_TORCH, PANE, PANE_STAINED, IRON_BARS, FLOWER_POT, SKULL, CHEST, WORKBENCH, FURNACE,
          CAULDRON, ANVIL, LADDER, WHEAT, CARROTS, POTATOES, NETHER_WART, DEAD_BUSH, RAIL, CARPET, TRAPDOOR,
-         FENCE_GATE, BOOKSHELF, HAY, JACK, PUMPKIN, FIRE}
+         FENCE_GATE, BOOKSHELF, HAY, JACK, PUMPKIN, FIRE, TALL_GRASS}
 DOORS = {DOOR, IRON_DOOR}
 
 
@@ -590,43 +590,42 @@ def town_center(p, level):
 
 
 def settlement():
-    """A settlement no team holds: a ring of old standing stones round a cold hearth, where a town center can go. It
-    has the town center's size, so either can be pasted over the other."""
+    """A settlement no team holds: the town center's camp of Age I left to rot, where a town center can go. Its shacks
+    stand roofless and holed, the fence has fallen in places, the fire is long cold and the stores are gone, and a
+    white flag on a post marks free land. It has the town center's size, so either can be pasted over the other."""
     rng = random.Random(77)
-    s = Struct(17, 17, 16, 2)
-    s.fill(0, -2, 0, 16, -1, 16, (DIRT, 0))
-    s.fill(0, 0, 0, 16, 0, 16, (GRASS, 0))
+    s = damaged(town_center(SARADOMIN, 1), 3, 7701)
+    for (x, y, z), block in list(s.blocks.items()):
+        if y <= 0:
+            continue
+        if block[0] in (FIRE, WOOL, CHEST, WORKBENCH, TORCH, CAULDRON, IRON_BARS):
+            s.set(x, y, z, None)
+        elif block[0] == FENCE and rng.random() < 0.45:
+            s.set(x, y, z, None)
+        elif block[0] == HAY and rng.random() < 0.6:
+            s.set(x, y, z, None)
+        elif block[0] == PLANKS and rng.random() < 0.12:
+            s.set(x, y, z, (LOG, 0))
+    # Grass grows back over the trodden ground, and the hearth is cold ash and stone.
     for x in range(17):
         for z in range(17):
-            d = ((x - 8) ** 2 + (z - 8) ** 2) ** 0.5
-            if d <= 3.2:
-                s.set(x, 0, z, (GRAVEL, 0) if rng.random() < 0.4 else (COBBLE, 0) if d < 1.5 else (DIRT, 0))
-            elif 5.5 <= d <= 6.5 and rng.random() < 0.35:
-                s.set(x, 0, z, (GRAVEL, 0))
-    # The cold hearth.
-    s.set(8, 0, 8, (STONE_BRICK, 3))
-    for x, z in ((7, 8), (9, 8), (8, 7), (8, 9)):
-        s.set(x, 1, z, (SLAB, 3))
-    # Eight standing stones, some fallen.
-    import math
-    for i in range(8):
-        angle = math.pi * 2 * i / 8 + math.pi / 8
-        x = 8 + round(math.cos(angle) * 6.5)
-        z = 8 + round(math.sin(angle) * 6.5)
-        height = 3 if i % 3 else 2
-        stone = [(STONE_BRICK, 0), (STONE_BRICK, 1), (STONE_BRICK, 2), (MOSSY, 0)]
-        if i == 5:
-            # This one has fallen over.
-            s.set(x, 1, z, (STONE_BRICK, 2))
-            s.set(x + (1 if x < 8 else -1), 1, z, (MOSSY, 0))
-            continue
-        for y in range(1, height + 1):
-            s.set(x, y, z, rng.choice(stone))
-    # A marker post with a white flag: free land.
-    s.fill(8, 1, 3, 8, 5, 3, (FENCE, 0))
-    s.set(9, 5, 3, (WOOL, WHITE))
-    s.set(9, 4, 3, (WOOL, WHITE))
-    s.set(8, 0, 3, (COBBLE, 0))
+            if s.get(x, 0, z) == (DIRT, 0) and rng.random() < 0.5:
+                s.set(x, 0, z, (GRASS, 0))
+    s.set(8, 0, 8, (GRAVEL, 0))
+    s.set(8, 1, 8, None)
+    for (x, y, z), block in list(s.blocks.items()):
+        if block[0] == COBBLE and rng.random() < 0.4:
+            s.set(x, y, z, (MOSSY, 0))
+    # Weeds and tall grass in the yard.
+    for _ in range(40):
+        x, z = rng.randrange(1, 16), rng.randrange(1, 16)
+        if s.get(x, 1, z) == AIR and s.get(x, 0, z) == (GRASS, 0):
+            s.set(x, 1, z, (TALL_GRASS, 1))
+    # A marker post with a white flag at the gate: free land.
+    s.fill(8, 1, 1, 8, 5, 1, (FENCE, 0))
+    s.set(9, 5, 1, (WOOL, WHITE))
+    s.set(9, 4, 1, (WOOL, WHITE))
+    s.set(8, 0, 1, (COBBLE, 0))
     return s
 
 
@@ -1005,60 +1004,84 @@ def tower(p, level):
 def wall_style(p, level):
     """The body, foot and top of a wall at a level, and how tall its body stands."""
     if zam(p):
-        return [((LOG2, 1), (NETHERRACK, 0), (NETHER_FENCE, 0), 3),
-                ((STONE, 0), (COBBLE, 0), (SLAB, 0), 3),
-                ((NETHER_BRICK, 0), (NETHER_BRICK, 0), (NETHER_FENCE, 0), 4)][level - 1]
-    return [((LOG, 0), (COBBLE, 0), (FENCE, 0), 3),
-            ((COBBLE, 0), (COBBLE, 0), (COBBLE_WALL, 0), 3),
-            ((STONE_BRICK, 0), (STONE_BRICK, 0), (SLAB, 5), 4)][level - 1]
+        return [((LOG2, 1), (NETHERRACK, 0), (NETHER_FENCE, 0), 5),
+                ((STONE, 0), (COBBLE, 0), (SLAB, 0), 6),
+                ((NETHER_BRICK, 0), (NETHER_BRICK, 0), (NETHER_FENCE, 0), 7)][level - 1]
+    return [((LOG, 0), (COBBLE, 0), (FENCE, 0), 5),
+            ((COBBLE, 0), (COBBLE, 0), (COBBLE_WALL, 0), 6),
+            ((STONE_BRICK, 0), (STONE_BRICK, 0), (SLAB, 5), 7)][level - 1]
+
+
+WALL = 5      # blocks across a piece of wall, as WallLine.SIZE
+WALL_TOP = 10
 
 
 def wall_ground(s):
     """Ground under and round a wall piece, so it sits in the terrain without a hole round it."""
-    s.fill(0, -1, 0, 2, -1, 2, (DIRT, 0))
-    s.fill(0, 0, 0, 2, 0, 2, (GRASS, 0))
+    s.fill(0, -1, 0, WALL - 1, -1, WALL - 1, (DIRT, 0))
+    s.fill(0, 0, 0, WALL - 1, 0, WALL - 1, (GRASS, 0))
+
+
+def battlements(s, p, level, x0, x1, z0, z1, y):
+    """The top of a stretch of wall three blocks thick, from x0 to x1 along it: a palisade of stakes in Age I, and
+    merlons along both faces with a walk between them after."""
+    body, foot, top, height = wall_style(p, level)
+    for x in range(x0, x1 + 1):
+        if level == 1:
+            s.set(x, y, z0 + 1, top)
+            if x % 2 == 0:
+                s.set(x, y, z0, top)
+                s.set(x, y, z1, top)
+        elif x % 2 == 0:
+            s.set(x, y, z0, body)
+            s.set(x, y, z1, body)
+            if level == 3:
+                s.set(x, y + 1, z0, top)
+                s.set(x, y + 1, z1, top)
 
 
 def wall(p, level, gate=False):
+    """A stretch of wall five blocks long and three thick, along x. A gate has an opening three wide and three high
+    through it, closed by fence gates that open for the team's own people and its allies."""
     body, foot, top, height = wall_style(p, level)
-    s = Struct(3, 3, 6, 1)
+    s = Struct(WALL, WALL, WALL_TOP, 1)
     wall_ground(s)
-    for x in range(3):
-        s.set(x, 0, 1, foot)
-        s.fill(x, 1, 1, x, height, 1, body)
-    # Spikes or battlements on every other block.
-    for x in (0, 2):
-        s.set(x, height + 1, 1, top)
-    if level == 1:
-        s.set(1, height + 1, 1, top)
+    s.fill(0, 0, 1, WALL - 1, 0, 3, foot)
+    s.fill(0, 1, 1, WALL - 1, height, 3, body)
+    if level > 1:
+        # A plinth along both faces.
+        s.fill(0, 1, 1, WALL - 1, 1, 1, foot)
+        s.fill(0, 1, 3, WALL - 1, 1, 3, foot)
+    battlements(s, p, level, 0, WALL - 1, 1, 3, height + 1)
     if gate:
-        # An opening two high with a gate in it, which opens for the team's own people and its allies.
-        s.set(1, 1, 1, (FENCE_GATE, 0))
-        s.set(1, 2, 1, (FENCE_GATE, 0))
-        s.set(1, 0, 1, foot)
-        if level == 1:
-            s.set(1, height, 1, body)
-        s.set(0, height + 1, 1, (p.light, 5) if level > 1 else top)
-        s.set(2, height + 1, 1, (p.light, 5) if level > 1 else top)
-        if level > 1:
-            # A lintel over the opening, with the team's colour hanging from it.
-            s.set(1, height + 1, 1, body)
-            s.set(1, 3, 0, p.banner)
-            s.set(1, 3, 2, p.banner)
+        s.clear(1, 1, 1, 3, 3, 3)
+        s.fill(1, 0, 1, 3, 0, 3, p.path if level > 1 else foot)
+        s.fill(1, 1, 2, 3, 3, 2, (FENCE_GATE, 0))
+        # Posts either side, lit, and the team's colors over the opening.
+        for x in (0, 4):
+            s.set(x, height + 1, 1, (p.light, 5) if level > 1 or not zam(p) else top)
+            s.set(x, height + 1, 3, (p.light, 5) if level > 1 or not zam(p) else top)
+        for z in (0, 4):
+            s.set(2, 4, z, p.banner)
+            if height > 5:
+                s.set(2, 5, z, p.banner)
     return s
 
 
 def wall_post(p, level):
-    """Where a wall turns or ends: a pillar a block taller than the wall, with stubs of wall all four ways so it
-    meets the wall whichever way the wall comes in."""
+    """Where a wall turns or ends: a square pillar a block taller than the wall, with stubs of wall all four ways so
+    it meets the wall, or a tower, whichever way it comes in."""
     body, foot, top, height = wall_style(p, level)
-    s = Struct(3, 3, 6, 1)
+    s = Struct(WALL, WALL, WALL_TOP, 1)
     wall_ground(s)
-    for x, z in ((1, 1), (0, 1), (2, 1), (1, 0), (1, 2)):
-        s.set(x, 0, z, foot)
-        s.fill(x, 1, z, x, height, z, body)
-    s.fill(1, height + 1, 1, 1, height + 1, 1, foot if level > 1 else body)
-    s.set(1, height + 2, 1, (p.light, 5) if level > 1 else top)
+    s.fill(1, 0, 0, 3, 0, 4, foot)
+    s.fill(0, 0, 1, 4, 0, 3, foot)
+    s.fill(1, 1, 0, 3, height, 4, body)
+    s.fill(0, 1, 1, 4, height, 3, body)
+    s.fill(1, height + 1, 1, 3, height + 1, 3, body if level == 1 else foot)
+    for x, z in ((1, 1), (3, 1), (1, 3), (3, 3)):
+        s.set(x, height + 2, z, top if level == 1 else body)
+    s.set(2, height + 2, 2, (p.light, 5) if level > 1 or not zam(p) else top)
     return s
 
 

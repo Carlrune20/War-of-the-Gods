@@ -197,8 +197,9 @@ echo "rts route -100 -100 100 100" >&3
 wait_for_log "Route from -100,-100 to 100,100" 30
 grep -qE "Route from -100,-100 to 100,100: [1-9][0-9]* waypoints" "$WEB_LOG" || web_fail "no route across the map"
 echo "ok: $(grep -oE 'Route from -100,-100 to 100,100: [0-9]+ waypoints' "$WEB_LOG" | tail -1)"
-echo "rts units move red 128 128 wedge" >&3
-wait_for_log "Sent 3 units of Red to 128,128" 30
+# Into Red's own corner, out of reach of Blue's towers, which shoot once Blue has watch towers.
+echo "rts units move red 128 -128 wedge" >&3
+wait_for_log "Sent 3 units of Red to 128,-128" 30
 echo "rts units stance red hold" >&3
 wait_for_log "Set 3 units of Red to hold ground" 30
 sleep 15
@@ -317,7 +318,7 @@ echo "ok: Blue wood went from $wood_before to $wood"
 # Settlements and gold mines are laid out once both teams have town centers; a worker mines gold and brings it home.
 echo "rts info" >&3
 wait_for_log "Settlements: " 30
-grep -qE "Settlements: [0-9]+, [1-9][0-9]* free; gold mines: [1-9]" "$WEB_LOG" || web_fail "no free settlements or gold mines"
+grep -qE "Settlements: [0-9]+, [1-9][0-9]* unclaimed; gold mines: [1-9]" "$WEB_LOG" || web_fail "no unclaimed settlements or gold mines"
 echo "ok: $(grep -oE 'Settlements: .*gold' "$WEB_LOG" | tail -1)"
 expect "$WEB_LOG" "Built 3 bridges over the river"
 expect "$WEB_LOG" "Laid out 4 settlements"
