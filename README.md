@@ -37,7 +37,7 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts units stop <team>` | (op) Make a team's units stop and guard where they stand. |
 | `/rts units kill <team\|all>` | (op) Remove units. |
 | `/rts buildings [team]` | List buildings and building sites with their health, how far each site is built and how many workers work each farm. |
-| `/rts build <team> <type> [x z] [rotation]` | (op) Lay out a building site for free (farm, house, barracks, storehouse, armory, tower or town center), near the town center unless x z is given (a town center goes on the nearest free settlement), and send the team's idle workers to build it. |
+| `/rts build <team> <type> [x z] [rotation]` | (op) Lay out a building site for free (farm, house, barracks, storehouse, armory, tower or town center), near the town center unless x z is given (a town center goes on the nearest settlement nobody holds), and send the team's idle workers to build it. |
 | `/rts train <team> <worker\|warrior\|archer> [count]` | (op) Queue units for free at the team's town center or barracks. |
 | `/rts upgrade <building id>` | (op) Take a town center, and with it its whole town, into the next age at once, for free. |
 | `/rts research <team> <upgrade>` | (op) Give a team an upgrade at once, such as `forged_blades` or `fortified_walls`. |
@@ -67,9 +67,12 @@ teams' town centers, so with two teams it runs between them. Units can swim it, 
 it: one in the middle and one either side. The bridges cannot be broken, nothing can be built right next to them, and
 the river runs straight where it passes under them.
 
-The map is laid out the same way round every team. Besides the settlement each team starts on, it gets a free
-settlement and a gold mine out to its sides, a gold mine behind every settlement, and a flock of chickens and a herd
-of pigs, cows or sheep (the same for every team) grazing either side of its town center. No other animals spawn.
+The map is laid out the same way round every team. Besides the settlement each team starts on, it gets more
+settlements spread over its side of the map, one for every 250 blocks of map width (4 on a 1000 block map, at least
+one): out toward the edge far round either side and nearer the middle in between. There is a gold mine behind every
+settlement and one more for each team. A flock of chickens and a herd of pigs, cows or sheep (the same for every team)
+graze either side of each town center, and wild herds, one for every 125 blocks of map width, roam each team's side.
+No other animals spawn, and animals that wander onto a building or building site are put back outside it.
 
 An invisible wall at the edge of the playable square stops players and mobs: anything that crosses it is put back
 inside, arrows are removed, mobs do not spawn outside it and blocks outside it cannot be broken or placed.
@@ -78,9 +81,9 @@ Every new game starts at sunrise, and it never rains on the game map. Players on
 out over the teams, and players who log in later with no team join the team with the fewest players; press **B**
 for the team menu to change.
 
-The only hostile mobs are zombies and skeletons, and they are rare: every 45 seconds, day or night, a group of two or
+The only hostile mobs are zombies and skeletons, and they are not common: every 30 seconds, day or night, a group of two or
 three may turn up somewhere out of sight of players and units, mostly among trees and now and then in the open, up
-to 16 on the whole map. None spawn within 40 blocks of a town center, fewer the closer they are out to 96 blocks, and
+to 24 on the whole map. None spawn within 40 blocks of a town center, fewer the closer they are out to 96 blocks, and
 none on or right next to a building; no zombie villagers or baby zombies, and hurt zombies call no friends. They do
 not burn in daylight. They notice players and units only within 10 blocks, but once they have, they follow them up
 to 32. One a player, warrior or archer hurts goes after them from up to 32 blocks away. Many wear armor and some skeletons carry swords. Nothing else hostile spawns. All of this can be changed in
@@ -108,11 +111,11 @@ a camp in a fenced ring round a campfire, with a longhouse, a lodge and a granar
 (black and red tents for Zamorak), timber and plaster in Age II and on a stone plinth under a flag in Age III. It trains
 workers and takes in what they gather.
 
-Town centers stand on settlements. A free settlement, one nobody holds, is a ring of standing stones round a cold
-hearth with a white flag. Once every team's first town center is up, each team gets a free settlement and a gold mine
-out to its sides and a gold mine behind every settlement. Workers can raise a town
-center (300 Wood, 200 Gold) only on a free settlement, and a town center that is destroyed leaves its settlement free
-again. Settlements and gold mines cannot be built on or broken.
+Town centers stand on settlements. A settlement nobody holds is an abandoned camp: the shacks of an Age I town
+center, roofless and falling in, round a cold hearth, with a white flag at the gate. Once every team's first town
+center is up, the rest of the settlements and the gold mines are laid out (see the map above). Workers can raise a
+town center (300 Wood, 200 Gold) only on a settlement nobody holds, and a town center that is destroyed leaves an
+abandoned settlement again. Settlements and gold mines cannot be built on or broken.
 
 Workers build: pick a building, place it on the web map or in the RTS view, and the selected workers walk to the site
 and build it. A site goes up as a wooden framework in three stages as it
@@ -120,15 +123,15 @@ is built, and the finished building stands once the site is done; more workers b
 
 | Building | What it does | Costs (default) | Health | Build time (one worker) |
 |---|---|---|---|---|
-| Town center | Trains workers, takes in what they gather, houses 10 units and 5 more each age; shoots arrows from Age II; researches fortified walls; goes on a free settlement | 300 Wood, 200 Gold | 1500 | 60 s |
+| Town center | Trains workers, takes in what they gather, houses 10 units and 5 more each age; shoots arrows from Age II; researches fortified walls; goes on a settlement nobody holds | 300 Wood, 200 Gold | 1500 | 60 s |
 | House | Houses 5 more units | 60 Wood | 300 | 12 s |
 | Farm | A worker there gathers food: 5 every 5 s, one worker per farm; needs Age II | 75 Wood | 300 | 15 s |
 | Storehouse | Takes in what workers gather; researches economic upgrades | 100 Wood | 600 | 20 s |
 | Barracks | Trains warriors and archers; needs Age II | 150 Wood, 50 Gold | 800 | 25 s |
 | Armory | Researches military upgrades; needs Age II | 120 Wood, 60 Gold | 700 | 25 s |
 | Tower | Watches over the land round it; with watch towers (Age II) shoots arrows at enemies within 16 blocks, and with guard towers (Age III) within 24; researches both | 50 Wood, 100 Gold | 900 | 25 s |
-| Wall | Keeps enemies out; laid out from one point to another, a 3 by 3 piece at a time | 6 Gold a piece | 300 a segment, 400 a post | 6 s a piece |
-| Gate | A wall segment your own units and allies walk through; it opens as they come near | 30 Gold | 300 | at once |
+| Wall | Keeps enemies out; laid out from one point to another, a 5 by 5 piece at a time | 10 Gold a piece | 600 a segment, 800 a post | 10 s a piece |
+| Gate | A wall segment your own units and allies walk through; it opens as they come near | 40 Gold | 600 | at once |
 
 | Unit | Costs (default) | |
 |---|---|---|
@@ -174,15 +177,17 @@ about them changes. Age I has no military and no farms: workers build, chop, min
 but do not shoot. In Age II the town center houses 5 more units and starts shooting, the second row of upgrades opens
 up, and barracks, farms and armories can be built. For more health, research fortified walls at the town center.
 
-Each team starts with four towers, one off each corner of its town center, so between them they cover the ground
-all round it. Towers can be built from Age I. Researching watch towers at a tower in Age II makes every tower of the
+Each team starts with four towers, one well off each corner of its town center, so between them they cover the
+ground all round it. Towers can be built from Age I. Researching watch towers at a tower in Age II makes every tower of the
 team shoot: one arrow a second, flying as fast and hitting as hard as an archer's. Guard towers, in Age III, let them
 see enemies and shoot 8 blocks farther.
 
-Walls are laid out from one point to another and built of 3 by 3 pieces: straight where the line runs straight, and a
-zigzag of 3 block steps where it runs on a slant. A post stands at each end and turn, and a segment everywhere else.
-Towers are optional: a wall that starts or ends on one of the team's towers runs right up to it, so a wall between
-two towers joins them. Every piece costs gold, and workers build the pieces one after another along the line. Select
+Walls are laid out from one point to another and built of 5 by 5 pieces: straight where the line runs straight, and a
+zigzag of 5 block steps where it runs on a slant. A segment is three blocks thick and five to seven high with
+battlements, or a palisade of stakes in wood; a post, at each end and turn, stands a block higher. Towers are
+optional: a tower is 5 by 5 too, so a wall that starts on one lines up with it, and the last piece of a wall that
+ends on one is moved right up against it; a wall between two towers joins them. A gate has an opening three wide and
+three high. Every piece costs gold, and workers build the pieces one after another along the line. Select
 a finished segment and click Make gate to turn it into a gate at once, with no worker, for gold. Gates open for the
 team's own units and its allies' and stay shut to enemies, who have to break them down. Walls start as wood; stone
 walls at the town center in Age II rebuild every wall of the team in cobblestone (plain stone for Zamorak), and
@@ -249,7 +254,9 @@ with warriors or archers selected:
 
 Units sent somewhere line up there in the formation picked on the bar, facing the way they went, with warriors in
 front, archers behind them and workers at the back: a box (the default), a wide line, or a wedge. Units going far
-plan their whole way first, around lakes, cliffs, trees and buildings, and walk it a stretch at a time.
+plan their whole way first, around lakes, cliffs, trees and buildings, and walk it a stretch at a time. A unit that
+gets stuck, wedged in a block or making no headway for a few seconds, hops out to the nearest open ground within 8
+blocks, off any building, and carries on.
 
 Workers put up torches to light the town up: select workers, press Torches and click two corners of an area,
 up to 64 blocks each way. They put a torch, for 1 wood, wherever the area is dark enough for mobs, leaving buildings

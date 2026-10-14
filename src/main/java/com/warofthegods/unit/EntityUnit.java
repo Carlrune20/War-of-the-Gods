@@ -240,6 +240,8 @@ public class EntityUnit extends EntityCreature {
     private double progressX;
     private double progressZ;
     private int stalls;
+    /** Ticks in a row the unit has been inside a solid block. */
+    private int buriedTicks;
     /** Waypoints of the long route being walked, and where it leads; not saved, planned again after a restart. */
     private List<double[]> route;
     private double routeX = Double.NaN;
@@ -937,6 +939,14 @@ public class EntityUnit extends EntityCreature {
             attackCooldown--;
         }
         drewThisTick = false;
+        // Wedged in a block, as can happen when a building goes up round a unit or it is pushed into terrain: out
+        // to the nearest open ground.
+        // Wandering about on top of a tree's leaves, which it can walk on but not find its way down from, is as bad.
+        buriedTicks = isEntityInsideOpaqueBlock() || order != Order.CHOP && onLeaves() ? buriedTicks + 1 : 0;
+        if (buriedTicks >= 20) {
+            buriedTicks = 0;
+            rescue();
+        }
         tickOrder();
         if (!drewThisTick && drawTicks > 0) {
             drawTicks = 0;
@@ -1808,7 +1818,73 @@ public class EntityUnit extends EntityCreature {
         planTicks = 0;
         route = null;
         getNavigator().clearPathEntity();
+        if (stalls == 2) {
+            // Stuck in a hole, on a ledge or in a corner of a building: a hop out to open ground, as in Millenaire.
+            rescue();
+        }
         return stalls < MAX_STALLS;
+    }
+
+    /**
+     * The emergency way out for a stuck unit: puts it on the nearest open ground two or more blocks away, with room
+     * to stand, out of water and off every building's footprint. Returns false if there is none within 8 blocks.
+     */
+    public boolean rescue() {
+        int x0 = MathHelper.floor_double(posX);
+        int y0 = MathHelper.floor_double(posY);
+        int z0 = MathHelper.floor_double(posZ);
+        Game game = GameManager.getGame();
+        for (int radius = 2; radius <= 8; radius++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != radius) {
+                        continue;
+                    }
+                    int x = x0 + dx;
+                    int z = z0 + dz;
+                    if (game != null && game.getBuildingAt(x + 0.5, z + 0.5) != null) {
+                        continue;
+                    }
+                    for (int dy = 3; dy >= -12; dy--) {
+                        int y = y0 + dy;
+                        if (standable(x, y, z)) {
+                            getNavigator().clearPathEntity();
+                            setPositionAndUpdate(x + 0.5, y, z + 0.5);
+                            stalls = 0;
+                            progressX = posX;
+                            progressZ = posZ;
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Whether the unit stands on leaves, up a tree. */
+    private boolean onLeaves() {
+        return onGround && worldObj
+            .getBlock(MathHelper.floor_double(posX), MathHelper.floor_double(posY - 0.2), MathHelper.floor_double(posZ))
+            .getMaterial() == Material.leaves;
+    }
+
+    /**
+     * Whether a unit can stand with its feet at x, y, z: solid ground under it that is not leaves, two free blocks,
+     * no water.
+     */
+    private boolean standable(int x, int y, int z) {
+        Material ground = worldObj.getBlock(x, y - 1, z)
+            .getMaterial();
+        Material feet = worldObj.getBlock(x, y, z)
+            .getMaterial();
+        Material head = worldObj.getBlock(x, y + 1, z)
+            .getMaterial();
+        return ground.isSolid() && ground != Material.leaves
+            && !feet.blocksMovement()
+            && !feet.isLiquid()
+            && !head.blocksMovement()
+            && !head.isLiquid();
     }
 
     private double distanceTo(double x, double z) {

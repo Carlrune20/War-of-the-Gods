@@ -883,6 +883,7 @@ public final class RtsClient {
         }
         RtsState.TeamInfo team = state.myTeam();
         int[] end = wallEnd(team, placing.cx, placing.cz);
+        RtsState.BuildingInfo endTower = towerNear(team, placing.cx, placing.cz);
         int[] start = placing.start == null ? end : wallEnd(team, placing.start[0], placing.start[1]);
         List<WallLine.Piece> pieces = WallLine.pieces(start[0], start[1], end[0], end[1], (minX, minZ) -> {
             for (RtsState.BuildingInfo b : state.buildings.values()) {
@@ -896,7 +897,7 @@ public final class RtsClient {
                 }
             }
             return false;
-        });
+        }, endTower == null ? null : new int[] { endTower.x, endTower.z, endTower.sizeX, endTower.sizeZ });
         WallSpot spot = new WallSpot();
         spot.ok = !pieces.isEmpty();
         RtsState.GameInfo game = state.game;
@@ -937,6 +938,13 @@ public final class RtsClient {
 
     /** A wall end at x, z: the middle of the team's tower there, if there is one, else x, z itself. */
     private int[] wallEnd(RtsState.TeamInfo team, int x, int z) {
+        RtsState.BuildingInfo b = towerNear(team, x, z);
+        return b != null ? new int[] { (int) Math.floor(b.x + b.sizeX / 2.0), (int) Math.floor(b.z + b.sizeZ / 2.0) }
+            : new int[] { x, z };
+    }
+
+    /** The team's tower at x, z or a block from it, or null. */
+    private RtsState.BuildingInfo towerNear(RtsState.TeamInfo team, int x, int z) {
         for (RtsState.BuildingInfo b : state.buildings.values()) {
             if (team != null && b.team.equals(team.id)
                 && "tower".equals(b.type)
@@ -944,10 +952,10 @@ public final class RtsClient {
                 && x < b.x + b.sizeX + 1
                 && z >= b.z - 1
                 && z < b.z + b.sizeZ + 1) {
-                return new int[] { (int) Math.floor(b.x + b.sizeX / 2.0), (int) Math.floor(b.z + b.sizeZ / 2.0) };
+                return b;
             }
         }
-        return new int[] { x, z };
+        return null;
     }
 
     public static boolean isWall(String type) {

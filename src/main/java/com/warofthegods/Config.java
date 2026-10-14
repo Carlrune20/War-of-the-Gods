@@ -45,9 +45,9 @@ public class Config {
         defaults(BuildingType.ARMORY, new long[] { 0, 120, 60 }, 700, 25);
         defaults(BuildingType.TOWER, new long[] { 0, 50, 100 }, 900, 25);
         // Walls cost gold for every piece, post or segment.
-        defaults(BuildingType.WALL, new long[] { 0, 0, 6 }, 300, 6);
-        defaults(BuildingType.WALL_POST, new long[] { 0, 0, 6 }, 400, 6);
-        defaults(BuildingType.GATE, new long[] { 0, 0, 30 }, 300, 6);
+        defaults(BuildingType.WALL, new long[] { 0, 0, 10 }, 600, 10);
+        defaults(BuildingType.WALL_POST, new long[] { 0, 0, 10 }, 800, 10);
+        defaults(BuildingType.GATE, new long[] { 0, 0, 40 }, 600, 10);
     }
 
     /** Food, Wood and Gold the town center costs to go up to level 2, and to level 3. */
@@ -87,14 +87,17 @@ public class Config {
     public static int mineGold = 4;
     public static int mineSeconds = 3;
     /**
-     * Settlements no team starts on, and gold mines away from any settlement, laid out on each new map for each team,
-     * the same way round every team's town center.
+     * Blocks of map width for each settlement no team starts on, laid out for each team the same way round every
+     * team's town center: a 1000 block map has 4 more for each team, a 256 block one 1. At least one each.
      */
-    public static int extraSettlements = 1;
+    public static int settlementEvery = 250;
+    /** Gold mines away from any settlement, laid out on each new map for each team. */
     public static int extraGoldMines = 1;
     /** Animals that graze near each team's first town center: a flock of chickens and a herd of pigs, cows or sheep. */
-    public static int startingChickens = 6;
-    public static int startingLivestock = 4;
+    public static int startingChickens = 8;
+    public static int startingLivestock = 6;
+    /** Blocks of map width for each wild herd laid out for each team: a 1000 block map has 8 for each team. */
+    public static int herdEvery = 125;
     /** Most a worker carries before taking it to the town center or a storehouse. */
     public static int carryCapacity = 20;
     /** Health a building loses to one hit of a warrior. */
@@ -132,14 +135,14 @@ public class Config {
     public static int defeatCountdownSeconds = 120;
 
     /** Seconds between tries at spawning a group of zombies or skeletons somewhere in the wilderness. */
-    public static int mobSpawnSeconds = 45;
+    public static int mobSpawnSeconds = 30;
     /** Most zombies and skeletons on the whole map at once. */
-    public static int maxMobs = 16;
+    public static int maxMobs = 24;
     /** Fewest and most zombies or skeletons in a group. */
     public static int mobGroupMin = 2;
     public static int mobGroupMax = 3;
     /** Chance a spawn spot out in the open is used; spots among trees always are. */
-    public static double openGroundChance = 0.25;
+    public static double openGroundChance = 0.35;
     /** Blocks a zombie or skeleton notices enemies from, and how far it chases one once it has. */
     public static int mobDetectRange = 10;
     public static int mobChaseRange = 32;
@@ -155,7 +158,7 @@ public class Config {
     public static boolean rtsEdgeScroll = true;
 
     /** Bumped when defaults change in a way that should replace what older config files hold. */
-    private static final int CONFIG_VERSION = 4;
+    private static final int CONFIG_VERSION = 5;
 
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
@@ -184,6 +187,22 @@ public class Config {
         if (oldVersion < 4) {
             // Watch towers shoot as often as archers.
             forget(configuration, "buildings", "towerShotTicks");
+        }
+        if (oldVersion < 5) {
+            // More settlements, animals and mobs; settlements scale with the map.
+            forget(configuration, "buildings", "extraSettlements");
+            forget(configuration, "buildings", "startingChickens");
+            forget(configuration, "buildings", "startingLivestock");
+            forget(configuration, "mobs", "spawnSeconds");
+            forget(configuration, "mobs", "maxMobs");
+            forget(configuration, "mobs", "openGroundChance");
+            // Walls became 5 by 5 pieces, bigger, dearer and stronger.
+            for (BuildingType type : new BuildingType[] { BuildingType.WALL, BuildingType.WALL_POST,
+                BuildingType.GATE }) {
+                forget(configuration, "buildings", type.configName + "CostGold");
+                forget(configuration, "buildings", type.configName + "Health");
+                forget(configuration, "buildings", type.configName + "BuildSeconds");
+            }
         }
         version.set(CONFIG_VERSION);
 
@@ -416,14 +435,15 @@ public class Config {
             "Gold a worker mines from a gold mine per mineSeconds.");
         mineSeconds = configuration
             .getInt("mineSeconds", buildings, mineSeconds, 1, 3600, "Seconds a worker takes to mine mineGold gold.");
-        extraSettlements = configuration.getInt(
-            "extraSettlements",
+        settlementEvery = configuration.getInt(
+            "settlementEvery",
             buildings,
-            extraSettlements,
-            0,
+            settlementEvery,
             32,
-            "Free settlements laid out on each new map for each team, besides the ones the teams start on; workers can"
-                + " raise a town center on any free settlement.");
+            100000,
+            "Blocks of map width for each settlement laid out for each team on a new map, besides the ones the teams"
+                + " start on: 250 gives a 1000 block map 4 more for each team. Each team gets at least one. Workers"
+                + " can raise a town center on any settlement nobody holds.");
         extraGoldMines = configuration.getInt(
             "extraGoldMines",
             buildings,
@@ -445,6 +465,14 @@ public class Config {
             0,
             32,
             "Pigs, cows or sheep (the same for every team) that graze near each team's first town center on a new map.");
+        herdEvery = configuration.getInt(
+            "herdEvery",
+            buildings,
+            herdEvery,
+            16,
+            100000,
+            "Blocks of map width for each wild herd of chickens, pigs, cows or sheep laid out for each team on a new"
+                + " map, spread over its side of the map.");
         carryCapacity = configuration.getInt(
             "carryCapacity",
             buildings,

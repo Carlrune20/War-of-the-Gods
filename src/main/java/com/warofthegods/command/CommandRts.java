@@ -309,7 +309,7 @@ public class CommandRts extends CommandBase {
                 .size()
                 + ", "
                 + free
-                + " free; gold mines: "
+                + " unclaimed; gold mines: "
                 + game.getMines()
                     .size()
                 + " with "
@@ -821,7 +821,7 @@ public class CommandRts extends CommandBase {
                 .findSpot(game, world, team, type);
             if (plan == null) {
                 throw new CommandException(
-                    type == BuildingType.TOWN_HALL ? "There is no free settlement"
+                    type == BuildingType.TOWN_HALL ? "There is no settlement left to build on"
                         : "Found no room for a " + type.displayName.toLowerCase() + " near the town hall");
             }
         }
