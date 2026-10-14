@@ -101,8 +101,10 @@ Town centers stand on settlements. A free settlement, one nobody holds, is a rin
 hearth with a white flag. Once every team's first town center is up, 2 more settlements are laid out between the
 teams, a gold mine behind every settlement and 2 more gold mines near the middle of the map. Workers can raise a town
 center (300 Wood, 200 Gold) only on a free settlement, and a town center that is destroyed leaves its settlement free
-again. Settlements and gold mines cannot be built on or broken. Workers build: pick a building, place it on the web map or in the RTS view,
-and the selected workers walk to the site and build it. A site goes up as a wooden framework in three stages as it
+again. Settlements and gold mines cannot be built on or broken.
+
+Workers build: pick a building, place it on the web map or in the RTS view, and the selected workers walk to the site
+and build it. A site goes up as a wooden framework in three stages as it
 is built, and the finished building stands once the site is done; more workers build faster.
 
 | Building | What it does | Costs (default) | Health | Build time (one worker) |
