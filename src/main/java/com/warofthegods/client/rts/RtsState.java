@@ -26,6 +26,8 @@ public final class RtsState {
         public String name;
         public Map<String, Long> cost;
         public boolean fights;
+        /** Whether it is a hero, who goes by his own name and of whom a team has one at a time. */
+        public boolean hero;
     }
 
     public static final class LevelInfo {
@@ -55,6 +57,8 @@ public final class RtsState {
         public String name;
         public Map<String, Long> cost;
         public boolean buildable;
+        /** The only faction whose teams can build it, or null when every team can. */
+        public String faction;
         public int health;
         public int workers;
         public final List<String> trains = new ArrayList<>();
@@ -276,6 +280,7 @@ public final class RtsState {
             kindInfo.name = string(kind, "name");
             kindInfo.cost = amounts(object(kind, "cost"));
             kindInfo.fights = bool(kind, "fights");
+            kindInfo.hero = bool(kind, "hero");
             info.unitKinds.put(kindInfo.id, kindInfo);
         }
         for (Map.Entry<String, JsonElement> entry : object(json, "buildingTypes").entrySet()) {
@@ -286,6 +291,7 @@ public final class RtsState {
             typeInfo.name = string(type, "name");
             typeInfo.cost = amounts(object(type, "cost"));
             typeInfo.buildable = bool(type, "buildable");
+            typeInfo.faction = type.has("faction") ? string(type, "faction") : null;
             typeInfo.age = type.has("age") ? integer(type, "age") : 1;
             typeInfo.health = integer(type, "health");
             typeInfo.workers = integer(type, "workers");
@@ -628,6 +634,21 @@ public final class RtsState {
     }
 
     /** Units the team has, plus the ones waiting in training queues. */
+    /** Whether the team has a unit of the kind alive or in training, as a hero it can have only one of. */
+    public boolean hasUnitOf(TeamInfo team, String kind) {
+        for (UnitInfo unit : units.values()) {
+            if (team.id.equals(unit.team) && kind.equals(unit.kind)) {
+                return true;
+            }
+        }
+        for (BuildingInfo building : buildings.values()) {
+            if (building.team.equals(team.id) && building.queue.contains(kind)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public int teamUnitCount(TeamInfo team) {
         int queued = 0;
         for (BuildingInfo building : buildings.values()) {

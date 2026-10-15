@@ -325,6 +325,26 @@ public class Game {
         return count;
     }
 
+    /** The team's units of a kind, loaded or not. */
+    public int countUnits(Team team, UnitKind kind) {
+        int count = 0;
+        for (UnitRecord unit : units.values()) {
+            count += unit.team.equals(team.getId()) && unit.kind == kind ? 1 : 0;
+        }
+        return count;
+    }
+
+    /**
+     * How many more of a kind the team may train now, by its rule rather than its room: a hero only when it has none
+     * alive or in training, anything else as many as it likes.
+     */
+    public int heroRoom(Team team, UnitKind kind) {
+        if (!kind.hero) {
+            return Integer.MAX_VALUE;
+        }
+        return countUnits(team, kind) + countQueued(team, kind) > 0 ? 0 : 1;
+    }
+
     /**
      * The team's workers, loaded or not. A unit saved before kinds were remembered counts until it is next seen, so a
      * team is never thought to have none while its units are still loading.
@@ -602,6 +622,19 @@ public class Game {
     }
 
     /** Units the team has waiting in training queues. */
+    /** Units of a kind the team has waiting to train. */
+    public int countQueued(Team team, UnitKind kind) {
+        int count = 0;
+        for (Building building : buildings.values()) {
+            if (building.team.equals(team.getId())) {
+                for (UnitKind queued : building.getQueue()) {
+                    count += queued == kind ? 1 : 0;
+                }
+            }
+        }
+        return count;
+    }
+
     public int countQueued(Team team) {
         int count = 0;
         for (Building building : buildings.values()) {

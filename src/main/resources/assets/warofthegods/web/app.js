@@ -738,7 +738,8 @@
     // The building, unit and resource icons in icons.png, one 16 pixel square each, in this order.
     const SPRITES = ["town_hall", "house", "barracks", "storehouse", "quarry", "farm", "armory", "tower", "worker",
         "soldier", "archer", "tree", "upgrade", "level", "food", "wood", "gold", "sword", "axe", "pickaxe", "hoe", "wall",
-        "gate"];
+        "gate", "white_knights_fortress", "black_knights_fortress", "white_knight", "black_knight", "tragidee",
+        "sagittare"];
 
     function sprite(name) {
         const span = el("span", "sprite");
@@ -799,7 +800,8 @@
             renderBuildingActions(actions, team, building);
         } else if (selectedWorkers().length) {
             for (const [id, type] of Object.entries(state.game.buildingTypes || {})) {
-                if (!type.buildable) {
+                // Each knights' fortress belongs to its own god's teams.
+                if (!type.buildable || (type.faction && type.faction !== team.faction)) {
                     continue;
                 }
                 const aged = (team.age || 1) >= (type.age || 1);
@@ -968,20 +970,26 @@
             // With several buildings selected, training is shared out among those that train this kind.
             const trainers = selectedBuildingList().filter((b) => b.complete
                 && (buildingType(b.type).trains || []).includes(kindId));
+            // A team has one of each hero at a time, and may train him again once he falls.
+            const heroTaken = kind.hero && hasUnitOf(team, kindId);
             const train = iconButton(kindId, kind.name + " (" + costText(kind.cost) + ")",
-                full ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
-                    : "Your team has the most units it can have")
-                    : "Train a " + kind.name.toLowerCase() + "; shift-click for 5"
-                    + (trainers.length > 1 ? ", shared out over the " + trainers.length + " selected" : ""),
+                heroTaken ? kind.name + " is already with your team; train him again once he falls"
+                    : full ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
+                        : "Your team has the most units it can have")
+                        : kind.hero ? "Train " + kind.name + ", a hero; your team has one at a time"
+                            : "Train a " + kind.name.toLowerCase() + "; shift-click for 5"
+                            + (trainers.length > 1 ? ", shared out over the " + trainers.length + " selected" : ""),
                 async (event) => {
-                    const {total, buildings} = await trainSpread(trainers, kindId, event.shiftKey ? 5 : 1);
+                    const {total, buildings} = await trainSpread(trainers, kindId, kind.hero ? 1 : event.shiftKey ? 5 : 1);
                     if (total) {
-                        showToast((total === 1 ? "Training a " + kind.name.toLowerCase()
-                            : "Training " + total + " " + kind.name.toLowerCase() + "s")
+                        showToast(kind.hero ? "Training " + kind.name
+                            : (total === 1 ? "Training a " + kind.name.toLowerCase()
+                                : "Training " + total + " " + kind.name.toLowerCase() + "s")
                             + (buildings > 1 ? " at " + buildings + " buildings" : ""));
                     }
                 });
-            train.disabled = full || !canAfford(team, kind.cost) || !trainers.some((b) => (b.queue || []).length < 10);
+            train.disabled = heroTaken || full || !canAfford(team, kind.cost)
+                || !trainers.some((b) => (b.queue || []).length < 10);
             actions.append(train);
         }
         if (building.queue && building.queue.length) {
@@ -2309,9 +2317,19 @@
         }
     }
 
+    // Whether the team has a unit of the kind alive or in training, as a hero it can have only one of.
+    function hasUnitOf(team, kindId) {
+        return [...state.units.values()].some((u) => u.team === team.id && u.kind === kindId)
+            || [...state.buildings.values()].some((b) => b.team === team.id && (b.queue || []).includes(kindId));
+    }
+
     function unitName(u) {
         const team = state.teamsById[u.team];
         const kind = unitKind(u.kind);
+        // A hero goes by his own name.
+        if (kind && kind.hero) {
+            return kind.name + (team ? " (" + team.name + ")" : "");
+        }
         return (team ? team.name + " " : "") + (kind ? kind.name.toLowerCase() : u.kind) + " " + u.number;
     }
 

@@ -10,6 +10,7 @@ import net.minecraftforge.common.config.Property;
 
 import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Resource;
+import com.warofthegods.game.UnitKind;
 
 public class Config {
 
@@ -20,14 +21,21 @@ public class Config {
     public static int mapMargin = 48;
     public static final long[] startingResources = { 200, 200, 100 };
 
-    /** Food, Wood and Gold one unit costs to train from the web map. */
-    public static final long[] unitCost = { 50, 20, 0 };
+    /** Food, Wood and Gold each kind of unit costs to train. Warriors and knights cost gold, archers wood. */
+    public static final EnumMap<UnitKind, long[]> unitCosts = new EnumMap<>(UnitKind.class);
+
+    static {
+        unitCosts.put(UnitKind.SOLDIER, new long[] { 50, 0, 20 });
+        unitCosts.put(UnitKind.WORKER, new long[] { 50, 0, 0 });
+        unitCosts.put(UnitKind.ARCHER, new long[] { 40, 40, 0 });
+        unitCosts.put(UnitKind.WHITE_KNIGHT, new long[] { 60, 0, 75 });
+        unitCosts.put(UnitKind.BLACK_KNIGHT, new long[] { 60, 0, 75 });
+        unitCosts.put(UnitKind.SAGITTARE, new long[] { 200, 0, 350 });
+        unitCosts.put(UnitKind.TRAGIDEE, new long[] { 200, 0, 350 });
+    }
+
     public static int unitsPerTeam = 100;
     public static int unitHealth = 20;
-    /** Food, Wood and Gold one worker costs to train at the town center. */
-    public static final long[] workerCost = { 50, 0, 0 };
-    /** Food, Wood and Gold one archer costs to train at a barracks. */
-    public static final long[] archerCost = { 40, 40, 0 };
     public static int trainSeconds = 5;
 
     /** Food, Wood and Gold each kind of building costs. */
@@ -48,6 +56,8 @@ public class Config {
         defaults(BuildingType.WALL, new long[] { 0, 0, 10 }, 600, 10);
         defaults(BuildingType.WALL_POST, new long[] { 0, 0, 10 }, 800, 10);
         defaults(BuildingType.GATE, new long[] { 0, 0, 40 }, 600, 10);
+        defaults(BuildingType.WHITE_KNIGHTS_FORTRESS, new long[] { 0, 300, 400 }, 4000, 90);
+        defaults(BuildingType.BLACK_KNIGHTS_FORTRESS, new long[] { 0, 300, 400 }, 4000, 90);
     }
 
     /** Food, Wood and Gold the town center costs to go up to level 2, and to level 3. */
@@ -62,6 +72,9 @@ public class Config {
     /** Damage of an archer's arrow before upgrades; a crit adds up to half again, as for a player's full draw. */
     public static int archerDamage = 6;
     public static int towerShotTicks = 20;
+    /** Arrows a knights' fortress shoots at once, each at another enemy, and how far it shoots. */
+    public static int fortressArrows = 4;
+    public static int fortressRange = 20;
     /** Blocks guard towers see and shoot farther than watch towers. */
     public static int guardTowerRange = 8;
     /** Wood one log of a tree holds; a tree holds between treeWoodMin and treeWoodMax in all. */
@@ -158,7 +171,7 @@ public class Config {
     public static boolean rtsEdgeScroll = true;
 
     /** Bumped when defaults change in a way that should replace what older config files hold. */
-    private static final int CONFIG_VERSION = 5;
+    private static final int CONFIG_VERSION = 6;
 
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
@@ -203,6 +216,11 @@ public class Config {
                 forget(configuration, "buildings", type.configName + "Health");
                 forget(configuration, "buildings", type.configName + "BuildSeconds");
             }
+        }
+        if (oldVersion < 6) {
+            // Warriors cost gold instead of wood.
+            forget(configuration, "units", "costWood");
+            forget(configuration, "units", "costGold");
         }
         version.set(CONFIG_VERSION);
 
@@ -254,29 +272,21 @@ public class Config {
         String units = "units";
         configuration.setCategoryComment(
             units,
-            "Units teams train and command: warriors and archers at a barracks, workers at the town center.");
-        for (Resource resource : Resource.values()) {
-            unitCost[resource.ordinal()] = configuration.getInt(
-                "cost" + resource.displayName,
-                units,
-                (int) unitCost[resource.ordinal()],
-                0,
-                Integer.MAX_VALUE,
-                resource.displayName + " a warrior costs to train.");
-            workerCost[resource.ordinal()] = configuration.getInt(
-                "workerCost" + resource.displayName,
-                units,
-                (int) workerCost[resource.ordinal()],
-                0,
-                Integer.MAX_VALUE,
-                resource.displayName + " a worker costs to train.");
-            archerCost[resource.ordinal()] = configuration.getInt(
-                "archerCost" + resource.displayName,
-                units,
-                (int) archerCost[resource.ordinal()],
-                0,
-                Integer.MAX_VALUE,
-                resource.displayName + " an archer costs to train.");
+            "Units teams train and command: warriors and archers at a barracks, workers at the town center, knights and"
+                + " heroes at the knights' fortresses.");
+        for (UnitKind kind : UnitKind.values()) {
+            long[] cost = unitCosts.get(kind);
+            String name = kind == UnitKind.SOLDIER ? "warrior" : kind.displayName.toLowerCase();
+            for (Resource resource : Resource.values()) {
+                cost[resource.ordinal()] = configuration.getInt(
+                    kind.configName.isEmpty() ? "cost" + resource.displayName
+                        : kind.configName + "Cost" + resource.displayName,
+                    units,
+                    (int) cost[resource.ordinal()],
+                    0,
+                    Integer.MAX_VALUE,
+                    resource.displayName + " " + (kind.hero ? name : "a " + name) + " costs to train.");
+            }
         }
         unitsPerTeam = configuration.getInt(
             "perTeam",
@@ -294,7 +304,13 @@ public class Config {
             1000,
             "Damage of an archer's arrow, before upgrades; a crit adds up to half again, as for a player's full draw.");
         trainSeconds = configuration
-            .getInt("trainSeconds", units, trainSeconds, 0, 3600, "Seconds it takes to train one unit.");
+            .getInt(
+                "trainSeconds",
+                units,
+                trainSeconds,
+                0,
+                3600,
+                "Seconds it takes to train one warrior, archer or worker; a knight takes twice as long, a hero four times.");
 
         String buildings = "buildings";
         configuration.setCategoryComment(
@@ -410,6 +426,20 @@ public class Config {
             0,
             64,
             "Blocks guard towers see and shoot farther than watch towers.");
+        fortressArrows = configuration.getInt(
+            "fortressArrows",
+            buildings,
+            fortressArrows,
+            1,
+            32,
+            "Arrows a knights' fortress shoots at once, each at another of the nearest enemies.");
+        fortressRange = configuration.getInt(
+            "fortressRange",
+            buildings,
+            fortressRange,
+            1,
+            64,
+            "Blocks a knights' fortress sees and shoots enemies at.");
         woodPerLog = configuration
             .getInt("woodPerLog", buildings, woodPerLog, 1, 10000, "Wood each log of a tree is worth.");
         treeWoodMin = configuration

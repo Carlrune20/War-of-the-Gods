@@ -340,10 +340,13 @@ public class EntityUnit extends EntityCreature {
      */
     private Item tool() {
         Team team = team();
-        if (kind == UnitKind.ARCHER) {
+        if (kind.ranged) {
             return Items.bow;
         }
-        if (kind == UnitKind.SOLDIER || order == Order.HUNT) {
+        if (kind == UnitKind.TRAGIDEE) {
+            return Items.diamond_sword;
+        }
+        if (kind.fights() || order == Order.HUNT) {
             return SWORDS[tier(team, Upgrade.FORGED_BLADES, Upgrade.TEMPERED_STEEL)];
         }
         if (order == Order.MINE) {
@@ -365,7 +368,9 @@ public class EntityUnit extends EntityCreature {
 
     /** Keeps name, skin and strength in step with the team's name, color, faction and upgrades. */
     void updateTeam(Team team) {
-        String name = team.getColor() + team.getName() + " " + kind.displayName.toLowerCase() + " " + number;
+        // A hero goes by his own name, in his team's color.
+        String name = kind.hero ? team.getColor() + kind.displayName
+            : team.getColor() + team.getName() + " " + kind.displayName.toLowerCase() + " " + number;
         if (!name.equals(getCustomNameTag())) {
             setCustomNameTag(name);
             setAlwaysRenderNameTag(true);
@@ -388,13 +393,14 @@ public class EntityUnit extends EntityCreature {
 
     /** Sets its health and strength by its kind and the team's upgrades, healing what it gains. */
     public void applyUpgrades(Team team) {
-        double health = Config.unitHealth;
+        double health = Config.unitHealth * kind.healthFactor;
         double damage = 1;
         if (kind.fights()) {
             health += (team.has(Upgrade.PADDED_ARMOR) ? 6 : 0) + (team.has(Upgrade.PLATE_ARMOR) ? 8 : 0);
         }
-        if (kind == UnitKind.SOLDIER) {
-            damage += (team.has(Upgrade.FORGED_BLADES) ? 2 : 0) + (team.has(Upgrade.TEMPERED_STEEL) ? 2 : 0);
+        if (kind.fights() && !kind.ranged) {
+            damage += kind.extraDamage + (team.has(Upgrade.FORGED_BLADES) ? 2 : 0)
+                + (team.has(Upgrade.TEMPERED_STEEL) ? 2 : 0);
         }
         IAttributeInstance maxHealth = getEntityAttribute(SharedMonsterAttributes.maxHealth);
         double gained = health - maxHealth.getBaseValue();
@@ -411,17 +417,18 @@ public class EntityUnit extends EntityCreature {
     }
 
     /**
-     * Fighters show their team's armor upgrades, boots included: chainmail with padded armor, iron with plate. It is
-     * only for show; the upgrades' extra health is what protects them. Workers wear none.
+     * Warriors and archers show their team's armor upgrades, boots included: chainmail with padded armor, iron with
+     * plate. It is only for show; the upgrades' extra health is what protects them. Workers wear none, and knights and
+     * heroes keep their own look.
      */
     private void wearArmor(Team team) {
         Item[] armor = new Item[5];
-        if (kind.fights() && team.has(Upgrade.PLATE_ARMOR)) {
+        if (kind.showsArmor() && team.has(Upgrade.PLATE_ARMOR)) {
             armor[4] = Items.iron_helmet;
             armor[3] = Items.iron_chestplate;
             armor[2] = Items.iron_leggings;
             armor[1] = Items.iron_boots;
-        } else if (kind.fights() && team.has(Upgrade.PADDED_ARMOR)) {
+        } else if (kind.showsArmor() && team.has(Upgrade.PADDED_ARMOR)) {
             armor[4] = Items.chainmail_helmet;
             armor[3] = Items.chainmail_chestplate;
             armor[1] = Items.chainmail_boots;
@@ -863,7 +870,7 @@ public class EntityUnit extends EntityCreature {
             return true;
         }
         Building building = Units.get()
-            .findEnemyBuildingNear(this, kind == UnitKind.ARCHER ? ARCHER_BUILDING_RANGE : GUARD_RANGE);
+            .findEnemyBuildingNear(this, kind.ranged ? ARCHER_BUILDING_RANGE : GUARD_RANGE);
         if (building != null) {
             order = Order.ATTACK_BUILDING;
             buildingId = building.id;
@@ -1667,8 +1674,9 @@ public class EntityUnit extends EntityCreature {
         if (building.distanceTo(posX, posZ) <= buildingReach()) {
             getNavigator().clearPathEntity();
             getLookHelper().setLookPosition(building.getCenterX(), building.groundY + 1, building.getCenterZ(), 30, 30);
-            int damage = Config.unitBuildingDamage;
-            if (kind == UnitKind.ARCHER) {
+            // Knights hit buildings harder than warriors, and heroes harder still.
+            int damage = Config.unitBuildingDamage * (1 + (kind.extraDamage + kind.extraArrowDamage) / 3);
+            if (kind.ranged) {
                 if (drawBow()) {
                     EntityTeamArrow arrow = new EntityTeamArrow(worldObj, this);
                     arrow.aimAt(building.getCenterX(), building.groundY + 2, building.getCenterZ(), 0);
@@ -1690,24 +1698,24 @@ public class EntityUnit extends EntityCreature {
     }
 
     private double buildingReach() {
-        return kind == UnitKind.ARCHER ? ARCHER_BUILDING_RANGE : Buildings.REACH;
+        return kind.ranged ? ARCHER_BUILDING_RANGE : Buildings.REACH;
     }
 
     /** How far an archer shoots, with its team's upgrades. */
     double archerRange() {
         Team team = team();
-        return ARCHER_RANGE + (team != null && team.has(Upgrade.FLETCHING) ? 4 : 0);
+        return ARCHER_RANGE + kind.extraRange + (team != null && team.has(Upgrade.FLETCHING) ? 4 : 0);
     }
 
     /** Range at which a guarding unit notices enemies: farther for archers, who shoot from where they stand. */
     private double guardRange() {
-        return (kind == UnitKind.ARCHER ? archerRange() : GUARD_RANGE) * stance.rangeFactor;
+        return (kind.ranged ? archerRange() : GUARD_RANGE) * stance.rangeFactor;
     }
 
     /** Whether the unit can hit the target from where it stands, by sword or by bow. */
     private boolean inReach(EntityLivingBase target) {
         double distanceSq = getDistanceSq(target.posX, target.boundingBox.minY, target.posZ);
-        if (kind == UnitKind.ARCHER) {
+        if (kind.ranged) {
             return distanceSq <= archerRange() * archerRange();
         }
         double reach = width * 2 * width * 2 + target.width;
@@ -1717,7 +1725,9 @@ public class EntityUnit extends EntityCreature {
     private void shoot(EntityLivingBase victim) {
         Team team = team();
         EntityTeamArrow arrow = new EntityTeamArrow(worldObj, this);
-        arrow.aim(victim, Config.archerDamage + (team != null && team.has(Upgrade.FLETCHING) ? 1 : 0));
+        arrow.aim(
+            victim,
+            Config.archerDamage + kind.extraArrowDamage + (team != null && team.has(Upgrade.FLETCHING) ? 1 : 0));
         arrow.setFlaming(team != null && team.has(Upgrade.FIRE_ARROWS));
         worldObj.spawnEntityInWorld(arrow);
         playSound("random.bow", 1.0F, 1.0F / (rand.nextFloat() * 0.4F + 0.8F));
@@ -1768,7 +1778,7 @@ public class EntityUnit extends EntityCreature {
                 return;
             }
         }
-        if (kind == UnitKind.ARCHER && distanceSq <= archerRange() * archerRange()
+        if (kind.ranged && distanceSq <= archerRange() * archerRange()
             && getEntitySenses().canSee(current)) {
             getNavigator().clearPathEntity();
             if (drawBow()) {
@@ -1778,7 +1788,7 @@ public class EntityUnit extends EntityCreature {
             return;
         }
         double reach = width * 2 * width * 2 + current.width;
-        if (kind != UnitKind.ARCHER && distanceSq <= reach) {
+        if (!kind.ranged && distanceSq <= reach) {
             if (attackCooldown <= 0 && getEntitySenses().canSee(current)) {
                 attackCooldown = 20;
                 swingItem();
@@ -1817,7 +1827,7 @@ public class EntityUnit extends EntityCreature {
                 defend(enemy);
                 return;
             }
-            double buildingRange = kind == UnitKind.ARCHER ? ARCHER_BUILDING_RANGE
+            double buildingRange = kind.ranged ? ARCHER_BUILDING_RANGE
                 : stance == Stance.HOLD ? Buildings.REACH : GUARD_RANGE;
             Building building = Units.get()
                 .findEnemyBuildingNear(this, buildingRange);

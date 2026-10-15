@@ -528,9 +528,9 @@ public final class Units {
                 .isCommanding(id) ? null : player;
     }
 
-    /** Warriors first, then archers, then workers. */
+    /** Warriors and knights first, then archers, then workers. */
     private static int rank(EntityUnit unit) {
-        return unit.isWorker() ? 2 : unit.getKind() == UnitKind.ARCHER ? 1 : 0;
+        return unit.isWorker() ? 2 : unit.getKind().ranged ? 1 : 0;
     }
 
     /**
@@ -757,7 +757,7 @@ public final class Units {
     public void orderAttack(List<EntityUnit> units, EntityLivingBase target) {
         List<EntityUnit> archers = new ArrayList<>();
         for (EntityUnit unit : units) {
-            if (unit.getKind() == UnitKind.ARCHER) {
+            if (unit.getKind().ranged) {
                 archers.add(unit);
             } else {
                 unit.orderAttack(target);
@@ -1042,8 +1042,14 @@ public final class Units {
 
     /** The nearest enemy of the team within range of a point, such as a tower's top, or null. */
     public EntityLivingBase findEnemyNear(World world, Team team, double x, double y, double z, double range) {
-        EntityLivingBase best = null;
-        double bestDistance = range * range;
+        List<EntityLivingBase> enemies = findEnemiesNear(world, team, x, y, z, range, 1);
+        return enemies.isEmpty() ? null : enemies.get(0);
+    }
+
+    /** Up to so many of the nearest enemies of the team within range of a point, nearest first. */
+    public List<EntityLivingBase> findEnemiesNear(World world, Team team, double x, double y, double z, double range,
+        int most) {
+        List<EntityLivingBase> found = new ArrayList<>();
         AxisAlignedBB box = AxisAlignedBB.getBoundingBox(x - range, y - range, z - range, x + range, y + 8, z + range);
         for (Object object : world.getEntitiesWithinAABB(EntityLivingBase.class, box)) {
             EntityLivingBase other = (EntityLivingBase) object;
@@ -1052,13 +1058,16 @@ public final class Units {
             }
             double dx = other.posX - x;
             double dz = other.posZ - z;
-            double distance = dx * dx + dz * dz;
-            if (distance < bestDistance) {
-                best = other;
-                bestDistance = distance;
+            if (dx * dx + dz * dz < range * range) {
+                found.add(other);
             }
         }
-        return best;
+        found.sort(Comparator.comparingDouble(other -> {
+            double dx = other.posX - x;
+            double dz = other.posZ - z;
+            return dx * dx + dz * dz;
+        }));
+        return found.size() > most ? new ArrayList<>(found.subList(0, most)) : found;
     }
 
     /**

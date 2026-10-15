@@ -523,6 +523,28 @@ wait_for_log "AI Blue put idle workers to work" 60
 echo "ok: $(grep -oE 'AI Blue put idle workers to work.*' "$WEB_LOG" | head -1)"
 # Give it a minute to play, then show where it got to.
 sleep 60
+# Knights' fortresses: Red follows Zamorak, so it can raise the Black Knights' fortress in Age III but not the White
+# Knights'. The fortress trains a Black Knight and Sagittare, and only one Sagittare at a time.
+red_hall=$(grep -oE "Built Red town center #[0-9]+" "$WEB_LOG" | head -1 | grep -oE "[0-9]+$")
+echo "rts upgrade $red_hall" >&3
+wait_for_log "Upgraded Red town center (level 2) #$red_hall" 30
+echo "rts upgrade $red_hall" >&3
+wait_for_log "Upgraded Red town center (level 3) #$red_hall" 30
+echo "rts build red white_knights_fortress" >&3
+wait_for_log "Only Saradomin's teams can build a White Knights' fortress" 30
+echo "rts build red black_knights_fortress" >&3
+wait_for_log "Laid out Red black knights' fortress #" 30
+echo "rts finish red" >&3
+wait_for_log "Built Red black knights' fortress #" 60
+echo "ok: Red raised the Black Knights' fortress"
+echo "rts train red black_knight 1" >&3
+wait_for_log "trained Red black knight " 60
+echo "rts train red sagittare 3" >&3
+wait_for_log "Queued 1 Sagittare at" 30
+echo "rts train red sagittare" >&3
+wait_for_log "Team Red already has Sagittare" 30
+wait_for_log "trained Sagittare" 90
+echo "ok: the fortress trained a Black Knight and Sagittare, one hero at a time"
 echo "rts resources blue" >&3
 echo "rts buildings blue" >&3
 echo "rts units blue" >&3

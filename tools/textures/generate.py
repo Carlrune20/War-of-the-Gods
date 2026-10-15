@@ -284,6 +284,192 @@ def archer(faction):
             "body": body, "arm": arm, "leg": leg}
 
 
+def knight(faction):
+    """A White Knight (Saradomin) or Black Knight (Zamorak): full plate from head to foot with a closed full helm,
+    the same whichever team trains them; their own look, not the armor upgrades."""
+    if faction == "saradomin":
+        plate, plate_dark, plate_light = (222, 224, 228), (156, 160, 170), (246, 246, 248)
+        trim, slit = (196, 162, 64), (36, 40, 52)
+    else:
+        plate, plate_dark, plate_light = (40, 38, 44), (20, 18, 22), (74, 70, 80)
+        trim, slit = (110, 108, 118), (150, 22, 20)
+
+    def body(face, x, y, w, h):
+        if face in ("top", "bottom"):
+            return plate
+        if face == "front":
+            # A breastplate with a ridge down the middle and a belt of plate.
+            if y == 7:
+                return plate_dark
+            if x in (3, 4) and y < 7:
+                return plate_light
+            if y == 0 and x in (2, 5):
+                return trim
+        if face == "back" and y < 7 and x in (3, 4):
+            return plate_dark
+        return plate if y < 8 else (plate_dark if y % 2 else plate)
+
+    def arm(face, x, y, w, h):
+        if face == "top":
+            return plate_light
+        if y < 4:
+            # Round pauldrons, edged.
+            return trim if y == 3 else plate_light if y == 0 else plate
+        if y == 8:
+            return plate_dark
+        if y >= 10:
+            return plate_dark
+        return plate
+
+    def leg(face, x, y, w, h):
+        if face == "bottom" or y >= 10:
+            return plate_dark
+        if y in (4, 5) and face == "front":
+            return plate_light
+        return plate
+
+    def hat(face, x, y, w, h):
+        if face == "bottom":
+            return None
+        if face == "top":
+            return plate_light if x in (3, 4) else plate
+        if face == "front":
+            # A full helm: a narrow eye slit and breathing holes.
+            if y == 3 and 1 <= x <= 6:
+                return slit
+            if y in (5, 6) and x in (2, 5):
+                return slit
+            if x in (3, 4):
+                return plate_light
+            return plate
+        if face == "back":
+            return plate_dark if y == 7 else plate
+        return plate if y != 7 else plate_dark
+
+    return {"head": face_fn((60, 44, 30)), "hat": hat, "body": body, "arm": arm, "leg": leg}
+
+
+def white_knight(faction):
+    return knight("saradomin")
+
+
+def black_knight(faction):
+    return knight("zamorak")
+
+
+def tragidee(faction):
+    """Sir Tragidee, a justiciar: white and gold plate, a gold faceguard with a cross of light, and a white cloak."""
+    white, white_dark = (236, 234, 226), (186, 182, 168)
+    gold, gold_dark, gold_light = (214, 172, 58), (156, 116, 30), (250, 222, 120)
+    visor = (40, 34, 26)
+
+    def body(face, x, y, w, h):
+        if face in ("top", "bottom"):
+            return gold
+        if face == "back":
+            # A white cloak, edged in gold.
+            return gold if x in (0, 7) or y == 11 else white
+        if face == "front":
+            if x in (0, 7) or y in (0, 7):
+                return gold
+            # The star of Saradomin on the breast.
+            if (x in (3, 4) and 1 <= y <= 5) or (y == 3 and 2 <= x <= 5):
+                return gold_light
+            return white if y < 7 else gold_dark if y == 8 else white_dark
+        return white if y < 7 else gold
+
+    def arm(face, x, y, w, h):
+        if face == "top":
+            return gold_light
+        if y < 4:
+            # Great winged pauldrons.
+            return gold_light if y == 0 else gold if y < 3 else gold_dark
+        if y >= 9:
+            return gold if y == 9 else white
+        return white_dark if y == 4 else white
+
+    def leg(face, x, y, w, h):
+        if face == "bottom" or y >= 10:
+            return gold_dark
+        if y == 5:
+            return gold
+        return white
+
+    def hat(face, x, y, w, h):
+        if face == "bottom":
+            return None
+        if face == "top":
+            return gold_light if x in (3, 4) else gold
+        if face == "front":
+            # The faceguard: gold, with a cross-shaped opening.
+            if (y == 3 and 1 <= x <= 6) or (x in (3, 4) and 3 <= y <= 6):
+                return visor
+            return gold_light if y == 0 else gold
+        if face in ("left", "right") and y < 3:
+            # Wings on either side of the helm.
+            return white
+        return gold if y != 7 else gold_dark
+
+    return {"head": face_fn((200, 190, 160)), "hat": hat, "body": body, "arm": arm, "leg": leg}
+
+
+def sagittare(faction):
+    """Sagittare, the ranger of Daemonheim: a dark hooded ranger in black and green leather, with gold-edged
+    vambraces, a quiver on his back and burning eyes under the hood."""
+    hood, hood_edge = (30, 34, 28), (176, 140, 52)
+    leather, leather_dark = (52, 74, 40), (34, 48, 28)
+    black, gold = (24, 22, 22), (196, 156, 60)
+    eyes = (240, 120, 30)
+
+    def body(face, x, y, w, h):
+        if face in ("top", "bottom"):
+            return leather
+        if face == "front" and x == y - 1 and y <= 8:
+            return gold
+        if face == "back" and 3 <= x <= 6 and y <= 10:
+            return (236, 236, 230) if y == 0 else (92, 54, 30)
+        if y == 8:
+            return black
+        if face == "front" and x in (0, 7):
+            return black
+        return leather if y < 8 else leather_dark
+
+    def arm(face, x, y, w, h):
+        if face == "top":
+            return black
+        if y < 3:
+            return black
+        if 7 <= y <= 10:
+            # Vambraces.
+            return gold if y in (7, 10) else black
+        if y == 11:
+            return black
+        return leather_dark
+
+    def leg(face, x, y, w, h):
+        if face == "bottom" or y >= 8:
+            return black
+        return leather_dark if y % 3 else black
+
+    def hat(face, x, y, w, h):
+        if face == "bottom":
+            return None
+        if face == "front":
+            if y < 2 or x in (0, 7):
+                return hood_edge if y == 1 and 0 < x < 7 else hood
+            if y == 4 and x in (1, 2, 5, 6):
+                return eyes
+            if y >= 5:
+                # A mask over the mouth.
+                return black
+            return (16, 14, 14)
+        if face in ("left", "right") and y > 6:
+            return None
+        return hood
+
+    return {"head": face_fn((24, 20, 20)), "hat": hat, "body": body, "arm": arm, "leg": leg}
+
+
 def overlay():
     """White bands the team's color is drawn in: round the upper arms and a belt."""
     image = Image.new("RGBA", (64, 32), (0, 0, 0, 0))
@@ -327,12 +513,15 @@ PALETTE = {
     "g": (84, 156, 64), "G": (46, 104, 42), "l": (236, 230, 214), "f": (226, 172, 132), "i": (206, 210, 220),
     "I": (132, 138, 150), "h": (226, 196, 92), "o": (224, 134, 62), "c": (96, 204, 214), "d": (122, 86, 56),
     "x": (44, 50, 66), "e": (60, 40, 30), "m": (196, 52, 50), "M": (138, 30, 34), "t": (190, 154, 100),
-    "u": (255, 240, 150), "Y": (176, 124, 28),
+    "u": (255, 240, 150), "Y": (176, 124, 28), "n": (60, 58, 66), "N": (30, 28, 32), "v": (248, 248, 246),
+    "a": (242, 110, 30), "j": (60, 84, 44),
 }
 
 ICON_ORDER = ["town_hall", "house", "barracks", "storehouse", "quarry", "farm", "armory", "tower",
               "worker", "soldier", "archer", "tree", "upgrade", "level",
-              "food", "wood", "gold", "sword", "axe", "pickaxe", "hoe", "wall", "gate"]
+              "food", "wood", "gold", "sword", "axe", "pickaxe", "hoe", "wall", "gate",
+              "white_knights_fortress", "black_knights_fortress", "white_knight", "black_knight", "tragidee",
+              "sagittare"]
 
 # Icons that are Minecraft's own item pictures, taken from the game's jar: the resources and the tools of the actions
 # in tooltips. An oak log is drawn as a little block, the way the inventory shows it.
@@ -615,6 +804,108 @@ ICON_ART = {
         ..kSSSSSSSSSSk..
         ..kkkkkkkkkkkk..
         ................""",
+    "white_knights_fortress": """
+        ..b.........b...
+        ..bb........bb..
+        ..k..........k..
+        .kvk.k.kk.k.kvk.
+        .kvvkvkvvkvkvvk.
+        .kvikvvvvvvkvik.
+        .kvikvviivvkvik.
+        .kvvkvxvvxvkvvk.
+        .kvikvxvvxvkvik.
+        .kvvkvvvvvvkvvk.
+        .kvikvvkkvvkvik.
+        .kvvkvkWWkvkvvk.
+        .kvikvkWWkvkvik.
+        .kiikikWWkikiik.
+        .kkkkkkkkkkkkkk.
+        ................""",
+    "black_knights_fortress": """
+        ..r.........r...
+        ..rr........rr..
+        ..k..........k..
+        .knk.k.kk.k.knk.
+        .knnknknnknknnk.
+        .knNknnnnnnknNk.
+        .knNknnNNnnknNk.
+        .knnknxnnxnknnk.
+        .knNknxnnxnknNk.
+        .knnknnnnnnknnk.
+        .knNknnkknnknNk.
+        .knnknkRRknknnk.
+        .knNknkRRknknNk.
+        .kNNkNkRRkNkNNk.
+        .kkkkkkkkkkkkkk.
+        ................""",
+    "white_knight": """
+        ................
+        .....kkkk.......
+        ....kvvvvk......
+        ...kvvvvvvk.....
+        ...kvxxxxvk...k.
+        ...kvvvvvvk..kik
+        ....kvvvvk..kik.
+        ..kkvvvvvvkkik..
+        .kivvvvvvvvkk...
+        .kiyvvvvvvykk...
+        .kfkvvvvvvkfk...
+        ...kiiiiiik.....
+        ...kvvkkvvk.....
+        ...kvk..kvk.....
+        ...kik..kik.....
+        ...kkk..kkk.....""",
+    "black_knight": """
+        ................
+        .....kkkk.......
+        ....knnnnk......
+        ...knnnnnnk.....
+        ...knrrrrnk...k.
+        ...knnnnnnk..kik
+        ....knnnnk..kik.
+        ..kknnnnnnkkik..
+        .knnnnnnnnnkk...
+        .knNnnnnnnNkk...
+        .kfknnnnnnkfk...
+        ...kNNNNNNk.....
+        ...knnkknnk.....
+        ...knk..knk.....
+        ...kNk..kNk.....
+        ...kkk..kkk.....""",
+    "tragidee": """
+        ..k........k....
+        .kvk.kkkk.kvk...
+        .kvkkyyyykkvk.k.
+        ..kkyyyyyykk.kck
+        ...kyxxxxyk..kck
+        ...kyyxxyyk.kck.
+        ....kyxxyk..kck.
+        ..kkvvvvvvkkck..
+        .kyvvvyyvvvyk...
+        .kyvvyyyyvvyk...
+        .kfkvvyyvvkfk...
+        ...kyyyyyyk.....
+        ...kvvkkvvk.....
+        ...kvk..kvk.....
+        ...kyk..kyk.....
+        ...kkk..kkk.....""",
+    "sagittare": """
+        ................
+        .....kkkk..kk...
+        ....kNNNNk.kWk..
+        ...kNyyyyNk.kWk.
+        ....kNNNNk..kWk.
+        ....kaNNak..klWk
+        ....kNNNNk..kl.k
+        .....kNNk...kl.k
+        ...kkjjjjkk.kl.k
+        ..kjjyjjjjjkkl.k
+        ..kNjjyjjjNkkWk.
+        ....kjjjjk..kWk.
+        ....kNNNNk.kWk..
+        ....kNkkNk..kk..
+        ....kykkyk......
+        ....kkk.kkk.....""",
 }
 
 
@@ -690,7 +981,10 @@ def main():
     os.makedirs(os.path.dirname(ICONS), exist_ok=True)
     written = []
     for faction in ("saradomin", "zamorak"):
-        for kind, name in ((worker, "worker"), (warrior, "soldier"), (archer, "archer")):
+        # Knights and heroes look the same whichever team trains them; both factions get a copy.
+        for kind, name in ((worker, "worker"), (warrior, "soldier"), (archer, "archer"),
+                           (white_knight, "white_knight"), (black_knight, "black_knight"), (tragidee, "tragidee"),
+                           (sagittare, "sagittare")):
             path = os.path.join(SKINS, "%s_%s.png" % (faction, name))
             skin(kind, faction).save(path)
             written.append(path)

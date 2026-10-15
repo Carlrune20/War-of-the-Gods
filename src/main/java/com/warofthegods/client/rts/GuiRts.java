@@ -77,7 +77,13 @@ public final class GuiRts extends GuiScreen {
         "pickaxe",
         "hoe",
         "wall",
-        "gate");
+        "gate",
+        "white_knights_fortress",
+        "black_knights_fortress",
+        "white_knight",
+        "black_knight",
+        "tragidee",
+        "sagittare");
 
     /** Icons drawn as Minecraft items in the view; icons.png has the same pictures for the web map. */
     private static final Map<String, ItemStack> VANILLA_ICONS = new HashMap<>();
@@ -1320,6 +1326,10 @@ public final class GuiRts extends GuiScreen {
     private String unitName(RtsState.UnitInfo unit) {
         RtsState.TeamInfo team = state().teamsById.get(unit.team);
         RtsState.UnitKindInfo kind = state().unitKind(unit.kind);
+        // A hero goes by his own name.
+        if (kind != null && kind.hero) {
+            return kind.name + (team != null ? " (" + team.name + ")" : "");
+        }
         return (team != null ? team.name + " " : "") + (kind != null ? kind.name.toLowerCase() : unit.kind)
             + " "
             + unit.number;
@@ -1964,7 +1974,8 @@ public final class GuiRts extends GuiScreen {
             .isEmpty()) {
                 for (Map.Entry<String, RtsState.BuildingTypeInfo> entry : state.game.buildingTypes.entrySet()) {
                     RtsState.BuildingTypeInfo type = entry.getValue();
-                    if (!type.buildable) {
+                    // Each knights' fortress belongs to its own god's teams.
+                    if (!type.buildable || (type.faction != null && !type.faction.equals(team.faction))) {
                         continue;
                     }
                     String id = entry.getKey();
@@ -2224,19 +2235,28 @@ public final class GuiRts extends GuiScreen {
                     room |= other.queue.size() < 10;
                 }
             }
+            // A team has one of each hero at a time, and may train him again once he falls.
+            boolean heroTaken = kind.hero && state.hasUnitOf(team, kindId);
             actions
                 .add(
                     withIcon(
                         button(
                             kind.name + " (" + RtsState.costText(kind.cost) + ")",
-                            full ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
-                                : "Your team has the most units it can have")
-                                : "Train a " + kind.name.toLowerCase()
-                                    + "; shift-click for 5"
-                                    + (trainers.size() > 1 ? ", shared out over the " + trainers.size() + " selected"
-                                        : ""),
-                            shift -> trainSpread(trainers, kindId, kind.name.toLowerCase(), shift ? 5 : 1),
-                            !full && RtsState.canAfford(team, kind.cost) && room),
+                            heroTaken ? kind.name + " is already with your team; train him again once he falls"
+                                : full ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
+                                    : "Your team has the most units it can have")
+                                    : kind.hero ? "Train " + kind.name + ", a hero; your team has one at a time"
+                                        : "Train a " + kind.name.toLowerCase()
+                                            + "; shift-click for 5"
+                                            + (trainers.size() > 1
+                                                ? ", shared out over the " + trainers.size() + " selected"
+                                                : ""),
+                            shift -> trainSpread(
+                                trainers,
+                                kindId,
+                                kind.hero ? kind.name : kind.name.toLowerCase(),
+                                kind.hero ? 1 : shift ? 5 : 1),
+                            !heroTaken && !full && RtsState.canAfford(team, kind.cost) && room),
                         kindId));
         }
         if (!type.trains.isEmpty()) {

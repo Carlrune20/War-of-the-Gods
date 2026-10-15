@@ -82,6 +82,8 @@ public final class Buildings {
 
     /** Structures put into the world per interval, as big ones take a while. */
     private static final int PASTES_PER_INTERVAL = 2;
+    /** Blocks above the ground a knights' fortress shoots from: the top of its curtain walls. */
+    private static final int FORTRESS_SHOOT_HEIGHT = 9;
 
     private final EnumMap<BuildingType, Schematic> schematics = new EnumMap<>(BuildingType.class);
     /** Every look of every building, by faction folder and name, such as zamorak/house_l2_d1. */
@@ -634,14 +636,17 @@ public final class Buildings {
     }
 
     private void train(Game game) {
-        int ticksPerUnit = Math.max(1, Config.trainSeconds * 20);
         for (Building building : new ArrayList<>(game.getBuildings())) {
             if (!building.isComplete() || building.getQueue()
                 .isEmpty()) {
                 continue;
             }
             Team team = game.getTeam(building.team);
-            UnitKind trained = building.train(INTERVAL, ticksPerUnit);
+            UnitKind trained = building.train(
+                INTERVAL,
+                building.getQueue()
+                    .get(0)
+                    .trainTicks());
             if (team == null || trained == null) {
                 continue;
             }
@@ -1170,7 +1175,10 @@ public final class Buildings {
 
     // ---------------------------------------------------------------- towers
 
-    /** Watch towers, and town centers from level 2, shoot arrows at the nearest enemy in range. */
+    /**
+     * Watch towers, and town centers from level 2, shoot arrows at the nearest enemy in range; knights' fortresses
+     * shoot a volley at the nearest few.
+     */
     private void shoot(Game game, WorldServer world) {
         for (Building building : game.getBuildings()) {
             Team team = game.getTeam(building.team);
@@ -1186,26 +1194,37 @@ public final class Buildings {
                 continue;
             }
             double y = building.groundY + shootHeight(building);
-            EntityLivingBase target = Units.get()
-                .findEnemyNear(world, team, building.getCenterX(), y, building.getCenterZ(), range);
-            if (target == null) {
+            List<EntityLivingBase> targets = Units.get()
+                .findEnemiesNear(
+                    world,
+                    team,
+                    building.getCenterX(),
+                    y,
+                    building.getCenterZ(),
+                    range,
+                    building.type.arrowsPerVolley());
+            if (targets.isEmpty()) {
                 shotTicks.put(building.id, every);
                 continue;
             }
             shotTicks.put(building.id, 0);
-            // From the side facing the target, so the arrow clears the building's own walls.
-            double dx = target.posX - building.getCenterX();
-            double dz = target.posZ - building.getCenterZ();
-            double length = Math.max(0.01, Math.sqrt(dx * dx + dz * dz));
-            double out = Math.min(building.sizeX, building.sizeZ) / 2.0 + 0.6;
-            EntityTeamArrow arrow = new EntityTeamArrow(
-                world,
-                building.getCenterX() + dx / length * out,
-                y,
-                building.getCenterZ() + dz / length * out,
-                team.getId());
-            arrow.aim(target, Config.towerDamage + (team.has(Upgrade.FLETCHING) ? 1 : 0));
-            world.spawnEntityInWorld(arrow);
+            // A fortress shoots its whole volley, sharing its arrows out over the enemies it sees.
+            for (int i = 0; i < building.type.arrowsPerVolley(); i++) {
+                EntityLivingBase target = targets.get(i % targets.size());
+                // From the side facing the target, so the arrow clears the building's own walls.
+                double dx = target.posX - building.getCenterX();
+                double dz = target.posZ - building.getCenterZ();
+                double length = Math.max(0.01, Math.sqrt(dx * dx + dz * dz));
+                double out = Math.min(building.sizeX, building.sizeZ) / 2.0 + 0.6;
+                EntityTeamArrow arrow = new EntityTeamArrow(
+                    world,
+                    building.getCenterX() + dx / length * out,
+                    y,
+                    building.getCenterZ() + dz / length * out,
+                    team.getId());
+                arrow.aim(target, Config.towerDamage + (team.has(Upgrade.FLETCHING) ? 1 : 0));
+                world.spawnEntityInWorld(arrow);
+            }
         }
     }
 
@@ -1274,6 +1293,9 @@ public final class Buildings {
     private static int shootHeight(Building building) {
         if (building.type == BuildingType.TOWER) {
             return building.getLevel() >= 2 ? 14 : 11;
+        }
+        if (building.type.isFortress()) {
+            return FORTRESS_SHOOT_HEIGHT;
         }
         return 4;
     }
