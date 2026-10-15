@@ -1,5 +1,6 @@
 package com.warofthegods.building;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -40,6 +41,9 @@ import com.warofthegods.world.GameWorld;
  *       paying for every piece, and send the workers to build it piece by piece; an end on one of the team's
  *       towers runs up to the tower
  *   {type: "buildings.gate", building: id}  make a finished wall segment a gate at once, paying for it
+ *   {type: "buildings.cancel", building: id, index}  take the unit at that place off the training queue, giving
+ *       back what it cost; with research: true instead, stop what the building researches or its level-up
+ *   {type: "buildings.destroy", buildings: [id...]}  take the team's own buildings or building sites down at once
  * </pre>
  */
 public final class BuildingCommands {
@@ -56,6 +60,8 @@ public final class BuildingCommands {
         WebCommand.register("buildings.rally", BuildingCommands::rally);
         WebCommand.register("buildings.wall", BuildingCommands::wall);
         WebCommand.register("buildings.gate", BuildingCommands::gate);
+        WebCommand.register("buildings.cancel", BuildingCommands::cancel);
+        WebCommand.register("buildings.destroy", BuildingCommands::destroy);
     }
 
     /** The viewer's own building the request names, or null after replying why not. */
@@ -115,6 +121,78 @@ public final class BuildingCommands {
         building.startResearch(upgrade.id);
         JsonObject reply = WebJson.message("buildings.researching");
         reply.addProperty("upgrade", upgrade.id);
+        request.reply(reply);
+    }
+
+    private static void cancel(WebRequest request) {
+        Team team = UnitCommands.commander(request);
+        Building building = team == null ? null : ownBuilding(request, team);
+        if (building == null) {
+            return;
+        }
+        Map<Resource, Long> refund;
+        JsonObject reply;
+        if (UnitCommands.boolField(request.body, "research")) {
+            String research = building.getResearch();
+            if (research == null) {
+                request.replyError("It is not researching anything");
+                return;
+            }
+            Upgrade upgrade = Upgrade.byId(research);
+            refund = Building.LEVEL_UP.equals(research) ? building.type.upgradeCost(building.getLevel() + 1)
+                : upgrade != null ? upgrade.cost() : null;
+            building.cancelResearch();
+            reply = WebJson.message("buildings.cancelled");
+            reply.addProperty("research", research);
+        } else {
+            UnitKind kind = building.cancelQueued(
+                UnitCommands.intField(
+                    request.body,
+                    "index",
+                    building.getQueue()
+                        .size() - 1));
+            if (kind == null) {
+                request.replyError("Nothing is waiting to train there");
+                return;
+            }
+            refund = kind.cost();
+            reply = WebJson.message("buildings.cancelled");
+            reply.addProperty("unit", kind.id);
+        }
+        if (refund != null) {
+            for (Map.Entry<Resource, Long> entry : refund.entrySet()) {
+                team.addResource(entry.getKey(), entry.getValue());
+            }
+        }
+        request.reply(reply);
+    }
+
+    private static void destroy(WebRequest request) {
+        Team team = UnitCommands.commander(request);
+        if (team == null) {
+            return;
+        }
+        Game game = GameManager.getGame();
+        List<Building> buildings = new ArrayList<>();
+        JsonElement ids = request.body.get("buildings");
+        if (ids != null && ids.isJsonArray()) {
+            for (JsonElement id : ids.getAsJsonArray()) {
+                Building building = id.isJsonPrimitive() ? game.getBuilding(id.getAsInt()) : null;
+                if (building != null && building.team.equals(team.getId())) {
+                    buildings.add(building);
+                }
+            }
+        }
+        if (buildings.isEmpty()) {
+            request.replyError("None of those buildings are yours");
+            return;
+        }
+        for (Building building : buildings) {
+            Buildings.get()
+                .destroy(game, building, "destroyed by its own team");
+        }
+        JsonObject reply = WebJson.message("ok");
+        reply.addProperty("buildings", buildings.size());
         request.reply(reply);
     }
 

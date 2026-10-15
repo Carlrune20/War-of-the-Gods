@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.util.DamageSource;
 import net.minecraft.world.WorldServer;
 
 import com.google.gson.JsonArray;
@@ -42,6 +43,7 @@ import com.warofthegods.world.GameWorld;
  *   {type: "units.light", units: [id...], x1, z1, x2, z2}  workers put torches in the dark parts of that area
  *   {type: "units.stop", units: [id...]}        stop and guard where they stand
  *   {type: "units.follow", units: [id...], target: uuid, formation?}  follow a player of their team in formation
+ *   {type: "units.kill", units: [id...]}        kill the team's own units
  *   target may also be "carcass-" and a carcass's number: workers carve it
  *   units.build takes queue: true to build it after the sites the workers are on
  * </pre>
@@ -67,6 +69,7 @@ public final class UnitCommands {
         WebCommand.register("units.light", UnitCommands::light);
         WebCommand.register("units.stance", UnitCommands::stance);
         WebCommand.register("units.follow", UnitCommands::follow);
+        WebCommand.register("units.kill", UnitCommands::kill);
     }
 
     /** The viewer's team, or null after replying with why they cannot command units. */
@@ -88,6 +91,19 @@ public final class UnitCommands {
             return null;
         }
         return team;
+    }
+
+    private static void kill(WebRequest request) {
+        Team team = commander(request);
+        List<EntityUnit> units = team == null ? null : ownUnits(request, team);
+        if (units == null) {
+            return;
+        }
+        for (EntityUnit unit : units) {
+            // They die as units do, falling over, and are forgotten like any fallen unit.
+            unit.attackEntityFrom(DamageSource.outOfWorld, 1.0e9F);
+        }
+        ok(request, units.size());
     }
 
     private static void move(WebRequest request) {

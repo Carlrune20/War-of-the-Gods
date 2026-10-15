@@ -1327,6 +1327,14 @@ public final class Buildings {
         if (game == null || game.getBuilding(building.id) != building || !building.damage(amount)) {
             return;
         }
+        destroy(game, building, cause);
+    }
+
+    /** Takes a building or building site down at once, whatever its health, as when its own team destroys it. */
+    public void destroy(Game game, Building building, String cause) {
+        if (game.getBuilding(building.id) != building) {
+            return;
+        }
         WorldServer world = DimensionManager.getWorld(GameWorld.dimensionId());
         if (world != null) {
             tearDown(world, game, building);

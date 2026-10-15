@@ -747,6 +747,55 @@
         return span;
     }
 
+    // The square icons of the build, train and upgrade buttons in actions.png, named in actions.json; the RTS view
+    // draws the same ones.
+    let actionIcons = null;
+    fetch("actions.json").then((response) => response.ok ? response.json() : null).then((json) => {
+        if (json) {
+            actionIcons = {size: json.size, columns: json.columns, rows: Math.ceil(json.names.length / json.columns),
+                index: new Map(json.names.map((name, i) => [name, i]))};
+            renderUnitBar();
+        }
+    }).catch(() => {});
+
+    const SQUARE = 36;
+
+    // A square button showing an icon, with what it does in its tooltip; fallback is one of the small icons, for
+    // before actions.json is in or when it has no icon of that name.
+    function squareButton(icon, fallback, title, onClick) {
+        const b = button("", title, onClick);
+        b.classList.add("square");
+        const i = actionIcons ? actionIcons.index.get(icon) : undefined;
+        if (i === undefined) {
+            b.append(sprite(fallback));
+        } else {
+            const span = el("span", "action-icon");
+            let rows = 1;
+            while (rows < actionIcons.rows) {
+                rows *= 2;
+            }
+            span.style.backgroundSize = actionIcons.columns * SQUARE + "px " + rows * SQUARE + "px";
+            span.style.backgroundPosition = -(i % actionIcons.columns) * SQUARE + "px "
+                + -Math.floor(i / actionIcons.columns) * SQUARE + "px";
+            b.append(span);
+        }
+        return b;
+    }
+
+    function withBadge(b, text) {
+        if (text) {
+            b.append(el("span", "badge", text));
+        }
+        return b;
+    }
+
+    function withBar(b, kind) {
+        const bar = el("span", "progress " + kind);
+        bar.append(el("span"));
+        b.append(bar);
+        return b;
+    }
+
     function iconButton(icon, label, title, onClick) {
         const b = button("", title, onClick);
         b.append(sprite(icon), document.createTextNode(label));
@@ -805,21 +854,21 @@
                     continue;
                 }
                 const aged = (team.age || 1) >= (type.age || 1);
-                const title = !aged ? "Needs " + ageName(type.age) + ": take your town center up a level"
-                    : id === "wall" ? "Build a wall, " + costText(type.cost)
-                        + " a piece: click where it starts and where it ends, or on two of your towers"
-                        : "Build a " + type.name.toLowerCase() + " for " + costText(type.cost)
-                            + ", then click on the map where it goes";
-                const b = iconButton(id, type.name, title, () => startPlacing(id));
+                const title = type.name + " (" + costText(type.cost) + (id === "wall" ? " a piece)" : ")") + "\n"
+                    + (!aged ? "Needs " + ageName(type.age) + ": take your town center up a level"
+                        : id === "wall" ? "Build a wall: click where it starts and where it ends, or on two of your towers"
+                            : "Build a " + type.name.toLowerCase() + ", then click on the map where it goes");
+                const b = squareButton("building/" + team.faction + "/" + id, id, title, () => startPlacing(id));
                 b.disabled = !aged || !canAfford(team, type.cost);
                 actions.append(b);
             }
-            actions.append(button("Torches", "Light up an area so no mobs spawn there: click two corners."
-                + " Each torch costs wood", () => startLighting()));
+            actions.append(squareButton("torches", "wood", "Torches\nLight up an area so no mobs spawn there: click"
+                + " two corners. Each torch costs wood", () => startLighting()));
         } else {
             const hall = townHallOf(team.id);
             if (hall) {
-                actions.append(iconButton("town_hall", "Town center", "Select your town center to train workers", () => {
+                actions.append(squareButton("building/" + team.faction + "/town_hall", "town_hall",
+                    "Town center\nSelect your town center to train workers", () => {
                     selectBuilding(hall.id);
                     focusBuilding(hall);
                 }));
@@ -949,8 +998,8 @@
         actions.append(el("span", "note", "Health " + building.health + "/" + building.maxHealth));
         if (building.type === "wall" && building.team === team.id) {
             const gateCost = buildingType("gate").cost || {};
-            const gate = iconButton("gate", "Make gate (" + costText(gateCost) + ")",
-                "Make this piece of wall a gate at once, which opens for your units and your allies'", async () => {
+            const gate = squareButton("gate", "gate", "Make gate (" + costText(gateCost) + ")\n"
+                + "Make this piece of wall a gate at once, which opens for your units and your allies'", async () => {
                     if (await send("buildings.gate", {building: building.id})) {
                         showToast("Gate made");
                     }
@@ -972,13 +1021,14 @@
                 && (buildingType(b.type).trains || []).includes(kindId));
             // A team has one of each hero at a time, and may train him again once he falls.
             const heroTaken = kind.hero && hasUnitOf(team, kindId);
-            const train = iconButton(kindId, kind.name + " (" + costText(kind.cost) + ")",
-                heroTaken ? kind.name + " is already with your team; train him again once he falls"
+            const train = squareButton("face/" + team.faction + "/" + kindId, kindId,
+                kind.name + " (" + costText(kind.cost) + ")\n"
+                + (heroTaken ? kind.name + " is already with your team; train him again once he falls"
                     : full ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
                         : "Your team has the most units it can have")
                         : kind.hero ? "Train " + kind.name + ", a hero; your team has one at a time"
                             : "Train a " + kind.name.toLowerCase() + "; shift-click for 5"
-                            + (trainers.length > 1 ? ", shared out over the " + trainers.length + " selected" : ""),
+                            + (trainers.length > 1 ? ", shared out over the " + trainers.length + " selected" : "")),
                 async (event) => {
                     const {total, buildings} = await trainSpread(trainers, kindId, kind.hero ? 1 : event.shiftKey ? 5 : 1);
                     if (total) {
@@ -990,13 +1040,21 @@
                 });
             train.disabled = heroTaken || full || !canAfford(team, kind.cost)
                 || !trainers.some((b) => (b.queue || []).length < 10);
-            actions.append(train);
+            const waiting = trainers.reduce((n, b) => n + (b.queue || []).filter((k) => k === kindId).length, 0);
+            actions.append(withBadge(train, waiting ? String(waiting) : ""));
         }
         if (building.queue && building.queue.length) {
-            const bar = el("span", "progress");
-            bar.append(el("span"));
-            actions.append(bar);
-            actions.append(el("span", "note", building.queue.length + " in training"));
+            // The queue, the one in training first; clicking one takes it off and gives back what it cost.
+            actions.append(el("span", "note", "Training"));
+            building.queue.forEach((kindId, i) => {
+                const kind = unitKind(kindId);
+                const name = !kind ? kindId : kind.hero ? kind.name : kind.name.toLowerCase();
+                const b = squareButton("face/" + team.faction + "/" + kindId, kindId,
+                    (i === 0 ? "Training " + name : "Waiting to train " + name)
+                    + "\nClick to cancel and get back what it cost", () => cancelAt(building, i));
+                b.classList.add("small");
+                actions.append(i === 0 ? withBar(b, "") : b);
+            });
         }
         if ((type.trains || []).length) {
             const n = rallyGroups.get(building.id);
@@ -1008,20 +1066,22 @@
             }
         }
         if (building.research) {
-            const bar = el("span", "progress research");
-            bar.append(el("span"));
-            actions.append(bar);
-            actions.append(el("span", "note", researchName(building.research)));
+            const research = building.research;
+            actions.append(el("span", "note", "Researching"));
+            actions.append(withBar(squareButton(research === "level" ? "level" : "upgrade/" + research,
+                research === "level" ? "level" : "upgrade",
+                researchName(research) + "\nClick to cancel and get back what it cost", () => cancelAt(building, -1)),
+            "research"));
             return;
         }
         const next = type.levelUps ? type.levelUps[building.level + 1] : null;
         if (next) {
             const center = building.type === "town_hall";
             const ready = center || (team.age || 1) > building.level;
-            const up = iconButton("level", (center ? "Advance to " + ageName(building.level + 1)
-                : "Level " + (building.level + 1)) + " (" + costText(next.cost) + ")",
-                ready ? "Takes " + next.seconds + "s; every building takes on the new age's look"
-                    : "Your town has to reach " + ageName(building.level + 1) + " first", async () => {
+            const up = squareButton("level", "level", (center ? "Advance to " + ageName(building.level + 1)
+                : "Level " + (building.level + 1)) + " (" + costText(next.cost) + ")\n"
+                + (ready ? "Takes " + next.seconds + "s; every building takes on the new age's look"
+                    : "Your town has to reach " + ageName(building.level + 1) + " first"), async () => {
                     if (await send("buildings.upgrade", {building: building.id})) {
                         showToast("Going up a level");
                     }
@@ -1038,9 +1098,10 @@
             }
             const busy = [...state.buildings.values()].some((b) => b.team === team.id && b.research === upgradeId);
             const levelOk = (team.age || 1) >= upgrade.level;
-            const research = iconButton("upgrade", upgrade.name + " (" + costText(upgrade.cost) + ")",
-                !levelOk ? "Needs " + ageName(upgrade.level)
-                    : busy ? "Being researched" : upgrade.description + "; takes " + upgrade.seconds + "s",
+            const research = squareButton("upgrade/" + upgradeId, "upgrade",
+                upgrade.name + " (" + costText(upgrade.cost) + ")\n"
+                + (!levelOk ? "Needs " + ageName(upgrade.level)
+                    : busy ? "Being researched" : upgrade.description + "; takes " + upgrade.seconds + "s"),
                 async () => {
                     if (await send("buildings.research", {building: building.id, upgrade: upgradeId})) {
                         showToast("Researching " + upgrade.name.toLowerCase());
@@ -1048,6 +1109,44 @@
                 });
             research.disabled = !levelOk || busy || !canAfford(team, upgrade.cost);
             actions.append(research);
+        }
+    }
+
+    // Takes the unit at index off a building's training queue, or with index -1 stops its research, getting the
+    // cost back.
+    async function cancelAt(building, index) {
+        const body = index < 0 ? {building: building.id, research: true} : {building: building.id, index};
+        if (await send("buildings.cancel", body)) {
+            showToast("Cancelled");
+        }
+    }
+
+    // Delete: kills your selected units and destroys your selected buildings.
+    async function deleteSelection() {
+        const team = myTeam();
+        if (!team) {
+            return;
+        }
+        const units = [...state.selected].filter((id) => {
+            const u = state.units.get(id);
+            return u && u.team === team.id;
+        });
+        const buildings = selectedBuildingList().filter((b) => b.team === team.id).map((b) => b.id);
+        if (units.length) {
+            for (const id of units) {
+                state.selected.delete(id);
+            }
+            changedSelection();
+            if (await send("units.kill", {units})) {
+                showToast(units.length === 1 ? "Unit killed" : units.length + " units killed");
+            }
+        }
+        if (buildings.length) {
+            setBuildingSelection([]);
+            changedSelection();
+            if (await send("buildings.destroy", {buildings})) {
+                showToast(buildings.length === 1 ? "Building destroyed" : buildings.length + " buildings destroyed");
+            }
         }
     }
 
@@ -2540,6 +2639,8 @@
             view.turn(1);
         } else if (key === "r" && placing) {
             rotatePlacing();
+        } else if (key === "delete") {
+            deleteSelection();
         } else if (key === "escape" && attackMoving) {
             attackMoving = false;
             renderUnitBar();
