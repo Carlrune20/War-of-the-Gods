@@ -54,6 +54,8 @@ final class HttpHandler extends ChannelInboundHandlerAdapter {
         STATIC_FILES.put("/style.css", "style.css");
         // The same icons the RTS view draws.
         STATIC_FILES.put("/icons.png", "/assets/warofthegods/textures/gui/icons.png");
+        STATIC_FILES.put("/actions.png", "/assets/warofthegods/textures/gui/actions.png");
+        STATIC_FILES.put("/actions.json", "/assets/warofthegods/textures/gui/actions.json");
     }
 
     private final WebServer server;
@@ -310,6 +312,9 @@ final class HttpHandler extends ChannelInboundHandlerAdapter {
         }
         if (file.endsWith(".png")) {
             return "image/png";
+        }
+        if (file.endsWith(".json")) {
+            return "application/json; charset=utf-8";
         }
         return "text/html; charset=utf-8";
     }

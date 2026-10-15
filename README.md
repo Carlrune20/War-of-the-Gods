@@ -257,7 +257,7 @@ centers.
 A team can have as many units as its town center and houses house, up to 100. Buildings need a spot inside the map,
 two blocks clear of other buildings, on ground that is mostly dry and not too steep; foundations fill in dips and
 anything above the building is cleared. The structures are drawn by `tools/structures/generate.py` into
-`assets/warofthegods/structures/<faction>`, and the skins and icons by `tools/textures/generate.py` (the resource and tool icons are copied from the Minecraft 1.7.10 client jar).
+`assets/warofthegods/structures/<faction>`, the skins and small icons by `tools/textures/generate.py` (the resource and tool icons are copied from the Minecraft 1.7.10 client jar), and the square icons on the build, train and upgrade buttons by `tools/textures/actions.py`, which draws each building from its level 1 structure with Minecraft's block textures, each unit's face from its skin, and an item or block for each upgrade. Run it again after changing a structure.
 
 A unit that has no orders guards the spot where it stopped. How it fights depends on its stance, set from the bar
 with warriors or archers selected:
@@ -317,6 +317,9 @@ Commanding units, from the bar at the bottom of the page:
 | Farm / House / Barracks / ... | With workers selected: a see-through copy follows the pointer, pale where it fits and red where it does not (in the in-game view it shows the building's own blocks). R or Rotate turns it a quarter round, click places it, right-click or Esc cancels. Shift-click places more, and the workers build them one after another in the order they were placed; shift-right-click a building site to add it to their list |
 | Wall | With workers selected: click where the wall starts, or one of your towers, then where it ends (or another tower). A see-through wall follows the pointer, red where it does not fit, and the bar shows its pieces and cost. Shift-click to go on with the next wall from where this one ended |
 | Make gate | With one of your finished wall segments selected: turn it into a gate at once, for gold |
+| Build, train and upgrade buttons | Square icons: a building's picture, a unit's face, an item for an upgrade. Hover one to see its name, cost and what it does |
+| The queue and research icons on a building | Click a unit waiting or in training, or what the building researches or its level-up, to cancel it and get back what it cost. A number on a Train button shows how many of that unit are waiting |
+| Delete | Kill your selected units and destroy your selected buildings or building sites, at once |
 | Right-click one of your building sites or farms, or a gold mine | Send the selected workers to build or work it, or to mine gold. Sent to an unbuilt piece of wall, they go on to build the rest of that wall after it. Right-click one of your damaged buildings to have them repair it, as fast as they would build it, for free |
 | Right-click a tree | Send the selected workers to chop it |
 | Torches | With workers selected: click two corners of an area for them to light up against mobs |
@@ -401,6 +404,7 @@ are drawn while the view is open.
 | Wheel / Ctrl + wheel | Zoom / tilt |
 | Middle-drag / shift + middle-drag | Turn and tilt the camera / move it; right-click always gives orders |
 | Click, shift-click, double-click, drag a box | Select your units, as on the web map |
+| Delete | Kill your selected units and destroy your selected buildings, as on the web map |
 | 1 … 0, Ctrl/Shift + number | Control groups, as on the web map (Ctrl + number makes a group) |
 | Right-click with buildings selected / a player of your team | Rally point / follow them, as on the web map |
 | Right-click | Move, attack (enemies and mobs), build or work, as on the web map; shift-right-click enemies to attack them in turn |

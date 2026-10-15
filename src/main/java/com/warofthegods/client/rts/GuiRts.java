@@ -45,6 +45,8 @@ import com.google.gson.JsonPrimitive;
 public final class GuiRts extends GuiScreen {
 
     private static final int PANEL = 0xC0101418;
+    /** The size of a square icon button. */
+    private static final int SQUARE = 20;
     private static final int GREEN = 0xFF5FDC6A;
     private static final int AMBER = 0xFFF0B43C;
     private static final int RED = 0xFFE8493F;
@@ -142,6 +144,15 @@ public final class GuiRts extends GuiScreen {
         /** For a progress bar, how full it is; NaN otherwise. */
         double fill = Double.NaN;
         int fillColor = GREEN;
+        /** For a square button, the icon from {@link ActionIcons} it shows instead of text, else null. */
+        String square;
+        /** For a square button, a bar along its bottom showing how far along it is, or NaN. */
+        double bar = Double.NaN;
+        /** For a square button, a number in its corner, such as how many are waiting to train, or null. */
+        String badge;
+        /** The top and bottom of the panel row it is on, for telling whether the mouse is over the panel. */
+        int rowTop;
+        int rowBottom;
 
         boolean contains(int gx, int gy) {
             return gx >= x && gx < x + w && gy >= y && gy < y + h;
@@ -429,6 +440,8 @@ public final class GuiRts extends GuiScreen {
                 client.placing.rotation = (client.placing.rotation + 1) % 4;
             } else if (key == Keyboard.KEY_H) {
                 goToTownHall();
+            } else if (key == Keyboard.KEY_DELETE) {
+                deleteSelection();
             } else if (key == Keyboard.KEY_SPACE) {
                 focusSelection();
             } else if (key == mc.gameSettings.keyBindChat.getKeyCode()) {
@@ -438,6 +451,43 @@ public final class GuiRts extends GuiScreen {
             } else if (key == Keyboard.KEY_F1) {
                 mc.gameSettings.hideGUI = !mc.gameSettings.hideGUI;
             }
+    }
+
+    /** Kills the selected units of your own and destroys your selected buildings, as Delete does. */
+    private void deleteSelection() {
+        RtsState state = state();
+        List<String> units = new ArrayList<>();
+        for (String id : client.selected) {
+            RtsState.UnitInfo unit = state.units.get(id);
+            if (unit != null && state.isMine(unit)) {
+                units.add(id);
+            }
+        }
+        RtsState.TeamInfo team = state.myTeam();
+        List<RtsState.BuildingInfo> buildings = new ArrayList<>();
+        for (RtsState.BuildingInfo building : client.selectedBuildingList()) {
+            if (team != null && building.team.equals(team.id)) {
+                buildings.add(building);
+            }
+        }
+        if (!units.isEmpty()) {
+            int count = units.size();
+            client.command(
+                "units.kill",
+                unitsBody(units),
+                reply -> client.showToast(count == 1 ? "Unit killed" : count + " units killed", false));
+            client.selected.removeAll(units);
+            client.changedSelection();
+        }
+        if (!buildings.isEmpty()) {
+            int count = buildings.size();
+            client.command(
+                "buildings.destroy",
+                buildingsBody(buildings),
+                reply -> client.showToast(count == 1 ? "Building destroyed" : count + " buildings destroyed", false));
+            client.selectBuildings(new ArrayList<>(), 0);
+            client.changedSelection();
+        }
     }
 
     private void goToTownHall() {
@@ -1682,10 +1732,16 @@ public final class GuiRts extends GuiScreen {
         }
     }
 
+    /** A tooltip by the mouse; a line break in the text starts a new line, the lines after the first in grey. */
     private void drawTip(Object icon, String text, int gx, int gy, int color) {
+        String[] lines = text.split("\n");
         int iconWidth = icon == null ? 0 : 18;
-        int w = fontRendererObj.getStringWidth(text) + 8 + iconWidth;
-        int h = icon == null ? 14 : 20;
+        int textWidth = 0;
+        for (String line : lines) {
+            textWidth = Math.max(textWidth, fontRendererObj.getStringWidth(line));
+        }
+        int w = textWidth + 8 + iconWidth;
+        int h = Math.max(icon == null ? 14 : 20, lines.length * 10 + 4);
         int x = Math.min(gx + 10, width - w - 2);
         int y = gy + 14 + h > height ? gy - h - 4 : gy + 14;
         drawRect(x, y, x + w, y + h, 0xE0000000);
@@ -1694,7 +1750,10 @@ public final class GuiRts extends GuiScreen {
         } else if (icon instanceof String) {
             drawIcon((String) icon, x + 3, y + 2, 16);
         }
-        fontRendererObj.drawStringWithShadow(text, x + 4 + iconWidth, y + (h - 8) / 2, color);
+        int textY = y + (h - lines.length * 10 + 2) / 2;
+        for (int i = 0; i < lines.length; i++) {
+            fontRendererObj.drawStringWithShadow(lines[i], x + 4 + iconWidth, textY + i * 10, i == 0 ? color : 0xB4B4B4);
+        }
     }
 
     private void drawItem(ItemStack stack, int x, int y) {
@@ -1980,38 +2039,36 @@ public final class GuiRts extends GuiScreen {
                     }
                     String id = entry.getKey();
                     boolean aged = team.age >= type.age;
-                    Widget build = button(
-                        type.name,
-                        !aged ? "Needs " + ageName(type.age) + ": take your town center up a level"
-                            : RtsClient.isWall(id)
-                                ? "Build a wall for " + RtsState.costText(type.cost)
-                                    + " a piece: click where it starts, or a tower, then where it ends"
-                                : "Build a " + type.name.toLowerCase()
-                                    + " for "
-                                    + RtsState.costText(type.cost)
-                                    + ", then click where it goes",
-                        shift -> client.startPlacing(id),
-                        aged && RtsState.canAfford(team, type.cost));
-                    withIcon(build, id);
-                    actions.add(build);
+                    actions.add(
+                        square(
+                            ActionIcons.building(team.faction, id),
+                            id,
+                            type.name + " (" + RtsState.costText(type.cost) + (RtsClient.isWall(id) ? " a piece)" : ")")
+                                + "\n"
+                                + (!aged ? "Needs " + ageName(type.age) + ": take your town center up a level"
+                                    : RtsClient.isWall(id)
+                                        ? "Build a wall: click where it starts, or a tower, then where it ends"
+                                        : "Build a " + type.name.toLowerCase() + ", then click where it goes"),
+                            shift -> client.startPlacing(id),
+                            aged && RtsState.canAfford(team, type.cost)));
                 }
                 actions.add(
-                    button(
-                        "Torches",
-                        "Light up an area so no mobs spawn there: click two corners. Each torch costs wood",
+                    square(
+                        "torches",
+                        "wood",
+                        "Torches\nLight up an area so no mobs spawn there: click two corners. Each torch costs wood",
                         shift -> client.startLighting(),
                         true));
             } else {
                 RtsState.BuildingInfo hall = state.townHallOf(team.id);
                 if (hall != null) {
                     actions.add(
-                        withIcon(
-                            button(
-                                "Town center",
-                                "Select your town center to train workers (H)",
-                                shift -> goToTownHall(),
-                                true),
-                            "town_hall"));
+                        square(
+                            ActionIcons.building(team.faction, "town_hall"),
+                            "town_hall",
+                            "Town center\nSelect your town center to train workers (H)",
+                            shift -> goToTownHall(),
+                            true));
                 }
             }
 
@@ -2206,17 +2263,17 @@ public final class GuiRts extends GuiScreen {
         if ("wall".equals(building.type) && building.team.equals(team.id) && gate != null) {
             int wallId = building.id;
             actions.add(
-                withIcon(
-                    button(
-                        "Make gate (" + RtsState.costText(gate.cost) + ")",
-                        "Turn this wall segment into a gate your units can walk through",
-                        shift -> {
-                            JsonObject body = new JsonObject();
-                            body.addProperty("building", wallId);
-                            client.command("buildings.gate", body, reply -> client.showToast("Gate made", false));
-                        },
-                        RtsState.canAfford(team, gate.cost)),
-                    "gate"));
+                square(
+                    "gate",
+                    "gate",
+                    "Make gate (" + RtsState.costText(gate.cost)
+                        + ")\nTurn this wall segment into a gate your units can walk through",
+                    shift -> {
+                        JsonObject body = new JsonObject();
+                        body.addProperty("building", wallId);
+                        client.command("buildings.gate", body, reply -> client.showToast("Gate made", false));
+                    },
+                    RtsState.canAfford(team, gate.cost)));
         }
         boolean full = state.teamUnitCount(team) >= team.population;
         // Each click queues one more (shift-click five), up to ten waiting; training goes on one at a time. With
@@ -2237,27 +2294,36 @@ public final class GuiRts extends GuiScreen {
             }
             // A team has one of each hero at a time, and may train him again once he falls.
             boolean heroTaken = kind.hero && state.hasUnitOf(team, kindId);
-            actions.add(
-                withIcon(
-                    button(
-                        kind.name + " (" + RtsState.costText(kind.cost) + ")",
-                        heroTaken ? kind.name + " is already with your team; train him again once he falls"
-                            : full
-                                ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
-                                    : "Your team has the most units it can have")
-                                : kind.hero ? "Train " + kind.name + ", a hero; your team has one at a time"
-                                    : "Train a " + kind.name.toLowerCase()
-                                        + "; shift-click for 5"
-                                        + (trainers.size() > 1
-                                            ? ", shared out over the " + trainers.size() + " selected"
-                                            : ""),
-                        shift -> trainSpread(
-                            trainers,
-                            kindId,
-                            kind.hero ? kind.name : kind.name.toLowerCase(),
-                            kind.hero ? 1 : shift ? 5 : 1),
-                        !heroTaken && !full && RtsState.canAfford(team, kind.cost) && room),
-                    kindId));
+            int waiting = 0;
+            for (RtsState.BuildingInfo trainer : trainers) {
+                for (String queued : trainer.queue) {
+                    if (queued.equals(kindId)) {
+                        waiting++;
+                    }
+                }
+            }
+            Widget train = square(
+                ActionIcons.face(team.faction, kindId),
+                kindId,
+                kind.name + " (" + RtsState.costText(kind.cost)
+                    + ")\n"
+                    + (heroTaken ? kind.name + " is already with your team; train him again once he falls"
+                        : full
+                            ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
+                                : "Your team has the most units it can have")
+                            : kind.hero ? "Train " + kind.name + ", a hero; your team has one at a time"
+                                : "Train a " + kind.name.toLowerCase()
+                                    + "; shift-click for 5"
+                                    + (trainers.size() > 1 ? ", shared out over the " + trainers.size() + " selected"
+                                        : "")),
+                shift -> trainSpread(
+                    trainers,
+                    kindId,
+                    kind.hero ? kind.name : kind.name.toLowerCase(),
+                    kind.hero ? 1 : shift ? 5 : 1),
+                !heroTaken && !full && RtsState.canAfford(team, kind.cost) && room);
+            train.badge = waiting > 0 ? String.valueOf(waiting) : null;
+            actions.add(train);
         }
         if (!type.trains.isEmpty()) {
             Integer number = client.rallyGroups.get(building.id);
@@ -2278,12 +2344,40 @@ public final class GuiRts extends GuiScreen {
             }
         }
         if (!building.queue.isEmpty()) {
-            actions.add(progress(building.progress, GREEN));
-            actions.add(label(building.queue.size() + " in training", 0xC8C8C8));
+            // The queue, the one in training first; clicking one takes it off and gives back what it cost.
+            actions.add(label("Training", 0xC8C8C8));
+            for (int i = 0; i < building.queue.size(); i++) {
+                String kindId = building.queue.get(i);
+                RtsState.UnitKindInfo kind = state.unitKind(kindId);
+                String name = kind == null ? kindId : kind.hero ? kind.name : kind.name.toLowerCase();
+                int index = i;
+                Widget queued = square(
+                    ActionIcons.face(team.faction, kindId),
+                    kindId,
+                    (i == 0 ? "Training " + name + ", " + (int) Math.floor(100 * building.progress) + "%"
+                        : "Waiting to train " + name) + "\nClick to cancel and get back what it cost",
+                    shift -> cancel(building, index),
+                    true);
+                queued.w = queued.h = 16;
+                if (i == 0) {
+                    queued.bar = building.progress;
+                }
+                actions.add(queued);
+            }
         }
         if (building.research != null) {
-            actions.add(progress(building.researched, 0xFF6FA8FF));
-            actions.add(label(researchName(building.research), 0xC8C8C8));
+            String research = building.research;
+            Widget researching = square(
+                researchIcon(research),
+                "level".equals(research) ? "level" : "upgrade",
+                researchName(research) + ", "
+                    + (int) Math.floor(100 * building.researched)
+                    + "%\nClick to cancel and get back what it cost",
+                shift -> cancel(building, -1),
+                true);
+            researching.bar = building.researched;
+            actions.add(label("Researching", 0xC8C8C8));
+            actions.add(researching);
             return;
         }
         RtsState.LevelInfo next = type.levelUps.get(building.level + 1);
@@ -2291,23 +2385,20 @@ public final class GuiRts extends GuiScreen {
             boolean center = "town_hall".equals(building.type);
             boolean centerReady = center || team.age > building.level;
             actions.add(
-                withIcon(
-                    button(
-                        (center ? "Advance to " + ageName(building.level + 1) : "Level " + (building.level + 1)) + " ("
-                            + RtsState.costText(next.cost)
-                            + ")",
-                        centerReady ? "Takes " + next.seconds + "s; every building takes on the new age's look"
-                            : "Your town has to reach " + ageName(building.level + 1) + " first",
-                        shift -> {
-                            JsonObject body = new JsonObject();
-                            body.addProperty("building", building.id);
-                            client.command(
-                                "buildings.upgrade",
-                                body,
-                                reply -> client.showToast("Going up a level", false));
-                        },
-                        centerReady && RtsState.canAfford(team, next.cost)),
-                    "level"));
+                square(
+                    "level",
+                    "level",
+                    (center ? "Advance to " + ageName(building.level + 1) : "Level " + (building.level + 1)) + " ("
+                        + RtsState.costText(next.cost)
+                        + ")\n"
+                        + (centerReady ? "Takes " + next.seconds + "s; every building takes on the new age's look"
+                            : "Your town has to reach " + ageName(building.level + 1) + " first"),
+                    shift -> {
+                        JsonObject body = new JsonObject();
+                        body.addProperty("building", building.id);
+                        client.command("buildings.upgrade", body, reply -> client.showToast("Going up a level", false));
+                    },
+                    centerReady && RtsState.canAfford(team, next.cost)));
         }
         for (String upgradeId : type.researches) {
             RtsState.UpgradeInfo upgrade = state.upgrade(upgradeId);
@@ -2319,23 +2410,56 @@ public final class GuiRts extends GuiScreen {
             boolean busy = state.isResearching(team, upgradeId);
             boolean levelOk = team.age >= upgrade.level;
             actions.add(
-                withIcon(
-                    button(
-                        upgrade.name + " (" + RtsState.costText(upgrade.cost) + ")",
-                        !levelOk ? "Needs " + ageName(upgrade.level)
-                            : busy ? "Being researched" : upgrade.description + "; takes " + upgrade.seconds + "s",
-                        shift -> {
-                            JsonObject body = new JsonObject();
-                            body.addProperty("building", building.id);
-                            body.addProperty("upgrade", upgradeId);
-                            client.command(
-                                "buildings.research",
-                                body,
-                                reply -> client.showToast("Researching " + upgrade.name.toLowerCase(), false));
-                        },
-                        levelOk && !busy && RtsState.canAfford(team, upgrade.cost)),
-                    "upgrade"));
+                square(
+                    ActionIcons.upgrade(upgradeId),
+                    "upgrade",
+                    upgrade.name + " (" + RtsState.costText(upgrade.cost)
+                        + ")\n"
+                        + (!levelOk ? "Needs " + ageName(upgrade.level)
+                            : busy ? "Being researched" : upgrade.description + "; takes " + upgrade.seconds + "s"),
+                    shift -> {
+                        JsonObject body = new JsonObject();
+                        body.addProperty("building", building.id);
+                        body.addProperty("upgrade", upgradeId);
+                        client.command(
+                            "buildings.research",
+                            body,
+                            reply -> client.showToast("Researching " + upgrade.name.toLowerCase(), false));
+                    },
+                    levelOk && !busy && RtsState.canAfford(team, upgrade.cost)));
         }
+    }
+
+    /** Takes a unit off a building's training queue, or with index -1 stops its research, getting the cost back. */
+    private void cancel(RtsState.BuildingInfo building, int index) {
+        JsonObject body = new JsonObject();
+        body.addProperty("building", building.id);
+        if (index < 0) {
+            body.addProperty("research", true);
+        } else {
+            body.addProperty("index", index);
+        }
+        client.command("buildings.cancel", body, reply -> client.showToast("Cancelled", false));
+    }
+
+    private static String researchIcon(String research) {
+        return "level".equals(research) ? "level" : ActionIcons.upgrade(research);
+    }
+
+    /**
+     * A square button showing an icon, with what it does in its tooltip. The fallback is one of the small icons, for
+     * when actions.png has no icon of that name.
+     */
+    private Widget square(String icon, String fallback, String tip, Consumer<Boolean> action, boolean enabled) {
+        Widget widget = new Widget();
+        widget.square = ActionIcons.has(icon) ? icon : null;
+        widget.icon = fallback;
+        widget.tip = tip;
+        widget.action = action;
+        widget.enabled = enabled;
+        widget.w = SQUARE;
+        widget.h = SQUARE;
+        return widget;
     }
 
     private Widget withIcon(Widget widget, String icon) {
@@ -2394,17 +2518,31 @@ public final class GuiRts extends GuiScreen {
             x += widget.w + gap;
         }
         rows.add(row);
-        int top = y - (rows.size() - 1) * 18;
+        // Each row is as tall as its tallest widget, the rest centred on it; the last row's bottom is where a row of
+        // ordinary buttons at y would end.
+        int[] heights = new int[rows.size()];
+        int total = 0;
         for (int i = 0; i < rows.size(); i++) {
-            int rowY = top + i * 18;
+            heights[i] = 14;
+            for (Widget widget : rows.get(i)) {
+                heights[i] = Math.max(heights[i], widget.h);
+            }
+            total += heights[i] + (i > 0 ? 4 : 0);
+        }
+        int top = y + 14 - total;
+        int rowY = top;
+        for (int i = 0; i < rows.size(); i++) {
             x = left;
             for (Widget widget : rows.get(i)) {
                 widget.x = x;
-                widget.y = rowY;
+                widget.y = rowY + (heights[i] - widget.h) / 2;
+                widget.rowTop = rowY - 3;
+                widget.rowBottom = rowY + heights[i] + 3;
                 x += widget.w + gap;
                 widgets.add(widget);
             }
-            drawRect(left - 4, rowY - 3, x - gap + 4, rowY + 17, PANEL);
+            drawRect(left - 4, rowY - 3, x - gap + 4, rowY + heights[i] + 3, PANEL);
+            rowY += heights[i] + 4;
         }
         return top;
     }
@@ -2421,6 +2559,10 @@ public final class GuiRts extends GuiScreen {
                 widget.x + (int) Math.round(widget.w * Math.max(0, Math.min(1, widget.fill))),
                 y + 4,
                 widget.fillColor);
+            return;
+        }
+        if (widget.action != null && (widget.square != null || widget.text == null)) {
+            drawSquare(widget, gx, gy);
             return;
         }
         int textX = widget.x + (widget.action == null ? 2 : 5);
@@ -2446,6 +2588,37 @@ public final class GuiRts extends GuiScreen {
             widget.enabled ? widget.color & 0xFFFFFF : 0x808080);
     }
 
+    private void drawSquare(Widget widget, int gx, int gy) {
+        boolean hover = widget.contains(gx, gy);
+        int x0 = widget.x;
+        int y0 = widget.y;
+        int x1 = widget.x + widget.w;
+        int y1 = widget.y + widget.h;
+        drawRect(x0, y0, x1, y1, 0xFF000000);
+        if (widget.square == null || !ActionIcons.draw(widget.square, x0 + 1, y0 + 1, widget.w - 2)) {
+            drawIcon(widget.icon, x0 + 2, y0 + 2, widget.w - 4);
+        }
+        if (!widget.enabled) {
+            drawRect(x0 + 1, y0 + 1, x1 - 1, y1 - 1, 0xA0000000);
+        } else if (hover) {
+            drawRect(x0 + 1, y0 + 1, x1 - 1, y1 - 1, 0x30FFFFFF);
+        }
+        if (!Double.isNaN(widget.bar)) {
+            drawRect(x0 + 1, y1 - 3, x1 - 1, y1 - 1, 0xC0000000);
+            drawRect(
+                x0 + 1,
+                y1 - 3,
+                x0 + 1 + (int) Math.round((widget.w - 2) * Math.max(0, Math.min(1, widget.bar))),
+                y1 - 1,
+                GREEN);
+        }
+        drawOutline(x0, y0, x1, y1, hover && widget.enabled ? 0xFFE0E8F0 : widget.enabled ? 0xFF7A8A98 : 0xFF404850);
+        if (widget.badge != null) {
+            fontRendererObj
+                .drawStringWithShadow(widget.badge, x1 - 1 - fontRendererObj.getStringWidth(widget.badge), y1 - 9, 0xFFFFFF);
+        }
+    }
+
     private void drawOutline(int x0, int y0, int x1, int y1, int color) {
         drawRect(x0, y0, x1, y0 + 1, color);
         drawRect(x0, y1 - 1, x1, y1, color);
@@ -2461,11 +2634,11 @@ public final class GuiRts extends GuiScreen {
         }
         if (gy >= barTop - 3 && !widgets.isEmpty()) {
             for (Widget widget : widgets) {
-                if (gy >= widget.y - 3 && gy < widget.y + 17 && gx >= 0 && gx < width) {
+                if (gy >= widget.rowTop && gy < widget.rowBottom && gx >= 0 && gx < width) {
                     int left = Integer.MAX_VALUE;
                     int right = Integer.MIN_VALUE;
                     for (Widget other : widgets) {
-                        if (other.y == widget.y) {
+                        if (other.rowTop == widget.rowTop) {
                             left = Math.min(left, other.x);
                             right = Math.max(right, other.x + other.w);
                         }

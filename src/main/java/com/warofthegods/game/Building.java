@@ -336,6 +336,21 @@ public final class Building {
         return queue.remove(0);
     }
 
+    /**
+     * Takes a unit off the queue, such as when its team cancels it; taking off the one in training starts the next
+     * from the beginning. Returns it, or null when there is none at that place.
+     */
+    public UnitKind cancelQueued(int index) {
+        if (index < 0 || index >= queue.size()) {
+            return null;
+        }
+        if (index == 0) {
+            trainingTicks = 0;
+        }
+        game.changed();
+        return queue.remove(index);
+    }
+
     /** Takes the unit in training back, as when it could not be placed; it trains again from the start. */
     public void requeueFirst(UnitKind kind) {
         queue.add(0, kind);
