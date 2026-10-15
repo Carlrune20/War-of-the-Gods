@@ -1085,6 +1085,139 @@ def wall_post(p, level):
     return s
 
 
+# ---------------------------------------------------------------- the knights' fortresses
+#
+# Each god's knights have their own fortress, built in Age III by that god's teams only: the White Knights' in white
+# quartz with blue banners and gold, the Black Knights' in black stone with red banners, spikes and skulls. Either
+# fortress looks the same whichever folder it is written into. Four corner towers and curtain walls with battlements
+# round a courtyard, a gate in the middle of the front and a tall keep at the back.
+
+FORTRESS = 15
+FORTRESS_TOP = 18
+QUARTZ_STAIRS = 156
+
+
+def fortress_style(black):
+    if black:
+        return dict(wall=(CLAY, BLACK), pillar=(OBSIDIAN, 0), base=(NETHER_BRICK, 0), floor=(NETHER_BRICK, 0),
+                    accent=(COAL_BLOCK, 0), banner=(WOOL, RED), banner2=(WOOL, BLACK), emblem=(REDSTONE_BLOCK, 0),
+                    slit=(IRON_BARS, 0), light=REDSTONE_TORCH, lamp=(GLOWSTONE, 0), door=IRON_DOOR,
+                    stairs=NETHER_STAIRS, slab=(SLAB, 6), fence=(NETHER_FENCE, 0))
+    return dict(wall=(QUARTZ, 0), pillar=(QUARTZ, 2), base=(STONE_BRICK, 0), floor=(STONE_BRICK, 0),
+                accent=(QUARTZ, 1), banner=(WOOL, BLUE), banner2=(WOOL, WHITE), emblem=(GOLD_BLOCK, 0),
+                slit=(PANE, 0), light=TORCH, lamp=(GLOWSTONE, 0), door=DOOR, stairs=QUARTZ_STAIRS,
+                slab=(SLAB, 7), fence=(FENCE, 0))
+
+
+def fortress(black):
+    f = fortress_style(black)
+    s = Struct(FORTRESS, FORTRESS, FORTRESS_TOP, 1)
+    last = FORTRESS - 1
+    s.fill(0, -1, 0, last, 0, last, f["base"])
+    s.fill(1, 0, 1, last - 1, 0, last - 1, f["floor"])
+    wall_top = 8
+    tower_top = 11
+
+    # Curtain walls, two thick, with battlements along the outer edge.
+    for a in range(4, last - 3):
+        for outer, inner in (((a, 0), (a, 1)), ((a, last), (a, last - 1)), ((0, a), (1, a)), ((last, a), (last - 1, a))):
+            s.fill(outer[0], 1, outer[1], outer[0], wall_top, outer[1], f["wall"])
+            s.fill(inner[0], 1, inner[1], inner[0], wall_top, inner[1], f["wall"])
+            if a % 2 == 0:
+                s.set(outer[0], wall_top + 1, outer[1], f["wall"])
+        # A band of darker stone near the top.
+        for x, z in ((a, 0), (a, last), (0, a), (last, a)):
+            s.set(x, wall_top - 1, z, f["accent"])
+
+    # The corner towers, hollow, with arrow slits and battlements, a lamp on top.
+    for x0, z0 in ((0, 0), (last - 3, 0), (0, last - 3), (last - 3, last - 3)):
+        x1, z1 = x0 + 3, z0 + 3
+        s.walls(x0, z0, x1, z1, 1, tower_top, f["wall"])
+        s.pillars(x0, z0, x1, z1, 1, tower_top, f["pillar"])
+        s.fill(x0, tower_top, z0, x1, tower_top, z1, f["base"])
+        s.walls(x0, z0, x1, z1, tower_top - 1, tower_top - 1, f["accent"])
+        for y in (4, 7):
+            for x, z in ((x0, z0 + 1), (x0, z0 + 2), (x1, z0 + 1), (x1, z0 + 2), (x0 + 1, z0), (x0 + 2, z0),
+                         (x0 + 1, z1), (x0 + 2, z1)):
+                if (x in (0, last) or z in (0, last)) and (x + z) % 2 == 0:
+                    s.set(x, y, z, f["slit"])
+        for x, z in ((x0, z0), (x1, z0), (x0, z1), (x1, z1)):
+            s.set(x, tower_top + 1, z, f["pillar"])
+            if black:
+                s.set(x, tower_top + 2, z, f["fence"])
+        s.set(x0 + 1, tower_top + 1, z0 + 1, f["lamp"])
+
+    # The gate: an arch three wide through the front wall, with the god's emblem above it and banners either side.
+    gate = FORTRESS // 2
+    s.clear(gate - 1, 1, 0, gate + 1, 3, 1)
+    s.set(gate - 1, 4, 0, stairs(f["stairs"], UP_EAST, upside_down=True))
+    s.set(gate + 1, 4, 0, stairs(f["stairs"], UP_WEST, upside_down=True))
+    s.set(gate, 4, 0, f["accent"])
+    s.set(gate, 6, 0, f["emblem"])
+    for x in (gate - 3, gate + 3):
+        s.fill(x, 3, 0, x, 6, 0, f["banner"])
+        s.set(x, 3, 0, f["banner2"])
+
+    # The keep at the back of the courtyard: taller than the towers, with a door, windows and a flag on top.
+    kx0, kx1, kz0, kz1 = gate - 3, gate + 3, 7, last - 2
+    keep_top = 14
+    s.walls(kx0, kz0, kx1, kz1, 1, keep_top, f["wall"])
+    s.pillars(kx0, kz0, kx1, kz1, 1, keep_top + 1, f["pillar"])
+    s.fill(kx0 + 1, 0, kz0 + 1, kx1 - 1, 0, kz1 - 1, f["floor"])
+    s.fill(kx0, keep_top, kz0, kx1, keep_top, kz1, f["base"])
+    s.walls(kx0, kz0, kx1, kz1, keep_top - 1, keep_top - 1, f["accent"])
+    s.fill(kx0 + 1, 6, kz0 + 1, kx1 - 1, 6, kz1 - 1, f["floor"])
+    s.clear(kx1 - 2, 6, kz1 - 2, kx1 - 1, 6, kz1 - 1)
+    s.set(gate, 1, kz0, (f["door"], 1))
+    s.set(gate, 2, kz0, (f["door"], 8))
+    for y in (3, 9, 11):
+        for x in (gate - 2, gate + 2):
+            s.set(x, y, kz0, f["slit"])
+    s.set(kx0, 9, kz0 + 3, f["slit"])
+    s.set(kx1, 9, kz0 + 3, f["slit"])
+    s.set(gate, 5, kz0, f["emblem"])
+    for x in range(kx0, kx1 + 1, 2):
+        s.set(x, keep_top + 1, kz0, f["wall"])
+        s.set(x, keep_top + 1, kz1, f["wall"])
+    for z in range(kz0, kz1 + 1, 2):
+        s.set(kx0, keep_top + 1, z, f["wall"])
+        s.set(kx1, keep_top + 1, z, f["wall"])
+    # The flag over the keep.
+    s.fill(gate, keep_top + 1, kz0 + 3, gate, FORTRESS_TOP, kz0 + 3, f["fence"])
+    s.fill(gate + 1, FORTRESS_TOP - 2, kz0 + 3, gate + 2, FORTRESS_TOP - 1, kz0 + 3, f["banner"])
+    s.set(gate + 1, FORTRESS_TOP - 1, kz0 + 3, f["banner2"])
+    # Banners hanging down the front of the keep.
+    for x in (gate - 1, gate + 1):
+        s.fill(x, 8, kz0, x, 11, kz0, f["banner"])
+
+    # The courtyard: weapon racks, training dummies, lights.
+    for x in (3, last - 3):
+        s.set(x, 1, 5, f["fence"])
+        s.set(x, 2, 5, (HAY, 0))
+        if black:
+            skull(s, x, 3, 5)
+        else:
+            s.set(x, 3, 5, (PUMPKIN, 2))
+    s.set(3, 1, 3, (ANVIL, 0))
+    s.set(last - 3, 1, 3, (CHEST, 3))
+    for x in (gate - 2, gate + 2):
+        s.set(x, 1, 3, f["fence"])
+        s.set(x, 2, 3, f["lamp"])
+    if black:
+        # Skulls along the walls and spikes on the keep.
+        for x in range(4, last - 3, 2):
+            skull(s, x, wall_top + 2, 0)
+        for x, z in ((kx0, kz0), (kx1, kz0), (kx0, kz1), (kx1, kz1)):
+            s.set(x, keep_top + 2, z, f["fence"])
+    return s
+
+
+FIXED_STYLE_BUILDINGS = {
+    "white_knights_fortress": lambda p, level: fortress(False),
+    "black_knights_fortress": lambda p, level: fortress(True),
+}
+
+
 BUILDINGS = {
     "wall": (wall, 3),
     "wall_post": (wall_post, 3),
@@ -1096,7 +1229,12 @@ BUILDINGS = {
     "farm": (farm, 2),
     "armory": (armory, 2),
     "tower": (tower, 2),
+    "white_knights_fortress": (FIXED_STYLE_BUILDINGS["white_knights_fortress"], 1),
+    "black_knights_fortress": (FIXED_STYLE_BUILDINGS["black_knights_fortress"], 1),
 }
+
+# The palette each fortress's building site and ruin are drawn in, whichever folder it is written into.
+FIXED_PALETTE = {"white_knights_fortress": "saradomin", "black_knights_fortress": "zamorak"}
 
 # ---------------------------------------------------------------- building sites, damage and ruins
 
@@ -1264,18 +1402,21 @@ def generate(preview_dir=None):
         folder = os.path.join(OUT, p.name)
         os.makedirs(folder, exist_ok=True)
         for type_id, (build, levels) in BUILDINGS.items():
-            seed = sum(map(ord, p.name + type_id))
+            # A fortress is drawn in its own god's style, whichever faction's folder it goes into.
+            style = {"saradomin": SARADOMIN, "zamorak": ZAMORAK}[FIXED_PALETTE[type_id]] \
+                if type_id in FIXED_PALETTE else p
+            seed = sum(map(ord, style.name + type_id))
             variants = {}
             for level in range(1, levels + 1):
-                finished = build(p, level)
+                finished = build(style, level)
                 tidy(finished)
                 variants["%s_l%d" % (type_id, level)] = finished
                 for d in (1, 2, 3):
                     variants["%s_l%d_d%d" % (type_id, level, d)] = damaged(finished, d, seed + 10 * level + d)
             first = variants["%s_l1" % type_id]
             for stage in (1, 2, 3):
-                variants["%s_stage%d" % (type_id, stage)] = building_site(first, p, stage, seed + stage)
-            variants["%s_ruin" % type_id] = ruin(first, p, seed + 99)
+                variants["%s_stage%d" % (type_id, stage)] = building_site(first, style, stage, seed + stage)
+            variants["%s_ruin" % type_id] = ruin(first, style, seed + 99)
             check_same_size(type_id, variants.values())
             for name, s in variants.items():
                 s.save(os.path.join(folder, name + ".schematic"), "%s %s" % (p.name, name))

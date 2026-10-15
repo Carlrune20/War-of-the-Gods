@@ -34,7 +34,19 @@ public enum BuildingType {
     /** Where a wall turns or ends; comes with walls. */
     WALL_POST("wall_post", "Wall post", "wallPost", 3, false, false),
     /** A wall segment made into a gate, which opens for the team and its allies. */
-    GATE("gate", "Gate", "gate", 3, false, false);
+    GATE("gate", "Gate", "gate", 3, false, false),
+    /**
+     * Saradomin's stronghold in Age III: a white stone keep with much health that shoots many arrows, training White
+     * Knights and Sir Tragidee.
+     */
+    WHITE_KNIGHTS_FORTRESS("white_knights_fortress", "White Knights' fortress", "whiteKnightsFortress", 1, true, false,
+        UnitKind.WHITE_KNIGHT, UnitKind.TRAGIDEE),
+    /**
+     * Zamorak's stronghold in Age III: a black stone keep with much health that shoots many arrows, training Black
+     * Knights and Sagittare.
+     */
+    BLACK_KNIGHTS_FORTRESS("black_knights_fortress", "Black Knights' fortress", "blackKnightsFortress", 1, true, false,
+        UnitKind.BLACK_KNIGHT, UnitKind.SAGITTARE);
 
     public final String id;
     public final String displayName;
@@ -57,7 +69,29 @@ public enum BuildingType {
      * military and no farms: food comes from hunting until then.
      */
     public int age() {
+        if (isFortress()) {
+            return 3;
+        }
         return this == ARMORY || this == BARRACKS || this == FARM ? 2 : 1;
+    }
+
+    /** Whether it is one of the knights' fortresses. */
+    public boolean isFortress() {
+        return this == WHITE_KNIGHTS_FORTRESS || this == BLACK_KNIGHTS_FORTRESS;
+    }
+
+    /**
+     * The only faction whose teams can build it, or null when every team can: the White Knights serve Saradomin and
+     * the Black Knights Zamorak.
+     */
+    public Faction faction() {
+        return this == WHITE_KNIGHTS_FORTRESS ? Faction.SARADOMIN
+            : this == BLACK_KNIGHTS_FORTRESS ? Faction.ZAMORAK : null;
+    }
+
+    /** Whether a team of the faction can build it. */
+    public boolean buildableBy(Faction faction) {
+        return buildable && (faction() == null || faction() == faction);
     }
 
     /** The name of an age, such as "Age II". */
@@ -90,7 +124,12 @@ public enum BuildingType {
 
     /** Whether it can shoot at enemies at that level; a tower only once its team has watch towers. */
     public boolean shoots(int level) {
-        return this == TOWER || (this == TOWN_HALL && level >= 2);
+        return this == TOWER || isFortress() || (this == TOWN_HALL && level >= 2);
+    }
+
+    /** Arrows it shoots at once, each at another of the nearest enemies: a fortress shoots many. */
+    public int arrowsPerVolley() {
+        return isFortress() ? Config.fortressArrows : 1;
     }
 
     /** Whether upgrades are researched here. */
@@ -179,7 +218,7 @@ public enum BuildingType {
         if (!shoots(level)) {
             return 0;
         }
-        return Config.towerRange;
+        return isFortress() ? Config.fortressRange : Config.towerRange;
     }
 
     public static BuildingType byId(String id) {

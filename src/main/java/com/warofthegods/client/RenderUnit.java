@@ -19,7 +19,7 @@ import com.warofthegods.unit.EntityUnit;
 /**
  * Draws a unit with the player model in the skin of its kind and its team's faction, with bands round its arms and
  * waist in its team's color, and any armor its team's upgrades give it. The name above its head is in its team's
- * color too. Archers raise their bow as they draw it.
+ * color too. Archers raise their bow as they draw it, and heroes stand taller than the rest.
  */
 public class RenderUnit extends RenderBiped {
 
@@ -40,6 +40,8 @@ public class RenderUnit extends RenderBiped {
         }
     }
 
+    private static final float HERO_SCALE = 1.15F;
+
     private final ModelBiped overlayModel = new ModelBiped(0.08F);
 
     public RenderUnit() {
@@ -54,6 +56,14 @@ public class RenderUnit extends RenderBiped {
         field_82423_g.aimedBow = aiming;
         field_82425_h.aimedBow = aiming;
         super.doRender(entity, x, y, z, yaw, partialTicks);
+    }
+
+    /** Heroes stand a head taller than other units. */
+    @Override
+    protected void preRenderCallback(EntityLivingBase entity, float partialTicks) {
+        if (((EntityUnit) entity).getWatchedKind().hero) {
+            GL11.glScalef(HERO_SCALE, HERO_SCALE, HERO_SCALE);
+        }
     }
 
     @Override

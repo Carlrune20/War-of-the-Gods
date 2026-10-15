@@ -135,6 +135,10 @@ public final class BuildingCommands {
             request.replyError("Lay a wall out from one point to another");
             return;
         }
+        if (!type.buildableBy(team.getFaction())) {
+            request.replyError("Only " + type.faction().displayName + "'s teams can build a " + type.displayName);
+            return;
+        }
         if (GameManager.getGame()
             .getAge(team) < type.age()) {
             request.replyError(
@@ -282,7 +286,7 @@ public final class BuildingCommands {
             }
         }
         if (count == 0) {
-            request.replyError("Select a town center or barracks");
+            request.replyError("Select a building that trains units");
             return;
         }
         JsonObject reply = WebJson.message("ok");
@@ -332,6 +336,11 @@ public final class BuildingCommands {
             return;
         }
         count = Math.min(count, room);
+        if (game.heroRoom(team, kind) <= 0) {
+            request.replyError(kind.displayName + " is already with your team; train him again once he falls");
+            return;
+        }
+        count = Math.min(count, game.heroRoom(team, kind));
         Map<Resource, Long> cost = kind.cost();
         int queued = 0;
         while (queued < count && team.spend(cost)) {

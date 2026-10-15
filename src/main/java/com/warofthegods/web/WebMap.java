@@ -213,6 +213,9 @@ public final class WebMap {
             kindJson.addProperty("name", kind.displayName);
             kindJson.add("cost", costJson(kind.cost()));
             kindJson.addProperty("fights", kind.fights());
+            if (kind.hero) {
+                kindJson.addProperty("hero", true);
+            }
             unitKinds.add(kind.id, kindJson);
         }
         json.add("unitKinds", unitKinds);
@@ -228,6 +231,9 @@ public final class WebMap {
             typeJson.addProperty("name", type.displayName);
             typeJson.add("cost", costJson(type.cost()));
             typeJson.addProperty("buildable", type.buildable);
+            if (type.faction() != null) {
+                typeJson.addProperty("faction", type.faction().id);
+            }
             typeJson.addProperty("health", type.maxHealth());
             if (type.buildable) {
                 typeJson.addProperty("buildSeconds", type.buildTicks() / 20.0);
@@ -482,7 +488,6 @@ public final class WebMap {
     /** Every building and building site, with what it is training. */
     private static JsonArray buildingsJson(Game game) {
         JsonArray buildings = new JsonArray();
-        double ticksPerUnit = Math.max(1, Config.trainSeconds * 20);
         for (Building building : game.getBuildings()) {
             JsonObject json = new JsonObject();
             json.addProperty("id", building.id);
@@ -524,6 +529,9 @@ public final class WebMap {
                     queue.add(new JsonPrimitive(kind.id));
                 }
                 json.add("queue", queue);
+                double ticksPerUnit = building.getQueue()
+                    .get(0)
+                    .trainTicks();
                 json.addProperty("progress", round(Math.min(1, building.getTrainingTicks() / ticksPerUnit)));
             }
             if (building.type.isWorkplace() && building.isComplete()) {

@@ -40,8 +40,8 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts units stop <team>` | (op) Make a team's units stop and guard where they stand. |
 | `/rts units kill <team\|all>` | (op) Remove units. |
 | `/rts buildings [team]` | List buildings and building sites with their health, how far each site is built and how many workers work each farm. |
-| `/rts build <team> <type> [x z] [rotation]` | (op) Lay out a building site for free (farm, house, barracks, storehouse, armory, tower or town center), near the town center unless x z is given (a town center goes on the nearest settlement nobody holds), and send the team's idle workers to build it. |
-| `/rts train <team> <worker\|warrior\|archer> [count]` | (op) Queue units for free at the team's town center or barracks. |
+| `/rts build <team> <type> [x z] [rotation]` | (op) Lay out a building site for free (farm, house, barracks, storehouse, armory, tower, town center, or white_knights_fortress or black_knights_fortress for their own god's teams), near the town center unless x z is given (a town center goes on the nearest settlement nobody holds), and send the team's idle workers to build it. |
+| `/rts train <team> <worker\|warrior\|archer\|white_knight\|black_knight\|tragidee\|sagittare> [count]` | (op) Queue units for free at the team's town center, barracks or knights' fortress; only one of a hero. |
 | `/rts upgrade <building id>` | (op) Take a town center, and with it its whole town, into the next age at once, for free. |
 | `/rts research <team> <upgrade>` | (op) Give a team an upgrade at once, such as `forged_blades` or `fortified_walls`. |
 | `/rts wall <team> <x1> <z1> <x2> <z2>` | (op) Lay out a wall from one point to another for free, running up to the team's towers at either end, and send the team's idle workers to build it. |
@@ -136,12 +136,24 @@ is built, and the finished building stands once the site is done; more workers b
 | Tower | Watches over the land round it; with watch towers (Age II) shoots arrows at enemies within 16 blocks, and with guard towers (Age III) within 24; researches both | 50 Wood, 100 Gold | 900 | 25 s |
 | Wall | Keeps enemies out; laid out from one point to another, a 5 by 5 piece at a time | 10 Gold a piece | 600 a segment, 800 a post | 10 s a piece |
 | Gate | A wall segment your own units and allies walk through; it opens as they come near | 40 Gold | 600 | at once |
+| White Knights' fortress | Saradomin's teams only, Age III: a white stone keep that trains White Knights and Sir Tragidee, and shoots a volley of 4 arrows a second at the nearest enemies within 20 blocks | 300 Wood, 400 Gold | 4000 | 90 s |
+| Black Knights' fortress | Zamorak's teams only, Age III: a black stone keep that trains Black Knights and Sagittare, and shoots a volley of 4 arrows a second at the nearest enemies within 20 blocks | 300 Wood, 400 Gold | 4000 | 90 s |
 
 | Unit | Costs (default) | |
 |---|---|---|
 | Worker | 50 Food | Builds, farms, mines gold, chops trees and hunts; never fights |
-| Warrior | 50 Food, 20 Wood | Fights up close with a sword |
+| Warrior | 50 Food, 20 Gold | Fights up close with a sword |
 | Archer | 40 Food, 40 Wood | Shoots arrows from up to 14 blocks |
+| White Knight | 60 Food, 75 Gold | Saradomin's knight in white plate: twice a warrior's health, hits 3 harder; trained at the White Knights' fortress |
+| Black Knight | 60 Food, 75 Gold | Zamorak's knight in black plate: twice a warrior's health, hits 3 harder; trained at the Black Knights' fortress |
+| Sir Tragidee | 200 Food, 350 Gold | A justiciar hero who fights up close with a diamond sword: eight times a warrior's health, hits 6 harder; trained at the White Knights' fortress |
+| Sagittare | 200 Food, 350 Gold | A ranger hero, the boss of Daemonheim: six times a warrior's health, arrows 6 harder and 6 blocks farther than an archer's; trained at the Black Knights' fortress |
+
+A team has at most one of each hero, alive or in training; once he falls it can train him again. Heroes stand a head
+taller than other units and go by their own names. Knights take twice as long as a warrior to train and heroes four
+times as long. Knights and heroes keep their own look: the armor upgrades make them stronger but do not change what
+they wear. Each knights' fortress belongs to its god: only Saradomin's teams can build the White Knights' fortress and
+only Zamorak's the Black Knights'.
 
 Units walk as fast as a player. Warriors carry stone swords until the armory researches iron and then diamond ones,
 and warriors and archers wear the armor upgrades from helmet to boots: chainmail with padded armor and iron with

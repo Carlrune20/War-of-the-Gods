@@ -244,9 +244,12 @@ public class CommandRts extends CommandBase {
         send(sender, "/rts buildings [team] - list buildings and building sites");
         send(
             sender,
-            "/rts build <team> <farm|house|barracks|storehouse|armory|tower|town_center> [x z] [rotation] - lay out a site"
-                + " for the team's workers (op)");
-        send(sender, "/rts train <team> <worker|warrior|archer> [count] - queue units for free at a building (op)");
+            "/rts build <team> <farm|house|barracks|storehouse|armory|tower|town_center|white_knights_fortress"
+                + "|black_knights_fortress> [x z] [rotation] - lay out a site for the team's workers (op)");
+        send(
+            sender,
+            "/rts train <team> <worker|warrior|archer|white_knight|black_knight|tragidee|sagittare> [count] - queue"
+                + " units for free at a building (op)");
         send(sender, "/rts upgrade <building id> - take a town center, and its town, into the next age at once (op)");
         send(sender, "/rts research <team> <upgrade> - give a team an upgrade at once (op)");
         send(sender, "/rts chop <team> - send a team's idle workers to chop the tree nearest its town center (op)");
@@ -756,7 +759,9 @@ public class CommandRts extends CommandBase {
     private static UnitKind requireKind(String text) {
         UnitKind kind = UnitKind.byId(text);
         if (kind == null) {
-            throw new CommandException("Unknown unit kind %s; use warrior, archer or worker", text);
+            throw new CommandException(
+                "Unknown unit kind %s; use warrior, archer, worker, white_knight, black_knight, tragidee or sagittare",
+                text);
         }
         return kind;
     }
@@ -886,7 +891,10 @@ public class CommandRts extends CommandBase {
         BuildingType type = BuildingType.byId(args[1]);
         if (type == null || !type.buildable) {
             throw new CommandException(
-                "Workers can build a farm, house, barracks, storehouse, armory, tower or town center");
+                "Workers can build a farm, house, barracks, storehouse, armory, tower, town center or knights' fortress");
+        }
+        if (!type.buildableBy(team.getFaction())) {
+            throw new CommandException("Only %s's teams can build a %s", type.faction().displayName, type.displayName);
         }
         if (type == BuildingType.WALL) {
             throw new CommandException("Lay a wall out with /rts wall <team> <x1> <z1> <x2> <z2>");
@@ -966,17 +974,27 @@ public class CommandRts extends CommandBase {
     private void train(ICommandSender sender, String[] args) {
         requireOp(sender);
         Game game = requireGame();
-        requireArgs(args, 2, "/rts train <team> <worker|warrior|archer> [count]");
+        requireArgs(args, 2, "/rts train <team> <unit> [count]");
         Team team = requireTeam(game, args[0]);
         UnitKind kind = requireKind(args[1]);
         int count = args.length > 2 ? parseIntBounded(sender, args[2], 1, Buildings.MAX_QUEUE) : 1;
+        if (game.heroRoom(team, kind) <= 0) {
+            throw new CommandException("Team %s already has %s", team.getName(), kind.displayName);
+        }
+        count = Math.min(count, game.heroRoom(team, kind));
         for (Building building : game.getBuildings(team)) {
             if (building.type.trains.contains(kind) && building.isComplete()) {
                 count = Math.min(count, Buildings.room(game, team));
                 for (int i = 0; i < count; i++) {
                     building.enqueue(kind);
                 }
-                send(sender, "Queued " + count + " " + kind.id + "s at " + building.describe(game));
+                send(
+                    sender,
+                    "Queued " + count
+                        + " "
+                        + (kind.hero ? kind.displayName : kind.id + "s")
+                        + " at "
+                        + building.describe(game));
                 return;
             }
         }
