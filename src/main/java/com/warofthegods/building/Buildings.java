@@ -39,6 +39,7 @@ import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.Resource;
+import com.warofthegods.game.Ruin;
 import com.warofthegods.game.Settlement;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
@@ -283,6 +284,9 @@ public final class Buildings {
                 for (GoldMine mine : game.getMines()) {
                     taken |= mine.overlaps(x, z, 1, 1, 0);
                 }
+                for (Ruin ruin : game.getRuins()) {
+                    taken |= ruin.overlaps(x, z, 1, 1, 0);
+                }
                 if (taken) {
                     continue;
                 }
@@ -441,6 +445,11 @@ public final class Buildings {
         }
         if (MapFeatures.bridgeNear(game, minX, minZ, sizeX, sizeZ, GAP + 4)) {
             return new Plan(type, minX, minZ, sizeX, sizeZ, rotation, 0, "That would block a bridge");
+        }
+        for (Ruin ruin : game.getRuins()) {
+            if (ruin.overlaps(minX, minZ, sizeX, sizeZ, GAP)) {
+                return new Plan(type, minX, minZ, sizeX, sizeZ, rotation, 0, "That is too close to old ruins");
+            }
         }
         Site site = survey(world, minX, minZ, sizeX, sizeZ);
         String problem = null;
@@ -989,6 +998,11 @@ public final class Buildings {
         }
         if (MapFeatures.bridgeNear(game, piece.minX, piece.minZ, sizeX, sizeZ, 1)) {
             return "The wall would block a bridge";
+        }
+        for (Ruin ruin : game.getRuins()) {
+            if (ruin.overlaps(piece.minX, piece.minZ, sizeX, sizeZ, 1)) {
+                return "The wall would run into old ruins";
+            }
         }
         if (survey(world, piece.minX, piece.minZ, sizeX, sizeZ).water > 2) {
             return "The wall would run through water";

@@ -18,6 +18,7 @@ import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GoldMine;
+import com.warofthegods.game.Ruin;
 import com.warofthegods.game.Settlement;
 import com.warofthegods.game.Team;
 import com.warofthegods.web.WebMap;
@@ -27,8 +28,8 @@ import com.warofthegods.world.Misthalin;
 
 /**
  * The things on a map that belong to no team: the bridges over the river, settlements, where town centers stand, gold
- * mines, the only source of gold, and the animals that graze near each town center. Bridges are built as soon as the
- * game world is up. Once every team's first town center is up, the rest is laid out the same way round each team, so
+ * mines, the only source of gold, old ruins and the animals that graze near each town center. Bridges are built as
+ * soon as the game world is up. Once every team's first town center is up, the rest is laid out the same way round each team, so
  * no team starts better off.
  */
 public final class MapFeatures {
@@ -135,6 +136,7 @@ public final class MapFeatures {
                 addMine(game, world, spot[0], spot[1], 48);
             }
         }
+        Ruins.place(game, world, teams);
         for (Team team : teams) {
             placeHerds(game, world, team);
         }
@@ -329,7 +331,10 @@ public final class MapFeatures {
         WebMap.blocksChanged(world, minX - 1, minZ - 1, minX + sizeX, minZ + sizeZ);
     }
 
-    /** What map feature x, y, z is a block of, as "a gold mine", "a settlement" or "a bridge"; null for none. */
+    /**
+     * What map feature x, y, z is a block of, as "a gold mine", "a settlement", "a bridge" or "old ruins"; null for
+     * none.
+     */
     public static String featureWithBlock(Game game, int x, int y, int z) {
         if (mineWithBlock(game, x, y, z) != null) {
             return "a gold mine";
@@ -339,6 +344,19 @@ public final class MapFeatures {
         }
         if (bridgeWithBlock(game, x, y, z) != null) {
             return "a bridge";
+        }
+        if (ruinWithBlock(game, x, y, z) != null) {
+            return "old ruins";
+        }
+        return null;
+    }
+
+    /** Whether x, y, z is one of the blocks of old ruins. */
+    public static Ruin ruinWithBlock(Game game, int x, int y, int z) {
+        for (Ruin ruin : game.getRuins()) {
+            if (ruin.overlaps(x, z, 1, 1, 0) && y >= ruin.groundY && y <= ruin.groundY + 12) {
+                return ruin;
+            }
         }
         return null;
     }
