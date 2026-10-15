@@ -42,6 +42,8 @@ public class Team {
     private boolean defeated;
     /** Ticks left before the team is defeated for having no town center, or -1 while it has one. */
     private int defeatTicks = -1;
+    /** Whether the computer plays the team. */
+    private boolean ai;
 
     Team(Game game, String name, EnumChatFormatting color) {
         this.game = game;
@@ -135,6 +137,15 @@ public class Team {
 
     public void setDefeatTicks(int ticks) {
         defeatTicks = ticks;
+        game.changed();
+    }
+
+    public boolean isAi() {
+        return ai;
+    }
+
+    public void setAi(boolean ai) {
+        this.ai = ai;
         game.changed();
     }
 
@@ -314,6 +325,7 @@ public class Team {
         tag.setBoolean("hadTownCenter", hadTownCenter);
         tag.setBoolean("defeated", defeated);
         tag.setInteger("defeatTicks", defeatTicks);
+        tag.setBoolean("ai", ai);
         return tag;
     }
 
@@ -355,6 +367,7 @@ public class Team {
         team.hadTownCenter = tag.getBoolean("hadTownCenter");
         team.defeated = tag.getBoolean("defeated");
         team.defeatTicks = tag.hasKey("defeatTicks") ? tag.getInteger("defeatTicks") : -1;
+        team.ai = tag.getBoolean("ai");
         return team;
     }
 }

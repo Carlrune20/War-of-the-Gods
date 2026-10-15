@@ -5,6 +5,8 @@ on:
     branches: [ master, main ]
   push:
     branches: [ master, main ]
+  # Lets a run be started by hand from the Actions tab, for when GitHub drops a push event.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

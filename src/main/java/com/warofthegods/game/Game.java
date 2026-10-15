@@ -190,16 +190,18 @@ public class Game {
 
     /**
      * The team with the fewest players, the first such in order on a tie, leaving out defeated teams while there are
-     * others; null when there are no teams.
+     * others, and teams the computer plays while there are teams it does not; null when there are no teams.
      */
     public Team getSmallestTeam() {
         boolean anyStanding = false;
+        boolean anyHuman = false;
         for (Team team : teams.values()) {
             anyStanding |= !team.isDefeated();
+            anyHuman |= !team.isAi();
         }
         Team smallest = null;
         for (Team team : teams.values()) {
-            if (anyStanding && team.isDefeated()) {
+            if ((anyStanding && team.isDefeated()) || (anyHuman && team.isAi())) {
                 continue;
             }
             if (smallest == null || team.getMembers()
