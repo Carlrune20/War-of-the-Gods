@@ -42,8 +42,8 @@ public enum UnitKind {
     /** Whether it is a hero: a team has at most one of each alive or in training, and may train it again once dead. */
     public final boolean hero;
 
-    UnitKind(String id, String displayName, String configName, int healthFactor, int extraDamage,
-        int extraArrowDamage, int extraRange, int trainFactor, boolean ranged, boolean hero) {
+    UnitKind(String id, String displayName, String configName, int healthFactor, int extraDamage, int extraArrowDamage,
+        int extraRange, int trainFactor, boolean ranged, boolean hero) {
         this.id = id;
         this.displayName = displayName;
         this.configName = configName;

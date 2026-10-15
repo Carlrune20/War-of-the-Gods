@@ -894,10 +894,7 @@ public class CommandRts extends CommandBase {
                 "Workers can build a farm, house, barracks, storehouse, armory, tower, town center or knights' fortress");
         }
         if (!type.buildableBy(team.getFaction())) {
-            throw new CommandException(
-                "Only %s's teams can build a %s",
-                type.faction().displayName,
-                type.displayName);
+            throw new CommandException("Only %s's teams can build a %s", type.faction().displayName, type.displayName);
         }
         if (type == BuildingType.WALL) {
             throw new CommandException("Lay a wall out with /rts wall <team> <x1> <z1> <x2> <z2>");
@@ -993,7 +990,11 @@ public class CommandRts extends CommandBase {
                 }
                 send(
                     sender,
-                    "Queued " + count + " " + (kind.hero ? kind.displayName : kind.id + "s") + " at " + building.describe(game));
+                    "Queued " + count
+                        + " "
+                        + (kind.hero ? kind.displayName : kind.id + "s")
+                        + " at "
+                        + building.describe(game));
                 return;
             }
         }

@@ -303,14 +303,13 @@ public class Config {
             0,
             1000,
             "Damage of an archer's arrow, before upgrades; a crit adds up to half again, as for a player's full draw.");
-        trainSeconds = configuration
-            .getInt(
-                "trainSeconds",
-                units,
-                trainSeconds,
-                0,
-                3600,
-                "Seconds it takes to train one warrior, archer or worker; a knight takes twice as long, a hero four times.");
+        trainSeconds = configuration.getInt(
+            "trainSeconds",
+            units,
+            trainSeconds,
+            0,
+            3600,
+            "Seconds it takes to train one warrior, archer or worker; a knight takes twice as long, a hero four times.");
 
         String buildings = "buildings";
         configuration.setCategoryComment(

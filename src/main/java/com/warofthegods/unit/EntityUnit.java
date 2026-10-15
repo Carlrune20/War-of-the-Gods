@@ -1778,8 +1778,7 @@ public class EntityUnit extends EntityCreature {
                 return;
             }
         }
-        if (kind.ranged && distanceSq <= archerRange() * archerRange()
-            && getEntitySenses().canSee(current)) {
+        if (kind.ranged && distanceSq <= archerRange() * archerRange() && getEntitySenses().canSee(current)) {
             getNavigator().clearPathEntity();
             if (drawBow()) {
                 shoot(current);

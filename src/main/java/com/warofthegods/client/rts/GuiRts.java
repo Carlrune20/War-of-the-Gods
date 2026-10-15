@@ -2237,27 +2237,27 @@ public final class GuiRts extends GuiScreen {
             }
             // A team has one of each hero at a time, and may train him again once he falls.
             boolean heroTaken = kind.hero && state.hasUnitOf(team, kindId);
-            actions
-                .add(
-                    withIcon(
-                        button(
-                            kind.name + " (" + RtsState.costText(kind.cost) + ")",
-                            heroTaken ? kind.name + " is already with your team; train him again once he falls"
-                                : full ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
+            actions.add(
+                withIcon(
+                    button(
+                        kind.name + " (" + RtsState.costText(kind.cost) + ")",
+                        heroTaken ? kind.name + " is already with your team; train him again once he falls"
+                            : full
+                                ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
                                     : "Your team has the most units it can have")
-                                    : kind.hero ? "Train " + kind.name + ", a hero; your team has one at a time"
-                                        : "Train a " + kind.name.toLowerCase()
-                                            + "; shift-click for 5"
-                                            + (trainers.size() > 1
-                                                ? ", shared out over the " + trainers.size() + " selected"
-                                                : ""),
-                            shift -> trainSpread(
-                                trainers,
-                                kindId,
-                                kind.hero ? kind.name : kind.name.toLowerCase(),
-                                kind.hero ? 1 : shift ? 5 : 1),
-                            !heroTaken && !full && RtsState.canAfford(team, kind.cost) && room),
-                        kindId));
+                                : kind.hero ? "Train " + kind.name + ", a hero; your team has one at a time"
+                                    : "Train a " + kind.name.toLowerCase()
+                                        + "; shift-click for 5"
+                                        + (trainers.size() > 1
+                                            ? ", shared out over the " + trainers.size() + " selected"
+                                            : ""),
+                        shift -> trainSpread(
+                            trainers,
+                            kindId,
+                            kind.hero ? kind.name : kind.name.toLowerCase(),
+                            kind.hero ? 1 : shift ? 5 : 1),
+                        !heroTaken && !full && RtsState.canAfford(team, kind.cost) && room),
+                    kindId));
         }
         if (!type.trains.isEmpty()) {
             Integer number = client.rallyGroups.get(building.id);
