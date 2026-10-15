@@ -100,8 +100,8 @@ public final class AiPlayers {
     }
 
     private void think(Game game, WorldServer world, Team team, State state) {
-        Building hall = game.getTownHall(team);
-        if (hall == null || !hall.isComplete()) {
+        Building hall = finishedTownCenter(game, team);
+        if (hall == null) {
             return;
         }
         List<EntityUnit> workers = new ArrayList<>();
@@ -443,6 +443,16 @@ public final class AiPlayers {
     }
 
     // ---------------------------------------------------------------- counting
+
+    /** The team's first finished town center, passing over town center sites; or null. */
+    private static Building finishedTownCenter(Game game, Team team) {
+        for (Building building : game.getBuildings(team)) {
+            if (building.type == BuildingType.TOWN_HALL && building.isComplete()) {
+                return building;
+            }
+        }
+        return null;
+    }
 
     private static double distance(EntityUnit unit, double x, double z) {
         double dx = unit.posX - x;
