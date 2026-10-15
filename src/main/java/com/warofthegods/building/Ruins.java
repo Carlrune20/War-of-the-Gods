@@ -113,8 +113,7 @@ final class Ruins {
     }
 
     /** A spot near x, z for a ruin's footprint, as minX, minZ, groundY; null if there is none. */
-    private static int[] findSpot(Game game, WorldServer world, int x, int z, int sizeX, int sizeZ,
-        int maxDistance) {
+    private static int[] findSpot(Game game, WorldServer world, int x, int z, int sizeX, int sizeZ, int maxDistance) {
         for (int ring = 0; ring <= maxDistance; ring += 4) {
             int steps = ring == 0 ? 1 : 16;
             for (int step = 0; step < steps; step++) {

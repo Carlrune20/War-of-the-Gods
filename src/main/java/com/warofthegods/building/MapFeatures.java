@@ -29,8 +29,8 @@ import com.warofthegods.world.Misthalin;
 /**
  * The things on a map that belong to no team: the bridges over the river, settlements, where town centers stand, gold
  * mines, the only source of gold, old ruins and the animals that graze near each town center. Bridges are built as
- * soon as the game world is up. Once every team's first town center is up, the rest is laid out the same way round each team, so
- * no team starts better off.
+ * soon as the game world is up. Once every team's first town center is up, the rest is laid out the same way round each
+ * team, so no team starts better off.
  */
 public final class MapFeatures {
 
