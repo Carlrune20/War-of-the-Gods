@@ -19,7 +19,7 @@ public enum UnitKind {
     /** A Zamorak knight in black plate, stronger than a warrior; trained at the Black Knights' fortress. */
     BLACK_KNIGHT("black_knight", "Black Knight", "blackKnight", 2, 3, 0, 0, 2, false, false),
     /** A ranger hero, the boss of Daemonheim; one at a time, trained at the Black Knights' fortress. */
-    SAGITTARE("sagittare", "Sagittare", "sagittare", 6, 0, 6, 6, 4, true, true),
+    SAGITTARE("sagittare", "Sagittare", "sagittare", 6, 0, 6, 14, 4, true, true),
     /** A justiciar hero fighting up close; one at a time, trained at the White Knights' fortress. */
     TRAGIDEE("tragidee", "Sir Tragidee", "tragidee", 8, 6, 0, 0, 4, false, true);
 

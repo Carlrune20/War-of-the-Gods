@@ -147,7 +147,7 @@ is built, and the finished building stands once the site is done; more workers b
 | White Knight | 60 Food, 75 Gold | Saradomin's knight in white plate: twice a warrior's health, hits 3 harder; trained at the White Knights' fortress |
 | Black Knight | 60 Food, 75 Gold | Zamorak's knight in black plate: twice a warrior's health, hits 3 harder; trained at the Black Knights' fortress |
 | Sir Tragidee | 200 Food, 350 Gold | A justiciar hero who fights up close with a diamond sword: eight times a warrior's health, hits 6 harder; trained at the White Knights' fortress |
-| Sagittare | 200 Food, 350 Gold | A ranger hero, the boss of Daemonheim: six times a warrior's health, arrows 6 harder and 6 blocks farther than an archer's; trained at the Black Knights' fortress |
+| Sagittare | 200 Food, 350 Gold | A ranger hero, the boss of Daemonheim: six times a warrior's health, arrows 6 harder and 14 blocks farther than an archer's (28 blocks to their 14); trained at the Black Knights' fortress |
 
 A team has at most one of each hero, alive or in training; once he falls it can train him again. Heroes stand a head
 taller than other units and go by their own names. Knights take twice as long as a warrior to train and heroes four

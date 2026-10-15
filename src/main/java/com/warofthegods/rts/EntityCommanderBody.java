@@ -14,6 +14,7 @@ import net.minecraft.util.DamageSource;
 import net.minecraft.world.World;
 
 import com.mojang.authlib.properties.Property;
+import com.warofthegods.unit.Combat;
 
 import cpw.mods.fml.common.network.ByteBufUtils;
 import cpw.mods.fml.common.registry.IEntityAdditionalSpawnData;
@@ -119,6 +120,10 @@ public class EntityCommanderBody extends EntityLiving implements IEntityAddition
     @Override
     public boolean attackEntityFrom(DamageSource source, float amount) {
         if (worldObj.isRemote || isEntityInvulnerable()) {
+            return false;
+        }
+        // An arrow of the commander's team or an ally flies on past the body, not the hovering owner.
+        if (Combat.passesFriend(source, this)) {
             return false;
         }
         EntityPlayerMP owner = getOwner();

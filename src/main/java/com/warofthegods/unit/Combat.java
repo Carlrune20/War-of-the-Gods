@@ -2,6 +2,7 @@ package com.warofthegods.unit;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.util.AxisAlignedBB;
+import net.minecraft.util.DamageSource;
 import net.minecraft.util.Vec3;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
 
@@ -24,15 +25,9 @@ public final class Combat {
             return;
         }
         Entity arrow = event.source.getSourceOfDamage();
-        if (arrow instanceof EntityTeamArrow) {
-            Game game = GameManager.getGame();
-            Team shooter = game == null ? null : game.getTeam(((EntityTeamArrow) arrow).getTeamId());
-            Team victim = game == null ? null : Units.teamOf(game, event.entityLiving);
-            if (shooter != null && victim != null && game.areAllied(shooter, victim)) {
-                event.setCanceled(true);
-                passThrough((EntityTeamArrow) arrow, event.entityLiving);
-                return;
-            }
+        if (passesFriend(event.source, event.entityLiving)) {
+            event.setCanceled(true);
+            return;
         }
         if (arrow instanceof EntityTeamArrow || event.source.getEntity() instanceof EntityUnit) {
             event.entityLiving.hurtResistantTime = 0;
@@ -41,6 +36,26 @@ public final class Combat {
         if (arrow instanceof EntityTeamArrow && ((EntityTeamArrow) arrow).isFlaming()) {
             event.entityLiving.setFire(5);
         }
+    }
+
+    /**
+     * Whether the hit is an arrow of the entity's own team or an ally, which then flies on past it rather than
+     * bouncing off. Units and commanders' bodies ask this before anything else, since they turn friendly hits away
+     * themselves, before any attack event.
+     */
+    public static boolean passesFriend(DamageSource source, Entity hit) {
+        Entity arrow = source.getSourceOfDamage();
+        if (!(arrow instanceof EntityTeamArrow) || hit.worldObj.isRemote) {
+            return false;
+        }
+        Game game = GameManager.getGame();
+        Team shooter = game == null ? null : game.getTeam(((EntityTeamArrow) arrow).getTeamId());
+        Team victim = game == null ? null : Units.teamOf(game, hit);
+        if (shooter == null || victim == null || !game.areAllied(shooter, victim)) {
+            return false;
+        }
+        passThrough((EntityTeamArrow) arrow, hit);
+        return true;
     }
 
     /**

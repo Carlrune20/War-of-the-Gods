@@ -2043,6 +2043,10 @@ public class EntityUnit extends EntityCreature {
         if (worldObj.isRemote) {
             return super.attackEntityFrom(source, amount);
         }
+        // A friendly arrow flies on past; turned away as a friend's hit, it would bounce off and drop.
+        if (Combat.passesFriend(source, this)) {
+            return false;
+        }
         if (attacker != null && Units.get()
             .isAlly(this, attacker)) {
             return false;
