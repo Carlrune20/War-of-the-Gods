@@ -23,12 +23,8 @@ import com.warofthegods.WarOfTheGods;
  */
 final class ActionIcons {
 
-    private static final ResourceLocation SHEET = new ResourceLocation(
-        WarOfTheGods.MODID,
-        "textures/gui/actions.png");
-    private static final ResourceLocation NAMES = new ResourceLocation(
-        WarOfTheGods.MODID,
-        "textures/gui/actions.json");
+    private static final ResourceLocation SHEET = new ResourceLocation(WarOfTheGods.MODID, "textures/gui/actions.png");
+    private static final ResourceLocation NAMES = new ResourceLocation(WarOfTheGods.MODID, "textures/gui/actions.json");
 
     private static Map<String, Integer> index;
     private static int size = 64;

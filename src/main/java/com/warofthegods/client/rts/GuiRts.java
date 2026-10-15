@@ -1752,7 +1752,8 @@ public final class GuiRts extends GuiScreen {
         }
         int textY = y + (h - lines.length * 10 + 2) / 2;
         for (int i = 0; i < lines.length; i++) {
-            fontRendererObj.drawStringWithShadow(lines[i], x + 4 + iconWidth, textY + i * 10, i == 0 ? color : 0xB4B4B4);
+            fontRendererObj
+                .drawStringWithShadow(lines[i], x + 4 + iconWidth, textY + i * 10, i == 0 ? color : 0xB4B4B4);
         }
     }
 
@@ -2043,7 +2044,9 @@ public final class GuiRts extends GuiScreen {
                         square(
                             ActionIcons.building(team.faction, id),
                             id,
-                            type.name + " (" + RtsState.costText(type.cost) + (RtsClient.isWall(id) ? " a piece)" : ")")
+                            type.name + " ("
+                                + RtsState.costText(type.cost)
+                                + (RtsClient.isWall(id) ? " a piece)" : ")")
                                 + "\n"
                                 + (!aged ? "Needs " + ageName(type.age) + ": take your town center up a level"
                                     : RtsClient.isWall(id)
@@ -2305,7 +2308,8 @@ public final class GuiRts extends GuiScreen {
             Widget train = square(
                 ActionIcons.face(team.faction, kindId),
                 kindId,
-                kind.name + " (" + RtsState.costText(kind.cost)
+                kind.name + " ("
+                    + RtsState.costText(kind.cost)
                     + ")\n"
                     + (heroTaken ? kind.name + " is already with your team; train him again once he falls"
                         : full
@@ -2413,7 +2417,8 @@ public final class GuiRts extends GuiScreen {
                 square(
                     ActionIcons.upgrade(upgradeId),
                     "upgrade",
-                    upgrade.name + " (" + RtsState.costText(upgrade.cost)
+                    upgrade.name + " ("
+                        + RtsState.costText(upgrade.cost)
                         + ")\n"
                         + (!levelOk ? "Needs " + ageName(upgrade.level)
                             : busy ? "Being researched" : upgrade.description + "; takes " + upgrade.seconds + "s"),
@@ -2614,8 +2619,11 @@ public final class GuiRts extends GuiScreen {
         }
         drawOutline(x0, y0, x1, y1, hover && widget.enabled ? 0xFFE0E8F0 : widget.enabled ? 0xFF7A8A98 : 0xFF404850);
         if (widget.badge != null) {
-            fontRendererObj
-                .drawStringWithShadow(widget.badge, x1 - 1 - fontRendererObj.getStringWidth(widget.badge), y1 - 9, 0xFFFFFF);
+            fontRendererObj.drawStringWithShadow(
+                widget.badge,
+                x1 - 1 - fontRendererObj.getStringWidth(widget.badge),
+                y1 - 9,
+                0xFFFFFF);
         }
     }
 
