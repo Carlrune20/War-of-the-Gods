@@ -326,7 +326,9 @@ public class CommandRts extends CommandBase {
                     .size()
                 + " with "
                 + gold
-                + " gold");
+                + " gold; ruins found so far: "
+                + game.getRuins()
+                    .size());
         if (game.isOver()) {
             List<String> winners = new ArrayList<>();
             for (Team team : game.getWinners()) {
