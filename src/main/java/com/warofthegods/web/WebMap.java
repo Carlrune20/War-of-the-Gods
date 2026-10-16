@@ -468,7 +468,7 @@ public final class WebMap {
         return settlements;
     }
 
-    /** Gold mines, with the gold left in them. */
+    /** Mining sites, with what they are and the gold left in them. */
     private static JsonArray minesJson(Game game) {
         JsonArray mines = new JsonArray();
         for (GoldMine mine : game.getMines()) {
@@ -481,6 +481,8 @@ public final class WebMap {
             json.addProperty("y", mine.groundY);
             json.addProperty("gold", mine.getGold());
             json.addProperty("maxGold", mine.maxGold);
+            json.addProperty("kind", mine.kind.id);
+            json.addProperty("name", mine.getName());
             mines.add(json);
         }
         return mines;

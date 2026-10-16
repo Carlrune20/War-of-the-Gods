@@ -3,8 +3,9 @@ package com.warofthegods.game;
 import net.minecraft.nbt.NBTTagCompound;
 
 /**
- * An outcrop of rock with gold in it, the only source of gold on the map. Workers stand round it and mine it, carrying
- * the gold to a town center or storehouse, until it is mined out.
+ * A mining site, the only source of gold on the map: rocks of coal, iron, gold, adamantite or runite on bare ground,
+ * as in Old School RuneScape. Workers stand round it and mine it, carrying gold to a town center or storehouse
+ * whatever its ores, until it is mined out. The rarer its best ore, the more gold it holds.
  */
 public final class GoldMine {
 
@@ -14,9 +15,15 @@ public final class GoldMine {
     public final int size;
     public final int groundY;
     public final int maxGold;
+    /** What its best rocks are. */
+    public final MineKind kind;
+    /** Which way of laying out a site it was built by; see {@code MineSites}. */
+    public final int design;
     private int gold;
 
-    public GoldMine(int id, int minX, int minZ, int size, int groundY, int gold) {
+    public GoldMine(int id, int minX, int minZ, int size, int groundY, int gold, MineKind kind, int design) {
+        this.kind = kind;
+        this.design = design;
         this.id = id;
         this.minX = minX;
         this.minZ = minZ;
@@ -28,6 +35,11 @@ public final class GoldMine {
 
     public int getGold() {
         return gold;
+    }
+
+    /** What it is called, such as "Runite mine". */
+    public String getName() {
+        return kind.displayName;
     }
 
     public boolean isDepleted() {
@@ -103,6 +115,8 @@ public final class GoldMine {
         NBTTagCompound tag = new NBTTagCompound();
         tag.setInteger("id", id);
         tag.setIntArray("box", new int[] { minX, minZ, size, groundY, maxGold, gold });
+        tag.setString("kind", kind.id);
+        tag.setInteger("design", design);
         return tag;
     }
 
@@ -111,7 +125,16 @@ public final class GoldMine {
         if (box.length != 6) {
             return null;
         }
-        GoldMine mine = new GoldMine(tag.getInteger("id"), box[0], box[1], box[2], box[3], box[4]);
+        // Mines from before there were kinds of them are gold mines in the old look.
+        GoldMine mine = new GoldMine(
+            tag.getInteger("id"),
+            box[0],
+            box[1],
+            box[2],
+            box[3],
+            box[4],
+            tag.hasKey("kind") ? MineKind.byId(tag.getString("kind")) : MineKind.GOLD,
+            tag.hasKey("design") ? tag.getInteger("design") : -1);
         mine.gold = box[5];
         return mine;
     }

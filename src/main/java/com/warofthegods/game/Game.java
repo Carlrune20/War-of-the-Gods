@@ -543,9 +543,9 @@ public class Game {
         return mines.get(id);
     }
 
-    public GoldMine addMine(int minX, int minZ, int size, int groundY, int gold) {
+    public GoldMine addMine(int minX, int minZ, int size, int groundY, MineKind kind, int design) {
         lastFeatureId++;
-        GoldMine mine = new GoldMine(lastFeatureId, minX, minZ, size, groundY, gold);
+        GoldMine mine = new GoldMine(lastFeatureId, minX, minZ, size, groundY, kind.gold(), kind, design);
         mines.put(mine.id, mine);
         changed();
         return mine;

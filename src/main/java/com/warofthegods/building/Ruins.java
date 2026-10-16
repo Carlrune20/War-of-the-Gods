@@ -155,6 +155,7 @@ public final class Ruins {
                 && site.groundY + HEIGHT < 255) {
                 Ruin ruin = game.addRuin(minX, minZ, sizeX, sizeZ, site.groundY, design.name, haunt);
                 build(world, ruin, design, rotation, random);
+                Cellars.dig(world, ruin, design, random, baseX, baseZ);
                 return;
             }
         }

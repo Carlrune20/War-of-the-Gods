@@ -1450,7 +1450,7 @@ public class EntityUnit extends EntityCreature {
         if (mine.isDepleted()) {
             Buildings.get()
                 .features()
-                .deplete((WorldServer) worldObj, mine);
+                .deplete((WorldServer) worldObj, game, mine);
         }
         if (gold[Resource.GOLD.ordinal()] > 0) {
             gather(gold);

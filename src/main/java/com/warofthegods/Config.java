@@ -460,7 +460,8 @@ public class Config {
             goldMineGold,
             1,
             1000000,
-            "Gold each gold mine holds when a game starts.");
+            "Gold a gold mine holds when a game starts. Coal mines hold 0.6 times as much, iron 0.8, adamantite 1.3"
+                + " and runite 1.6.");
         mineGold = configuration.getInt(
             "mineGold",
             buildings,

@@ -235,6 +235,8 @@ public final class RtsState {
         /** For a gold mine: the gold left in it, and what it started with. */
         public int gold;
         public int maxGold;
+        /** For a mine: what it is called, such as "Runite mine". */
+        public String name;
 
         public boolean contains(double px, double pz, double margin) {
             return px >= x - margin && px < x + sizeX + margin && pz >= z - margin && pz < z + sizeZ + margin;
@@ -563,6 +565,7 @@ public final class RtsState {
         info.free = bool(json, "free");
         info.gold = integer(json, "gold");
         info.maxGold = integer(json, "maxGold");
+        info.name = json.has("name") ? string(json, "name") : "Gold mine";
         return info;
     }
 

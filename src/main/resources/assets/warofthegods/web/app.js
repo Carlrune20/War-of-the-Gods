@@ -30,7 +30,7 @@
         buildings: new Map(),
         trees: [], // {x, y, z, top, wood, maxWood}: trees workers have started chopping
         settlements: [], // {id, x, z, sizeX, sizeZ, y, rotation, free}: where town centers can stand
-        mines: [], // {id, x, z, sizeX, sizeZ, y, gold, maxGold}: gold mines
+        mines: [], // {id, x, z, sizeX, sizeZ, y, gold, maxGold, kind, name}: mining sites
         selectedBuilding: null, // id of the viewer's building whose controls the bar shows
         selectedBuildings: new Set(), // ids of every selected building, selectedBuilding among them
         tiles: new Map(), // "x,z" -> {version, loaded}
@@ -2511,9 +2511,10 @@
             if (mine) {
                 const gold = mine.gold > 0 ? mine.gold + "/" + mine.maxGold + " gold" : "mined out";
                 if (workers && mine.gold > 0) {
-                    return {icon: "pickaxe", text: "Mine gold \u00B7 " + gold, action: "build"};
+                    return {icon: "pickaxe", text: "Mine gold \u00B7 " + (mine.name || "Gold mine") + " \u00B7 " + gold,
+                        action: "build"};
                 }
-                return {icon: "gold", text: "Gold mine \u00B7 " + gold
+                return {icon: "gold", text: (mine.name || "Gold mine") + " \u00B7 " + gold
                     + (team && mine.gold > 0 ? " \u00B7 select workers to mine it" : "")};
             }
             const settlement = ground && freeSettlementNear(ground.x, ground.z, 0);
