@@ -143,6 +143,8 @@ public class EntityUnit extends EntityCreature {
     private static final double CARVE_REACH = 1.8;
     /** How far a target may move off before archers stop heading for the spots they were given to shoot from. */
     private static final double SPOT_DRIFT = 6;
+    /** How far from its post a guarding unit follows whoever hit it, unless its stance lets it chase further. */
+    private static final double PURSUIT_RANGE = 48;
 
     /** Swords, axes, pickaxes and hoes: stone, then iron and diamond as the team researches them. */
     private static final Item[] SWORDS = { Items.stone_sword, Items.iron_sword, Items.diamond_sword };
@@ -196,6 +198,8 @@ public class EntityUnit extends EntityCreature {
     private EntityLivingBase target;
     /** Whether the target was picked up while guarding rather than ordered. */
     private boolean defending;
+    /** Whether the target picked up while guarding is one that hit the unit, which it follows further. */
+    private boolean provoked;
     /** Enemies to attack one after another once the target is down, from a shift-click or an attack box. */
     private final List<UUID> attackQueue = new ArrayList<>();
     /** Whether the unit is on an attack move: going to x, z, fighting whatever enemies it meets on the way. */
@@ -1749,8 +1753,7 @@ public class EntityUnit extends EntityCreature {
         EntityLivingBase current = resolveTarget();
         boolean tooFar = defending && hasPost
             && current != null
-            && (stance == Stance.HOLD ? !inReach(current)
-                : current.getDistance(postX, current.posY, postZ) > stance.chaseRange);
+            && (stance == Stance.HOLD ? !inReach(current) : current.getDistance(postX, current.posY, postZ) > leash());
         if (current == null || tooFar) {
             if (defending) {
                 backToPost();
@@ -1845,11 +1848,26 @@ public class EntityUnit extends EntityCreature {
     }
 
     private void defend(EntityLivingBase enemy) {
+        defend(enemy, false);
+    }
+
+    /** Fights the enemy from guard; one that hit the unit it follows further from its post. */
+    private void defend(EntityLivingBase enemy, boolean hitBy) {
         order = Order.ATTACK;
         target = enemy;
         targetId = null;
         defending = true;
         startOrder();
+        provoked = hitBy;
+    }
+
+    /**
+     * How far from the unit's post an enemy it picked up on guard may be before it gives up and goes back. An archer
+     * shoots from where it stands, so its range adds to how far it walks; whoever hit the unit it follows further.
+     */
+    private double leash() {
+        double chase = provoked ? Math.max(stance.chaseRange, PURSUIT_RANGE) : stance.chaseRange;
+        return chase + (kind.ranged ? archerRange() : 0);
     }
 
     private EntityLivingBase resolveTarget() {
@@ -2058,7 +2076,7 @@ public class EntityUnit extends EntityCreature {
             && attacker instanceof EntityLivingBase
             && attacker != this
             && (order == Order.IDLE || defending)) {
-            defend((EntityLivingBase) attacker);
+            defend((EntityLivingBase) attacker, true);
         }
         return hurt;
     }
