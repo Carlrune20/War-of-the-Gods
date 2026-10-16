@@ -433,7 +433,7 @@ public final class Lobby {
         return true;
     }
 
-    /** Starts the game now, whoever is ready; for /rts lobby start. */
+    /** Starts the game now, whoever is ready; for /rts newgame start. */
     public static Game startNow() {
         return current == null ? null : current.start();
     }

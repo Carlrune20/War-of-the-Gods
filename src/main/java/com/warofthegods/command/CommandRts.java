@@ -59,7 +59,7 @@ public class CommandRts extends CommandBase {
         "help",
         "info",
         "newgame",
-        "lobby",
+        "quickgame",
         "endgame",
         "spawn",
         "surrender",
@@ -99,7 +99,7 @@ public class CommandRts extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/rts <help|info|newgame|lobby|endgame|spawn|surrender|team|ally|unally|resources|units|buildings|build|wall|gate|train|damage"
+        return "/rts <help|info|newgame|quickgame|endgame|spawn|surrender|team|ally|unally|resources|units|buildings|build|wall|gate|train|damage"
             + "|upgrade|research|chop|mine|finish|ai|web>";
     }
 
@@ -129,10 +129,11 @@ public class CommandRts extends CommandBase {
                 info(sender);
                 break;
             case "newgame":
-                newGame(sender, rest);
-                break;
             case "lobby":
                 lobby(sender, rest);
+                break;
+            case "quickgame":
+                quickGame(sender, rest);
                 break;
             case "endgame":
                 endGame(sender);
@@ -215,8 +216,8 @@ public class CommandRts extends CommandBase {
     private void help(ICommandSender sender) {
         send(sender, EnumChatFormatting.GOLD + "War of the Gods commands:");
         send(sender, "/rts info - show the current game");
-        send(sender, "/rts newgame [teams] [mapSize] [seed] - start a new game on a fresh map (op)");
-        send(sender, "/rts lobby [close|start] - open the new game lobby, close it, or start without waiting (op)");
+        send(sender, "/rts newgame [close|start] - open the new game lobby, close it, or start without waiting (op)");
+        send(sender, "/rts quickgame [teams] [mapSize] [seed] - start a new game at once, players shuffled (op)");
         send(sender, "/rts endgame - end the current game (op)");
         send(sender, "/rts spawn [player] - go to the game map");
         send(sender, "/rts surrender - give up: your team is defeated");
@@ -354,7 +355,11 @@ public class CommandRts extends CommandBase {
         }
     }
 
-    private void newGame(ICommandSender sender, String[] args) {
+    /**
+     * Starts a new game at once, skipping the lobby: the gods are shared out evenly over the teams and everyone online
+     * is shuffled onto them.
+     */
+    private void quickGame(ICommandSender sender, String[] args) {
         requireOp(sender);
         int teamCount = args.length > 0 ? parseIntBounded(sender, args[0], 0, Team.COLORS.length)
             : Config.defaultTeamCount;
@@ -370,10 +375,8 @@ public class CommandRts extends CommandBase {
         broadcast(
             "Game #" + game
                 .getNumber() + " has started on a " + size + "x" + size + " map with " + teamCount + " teams.");
-        if (Config.autoAssignTeams) {
-            GameManager.autoAssign(game);
-            announceTeams(game);
-        }
+        GameManager.autoAssign(game);
+        announceTeams(game);
         GameWorld.sendAllToGame(game);
     }
 
@@ -404,7 +407,7 @@ public class CommandRts extends CommandBase {
                 }
                 break;
             default:
-                throw new WrongUsageException("/rts lobby [open|close|start]");
+                throw new WrongUsageException("/rts newgame [open|close|start]");
         }
     }
 
@@ -1614,6 +1617,7 @@ public class CommandRts extends CommandBase {
                     return getListOfStringsFromIterableMatchingLastWord(args, teams);
                 }
                 return null;
+            case "newgame":
             case "lobby":
                 return args.length == 2 ? getListOfStringsMatchingLastWord(args, "open", "close", "start") : null;
             case "ai":
@@ -1646,7 +1650,7 @@ public class CommandRts extends CommandBase {
     private static Game requireGame() {
         Game game = GameManager.getGame();
         if (game == null) {
-            throw new CommandException("No game is running. An op can start one with /rts newgame");
+            throw new CommandException("No game is running. An op can start one with /rts newgame or /rts quickgame");
         }
         return game;
     }
