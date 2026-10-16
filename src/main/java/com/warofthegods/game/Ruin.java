@@ -3,8 +3,9 @@ package com.warofthegods.game;
 import net.minecraft.nbt.NBTTagCompound;
 
 /**
- * Old ruins that lie about the map and belong to no team: crumbled walls, a broken tower, the remains of a chapel or
- * a ring of standing stones. Units walk through and around them, but nothing can be built on them.
+ * Old ruins that lie about the map and belong to no team: crumbled walls, broken towers, chapels and manors fallen
+ * in, abandoned huts and farmsteads, graveyards and the like. Units walk through and around them, but nothing can be
+ * built on them. Some are haunted: spiders lurk among cobwebs in them, or the dead walk round them.
  */
 public final class Ruin {
 
@@ -16,8 +17,14 @@ public final class Ruin {
     public final int groundY;
     /** What the ruin was, as the name of its design. */
     public final String design;
+    /** What lurks there: {@link #QUIET}, {@link #SPIDERS} or {@link #UNDEAD}. */
+    public final int haunt;
 
-    public Ruin(int id, int minX, int minZ, int sizeX, int sizeZ, int groundY, String design) {
+    public static final int QUIET = 0;
+    public static final int SPIDERS = 1;
+    public static final int UNDEAD = 2;
+
+    public Ruin(int id, int minX, int minZ, int sizeX, int sizeZ, int groundY, String design, int haunt) {
         this.id = id;
         this.minX = minX;
         this.minZ = minZ;
@@ -25,6 +32,7 @@ public final class Ruin {
         this.sizeZ = sizeZ;
         this.groundY = groundY;
         this.design = design;
+        this.haunt = haunt;
     }
 
     public double getCenterX() {
@@ -45,16 +53,24 @@ public final class Ruin {
     NBTTagCompound writeToNBT() {
         NBTTagCompound tag = new NBTTagCompound();
         tag.setInteger("id", id);
-        tag.setIntArray("box", new int[] { minX, minZ, sizeX, sizeZ, groundY });
+        tag.setIntArray("box", new int[] { minX, minZ, sizeX, sizeZ, groundY, haunt });
         tag.setString("design", design);
         return tag;
     }
 
     static Ruin readFromNBT(NBTTagCompound tag) {
         int[] box = tag.getIntArray("box");
-        if (box.length != 5) {
+        if (box.length < 5) {
             return null;
         }
-        return new Ruin(tag.getInteger("id"), box[0], box[1], box[2], box[3], box[4], tag.getString("design"));
+        return new Ruin(
+            tag.getInteger("id"),
+            box[0],
+            box[1],
+            box[2],
+            box[3],
+            box[4],
+            tag.getString("design"),
+            box.length > 5 ? box[5] : QUIET);
     }
 }

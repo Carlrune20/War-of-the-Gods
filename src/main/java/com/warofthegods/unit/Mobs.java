@@ -1,7 +1,9 @@
 package com.warofthegods.unit;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import net.minecraft.block.material.Material;
@@ -15,6 +17,7 @@ import net.minecraft.entity.ai.EntityAINearestAttackableTarget;
 import net.minecraft.entity.ai.attributes.IAttributeInstance;
 import net.minecraft.entity.monster.EntityMob;
 import net.minecraft.entity.monster.EntitySkeleton;
+import net.minecraft.entity.monster.EntitySpider;
 import net.minecraft.entity.monster.EntityZombie;
 import net.minecraft.entity.monster.IMob;
 import net.minecraft.entity.player.EntityPlayer;
@@ -36,6 +39,7 @@ import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
+import com.warofthegods.game.Ruin;
 import com.warofthegods.world.GameWorld;
 
 import cpw.mods.fml.common.eventhandler.Event;
@@ -45,7 +49,8 @@ import cpw.mods.fml.common.gameevent.TickEvent;
 /**
  * Hostile mobs on the game map. Only zombies and skeletons, and only the ones spawned here: now and then, day or
  * night, a small group turns up in the wilderness, most often among trees, never near a town center or on a
- * building. They do not burn in daylight, notice enemies only from close by and chase them further once they have,
+ * building. Haunted ruins keep their own: spiders lurk in the ones hung with cobwebs, and zombies and skeletons walk
+ * round others. They do not burn in daylight, notice enemies only from close by and chase them further once they have,
  * go after units as readily as after players, and often wear armor; some skeletons carry swords.
  */
 public final class Mobs {
@@ -94,6 +99,14 @@ public final class Mobs {
             return;
         }
         Entity entity = event.entity;
+        if (entity.getClass() == EntitySpider.class && entity.getEntityData()
+            .hasKey(RUIN_KEY)) {
+            // A spider that lurks in a ruin; it comes alone.
+            if (entity.riddenByEntity != null) {
+                entity.riddenByEntity.setDead();
+            }
+            return;
+        }
         if (!(entity instanceof EntityZombie || entity instanceof EntitySkeleton)
             || entity instanceof EntitySkeleton && ((EntitySkeleton) entity).getSkeletonType() != 0) {
             event.setCanceled(true);
@@ -182,6 +195,129 @@ public final class Mobs {
         mob.setAttackTarget((EntityLivingBase) attacker);
     }
 
+    // ---------------------------------------------------------------- haunted ruins
+
+    /** Entity data key holding the id of the ruin a mob haunts. */
+    private static final String RUIN_KEY = "warofthegods.ruin";
+    /** Most spiders lurking in a ruin at once. */
+    private static final int RUIN_SPIDERS = 3;
+    /** Most zombies and skeletons walking round a ruin at once. */
+    private static final int RUIN_UNDEAD = 3;
+    /** How far a ruin's mobs keep round it; one that wanders further off with nothing to chase is gone. */
+    private static final int RUIN_REACH = 16;
+    /** A ruin's mobs turn up only while a player or unit is this near, and none nearer than {@link #RUIN_HIDDEN}. */
+    private static final int RUIN_NEAR = 96;
+    private static final int RUIN_HIDDEN = 14;
+
+    /**
+     * Keeps the haunted ruins haunted: spiders in the ones with cobwebs, zombies and skeletons round the others,
+     * topped up one at a time while someone is about but not in sight of the spot. They keep round their ruin; one
+     * that strays off with nothing to chase vanishes, and another comes in time.
+     */
+    private void haunt(Game game, WorldServer world, List<EntityLiving> haunting) {
+        Map<Integer, Integer> counts = new HashMap<>();
+        for (EntityLiving mob : haunting) {
+            Ruin ruin = ruinOf(game, mob);
+            if (ruin == null) {
+                mob.setDead();
+                continue;
+            }
+            boolean chasing = mob.getAttackTarget() != null;
+            if (mob instanceof EntityCreature) {
+                chasing |= ((EntityCreature) mob).getEntityToAttack() != null;
+            }
+            double reach = RUIN_REACH + Math.max(ruin.sizeX, ruin.sizeZ);
+            if (!chasing && mob.getDistanceSq(ruin.getCenterX(), mob.posY, ruin.getCenterZ()) > reach * reach) {
+                mob.setDead();
+                continue;
+            }
+            counts.merge(ruin.id, 1, Integer::sum);
+        }
+        List<Entity> anchors = new ArrayList<>(
+            Units.get()
+                .getLoaded());
+        for (Object player : world.playerEntities) {
+            anchors.add((Entity) player);
+        }
+        for (Ruin ruin : game.getRuins()) {
+            if (ruin.haunt == Ruin.QUIET) {
+                continue;
+            }
+            int most = ruin.haunt == Ruin.SPIDERS ? RUIN_SPIDERS : RUIN_UNDEAD;
+            if (counts.getOrDefault(ruin.id, 0) >= most) {
+                continue;
+            }
+            double cx = ruin.getCenterX();
+            double cz = ruin.getCenterZ();
+            if (!world.blockExists((int) cx, ruin.groundY, (int) cz)) {
+                continue;
+            }
+            boolean near = false;
+            boolean seen = false;
+            for (Entity anchor : anchors) {
+                double distance = anchor.getDistanceSq(cx, anchor.posY, cz);
+                near |= distance < RUIN_NEAR * RUIN_NEAR;
+                seen |= distance < RUIN_HIDDEN * RUIN_HIDDEN;
+            }
+            if (near && !seen) {
+                spawnAtRuin(world, ruin);
+            }
+        }
+    }
+
+    /** The ruin a mob haunts, or null if it is gone. */
+    private static Ruin ruinOf(Game game, EntityLiving mob) {
+        int id = mob.getEntityData()
+            .getInteger(RUIN_KEY);
+        for (Ruin ruin : game.getRuins()) {
+            if (ruin.id == id) {
+                return ruin;
+            }
+        }
+        return null;
+    }
+
+    private void spawnAtRuin(WorldServer world, Ruin ruin) {
+        for (int attempt = 0; attempt < 6; attempt++) {
+            // Spiders in among the walls, the undead in and round the ruin.
+            int spread = ruin.haunt == Ruin.SPIDERS ? 0 : 3;
+            int x = ruin.minX - spread + random.nextInt(ruin.sizeX + 2 * spread);
+            int z = ruin.minZ - spread + random.nextInt(ruin.sizeZ + 2 * spread);
+            int y = world.getTopSolidOrLiquidBlock(x, z);
+            if (Math.abs(y - ruin.groundY - 1) > 2 || world.getBlock(x, y - 1, z)
+                .getMaterial()
+                .isLiquid()) {
+                continue;
+            }
+            EntityLiving mob;
+            if (ruin.haunt == Ruin.SPIDERS) {
+                mob = new EntitySpider(world);
+            } else {
+                mob = random.nextInt(3) == 0 ? new EntitySkeleton(world) : new EntityZombie(world);
+            }
+            mob.setLocationAndAngles(x + 0.5, y, z + 0.5, random.nextFloat() * 360, 0);
+            if (!world.getCollidingBoundingBoxes(mob, mob.boundingBox)
+                .isEmpty()) {
+                continue;
+            }
+            mob.getEntityData()
+                .setInteger(RUIN_KEY, ruin.id);
+            if (mob instanceof EntityCreature) {
+                ((EntityCreature) mob).setHomeArea(
+                    (int) ruin.getCenterX(),
+                    ruin.groundY + 1,
+                    (int) ruin.getCenterZ(),
+                    Math.max(ruin.sizeX, ruin.sizeZ) / 2 + 6);
+            }
+            if (!(mob instanceof EntitySpider)) {
+                mob.onSpawnWithEgg(null);
+                equip(mob);
+            }
+            world.spawnEntityInWorld(mob);
+            return;
+        }
+    }
+
     // ---------------------------------------------------------------- spawning
 
     @SubscribeEvent
@@ -195,12 +331,17 @@ public final class Mobs {
             return;
         }
         List<EntityLiving> hostile = new ArrayList<>();
+        List<EntityLiving> haunting = new ArrayList<>();
         for (EntityLiving mob : Units.get()
             .getMobs(game, world)) {
-            if (mob instanceof IMob) {
+            if (mob.getEntityData()
+                .hasKey(RUIN_KEY)) {
+                haunting.add(mob);
+            } else if (mob instanceof IMob) {
                 hostile.add(mob);
             }
         }
+        haunt(game, world, haunting);
         if (hostile.size() >= Config.maxMobs) {
             return;
         }

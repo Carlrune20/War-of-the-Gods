@@ -111,8 +111,8 @@ public class Config {
     public static int startingLivestock = 6;
     /** Blocks of map width for each wild herd laid out for each team: a 1000 block map has 8 for each team. */
     public static int herdEvery = 125;
-    /** Blocks of map width for each ruin laid out for each team: a 1000 block map has 3 for each team; 0 for none. */
-    public static int ruinEvery = 300;
+    /** One ruin site for every so many blocks square of map: a 1000 block map has about 50; 0 for none. */
+    public static int ruinEvery = 140;
     /** Most a worker carries before taking it to the town center or a storehouse. */
     public static int carryCapacity = 20;
     /** Health a building loses to one hit of a warrior. */
@@ -510,9 +510,10 @@ public class Config {
             ruinEvery,
             0,
             100000,
-            "Blocks of map width for each old ruin (crumbled walls, a broken tower, chapel remains, standing stones)"
-                + " laid out for each team on a new map, spread over its side of the map away from town centers and"
-                + " settlements: 300 gives a 1000 block map 3 for each team. 0 for none.");
+            "One site of old ruins (crumbled walls, broken towers, chapels, huts, graveyards and more, sometimes a few"
+                + " small ones together) for every so many blocks square of a new map, scattered at random away from"
+                + " where teams start, settlements and the river: 140 gives a 1000 block map about 50. Some are haunted"
+                + " by spiders or the undead. 0 for none.");
         carryCapacity = configuration.getInt(
             "carryCapacity",
             buildings,

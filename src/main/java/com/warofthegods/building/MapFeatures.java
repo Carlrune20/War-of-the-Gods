@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import net.minecraft.entity.passive.EntityAnimal;
 import net.minecraft.entity.passive.EntityChicken;
@@ -50,10 +51,10 @@ public final class MapFeatures {
     }
 
     /**
-     * Lays out the map's towers, settlements, gold mines and herds once every team has its first town center. Each
-     * team gets the same: four towers round its town center, settlements spread over its side of the map, turned
-     * the same way round the middle of the map as the team is, a gold mine behind every settlement and one more,
-     * chickens and livestock grazing near its town center and wild herds over its side of the map.
+     * Lays out the map's towers, settlements, gold mines and herds once every team has its first town center.
+     * Each team gets four towers round its town center, chickens and livestock grazing near it, an extra gold mine
+     * and wild herds over its side of the map. Settlements lie scattered at random over the whole map, each with a
+     * gold mine behind it, to be found rather than known in advance.
      */
     void placeIfDue(Game game, WorldServer world) {
         if (game.areFeaturesPlaced()) {
@@ -72,46 +73,9 @@ public final class MapFeatures {
         int n = Math.max(2, teams.size());
         Schematic camp = Buildings.get()
             .schematic(BuildingType.TOWN_HALL);
-        int settlements = settlementsPerTeam(game);
+        int settlements = settlementsPerTeam(game) * teams.size();
         double sector = 2 * Math.PI / n;
-        for (int i = 0; i < teams.size(); i++) {
-            double angle = -Math.PI / 2 + 2 * Math.PI * i / n;
-            for (int k = 0; k < settlements; k++) {
-                // Spread over the team's side of the map: far round to either side out near the edge, and nearer
-                // the middle in between, so every team has the same spread on its side.
-                double t = settlements == 1 ? 0.6 : -1 + 2.0 * k / (settlements - 1);
-                double out = Math.abs(t) > 0.5 ? 0.36 - 0.04 * (k % 2) : 0.15 + 0.04 * (k % 2);
-                int[] spot = around(game, angle + t * 0.42 * sector, out);
-                int rotation = facingMiddle(game, spot[0], spot[1]);
-                int[] found = findSpot(
-                    game,
-                    world,
-                    spot[0],
-                    spot[1],
-                    camp.sizeX(rotation),
-                    camp.sizeZ(rotation),
-                    6,
-                    64);
-                if (found != null) {
-                    Settlement settlement = game.addSettlement(
-                        found[0],
-                        found[1],
-                        camp.sizeX(rotation),
-                        camp.sizeZ(rotation),
-                        found[2],
-                        rotation);
-                    Buildings.clearTrees(
-                        game,
-                        world,
-                        settlement.minX,
-                        settlement.minZ,
-                        settlement.sizeX,
-                        settlement.sizeZ,
-                        settlement.groundY);
-                    showSettlement(world, settlement);
-                }
-            }
-        }
+        scatterSettlements(game, world, camp, settlements);
         Schematic mine = schematic("gold_mine");
         for (Settlement settlement : new ArrayList<>(game.getSettlements())) {
             // Behind the settlement, away from the middle of the map.
@@ -136,7 +100,6 @@ public final class MapFeatures {
                 addMine(game, world, spot[0], spot[1], 48);
             }
         }
-        Ruins.place(game, world, teams);
         for (Team team : teams) {
             placeHerds(game, world, team);
         }
@@ -150,6 +113,75 @@ public final class MapFeatures {
                 .size(),
             game.getMines()
                 .size());
+    }
+
+    /**
+     * Scatters settlements at random over the map, by the map's seed: away from where the teams start, from the
+     * river and from each other. When the map is too crowded for that, the rules are eased bit by bit.
+     */
+    private void scatterSettlements(Game game, WorldServer world, Schematic camp, int count) {
+        Random random = new Random(game.getSeed() * 7 + 3);
+        Misthalin layout = GameWorld.layout(game);
+        int edge = 24;
+        int span = Math.max(1, game.getSize() - 2 * edge);
+        int placed = 0;
+        for (int attempt = 0; attempt < 600 && placed < count; attempt++) {
+            // Eased once every 150 tries: nearer the river, the bases and other settlements.
+            double ease = Math.max(0.25, 1 - attempt / 150 * 0.25);
+            int x = game.getMinX() + edge + random.nextInt(span);
+            int z = game.getMinZ() + edge + random.nextInt(span);
+            if (layout != null && layout.riverDistance(x, z) < 32 * ease) {
+                continue;
+            }
+            if (nearBase(game, x, z, Math.max(64, game.getSize() * 0.16) * ease)) {
+                continue;
+            }
+            double apart = Math.max(48, game.getSize() * 0.14) * ease;
+            boolean crowded = false;
+            for (Settlement other : game.getSettlements()) {
+                double dx = other.getCenterX() - x;
+                double dz = other.getCenterZ() - z;
+                crowded |= dx * dx + dz * dz < apart * apart;
+            }
+            if (crowded) {
+                continue;
+            }
+            int rotation = random.nextInt(4);
+            int[] found = findSpot(game, world, x, z, camp.sizeX(rotation), camp.sizeZ(rotation), 6, 16);
+            if (found == null) {
+                continue;
+            }
+            Settlement settlement = game
+                .addSettlement(found[0], found[1], camp.sizeX(rotation), camp.sizeZ(rotation), found[2], rotation);
+            Buildings.clearTrees(
+                game,
+                world,
+                settlement.minX,
+                settlement.minZ,
+                settlement.sizeX,
+                settlement.sizeZ,
+                settlement.groundY);
+            showSettlement(world, settlement);
+            placed++;
+        }
+    }
+
+    /** Whether x, z is within distance of where any team starts. */
+    static boolean nearBase(Game game, double x, double z, double distance) {
+        for (Team team : game.getTeams()) {
+            int[] base = team.getBase();
+            if (base != null && (base[0] - x) * (base[0] - x) + (base[1] - z) * (base[1] - z) < distance * distance) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Lays out the map's ruins a few at a time, once the settlements and gold mines are laid out. */
+    void placeRuinsIfDue(Game game, WorldServer world) {
+        if (game.areFeaturesPlaced()) {
+            Ruins.placeSome(game, world);
+        }
     }
 
     /** Settlements laid out for each team besides the one it starts on, by the size of the map. */

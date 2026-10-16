@@ -45,6 +45,8 @@ public class Game {
     private final Map<Integer, GoldMine> mines = new LinkedHashMap<>();
     /** Old ruins on the map, by id. */
     private final Map<Integer, Ruin> ruins = new LinkedHashMap<>();
+    /** How many of the map's ruin sites have been tried so far; they are laid out a few at a time. */
+    private int ruinSites;
     private int lastFeatureId;
     /** Whether the neutral settlements and the gold mines have been laid out on the map. */
     private boolean featuresPlaced;
@@ -485,12 +487,21 @@ public class Game {
         return Collections.unmodifiableCollection(ruins.values());
     }
 
-    public Ruin addRuin(int minX, int minZ, int sizeX, int sizeZ, int groundY, String design) {
+    public Ruin addRuin(int minX, int minZ, int sizeX, int sizeZ, int groundY, String design, int haunt) {
         lastFeatureId++;
-        Ruin ruin = new Ruin(lastFeatureId, minX, minZ, sizeX, sizeZ, groundY, design);
+        Ruin ruin = new Ruin(lastFeatureId, minX, minZ, sizeX, sizeZ, groundY, design, haunt);
         ruins.put(ruin.id, ruin);
         changed();
         return ruin;
+    }
+
+    public int getRuinSites() {
+        return ruinSites;
+    }
+
+    public void setRuinSites(int ruinSites) {
+        this.ruinSites = ruinSites;
+        changed();
     }
 
     /** The settlement the building stands on, or null. */
@@ -713,6 +724,7 @@ public class Game {
             ruinList.appendTag(ruin.writeToNBT());
         }
         tag.setTag("ruins", ruinList);
+        tag.setInteger("ruinSites", ruinSites);
         tag.setInteger("lastFeatureId", lastFeatureId);
         tag.setBoolean("featuresPlaced", featuresPlaced);
         tag.setInteger("mapTeams", mapTeams);
@@ -792,6 +804,7 @@ public class Game {
                 game.ruins.put(ruin.id, ruin);
             }
         }
+        game.ruinSites = tag.getInteger("ruinSites");
         game.lastFeatureId = tag.getInteger("lastFeatureId");
         game.featuresPlaced = tag.getBoolean("featuresPlaced");
         game.mapTeams = tag.getInteger("mapTeams");

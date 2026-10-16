@@ -15,107 +15,171 @@ import com.warofthegods.game.Game;
 import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.Ruin;
 import com.warofthegods.game.Settlement;
-import com.warofthegods.game.Team;
 import com.warofthegods.web.WebMap;
 import com.warofthegods.world.ChunkProviderRts;
 import com.warofthegods.world.GameWorld;
 import com.warofthegods.world.Misthalin;
 
 /**
- * Old ruins of Misthalin lying about the map: crumbled walls like those round Varrock, a broken tower like Draynor's,
- * the remains of a chapel like Paterdomus and an abandoned Lumbridge farmstead. They are built in stone gone mossy
- * and cracked, low and full of gaps, so units walk through and round them; they keep well away from town centers,
- * settlements, gold mines, the river and its bridges. Every team gets the same number and kinds of ruin, laid out the
- * same way round its side of the map, but each one crumbled its own way.
+ * Old ruins of Misthalin lying about the map, scattered at random by the map's seed so they are come upon rather than
+ * known: crumbled walls like those round Varrock, broken towers like Draynor's, chapels like Paterdomus, a fallen
+ * manor, abandoned Lumbridge farmsteads and wooden huts, graveyards, wells, arches, colonnades, stretches of old wall
+ * and toppled statues. Sometimes a few small ones lie together. They are built in stone gone mossy and cracked or in
+ * rotten wood, low and full of gaps, so units walk through and round them, and keep away from where teams start,
+ * town centers, settlements, gold mines, the river and its bridges. Some are haunted: cobwebs hang in them and
+ * spiders lurk there, or zombies and skeletons walk round them (see {@code Mobs}).
  */
 final class Ruins {
 
-    /** The kinds of ruin, with their footprints before turning. */
+    /** The kinds of ruin, with their footprints before turning, whether they are small and how common they are. */
     enum Design {
 
-        WALLS("crumbled walls", 11, 9),
-        TOWER("broken tower", 9, 9),
-        CHAPEL("ruined chapel", 9, 13),
-        FARMSTEAD("abandoned farmstead", 9, 9);
+        WALLS("crumbled walls", 11, 9, false, 3),
+        TOWER("broken tower", 9, 9, false, 3),
+        CHAPEL("ruined chapel", 9, 13, false, 2),
+        FARMSTEAD("abandoned farmstead", 9, 9, false, 2),
+        MANOR("fallen manor", 13, 11, false, 1),
+        HUT("abandoned hut", 5, 6, true, 4),
+        GRAVEYARD("old graveyard", 9, 7, true, 2),
+        ARCH("broken arch", 7, 3, true, 2),
+        WELL("old well", 5, 5, true, 2),
+        PILLARS("fallen colonnade", 9, 7, true, 2),
+        WALL_STRETCH("stretch of old wall", 13, 3, true, 2),
+        STATUE("toppled statue", 5, 5, true, 1);
 
         final String name;
         final int width;
         final int length;
+        final boolean small;
+        final int weight;
 
-        Design(String name, int width, int length) {
+        Design(String name, int width, int length, boolean small, int weight) {
             this.name = name;
             this.width = width;
             this.length = length;
+            this.small = small;
+            this.weight = weight;
         }
     }
 
-    /** Blocks kept clear between a ruin and a settlement, town center, tower or another ruin. */
-    private static final int SPACING = 14;
+    /** Blocks kept clear between a ruin and a settlement, town center or other building. */
+    private static final int SPACING = 12;
+    /** Blocks kept clear between two ruins. */
+    private static final int RUIN_SPACING = 3;
     /** Blocks kept clear between a ruin and a gold mine. */
-    private static final int MINE_SPACING = 8;
+    private static final int MINE_SPACING = 6;
     /** Blocks kept clear between a ruin and a bridge. */
-    private static final int BRIDGE_SPACING = 16;
+    private static final int BRIDGE_SPACING = 14;
     /** How far a ruin may be from the river's edge, at least. */
-    private static final int RIVER_SPACING = 6;
+    private static final int RIVER_SPACING = 5;
     /** How much the ground under a ruin may rise and fall. */
     private static final int MAX_SLOPE = 2;
     /** How high above its ground a ruin reaches, at most; the air above is cleared up to here. */
     private static final int HEIGHT = 12;
+    /** Ruin sites laid out per server pass, so a big map does not hold up the server all at once. */
+    private static final int SITES_PER_PASS = 2;
 
     private Ruins() {}
 
-    /** Ruins laid out for each team, by the size of the map. */
-    static int perTeam(Game game) {
+    /** Ruin sites on the map, by its area: one for every {@link Config#ruinEvery} blocks square. */
+    static int sites(Game game) {
         if (Config.ruinEvery <= 0) {
             return 0;
         }
-        return Math.max(1, (int) Math.round(game.getSize() / (double) Config.ruinEvery));
+        double across = game.getSize() / (double) Config.ruinEvery;
+        return Math.max(2, (int) Math.round(across * across));
+    }
+
+    /** Lays out the next few ruin sites, once the settlements are laid out, until the map has all of them. */
+    static void placeSome(Game game, WorldServer world) {
+        int sites = sites(game);
+        for (int pass = 0; pass < SITES_PER_PASS && game.getRuinSites() < sites; pass++) {
+            int site = game.getRuinSites();
+            placeSite(game, world, site);
+            game.setRuinSites(site + 1);
+            if (site + 1 == sites) {
+                WarOfTheGods.LOG.info(
+                    "Laid out {} ruins",
+                    game.getRuins()
+                        .size());
+            }
+        }
     }
 
     /**
-     * Lays out the ruins over every team's side of the map, the same way round each: from between the team and the
-     * middle of the map out toward its sides, well clear of where the teams start.
+     * Lays out one ruin site somewhere on the map, picked by the seed: one ruin, or now and then a few small ones
+     * together. All the ruins of a site are haunted the same way, if at all.
      */
-    static void place(Game game, WorldServer world, List<Team> teams) {
-        int count = perTeam(game);
-        if (count == 0) {
-            return;
+    private static void placeSite(Game game, WorldServer world, int site) {
+        Random random = new Random(game.getSeed() * 1000003L + site * 7919L + 11);
+        int edge = 12;
+        int span = Math.max(1, game.getSize() - 2 * edge);
+        int x = game.getMinX() + edge + random.nextInt(span);
+        int z = game.getMinZ() + edge + random.nextInt(span);
+        int roll = random.nextInt(100);
+        int haunt = roll < 30 ? Ruin.SPIDERS : roll < 50 ? Ruin.UNDEAD : Ruin.QUIET;
+        if (random.nextInt(4) == 0) {
+            int count = 2 + random.nextInt(3);
+            for (int i = 0; i < count; i++) {
+                double angle = random.nextDouble() * 2 * Math.PI;
+                double reach = i == 0 ? 0 : 6 + random.nextDouble() * 9;
+                Design design = pick(random, true);
+                placeRuin(
+                    game,
+                    world,
+                    (int) Math.round(x + Math.cos(angle) * reach),
+                    (int) Math.round(z + Math.sin(angle) * reach),
+                    design,
+                    haunt,
+                    8,
+                    random);
+            }
+        } else {
+            Design design = pick(random, false);
+            if (design == Design.GRAVEYARD && haunt == Ruin.QUIET && random.nextBoolean()) {
+                haunt = Ruin.UNDEAD;
+            }
+            placeRuin(game, world, x, z, design, haunt, 16, random);
         }
-        int n = Math.max(2, teams.size());
-        double sector = 2 * Math.PI / n;
-        long seed = game.getSeed();
-        Design[] designs = Design.values();
-        int placed = 0;
-        for (int i = 0; i < teams.size(); i++) {
-            double angle = -Math.PI / 2 + 2 * Math.PI * i / n;
-            for (int k = 0; k < count; k++) {
-                double t = -1 + 2.0 * (k + 0.5) / count;
-                // Nearer the middle in front of the team, further out off to its sides.
-                double out = 0.13 + 0.2 * Math.abs(t) + 0.03 * ((k * 0.618034 + 0.4) % 1);
-                int x = (int) Math.round(game.getCenterX() + Math.cos(angle + t * 0.4 * sector) * game.getSize() * out);
-                int z = (int) Math.round(game.getCenterZ() + Math.sin(angle + t * 0.4 * sector) * game.getSize() * out);
-                Design design = designs[(int) Math.floorMod(seed + k, (long) designs.length)];
-                int rotation = MapFeatures.facingMiddle(game, x, z);
-                int sizeX = rotation % 2 == 0 ? design.width : design.length;
-                int sizeZ = rotation % 2 == 0 ? design.length : design.width;
-                int[] spot = findSpot(game, world, x, z, sizeX, sizeZ, 40);
-                if (spot == null) {
-                    continue;
-                }
-                Buildings.clearTrees(game, world, spot[0], spot[1], sizeX, sizeZ, spot[2]);
-                Ruin ruin = game.addRuin(spot[0], spot[1], sizeX, sizeZ, spot[2], design.name);
-                Random random = new Random(seed * 31 + i * 7919L + k * 104729L);
-                build(world, ruin, design, rotation, random);
-                placed++;
+    }
+
+    /** A design picked by how common it is; only small ones if asked. */
+    private static Design pick(Random random, boolean small) {
+        int total = 0;
+        for (Design design : Design.values()) {
+            total += !small || design.small ? design.weight : 0;
+        }
+        int roll = random.nextInt(total);
+        for (Design design : Design.values()) {
+            if (small && !design.small) {
+                continue;
+            }
+            roll -= design.weight;
+            if (roll < 0) {
+                return design;
             }
         }
-        WarOfTheGods.LOG.info("Laid out {} ruins", placed);
+        return Design.HUT;
+    }
+
+    private static void placeRuin(Game game, WorldServer world, int x, int z, Design design, int haunt, int maxDistance,
+        Random random) {
+        int rotation = random.nextInt(4);
+        int sizeX = rotation % 2 == 0 ? design.width : design.length;
+        int sizeZ = rotation % 2 == 0 ? design.length : design.width;
+        int[] spot = findSpot(game, world, x, z, sizeX, sizeZ, maxDistance);
+        if (spot == null) {
+            return;
+        }
+        Buildings.clearTrees(game, world, spot[0], spot[1], sizeX, sizeZ, spot[2]);
+        Ruin ruin = game.addRuin(spot[0], spot[1], sizeX, sizeZ, spot[2], design.name, haunt);
+        build(world, ruin, design, rotation, random);
     }
 
     /** A spot near x, z for a ruin's footprint, as minX, minZ, groundY; null if there is none. */
     private static int[] findSpot(Game game, WorldServer world, int x, int z, int sizeX, int sizeZ, int maxDistance) {
         for (int ring = 0; ring <= maxDistance; ring += 4) {
-            int steps = ring == 0 ? 1 : 16;
+            int steps = ring == 0 ? 1 : 12;
             for (int step = 0; step < steps; step++) {
                 double angle = 2 * Math.PI * step / steps;
                 int minX = x + (int) Math.round(Math.cos(angle) * ring) - sizeX / 2;
@@ -135,8 +199,8 @@ final class Ruins {
     }
 
     /**
-     * Whether a footprint is inside the map and well clear of where the teams start, the town centers, towers,
-     * settlements, gold mines, other ruins, the river and its bridges.
+     * Whether a footprint is inside the map and clear of where the teams start, the town centers and other
+     * buildings, settlements, gold mines, other ruins, the river and its bridges.
      */
     private static boolean clear(Game game, int minX, int minZ, int sizeX, int sizeZ) {
         int edge = 8;
@@ -145,19 +209,11 @@ final class Ruins {
             || minZ + sizeZ - 1 > game.getMaxZ() - edge) {
             return false;
         }
-        // Teams build out round where they start, so ruins keep further off from there.
-        double baseSpacing = Math.max(48, game.getSize() * 0.12);
         double centerX = minX + sizeX / 2.0;
         double centerZ = minZ + sizeZ / 2.0;
-        for (Team team : game.getTeams()) {
-            int[] base = team.getBase();
-            if (base != null) {
-                double dx = base[0] - centerX;
-                double dz = base[1] - centerZ;
-                if (dx * dx + dz * dz < baseSpacing * baseSpacing) {
-                    return false;
-                }
-            }
+        // Teams build out round where they start, so ruins keep further off from there.
+        if (MapFeatures.nearBase(game, centerX, centerZ, Math.max(40, game.getSize() * 0.08))) {
+            return false;
         }
         for (Building building : game.getBuildings()) {
             if (building.overlaps(minX, minZ, sizeX, sizeZ, SPACING)) {
@@ -175,7 +231,7 @@ final class Ruins {
             }
         }
         for (Ruin ruin : game.getRuins()) {
-            if (ruin.overlaps(minX, minZ, sizeX, sizeZ, SPACING)) {
+            if (ruin.overlaps(minX, minZ, sizeX, sizeZ, RUIN_SPACING)) {
                 return false;
             }
         }
@@ -184,15 +240,8 @@ final class Ruins {
         }
         Misthalin layout = GameWorld.layout(game);
         if (layout != null) {
-            double reach = Misthalin.RIVER_HALF_WIDTH + 0.5 + RIVER_SPACING;
-            for (int x = minX; x < minX + sizeX; x += Math.max(1, sizeX - 1)) {
-                for (int z = minZ; z < minZ + sizeZ; z += Math.max(1, sizeZ - 1)) {
-                    if (layout.riverDistance(x, z) < reach) {
-                        return false;
-                    }
-                }
-            }
-            if (layout.riverDistance((int) centerX, (int) centerZ) < reach + Math.max(sizeX, sizeZ) / 2.0) {
+            double reach = Misthalin.RIVER_HALF_WIDTH + 0.5 + RIVER_SPACING + Math.max(sizeX, sizeZ) / 2.0;
+            if (layout.riverDistance((int) centerX, (int) centerZ) < reach) {
                 return false;
             }
         }
@@ -262,11 +311,38 @@ final class Ruins {
             case CHAPEL:
                 chapel(plan, random);
                 break;
-            default:
+            case FARMSTEAD:
                 farmstead(plan, random);
+                break;
+            case MANOR:
+                manor(plan, random);
+                break;
+            case HUT:
+                hut(plan, random);
+                break;
+            case GRAVEYARD:
+                graveyard(plan, random);
+                break;
+            case ARCH:
+                arch(plan, random);
+                break;
+            case WELL:
+                well(plan, random);
+                break;
+            case PILLARS:
+                pillars(plan, random);
+                break;
+            case WALL_STRETCH:
+                wallStretch(plan, random);
+                break;
+            default:
+                statue(plan, random);
                 break;
         }
         overgrow(plan, random);
+        if (ruin.haunt == Ruin.SPIDERS) {
+            webs(plan, random);
+        }
         for (int x = 0; x < plan.width; x++) {
             for (int z = 0; z < plan.length; z++) {
                 int[] at = turn(x, z, plan.width, plan.length, rotation + 2);
@@ -426,10 +502,20 @@ final class Ruins {
         int z1 = plan.length - 2;
         List<int[]> ring = ring(x0, z0, x1, z1);
         int[] heights = crumbling(ring.size(), 0, 3, random);
+        // Some have only two sides left standing, some had towers at the corners.
+        boolean twoSides = random.nextInt(3) == 0;
+        boolean towers = random.nextInt(3) == 0;
         for (int i = 0; i < ring.size(); i++) {
             int[] at = ring.get(i);
             boolean corner = (at[0] == x0 || at[0] == x1) && (at[1] == z0 || at[1] == z1);
-            column(plan, at[0], at[1], corner ? 3 + random.nextInt(2) : heights[i], random);
+            if (twoSides && (at[0] == x1 && at[1] < z1 || at[1] == z0 && at[0] > x0)) {
+                if (random.nextInt(3) == 0) {
+                    rubble(plan, at[0], at[1], random);
+                }
+                continue;
+            }
+            int tower = towers ? 5 + random.nextInt(2) : 3 + random.nextInt(2);
+            column(plan, at[0], at[1], corner ? tower : heights[i], random);
         }
         // A gateway two wide in the middle of the front and back, and a breach in each side.
         int midX = plan.width / 2;
@@ -466,11 +552,13 @@ final class Ruins {
         double cx = (plan.width - 1) / 2.0;
         double cz = (plan.length - 1) / 2.0;
         double standing = random.nextDouble() * 2 * Math.PI;
+        // Round, or now and then square.
+        boolean square = random.nextInt(3) == 0;
         for (int x = 0; x < plan.width; x++) {
             for (int z = 0; z < plan.length; z++) {
                 double dx = x - cx;
                 double dz = z - cz;
-                double distance = Math.sqrt(dx * dx + dz * dz);
+                double distance = square ? Math.max(Math.abs(dx), Math.abs(dz)) + 0.1 : Math.sqrt(dx * dx + dz * dz);
                 if (distance < 2.6) {
                     paving(plan, x, z, random);
                     if (plan.get(x, 0, z) == null) {
@@ -551,6 +639,15 @@ final class Ruins {
         }
         plan.set(midX, 3, z0, null, 0);
         plan.set(midX, 4, z0, null, 0);
+        // Now and then the stump of a bell tower still stands at a front corner.
+        if (random.nextInt(3) == 0) {
+            int height = 5 + random.nextInt(3);
+            for (int x = x0; x <= x0 + 1; x++) {
+                for (int z = z1 - 1; z <= z1; z++) {
+                    column(plan, x, z, height - random.nextInt(2), random);
+                }
+            }
+        }
         // The front, standing either side of a doorway three wide.
         for (int x = x0; x <= x1; x++) {
             if (Math.abs(x - midX) > 1) {
@@ -631,6 +728,318 @@ final class Ruins {
             }
         }
         scatter(plan, 4, random);
+    }
+
+    /**
+     * A fallen manor, like Draynor Manor left to rot: two rooms behind crumbling walls up to a storey high, with
+     * window holes, a chimney stack at each end, a doorway at the front and the floor half planks, half stone.
+     */
+    private static void manor(Plan plan, Random random) {
+        int x0 = 1;
+        int z0 = 1;
+        int x1 = plan.width - 2;
+        int z1 = plan.length - 2;
+        int midX = plan.width / 2;
+        List<int[]> ring = ring(x0, z0, x1, z1);
+        int[] heights = crumbling(ring.size(), 1, 5, random);
+        for (int i = 0; i < ring.size(); i++) {
+            int[] at = ring.get(i);
+            column(plan, at[0], at[1], heights[i], random);
+            if (heights[i] >= 4 && random.nextInt(3) == 0) {
+                plan.set(at[0], 3, at[1], null, 0);
+            }
+        }
+        // The wall between the rooms, with a doorway through it.
+        int[] inner = crumbling(z1 - z0 - 1, 0, 4, random);
+        for (int z = z0 + 1; z < z1; z++) {
+            column(plan, midX, z, inner[z - z0 - 1], random);
+        }
+        int through = z0 + 2 + random.nextInt(Math.max(1, z1 - z0 - 4));
+        for (int y = 1; y <= HEIGHT; y++) {
+            plan.set(midX, y, through, null, 0);
+            plan.set(midX, y, through + 1, null, 0);
+            // The front door, and a breach in the back of each room.
+            plan.set(midX - 2, y, z1, null, 0);
+            plan.set(midX - 3, y, z1, null, 0);
+            plan.set(midX + 3, y, z1, null, 0);
+            plan.set(x0 + 2, y, z0, null, 0);
+            plan.set(x1 - 2, y, z0, null, 0);
+            plan.set(x1 - 3, y, z0, null, 0);
+        }
+        // Chimney stacks at either end.
+        for (int x : new int[] { x0, x1 }) {
+            int height = 5 + random.nextInt(3);
+            for (int y = 1; y <= height; y++) {
+                plan.set(x, y, (z0 + z1) / 2, Blocks.brick_block, 0);
+            }
+        }
+        // The floor: rotten planks in one room, flagstones in the other, the roof fallen in on both.
+        int planks = random.nextInt(3) == 0 ? 5 : 1;
+        for (int x = x0 + 1; x < x1; x++) {
+            for (int z = z0 + 1; z < z1; z++) {
+                if (x == midX) {
+                    continue;
+                }
+                if (random.nextInt(4) != 0) {
+                    if (x < midX) {
+                        plan.set(x, 0, z, Blocks.planks, planks);
+                    } else {
+                        plan.set(x, 0, z, Blocks.stonebrick, random.nextInt(3));
+                    }
+                }
+                if (plan.get(x, 1, z) == null && random.nextInt(6) == 0) {
+                    plan.set(x, 1, z, Blocks.wooden_slab, planks);
+                }
+            }
+        }
+        scatter(plan, 8, random);
+    }
+
+    /**
+     * An abandoned wooden hut, of the kind woodcutters and fishermen left behind: plank walls with a doorway and
+     * holes rotted through them, a sagging roof with gaps in it and nothing inside to give light. Some have half
+     * their roof fallen in.
+     */
+    private static void hut(Plan plan, Random random) {
+        int wood = new int[] { 0, 1, 1, 5 }[random.nextInt(4)];
+        int posts = wood == 5 ? 1 : 5;
+        int x1 = plan.width - 1;
+        int z1 = plan.length - 1;
+        int midX = plan.width / 2;
+        boolean fallen = random.nextInt(3) == 0;
+        for (int x = 0; x <= x1; x++) {
+            for (int z = 0; z <= z1; z++) {
+                boolean wall = x == 0 || x == x1 || z == 0 || z == z1;
+                boolean corner = (x == 0 || x == x1) && (z == 0 || z == z1);
+                if (!wall) {
+                    if (random.nextInt(3) != 0) {
+                        plan.set(x, 0, z, Blocks.planks, wood);
+                    }
+                    continue;
+                }
+                int height = fallen && x == x1 ? 1 + random.nextInt(2) : 3;
+                for (int y = 1; y <= height; y++) {
+                    // Small holes rotted through, never so many that the walls are gone.
+                    if (!corner && y >= 2 && random.nextInt(6) == 0) {
+                        continue;
+                    }
+                    plan.set(x, y, z, Blocks.planks, corner ? posts : wood);
+                }
+            }
+        }
+        // The doorway at the front.
+        plan.set(midX, 1, z1, null, 0);
+        plan.set(midX, 2, z1, null, 0);
+        // The roof: sloping down to either side, with gaps, missing over the fallen side.
+        for (int z = 0; z <= z1; z++) {
+            for (int x = 0; x <= x1; x++) {
+                if (fallen && x >= midX + 1 || random.nextInt(7) == 0) {
+                    continue;
+                }
+                int fromMiddle = Math.abs(x - midX);
+                if (fromMiddle == 2) {
+                    plan.set(x, 4, z, Blocks.wooden_slab, wood);
+                } else if (fromMiddle == 1) {
+                    plan.set(x, 4, z, Blocks.planks, wood);
+                    plan.set(x, 5, z, Blocks.wooden_slab, wood);
+                } else {
+                    plan.set(x, 4, z, Blocks.planks, wood);
+                    plan.set(x, 5, z, Blocks.planks, wood);
+                }
+            }
+        }
+        // What fell in lies on the floor.
+        if (fallen) {
+            for (int z = 1; z < z1; z++) {
+                if (random.nextBoolean()) {
+                    plan.set(x1 - 1, 1, z, Blocks.wooden_slab, wood);
+                }
+            }
+        }
+    }
+
+    /**
+     * An old graveyard, like the one by Draynor Manor: a low mossy wall with gaps round rows of headstones, some
+     * fallen, the graves before them bare earth.
+     */
+    private static void graveyard(Plan plan, Random random) {
+        int x1 = plan.width - 1;
+        int z1 = plan.length - 1;
+        int midX = plan.width / 2;
+        for (int[] at : ring(0, 0, x1, z1)) {
+            boolean gate = Math.abs(at[0] - midX) <= 1 && (at[1] == 0 || at[1] == z1);
+            if (!gate && random.nextInt(5) != 0) {
+                plan.set(at[0], 1, at[1], random.nextBoolean() ? Blocks.mossy_cobblestone : Blocks.cobblestone, 0);
+            }
+        }
+        for (int z = 2; z < z1; z += 2) {
+            for (int x = 2; x < x1; x += 2) {
+                if (x == midX || random.nextInt(5) == 0) {
+                    continue;
+                }
+                int roll = random.nextInt(4);
+                if (roll == 0) {
+                    plan.set(x, 1, z, Blocks.stone_slab, 5);
+                } else {
+                    plan.set(x, 1, z, Blocks.stonebrick, roll == 1 ? 1 : roll == 2 ? 2 : 0);
+                }
+                plan.set(x, 0, z + 1, Blocks.dirt, random.nextBoolean() ? 1 : 2);
+            }
+        }
+    }
+
+    /** A broken arch, all that is left of a gatehouse: two pillars, the lintel half fallen, its stones about. */
+    private static void arch(Plan plan, Random random) {
+        int left = 1;
+        int right = plan.width - 2;
+        int height = 4 + random.nextInt(2);
+        column(plan, left, 1, height, random);
+        column(plan, right, 1, height - random.nextInt(3), random);
+        // The lintel runs from the taller pillar and breaks off partway.
+        int reach = 1 + random.nextInt(3);
+        for (int x = left; x <= left + reach; x++) {
+            stone(plan, x, height + 1, 1, random);
+        }
+        scatter(plan, 4, random);
+    }
+
+    /** An old well: a ring of stone round the water, the posts of its winch and a bit of its roof. */
+    private static void well(Plan plan, Random random) {
+        int c = 2;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                if (dx == 0 && dz == 0) {
+                    plan.set(c, 0, c, Blocks.water, 0);
+                } else {
+                    Block block = random.nextInt(3) == 0 ? Blocks.mossy_cobblestone : Blocks.cobblestone;
+                    plan.set(c + dx, 1, c + dz, block, 0);
+                }
+            }
+        }
+        boolean roof = random.nextBoolean();
+        for (int dx = -1; dx <= 1; dx += 2) {
+            for (int y = 2; y <= 3; y++) {
+                plan.set(c + dx, y, c, Blocks.cobblestone, 0);
+            }
+        }
+        if (roof) {
+            for (int dx = -1; dx <= 1; dx++) {
+                if (random.nextInt(3) != 0) {
+                    plan.set(c + dx, 4, c, Blocks.wooden_slab, 1);
+                }
+            }
+        }
+        for (int[] at : ring(0, 0, plan.width - 1, plan.length - 1)) {
+            if (random.nextInt(4) == 0) {
+                plan.set(at[0], 0, at[1], Blocks.gravel, 0);
+            }
+        }
+        scatter(plan, 2, random);
+    }
+
+    /**
+     * A fallen colonnade, as of some old temple: two rows of pillars standing to different heights, the fallen ones
+     * lying where they broke, on what is left of the paving.
+     */
+    private static void pillars(Plan plan, Random random) {
+        int z0 = 1;
+        int z1 = plan.length - 2;
+        for (int x = 0; x < plan.width; x++) {
+            for (int z = z0; z <= z1; z++) {
+                if (random.nextInt(3) != 0) {
+                    paving(plan, x, z, random);
+                }
+            }
+        }
+        for (int x = 1; x < plan.width; x += 3) {
+            for (int z : new int[] { z0, z1 }) {
+                int height = random.nextInt(6);
+                if (height > 1) {
+                    column(plan, x, z, height, random);
+                } else {
+                    // Fallen: its drums lie in a line beside the stump.
+                    stone(plan, x, 1, z, random);
+                    int dz = z == z0 ? 1 : -1;
+                    for (int i = 1; i <= 2; i++) {
+                        plan.set(x, 1, z + dz * i, Blocks.stone_slab, 5);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * A stretch of an old city wall, like Varrock's where it has gone to ruin: a wall up to four blocks high, broken
+     * through, buttressed here and there, its stones fallen on both sides.
+     */
+    private static void wallStretch(Plan plan, Random random) {
+        int z = 1;
+        int[] heights = crumbling(plan.width, 0, 4, random);
+        for (int x = 0; x < plan.width; x++) {
+            column(plan, x, z, heights[x], random);
+            if (heights[x] >= 3 && x % 4 == 2) {
+                column(plan, x, z - 1, 2, random);
+            }
+        }
+        int gap = 3 + random.nextInt(Math.max(1, plan.width - 7));
+        for (int y = 1; y <= HEIGHT; y++) {
+            for (int x = gap; x < gap + 2; x++) {
+                plan.set(x, y, z, null, 0);
+                plan.set(x, y, z - 1, null, 0);
+            }
+        }
+        scatter(plan, 6, random);
+    }
+
+    /** A toppled statue of Saradomin, or someone: its plinth, its legs to the knee and its head in the grass. */
+    private static void statue(Plan plan, Random random) {
+        int c = 2;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                plan.set(c + dx, 1, c + dz, Blocks.stonebrick, random.nextInt(3));
+            }
+        }
+        plan.set(c, 2, c, Blocks.stone, 0);
+        if (random.nextBoolean()) {
+            plan.set(c, 3, c, Blocks.stone, 0);
+        }
+        int[][] spots = { { 0, 4 }, { 4, 0 }, { 4, 4 }, { 0, 0 } };
+        int[] head = spots[random.nextInt(spots.length)];
+        plan.set(head[0], 1, head[1], Blocks.stone, 0);
+        scatter(plan, 2, random);
+    }
+
+    /**
+     * Cobwebs where spiders lurk: in the corners up under the walls and the roof, out of the way of units walking
+     * through, which they would slow.
+     */
+    private static void webs(Plan plan, Random random) {
+        int count = 4 + random.nextInt(6);
+        for (int tries = 0; tries < 200 && count > 0; tries++) {
+            int x = random.nextInt(plan.width);
+            int z = random.nextInt(plan.length);
+            int y = 2 + random.nextInt(4);
+            if (plan.get(x, y, z) != null) {
+                continue;
+            }
+            int around = 0;
+            for (int[] side : new int[][] { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) {
+                around += solid(plan.get(x + side[0], y, z + side[1])) ? 1 : 0;
+            }
+            if (around >= 2 || around >= 1 && solid(plan.get(x, y + 1, z))) {
+                plan.set(x, y, z, Blocks.web, 0);
+                count--;
+            }
+        }
+    }
+
+    /** Whether a block of a plan is something a cobweb can hang from. */
+    private static boolean solid(Block block) {
+        return block != null && block != Blocks.vine
+            && block != Blocks.tallgrass
+            && block != Blocks.web
+            && block != Blocks.leaves
+            && block != Blocks.water;
     }
 
     /** Stones fallen off the walls onto the ground, inside and out. */
