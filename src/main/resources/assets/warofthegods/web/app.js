@@ -1244,7 +1244,13 @@
     }
 
     function send(type, body) {
-        return command(type, body).catch((error) => {
+        return command(type, body).then((reply) => {
+            // Done, but not all of it, such as when some workers found no room at a farm.
+            if (reply && reply.notice) {
+                showToast(reply.notice, true);
+            }
+            return reply;
+        }, (error) => {
             showToast(error.message, true);
             return null;
         });

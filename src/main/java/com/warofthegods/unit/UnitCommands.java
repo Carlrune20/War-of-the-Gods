@@ -284,13 +284,27 @@ public final class UnitCommands {
             request.replyError("That is already built and needs no repair");
             return;
         }
-        int sent = Units.get()
-            .orderBuild(units, building, boolField(request.body, "queue"));
-        if (sent == 0) {
+        int workers = 0;
+        for (EntityUnit unit : units) {
+            workers += unit.isWorker() ? 1 : 0;
+        }
+        if (workers == 0) {
             request.replyError("Only workers can build and gather");
             return;
         }
-        ok(request, sent);
+        int sent = Units.get()
+            .orderBuild(units, building, boolField(request.body, "queue"));
+        if (sent == 0) {
+            request.replyError(Units.farmFull());
+            return;
+        }
+        JsonObject reply = WebJson.message("ok");
+        reply.addProperty("units", sent);
+        if (sent < workers) {
+            // Those that found no room at the farm or any nearby stay as they were.
+            reply.addProperty("notice", Units.farmFull());
+        }
+        request.reply(reply);
     }
 
     private static void gather(WebRequest request) {

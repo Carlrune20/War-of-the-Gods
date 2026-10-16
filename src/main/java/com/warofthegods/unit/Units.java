@@ -585,8 +585,11 @@ public final class Units {
      * sites they are on and were given before; returns how many went.
      */
     public int orderBuild(List<EntityUnit> units, Building building, boolean queue) {
-        // Sent to a piece of wall, they build the rest of that wall after it.
         Game game = GameManager.getGame();
+        if (game != null && takesWorkers(building)) {
+            return orderWork(game, units, building);
+        }
+        // Sent to a piece of wall, they build the rest of that wall after it.
         List<Building> rest = game == null ? new ArrayList<>() : wallAfter(game, building);
         int sent = 0;
         for (EntityUnit unit : units) {
@@ -603,6 +606,97 @@ public final class Units {
             }
         }
         return sent;
+    }
+
+    /** How far from a full farm workers sent to it look for another farm with room. */
+    public static final double NEARBY_FARM = 64;
+
+    /** What a player is told when workers they sent to a farm found no room there or at any farm nearby. */
+    public static String farmFull() {
+        return Config.farmWorkers == 1 ? "Only one worker can work on a farm"
+            : "Only " + Config.farmWorkers + " workers can work on a farm";
+    }
+
+    /** Whether workers sent to the building would work it, so that only so many can go, rather than build it. */
+    public static boolean takesWorkers(Building building) {
+        return building.type.maxWorkers() > 0 && building.isComplete() && !building.isDamaged();
+    }
+
+    /** Whether the farm has room for one more worker than those sent to work it. */
+    public static boolean hasRoom(Building farm) {
+        return hasRoom(farm, new HashMap<>(), new HashSet<>());
+    }
+
+    /**
+     * The farm if it has room for the worker, or else the nearest of its team's farms nearby that does; null if none
+     * has.
+     */
+    public static Building workplaceFor(Game game, EntityUnit worker, Building farm) {
+        Set<EntityUnit> moving = new HashSet<>();
+        moving.add(worker);
+        return workplaceFor(game, farm, new HashMap<>(), moving);
+    }
+
+    /**
+     * Sends workers to work a farm, as many as it has room for, those already at it keeping their places. The rest go
+     * to the nearest of the team's farms nearby with room, and any left over carry on as they were. Returns how many
+     * went.
+     */
+    private int orderWork(Game game, List<EntityUnit> units, Building farm) {
+        List<EntityUnit> workers = new ArrayList<>();
+        for (EntityUnit unit : units) {
+            if (unit.isWorker()) {
+                workers.add(unit);
+            }
+        }
+        workers.sort(Comparator.comparingInt(unit -> unit.isSentToWork(farm.id) ? 0 : 1));
+        Set<EntityUnit> moving = new HashSet<>(workers);
+        Map<Integer, Integer> sentTo = new HashMap<>();
+        int sent = 0;
+        for (EntityUnit worker : workers) {
+            Building place = workplaceFor(game, farm, sentTo, moving);
+            if (place == null) {
+                continue;
+            }
+            sentTo.merge(place.id, 1, Integer::sum);
+            worker.orderBuild(place);
+            sent++;
+        }
+        return sent;
+    }
+
+    /**
+     * The farm, or the nearest of its team's farms nearby, with room for another worker besides those sent to it now
+     * and those not being moved; null if none has room.
+     */
+    private static Building workplaceFor(Game game, Building farm, Map<Integer, Integer> sentTo,
+        Set<EntityUnit> moving) {
+        if (hasRoom(farm, sentTo, moving)) {
+            return farm;
+        }
+        Building nearest = null;
+        double nearestDistance = NEARBY_FARM;
+        for (Building other : game.getBuildings()) {
+            if (other == farm || other.type != farm.type || !other.team.equals(farm.team) || !takesWorkers(other)) {
+                continue;
+            }
+            double distance = other.distanceTo(farm.getCenterX(), farm.getCenterZ());
+            if (distance <= nearestDistance && hasRoom(other, sentTo, moving)) {
+                nearest = other;
+                nearestDistance = distance;
+            }
+        }
+        return nearest;
+    }
+
+    private static boolean hasRoom(Building farm, Map<Integer, Integer> sentTo, Set<EntityUnit> moving) {
+        int workers = sentTo.getOrDefault(farm.id, 0);
+        for (EntityUnit unit : get().getLoaded()) {
+            if (!moving.contains(unit) && unit.isSentToWork(farm.id)) {
+                workers++;
+            }
+        }
+        return workers < farm.type.maxWorkers();
     }
 
     /** Most pieces of wall followed from one piece. */

@@ -516,6 +516,11 @@ public class EntityUnit extends EntityCreature {
         return order == Order.WORK && working && !delivering && buildingId == workplaceId;
     }
 
+    /** Whether the unit is a worker sent to work the farm with that id: on its way, working it or carrying from it. */
+    public boolean isSentToWork(int workplaceId) {
+        return order == Order.WORK && buildingId == workplaceId;
+    }
+
     /** Whether a worker is on its way to a store with what it carries. */
     public boolean isDelivering() {
         return (order == Order.WORK || order == Order.CHOP || order == Order.HUNT || order == Order.MINE) && delivering;
@@ -1193,8 +1198,12 @@ public class EntityUnit extends EntityCreature {
             if (buildNext()) {
                 return;
             }
-            if (site.type.isWorkplace()) {
-                orderBuild(site);
+            // Only so many work a farm: the rest go to another nearby with room, or stand by.
+            Game game = GameManager.getGame();
+            Building workplace = game == null || !Units.takesWorkers(site) ? null
+                : Units.workplaceFor(game, this, site);
+            if (workplace != null) {
+                orderBuild(workplace);
             } else {
                 getNavigator().clearPathEntity();
                 guardHere();

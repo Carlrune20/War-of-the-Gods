@@ -244,6 +244,12 @@ public final class RtsClient {
                 }
                 return;
             }
+            if (message.has("notice")) {
+                showToast(
+                    message.get("notice")
+                        .getAsString(),
+                    true);
+            }
             if (callback != null) {
                 callback.accept(message);
             }

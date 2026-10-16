@@ -304,15 +304,9 @@ public final class AiPlayers {
 
     private static Building farmWithRoom(Game game, Team team) {
         for (Building farm : game.getBuildings(team)) {
-            if (farm.type != BuildingType.FARM || !farm.isComplete()) {
-                continue;
-            }
-            int working = 0;
-            for (EntityUnit unit : Units.get()
-                .getUnits(team)) {
-                working += unit.isWorkingAt(farm.id) ? 1 : 0;
-            }
-            if (working < farm.type.maxWorkers()) {
+            // Counting workers on their way there and carrying from it, not only those at it, so it sends no more
+            // than a farm takes.
+            if (farm.type == BuildingType.FARM && Units.takesWorkers(farm) && Units.hasRoom(farm)) {
                 return farm;
             }
         }
