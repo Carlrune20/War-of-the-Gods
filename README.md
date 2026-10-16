@@ -13,8 +13,8 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | Command | What it does |
 |---|---|
 | `/rts info` | Show the current game: map area, teams, resources, alliances. |
-| `/rts newgame [teams] [mapSize] [seed]` | (op) End the current game and start a new one on a freshly generated map, moving everyone online onto it and sharing them out over the teams. Defaults: 2 teams, 1000x1000 map, random seed. Teams are named after their color: Red, Blue, Green... |
-| `/rts lobby [close\|start]` | (op) End the current game and open the new game lobby for everyone (see below); `close` closes it without a game, `start` starts the game at once without waiting for everyone to be ready. |
+| `/rts newgame [close\|start]` | (op) End the current game and open the new game lobby for everyone (see below); `close` closes it without a game, `start` starts the game at once without waiting for everyone to be ready. |
+| `/rts quickgame [teams] [mapSize] [seed]` | (op) Skip the lobby: end the current game and start a new one on a freshly generated map at once. The gods take turns, so each follows half the teams (Red Zamorak, Blue Saradomin, Green Zamorak...), and everyone online is shuffled evenly onto the teams. Defaults: 2 teams, 1000x1000 map, random seed. Teams are named after their color: Red, Blue, Green... |
 | `/rts endgame` | (op) End the current game. |
 | `/rts spawn [player]` | Go to your team's town center on the game map, or its middle on no team (sending someone else needs op). |
 | `/rts surrender` | Give up: after `/rts surrender confirm`, your team is defeated. An op can make any team give up with `/rts surrender <team>`. |
@@ -62,14 +62,13 @@ A game with no enemy teams is fine: build and fight the wilderness mobs.
 
 ## The new game lobby
 
-An op opens the lobby with `/rts lobby` or the **New game** button in the team menu (B). That ends the running game,
+An op opens the lobby with `/rts newgame` or the **New game** button in the team menu (B). That ends the running game,
 and the lobby comes up on everyone's screen; anyone who closes it, or logs in while it is open, gets it back with B.
 It starts with the teams of the game that just ended and everyone on the team they were on.
 
 Only ops change the settings: the map (Misthalin is the only one so far), its size, its seed (blank for a random one),
-how many teams there are (1 to 8), which god each team follows, and whether the computer plays on a team. Ops click a
-player and then **Move here** to put them on a team; players join a team themselves when the server allows it
-(`allowSelfJoin`). Any change to the settings takes everyone's Ready away, so they see it before they agree.
+how many teams there are (1 to 8), which god each team follows, and whether the computer plays on a team. Teams are
+numbered, and every player picks their own with **Join**; ops can also click a player and then **Move here**. Any change to the settings takes everyone's Ready away, so they see it before they agree.
 
 The game starts on its own once every player online has clicked **Ready**; the computer needs no click. Players still
 on no team then go on the team with the fewest players, the computer counting as one.
@@ -82,7 +81,7 @@ their new team's main town center.
 
 ## The game map
 
-Games are played in their own dimension (id 77 by default). Each `/rts newgame` throws away the previous game's
+Games are played in their own dimension (id 77 by default). Each new game throws away the previous game's
 world and generates a new one from the game's seed. The first map is Misthalin: grassland, low hills and forests over
 the playable square, centred on 0,0, with no sand, beaches or lakes. The land goes on across a margin round the
 square (48 blocks by default) and then stops, cut off sheer, with nothing beyond.
@@ -125,8 +124,9 @@ at a time; it lasts until an op starts a new one.
 
 ## Buildings and units
 
-Every team follows a god. Teams follow Saradomin or Zamorak by their color, red and the dark colors Zamorak and the
-rest Saradomin, and an op can change it with `/rts team faction`. Saradomin's people build plain, human stone and
+Every team follows a god: ops pick it for each team in the lobby, `/rts quickgame` shares the gods out evenly, a
+team made with `/rts team create` follows Zamorak if red or dark and Saradomin otherwise, and an op can change it
+with `/rts team faction`. Saradomin's people build plain, human stone and
 timber with blue banners; Zamorak's build in nether brick, obsidian and blackened wood, with red banners, spikes and
 skulls. Units wear their god's colors too: Saradomin's warriors bright steel and a blue tabard, Zamorak's black iron
 and red. Each unit has a band of its team's color round its arms and waist, and its name above it in that color.
@@ -316,7 +316,7 @@ team's colour and hostile mobs into faint dots, and animals are left out. Player
 here.
 
 Type `/rts web` in game and click the link. Each link works once and for 10 minutes, and logs that browser in for
-72 hours; restarting the server logs everyone out. A new map is read in the background after `/rts newgame` (or a
+72 hours; restarting the server logs everyone out. A new map is read in the background after a new game starts (or a
 server start) and fills in on the page as it goes; after that, changes to the world show up within a few seconds. Units, players and buildings update every server tick, 20 times a second.
 
 | Control | What it does |

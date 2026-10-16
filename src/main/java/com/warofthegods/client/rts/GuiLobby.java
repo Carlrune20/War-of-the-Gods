@@ -17,8 +17,8 @@ import com.google.gson.JsonObject;
 
 /**
  * The new game lobby, which comes up for everyone when an op opens it. Ops pick the map, its size and seed, how many
- * teams there are, each team's god and whether the computer plays on it, and who is on which team; players pick their
- * own team when the server lets them. Everyone clicks Ready, and the game starts once every player online has.
+ * teams there are, each team's god and whether the computer plays on it, and can move anyone; every player picks
+ * their own numbered team. Everyone clicks Ready, and the game starts once every player online has.
  */
 public final class GuiLobby extends GuiScreen {
 
@@ -175,8 +175,6 @@ public final class GuiLobby extends GuiScreen {
         int right = left + panelWidth();
         int rowHeight = rowHeight(teams.size());
         String me = text(lobby, "me");
-        boolean selfJoin = lobby.get("selfJoin")
-            .getAsBoolean();
         int mine = myTeam(lobby);
         for (int i = 0; i < teams.size(); i++) {
             JsonObject team = teams.get(i)
@@ -185,7 +183,7 @@ public final class GuiLobby extends GuiScreen {
             int index = i;
             if (op) {
                 boolean zamorak = "zamorak".equals(text(team, "faction"));
-                addButton(left + 62, ry, 72, text(team, "factionName"), () -> {
+                addButton(left + 78, ry, 72, text(team, "factionName"), () -> {
                     JsonObject body = new JsonObject();
                     body.addProperty("team", index);
                     body.addProperty("faction", zamorak ? "saradomin" : "zamorak");
@@ -193,7 +191,7 @@ public final class GuiLobby extends GuiScreen {
                 });
                 boolean ai = team.get("ai")
                     .getAsBoolean();
-                addButton(left + 138, ry, 56, ai ? "AI: on" : "AI: off", () -> {
+                addButton(left + 154, ry, 56, ai ? "AI: on" : "AI: off", () -> {
                     JsonObject body = new JsonObject();
                     body.addProperty("team", index);
                     body.addProperty("ai", !ai);
@@ -203,7 +201,7 @@ public final class GuiLobby extends GuiScreen {
             if (op && picked != null) {
                 String player = picked;
                 addButton(right - 58, ry, 54, "Move here", () -> move(index, player));
-            } else if ((selfJoin || op) && mine != i) {
+            } else if (mine != i) {
                 addButton(right - 58, ry, 54, "Join", () -> move(index, me));
             }
         }
@@ -211,7 +209,7 @@ public final class GuiLobby extends GuiScreen {
         if (op && picked != null && myTeamOf(lobby, picked) >= 0) {
             String player = picked;
             addButton(right - 58, noneY, 54, "Take off", () -> move(-1, player));
-        } else if ((selfJoin || op) && mine >= 0) {
+        } else if (mine >= 0) {
             addButton(right - 58, noneY, 54, "Leave", () -> move(-1, me));
         }
 
@@ -443,11 +441,11 @@ public final class GuiLobby extends GuiScreen {
                 int color = team.get("color")
                     .getAsInt();
                 drawRect(left, top + 1, left + 3, top + rowHeight - 1, 0xFF000000 | color);
-                fontRendererObj.drawStringWithShadow(text(team, "name"), left + 7, textY, color);
+                fontRendererObj.drawStringWithShadow((i + 1) + ". " + text(team, "name"), left + 7, textY, color);
                 ai = team.get("ai")
                     .getAsBoolean();
                 if (!op) {
-                    fontRendererObj.drawStringWithShadow(text(team, "factionName"), left + 66, textY, 0xB0B0B0);
+                    fontRendererObj.drawStringWithShadow(text(team, "factionName"), left + 82, textY, 0xB0B0B0);
                 }
                 for (JsonElement player : team.getAsJsonArray("players")) {
                     players.add(player.getAsJsonObject());
@@ -458,7 +456,7 @@ public final class GuiLobby extends GuiScreen {
                     players.add(player.getAsJsonObject());
                 }
             }
-            int x = left + 200;
+            int x = left + 216;
             int end = right - 62;
             if (ai) {
                 fontRendererObj.drawStringWithShadow("Computer", x, textY, COMPUTER);

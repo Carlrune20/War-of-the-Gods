@@ -243,7 +243,7 @@ public class Config {
             defaultTeamCount,
             0,
             16,
-            "Teams created by /rts newgame when no team count is given.");
+            "Teams in a new lobby, and made by /rts quickgame when no team count is given.");
         allowSelfJoin = configuration.getBoolean(
             "allowSelfJoin",
             Configuration.CATEGORY_GENERAL,

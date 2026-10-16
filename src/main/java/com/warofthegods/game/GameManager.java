@@ -44,13 +44,16 @@ public final class GameManager {
     }
 
     /**
-     * Ends any running game and starts a new one with the given number of default teams. The map is centred on 0,0 of
-     * the game world, which is rebuilt from the seed.
+     * Ends any running game and starts a new one with the given number of teams, the gods taking turns. The map is
+     * centred on 0,0 of the game world, which is rebuilt from the seed.
      */
     public static Game newGame(int size, int teamCount, long seed) {
         List<TeamSetup> teams = new ArrayList<>();
         for (int i = 0; i < teamCount; i++) {
-            teams.add(new TeamSetup(Team.COLORS[i % Team.COLORS.length]));
+            TeamSetup setup = new TeamSetup(Team.COLORS[i % Team.COLORS.length]);
+            // The gods take turns, so each follows half the teams: Red Zamorak, Blue Saradomin, Green Zamorak...
+            setup.faction = i % 2 == 0 ? Faction.ZAMORAK : Faction.SARADOMIN;
+            teams.add(setup);
         }
         return newGame(size, teams, seed);
     }

@@ -51,7 +51,7 @@ reject() {
 
 GAMES_DIR=run/server/world/warofthegods
 
-boot boot-1-setup "rts newgame 3 1000 12345
+boot boot-1-setup "rts quickgame 3 1000 12345
 rts team auto
 rts team create Zombies dark_green
 rts ally red blue
@@ -78,7 +78,7 @@ ls "$GAMES_DIR"/game-1/region/*.mca > /dev/null 2>&1 || fail "game 1 world has n
 echo "ok: game-1 terrain saved"
 
 boot boot-2-reload "rts info
-rts newgame 2
+rts quickgame 2
 rts info
 stop"
 
@@ -140,7 +140,7 @@ http_status() {
 wait_for_log "Done (" "$TIMEOUT"
 wait_for_log "Web map listening on 0.0.0.0:$WEB_PORT" 5
 echo "ok: web map listening"
-echo "rts newgame 2 256 4242" >&3
+echo "rts quickgame 2 256 4242" >&3
 # Daylight all through, so no hostile mobs come after the units being counted.
 echo "gamerule doDaylightCycle false" >&3
 echo "rts web" >&3
@@ -512,7 +512,7 @@ timeout "$TIMEOUT" ./gradlew runServer < run/web-input > "$WEB_LOG" 2>&1 &
 server_pid=$!
 exec 3> run/web-input
 wait_for_log "Done (" "$TIMEOUT"
-echo "rts newgame 2 256 777" >&3
+echo "rts quickgame 2 256 777" >&3
 wait_for_log "has started on a 256x256 map with 2 teams" 120
 echo "rts ai blue on" >&3
 wait_for_log "Team Blue is now played by the computer" 30
@@ -550,9 +550,9 @@ echo "rts buildings blue" >&3
 echo "rts units blue" >&3
 sleep 2
 # The lobby ends the game and starts the next with the same teams, the computer still on Blue.
-echo "rts lobby" >&3
+echo "rts newgame" >&3
 wait_for_log "opened the lobby for a new game" 30
-echo "rts lobby start" >&3
+echo "rts newgame start" >&3
 wait_for_log "has started on Misthalin, 256x256, with 2 teams." 120
 wait_for_log "The computer plays on team " 30
 echo "rts ai" >&3
