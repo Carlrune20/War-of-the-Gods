@@ -347,19 +347,20 @@ public final class AiPlayers {
             }
         }
         damaged.sort(
-            (a, b) -> Double.compare(
-                a.getHealth() / (double) a.getMaxHealth(),
-                b.getHealth() / (double) b.getMaxHealth()));
+            (a, b) -> Double
+                .compare(a.getHealth() / (double) a.getMaxHealth(), b.getHealth() / (double) b.getMaxHealth()));
         for (Building building : damaged) {
             int wanted = REPAIRERS - assigned(workers, building);
-            if (wanted <= 0 || repairing >= MAX_REPAIRERS || Units.get()
-                .findEnemyNear(
-                    world,
-                    team,
-                    building.getCenterX(),
-                    building.groundY + 1,
-                    building.getCenterZ(),
-                    REPAIR_DANGER_RANGE) != null) {
+            if (wanted <= 0 || repairing >= MAX_REPAIRERS
+                || Units.get()
+                    .findEnemyNear(
+                        world,
+                        team,
+                        building.getCenterX(),
+                        building.groundY + 1,
+                        building.getCenterZ(),
+                        REPAIR_DANGER_RANGE)
+                    != null) {
                 continue;
             }
             List<EntityUnit> repairers = spareWorkers(workers, Math.min(wanted, MAX_REPAIRERS - repairing));
@@ -568,8 +569,7 @@ public final class AiPlayers {
                 for (UnitKind kind : kinds) {
                     if (game.heroRoom(team, kind) > 0 && team.spend(kind.cost())) {
                         building.enqueue(kind, true);
-                        WarOfTheGods.LOG
-                            .info("AI {} is training {}", team.getName(), kind.displayName);
+                        WarOfTheGods.LOG.info("AI {} is training {}", team.getName(), kind.displayName);
                         break;
                     }
                 }
