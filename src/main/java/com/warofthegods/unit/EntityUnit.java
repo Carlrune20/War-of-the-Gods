@@ -172,6 +172,9 @@ public class EntityUnit extends EntityCreature {
     private static final int WATCH_KIND = 21;
     private static final int WATCH_FACTION = 22;
     private static final int WATCH_DRAWING = 23;
+    private static final int WATCH_PRAYER = 24;
+    /** Ticks the computer waits after switching a hero's prayer before it switches again. */
+    private static final int AI_PRAYER_SWITCH_TICKS = 100;
 
     private String teamId = "";
     private UnitKind kind = UnitKind.SOLDIER;
@@ -188,6 +191,12 @@ public class EntityUnit extends EntityCreature {
     private final List<int[]> torches = new ArrayList<>();
     private Order order = Order.IDLE;
     private Stance stance = Stance.DEFENSIVE;
+    /** The protection prayer it has up, if its kind can pray. */
+    private Prayer prayer = Prayer.NONE;
+    /** Ticks before the computer switches the prayer again. */
+    private int prayerSwitchTicks;
+    /** The tick a protected hit landed on, during which nothing knocks the unit back. */
+    private int steadyTick = -1;
     private double goalX;
     private double goalZ;
     private double postX;
@@ -280,6 +289,28 @@ public class EntityUnit extends EntityCreature {
         dataWatcher.addObject(WATCH_KIND, (byte) 0);
         dataWatcher.addObject(WATCH_FACTION, (byte) 0);
         dataWatcher.addObject(WATCH_DRAWING, (byte) 0);
+        dataWatcher.addObject(WATCH_PRAYER, (byte) 0);
+    }
+
+    /** On a client, the protection prayer it has up, shown above its head. */
+    public Prayer getWatchedPrayer() {
+        return Prayer.byOrdinal(dataWatcher.getWatchableObjectByte(WATCH_PRAYER));
+    }
+
+    public Prayer getPrayer() {
+        return prayer;
+    }
+
+    /** Puts up a protection prayer, or none; returns false when its kind cannot have that one up. */
+    public boolean setPrayer(Prayer prayer) {
+        if (!prayer.allowedFor(kind)) {
+            return false;
+        }
+        this.prayer = prayer;
+        if (getWatchedPrayer() != prayer) {
+            dataWatcher.updateObject(WATCH_PRAYER, (byte) prayer.ordinal());
+        }
+        return true;
     }
 
     /** On a client, how long the archer has been drawing its bow for, in ticks; 0 when it is not drawing. */
@@ -1083,6 +1114,13 @@ public class EntityUnit extends EntityCreature {
         super.updateAITick();
         if (attackCooldown > 0) {
             attackCooldown--;
+        }
+        if (prayerSwitchTicks > 0) {
+            prayerSwitchTicks--;
+        }
+        // Sagittare always protects from missiles; units that cannot pray have none up.
+        if (!prayer.allowedFor(kind)) {
+            setPrayer(Prayer.always(kind));
         }
         drewThisTick = false;
         // Wedged in a block, as can happen when a building goes up round a unit or it is pushed into terrain: out
@@ -2089,7 +2127,14 @@ public class EntityUnit extends EntityCreature {
             .isAlly(this, attacker)) {
             return false;
         }
+        // A protection prayer against the hit's style takes most of its damage and all of its knockback.
+        Prayer style = Prayer.styleOf(source);
+        if (style != Prayer.NONE && style == prayer) {
+            amount *= Prayer.DAMAGE_TAKEN;
+            steadyTick = ticksExisted;
+        }
         boolean hurt = super.attackEntityFrom(source, amount);
+        computerPrays(style);
         // Guarding units hit back; units on the move keep going.
         if (hurt && !isWorker()
             && stance != Stance.PASSIVE
@@ -2099,6 +2144,43 @@ public class EntityUnit extends EntityCreature {
             defend((EntityLivingBase) attacker, true);
         }
         return hurt;
+    }
+
+    /** No knockback from a hit a prayer protected against, nor from what the attacker adds to it, as a sprint. */
+    @Override
+    public void knockBack(Entity attacker, float amount, double dx, double dz) {
+        if (steadyTick != ticksExisted) {
+            super.knockBack(attacker, amount, dx, dz);
+        }
+    }
+
+    @Override
+    public void addVelocity(double x, double y, double z) {
+        if (steadyTick != ticksExisted) {
+            super.addVelocity(x, y, z);
+        }
+    }
+
+    /**
+     * When the computer commands a hero who can switch prayers, it puts up the one against the style he was just hit
+     * with, then leaves it a few seconds before switching again.
+     */
+    private void computerPrays(Prayer style) {
+        if (kind != UnitKind.TRAGIDEE || style == Prayer.NONE || style == prayer || prayerSwitchTicks > 0) {
+            return;
+        }
+        Team team = team();
+        if (team == null || !team.isAi()) {
+            return;
+        }
+        // Playing alongside people, the computer commands only the units it trained.
+        boolean alongsidePlayers = !team.getMembers()
+            .isEmpty();
+        if (alongsidePlayers && !aiControlled) {
+            return;
+        }
+        setPrayer(style);
+        prayerSwitchTicks = AI_PRAYER_SWITCH_TICKS;
     }
 
     @Override
@@ -2139,6 +2221,7 @@ public class EntityUnit extends EntityCreature {
         tag.setIntArray("Torches", spots);
         // A fight picked up while guarding is not worth keeping; the unit is back on guard after a restart.
         tag.setString("Stance", stance.id);
+        tag.setString("Prayer", prayer.id);
         // Nor is following someone, who may not be online when the server starts again.
         tag.setString("Order", defending || order == Order.FOLLOW ? Order.IDLE.name() : order.name());
         tag.setInteger("TrainedAt", trainedAt);
@@ -2204,6 +2287,10 @@ public class EntityUnit extends EntityCreature {
         }
         Stance savedStance = Stance.byId(tag.getString("Stance"));
         stance = savedStance == null ? Stance.DEFENSIVE : savedStance;
+        Prayer savedPrayer = Prayer.byId(tag.getString("Prayer"));
+        if (savedPrayer == null || !setPrayer(savedPrayer)) {
+            setPrayer(Prayer.always(kind));
+        }
         try {
             order = Order.valueOf(tag.getString("Order"));
         } catch (IllegalArgumentException e) {

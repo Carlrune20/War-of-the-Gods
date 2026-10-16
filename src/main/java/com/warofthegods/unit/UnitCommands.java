@@ -41,6 +41,7 @@ import com.warofthegods.world.GameWorld;
  *   {type: "units.gather", units: [id...], x, y, z}  workers chop the tree at or near that block, or mine the gold
  *                                                    mine there
  *   {type: "units.light", units: [id...], x1, z1, x2, z2}  workers put torches in the dark parts of that area
+ *   {type: "units.prayer", units: [id...], prayer}  melee, missiles or none: Sir Tragidee's protection prayer
  *   {type: "units.stop", units: [id...]}        stop and guard where they stand
  *   {type: "units.follow", units: [id...], target: uuid, formation?}  follow a player of their team in formation
  *   {type: "units.kill", units: [id...]}        kill the team's own units
@@ -68,6 +69,7 @@ public final class UnitCommands {
         WebCommand.register("units.gather", UnitCommands::gather);
         WebCommand.register("units.light", UnitCommands::light);
         WebCommand.register("units.stance", UnitCommands::stance);
+        WebCommand.register("units.prayer", UnitCommands::prayer);
         WebCommand.register("units.follow", UnitCommands::follow);
         WebCommand.register("units.kill", UnitCommands::kill);
     }
@@ -424,6 +426,34 @@ public final class UnitCommands {
         Units.get()
             .orderStance(units, stance);
         ok(request, units.size());
+    }
+
+    private static void prayer(WebRequest request) {
+        Team team = commander(request);
+        if (team == null) {
+            return;
+        }
+        List<EntityUnit> units = ownUnits(request, team);
+        if (units == null) {
+            return;
+        }
+        Prayer prayer = request.body.has("prayer") ? Prayer.byId(
+            request.body.get("prayer")
+                .getAsString())
+            : null;
+        if (prayer == null) {
+            request.replyError("Unknown prayer");
+            return;
+        }
+        int praying = Units.get()
+            .orderPrayer(units, prayer);
+        if (praying == 0) {
+            request.replyError(
+                prayer == Prayer.MELEE ? "Only Sir Tragidee can protect from melee"
+                    : "Only Sir Tragidee can switch prayers");
+            return;
+        }
+        ok(request, praying);
     }
 
     private static void stop(WebRequest request) {

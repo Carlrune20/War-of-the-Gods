@@ -575,6 +575,17 @@ public final class Units {
         }
     }
 
+    /** Puts up a protection prayer, or none, on the units that can have it up; returns how many did. */
+    public int orderPrayer(List<EntityUnit> units, Prayer prayer) {
+        int praying = 0;
+        for (EntityUnit unit : units) {
+            if (unit.setPrayer(prayer)) {
+                praying++;
+            }
+        }
+        return praying;
+    }
+
     /** Sends workers to raise a building site or work a farm; returns how many went. */
     public int orderBuild(List<EntityUnit> units, Building building) {
         return orderBuild(units, building, false);

@@ -36,6 +36,7 @@ import com.warofthegods.game.Upgrade;
 import com.warofthegods.rts.Commanders;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Hunting;
+import com.warofthegods.unit.Prayer;
 import com.warofthegods.unit.Units;
 import com.warofthegods.world.ChunkProviderRts;
 import com.warofthegods.world.GameWorld;
@@ -568,6 +569,9 @@ public final class WebMap {
                     .name()
                     .toLowerCase());
             json.addProperty("stance", unit.getStance().id);
+            if (unit.getPrayer() != Prayer.NONE) {
+                json.addProperty("prayer", unit.getPrayer().id);
+            }
             double[] heading = unit.getHeading();
             if (heading != null) {
                 json.addProperty("toX", round(heading[0]));

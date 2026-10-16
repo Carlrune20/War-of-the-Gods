@@ -19,12 +19,15 @@ import com.warofthegods.WarOfTheGods;
 
 /**
  * The square icons on the build, train and upgrade buttons: buildings drawn from their structure, units' faces and
- * upgrades' items, all in actions.png, named in actions.json. tools/textures/actions.py draws both.
+ * upgrades' items, all in actions.png, named in actions.json. tools/textures/actions.py draws both. Prayers' icons are
+ * pictures of their own, in gui/prayer.
  */
 final class ActionIcons {
 
     private static final ResourceLocation SHEET = new ResourceLocation(WarOfTheGods.MODID, "textures/gui/actions.png");
     private static final ResourceLocation NAMES = new ResourceLocation(WarOfTheGods.MODID, "textures/gui/actions.json");
+
+    private static final String PRAYER = "prayer/";
 
     private static Map<String, Integer> index;
     private static int size = 64;
@@ -75,12 +78,25 @@ final class ActionIcons {
         return "upgrade/" + id;
     }
 
+    static String prayer(String id) {
+        return PRAYER + id;
+    }
+
     static boolean has(String name) {
-        return name != null && index().containsKey(name);
+        return name != null && (name.startsWith(PRAYER) || index().containsKey(name));
     }
 
     /** Draws the named icon as a square of the given size; returns false when there is no such icon. */
     static boolean draw(String name, int x, int y, int drawn) {
+        if (name != null && name.startsWith(PRAYER)) {
+            Minecraft.getMinecraft()
+                .getTextureManager()
+                .bindTexture(new ResourceLocation(WarOfTheGods.MODID, "textures/gui/" + name + ".png"));
+            GL11.glColor4f(1, 1, 1, 1);
+            GL11.glEnable(GL11.GL_BLEND);
+            Gui.func_152125_a(x, y, 0, 0, 32, 32, drawn, drawn, 32, 32);
+            return true;
+        }
         Integer i = name == null ? null : index().get(name);
         if (i == null) {
             return false;

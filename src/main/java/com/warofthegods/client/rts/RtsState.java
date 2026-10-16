@@ -145,6 +145,8 @@ public final class RtsState {
         /** Building sites a worker builds after the one it is on. */
         public int queued;
         public String stance = "defensive";
+        /** The protection prayer it has up: melee, missiles or none. */
+        public String prayer = "none";
 
         public boolean isWorker() {
             return "worker".equals(kind);
@@ -445,6 +447,7 @@ public final class RtsState {
             info.carving = bool(unit, "carving");
             info.stance = unit.has("stance") ? unit.get("stance")
                 .getAsString() : "defensive";
+            info.prayer = unit.has("prayer") ? string(unit, "prayer") : "none";
             info.torches = unit.has("torches") ? unit.get("torches")
                 .getAsInt() : 0;
             info.queued = unit.has("queued") ? integer(unit, "queued") : 0;

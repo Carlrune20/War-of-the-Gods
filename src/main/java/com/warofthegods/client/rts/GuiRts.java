@@ -150,6 +150,8 @@ public final class GuiRts extends GuiScreen {
         double bar = Double.NaN;
         /** For a square button, a number in its corner, such as how many are waiting to train, or null. */
         String badge;
+        /** For a square button, whether what it turns on is on, such as a prayer that is up. */
+        boolean lit;
         /** The top and bottom of the panel row it is on, for telling whether the mouse is over the panel. */
         int rowTop;
         int rowBottom;
@@ -2215,6 +2217,66 @@ public final class GuiRts extends GuiScreen {
                 client.command("units.stance", body, reply -> client.showToast(stance[1] + " stance", false));
             }, true));
         }
+        prayerActions(actions);
+    }
+
+    private static final String[][] PRAYERS = { { "melee", "Protect from Melee", "melee attacks" },
+        { "missiles", "Protect from Missiles", "arrows and other missiles" } };
+
+    /**
+     * With Sir Tragidee or Sagittare of one's own selected: their protection prayers, which take three quarters of the
+     * damage and all the knockback of the attack style they protect from. Sir Tragidee switches between them at a
+     * click, and clicking the one that is up puts it down; Sagittare always protects from missiles.
+     */
+    private void prayerActions(List<Widget> actions) {
+        RtsState state = state();
+        List<String> praying = new ArrayList<>();
+        boolean sagittare = false;
+        String common = null;
+        boolean mixed = false;
+        for (String id : client.selected) {
+            RtsState.UnitInfo unit = state.units.get(id);
+            if (unit == null || !state.isMine(unit)) {
+                continue;
+            }
+            if ("tragidee".equals(unit.kind)) {
+                praying.add(id);
+                if (common == null) {
+                    common = unit.prayer;
+                } else if (!common.equals(unit.prayer)) {
+                    mixed = true;
+                }
+            } else if ("sagittare".equals(unit.kind)) {
+                sagittare = true;
+            }
+        }
+        if (praying.isEmpty() && !sagittare) {
+            return;
+        }
+        actions.add(label("Prayer", 0xC8C8C8));
+        for (String[] prayer : PRAYERS) {
+            boolean melee = "melee".equals(prayer[0]);
+            boolean on = praying.isEmpty() ? !melee : !mixed && prayer[0].equals(common);
+            String tip;
+            if (praying.isEmpty()) {
+                tip = prayer[1] + "\n"
+                    + (melee ? "Sagittare cannot protect from melee" : "Sagittare always protects from missiles");
+            } else {
+                tip = prayer[1] + "\nTakes 75% less damage and no knockback from "
+                    + prayer[2]
+                    + (on ? "; click to stop" : "");
+            }
+            Widget button = square(ActionIcons.prayer(prayer[0]), "hero", tip, shift -> {
+                JsonObject body = unitsBody(praying);
+                body.addProperty("prayer", on ? "none" : prayer[0]);
+                client.command(
+                    "units.prayer",
+                    body,
+                    reply -> client.showToast(on ? prayer[1] + " off" : prayer[1], false));
+            }, !praying.isEmpty());
+            button.lit = on;
+            actions.add(button);
+        }
     }
 
     private void buildingActions(List<Widget> actions, RtsState.TeamInfo team, RtsState.BuildingInfo building) {
@@ -2617,7 +2679,16 @@ public final class GuiRts extends GuiScreen {
                 y1 - 1,
                 GREEN);
         }
-        drawOutline(x0, y0, x1, y1, hover && widget.enabled ? 0xFFE0E8F0 : widget.enabled ? 0xFF7A8A98 : 0xFF404850);
+        if (widget.lit) {
+            drawRect(x0 + 1, y0 + 1, x1 - 1, y1 - 1, 0x40FFE080);
+            drawOutline(x0 - 1, y0 - 1, x1 + 1, y1 + 1, 0xFFFFD040);
+        }
+        drawOutline(
+            x0,
+            y0,
+            x1,
+            y1,
+            widget.lit ? 0xFFFFD040 : hover && widget.enabled ? 0xFFE0E8F0 : widget.enabled ? 0xFF7A8A98 : 0xFF404850);
         if (widget.badge != null) {
             fontRendererObj.drawStringWithShadow(
                 widget.badge,
