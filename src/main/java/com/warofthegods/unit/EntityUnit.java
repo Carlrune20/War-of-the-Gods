@@ -1753,8 +1753,7 @@ public class EntityUnit extends EntityCreature {
         EntityLivingBase current = resolveTarget();
         boolean tooFar = defending && hasPost
             && current != null
-            && (stance == Stance.HOLD ? !inReach(current)
-                : current.getDistance(postX, current.posY, postZ) > leash());
+            && (stance == Stance.HOLD ? !inReach(current) : current.getDistance(postX, current.posY, postZ) > leash());
         if (current == null || tooFar) {
             if (defending) {
                 backToPost();
