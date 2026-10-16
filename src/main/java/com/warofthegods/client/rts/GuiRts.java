@@ -2688,8 +2688,7 @@ public final class GuiRts extends GuiScreen {
             y0,
             x1,
             y1,
-            widget.lit ? 0xFFFFD040
-                : hover && widget.enabled ? 0xFFE0E8F0 : widget.enabled ? 0xFF7A8A98 : 0xFF404850);
+            widget.lit ? 0xFFFFD040 : hover && widget.enabled ? 0xFFE0E8F0 : widget.enabled ? 0xFF7A8A98 : 0xFF404850);
         if (widget.badge != null) {
             fontRendererObj.drawStringWithShadow(
                 widget.badge,
