@@ -628,7 +628,8 @@ public final class Buildings {
                     int wx = building.minX + at[0];
                     int wz = building.minZ + at[1];
                     if (world.getBlock(wx, baseY + y, wz) != Blocks.chest) {
-                        world.setBlock(wx, baseY + y, wz, Blocks.chest, whole.turnedMeta(x, y, z, building.rotation), 2);
+                        world
+                            .setBlock(wx, baseY + y, wz, Blocks.chest, whole.turnedMeta(x, y, z, building.rotation), 2);
                     }
                     return;
                 }

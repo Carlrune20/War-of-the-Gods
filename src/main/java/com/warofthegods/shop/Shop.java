@@ -187,7 +187,9 @@ public final class Shop {
         Team owner = game.getTeam(building.team);
         Team team = game.getTeamOf(player.getUniqueID());
         if (owner == null || team != owner) {
-            tell(player, EnumChatFormatting.GRAY + "Only the " + building.describe(game) + "'s own team can shop here.");
+            tell(
+                player,
+                EnumChatFormatting.GRAY + "Only the " + building.describe(game) + "'s own team can shop here.");
             return;
         }
         if (!building.isComplete()) {
@@ -299,12 +301,7 @@ public final class Shop {
         tellTeam(
             game,
             team,
-            EnumChatFormatting.GOLD + player.getCommandSenderName()
-                + " bought "
-                + what
-                + " ("
-                + costText(ware)
-                + ")");
+            EnumChatFormatting.GOLD + player.getCommandSenderName() + " bought " + what + " (" + costText(ware) + ")");
         WarOfTheGods.LOG.info("{} bought {} for {}", player.getCommandSenderName(), what, costText(ware));
     }
 
@@ -400,8 +397,7 @@ public final class Shop {
             }
             text.append(entry.getValue())
                 .append(" ")
-                .append(
-                    entry.getKey().displayName.toLowerCase());
+                .append(entry.getKey().displayName.toLowerCase());
         }
         return text.length() == 0 ? "nothing" : text.toString();
     }
