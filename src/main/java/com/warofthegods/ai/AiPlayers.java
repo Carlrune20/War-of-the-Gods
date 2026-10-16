@@ -23,6 +23,7 @@ import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.Upgrade;
+import com.warofthegods.game.WallLine;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Hunting;
 import com.warofthegods.unit.Trees;
@@ -41,7 +42,10 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  * them back when its town center is attacked. It also puts up a storehouse and an armory and researches their
  * upgrades, builds its god's knights' fortress in Age III and trains knights and the hero there, sends workers to
  * repair damaged buildings once no enemy is at them, and spends what it has to spare on more barracks, towers and
- * houses. It pays for everything like a player and gets no bonuses.
+ * houses. It puts storehouses by the forests and gold mines its workers gather far from home, walls its town between
+ * its towers with a gate in each side, takes free settlements with more town centers and puts a barracks and a tower
+ * by each, and marches its attacks in box or line formation as often as it lets them run. It pays for everything like
+ * a player and gets no bonuses.
  */
 public final class AiPlayers {
 
@@ -87,6 +91,29 @@ public final class AiPlayers {
     private static final int MAX_REPAIRERS = 6;
     /** Enemies this close to a damaged building keep its workers away until they are gone. */
     private static final double REPAIR_DANGER_RANGE = 16;
+    /** Blocks from a storehouse it chops in once the trees by the town center are gone. */
+    private static final int STORE_TREE_RANGE = 32;
+    /** Blocks from the town center it looks for trees when none stand nearer, and how often, in ticks. */
+    private static final int FAR_TREE_RANGE = 128;
+    private static final int FAR_TREE_TICKS = 20 * 30;
+    /** Blocks round trees it found far off that it chops in until they run out. */
+    private static final int FOREST_RANGE = 24;
+    /** Workers gathering in one place before it puts a storehouse there, and how far from a store that is. */
+    private static final int OUTPOST_WORKERS = 3;
+    private static final double OUTPOST_DISTANCE = 28;
+    private static final int MAX_STOREHOUSES = 4;
+    /** Most town centers it keeps, its first among them. */
+    private static final int MAX_TOWN_CENTERS = 3;
+    /** Blocks from a town center that it looks for a barracks or tower of its own by, and puts one up in. */
+    private static final double OUTPOST_RANGE = 32;
+    /** Pieces of wall it builds with at once, and how far out it moves a wall a building is in the way of. */
+    private static final int WALL_BUILDERS = 2;
+    private static final int[] WALL_OFFSETS = { 0, 8, 16, 24 };
+    /** Blocks a marching army walks toward its target between orders, and how near it gets before it charges. */
+    private static final double MARCH_LEG = 12;
+    private static final double CHARGE_RANGE = 28;
+    /** Formations its attacks march in, in turn; null runs at the target as a crowd. */
+    private static final Units.Formation[] WAVE_FORMATIONS = { Units.Formation.BOX, Units.Formation.LINE, null };
     /** Workers it lays a knights' fortress out with; other buildings get two. */
     private static final int FORTRESS_BUILDERS = 3;
     /** The upgrades it researches, in the order it wants them; wall upgrades are left out, as it builds no walls. */
@@ -103,6 +130,16 @@ public final class AiPlayers {
         boolean archerNext;
         /** Whether no spot near the town center fits a knights' fortress, so it stops waiting to build one. */
         boolean noFortressSpot;
+        /** The foot of a tree it found far from home, round which it chops; null when it knows of none. */
+        int[] forest;
+        int lastFarTreeSearch = -FAR_TREE_TICKS;
+        /** Sides of the town it has walled or found no room to wall, of those between its towers. */
+        int wallSides;
+        /** Wall segments it makes gates of once they are built, by building id. */
+        final List<Integer> gates = new ArrayList<>();
+        /** The fighters marching on an attack in formation, and the formation. */
+        final List<EntityUnit> march = new ArrayList<>();
+        Units.Formation marchFormation;
     }
 
     private final Map<String, State> states = new HashMap<>();
@@ -154,10 +191,14 @@ public final class AiPlayers {
             && game.getAge(team) >= 3
             && count(game, team, fortressOf(team), false) == 0
             && fighters.size() >= FORTRESS_FIGHTERS;
-        build(game, world, team, state, workers, saving, fighters.size());
+        build(game, world, team, state, hall, workers, saving, fighters.size());
+        if (!saving && !savingForFortress) {
+            wall(game, world, team, state, hall, workers);
+        }
+        makeGates(game, world, state);
         staffSites(game, team, workers);
         repair(game, world, team, workers);
-        gather(game, world, team, hall, workers);
+        gather(game, world, team, hall, workers, state);
         if (!saving && !savingForFortress) {
             research(game, team);
             trainFighters(game, team, state, fighters.size());
@@ -198,17 +239,33 @@ public final class AiPlayers {
     }
 
     /**
-     * Lays out one building at a time near the town center: a house when it runs short of room, then what it needs
-     * for its age, then, with resources to spare, more barracks, towers, houses and fortresses.
+     * Lays out one building at a time: a house near the town center when it runs short of room, then what it needs
+     * for its age, then a storehouse by a forest or gold mine its workers gather far from a store, then a barracks
+     * and a tower by each town center it took, then, with resources to spare, more town centers, barracks, towers,
+     * houses and fortresses.
      */
-    private static void build(Game game, WorldServer world, Team team, State state, List<EntityUnit> workers,
-        boolean saving, int fighters) {
+    private static void build(Game game, WorldServer world, Team team, State state, Building hall,
+        List<EntityUnit> workers, boolean saving, int fighters) {
         for (Building building : game.getBuildings(team)) {
             if (!building.isComplete() && !building.type.isWall()) {
                 return;
             }
         }
         BuildingType type = neededBuilding(game, team, state, workers.size(), saving);
+        // Where to put it, when not round the town center.
+        double[] near = null;
+        if (type == null && !saving) {
+            near = outpostStorehouse(game, team, workers);
+            if (near != null) {
+                type = BuildingType.STOREHOUSE;
+            } else {
+                Object[] guard = outpostGuard(game, team, hall);
+                if (guard != null) {
+                    type = (BuildingType) guard[0];
+                    near = (double[]) guard[1];
+                }
+            }
+        }
         if (type != null) {
             if (!team.canAfford(type.cost())) {
                 return;
@@ -219,8 +276,8 @@ public final class AiPlayers {
         if (type == null) {
             return;
         }
-        Buildings.Plan plan = Buildings.get()
-            .findSpot(game, world, team, type);
+        Buildings.Plan plan = near == null ? Buildings.get()
+            .findSpot(game, world, team, type) : spotNear(game, world, type, near[0], near[1]);
         if (plan == null && type.isFortress()) {
             state.noFortressSpot = true;
             WarOfTheGods.LOG.info("AI {} found no spot for {}", team.getName(), type.displayName);
@@ -230,7 +287,9 @@ public final class AiPlayers {
         }
         Building site = Buildings.get()
             .startSite(game, team, plan);
-        List<EntityUnit> builders = spareWorkers(workers, type.isFortress() ? FORTRESS_BUILDERS : 2);
+        List<EntityUnit> builders = spareWorkers(
+            workers,
+            type.isFortress() || type == BuildingType.TOWN_HALL ? FORTRESS_BUILDERS : 2);
         Units.get()
             .orderBuild(builders, site);
         WarOfTheGods.LOG
@@ -275,6 +334,9 @@ public final class AiPlayers {
     private static BuildingType spareBuilding(Game game, Team team, State state, int fighters) {
         int age = game.getAge(team);
         List<BuildingType> wanted = new ArrayList<>();
+        if (age >= 2 && count(game, team, BuildingType.TOWN_HALL, false) < MAX_TOWN_CENTERS) {
+            wanted.add(BuildingType.TOWN_HALL);
+        }
         if (age >= 3 && !state.noFortressSpot && count(game, team, fortressOf(team), false) < MAX_FORTRESSES) {
             wanted.add(fortressOf(team));
         }
@@ -295,6 +357,213 @@ public final class AiPlayers {
             }
         }
         return null;
+    }
+
+    /**
+     * Where to put a storehouse: by the gold mine or among the trees where most of its workers gather, when at least
+     * a few do and no town center or storehouse of its own stands near; or null.
+     */
+    private static double[] outpostStorehouse(Game game, Team team, List<EntityUnit> workers) {
+        if (count(game, team, BuildingType.STOREHOUSE, false) >= MAX_STOREHOUSES) {
+            return null;
+        }
+        Map<Integer, Integer> miners = new HashMap<>();
+        double treeX = 0;
+        double treeZ = 0;
+        int choppers = 0;
+        for (EntityUnit worker : workers) {
+            if (worker.getMineId() != 0) {
+                miners.merge(worker.getMineId(), 1, Integer::sum);
+            }
+            int[] tree = worker.getTree();
+            if (tree != null) {
+                treeX += tree[0];
+                treeZ += tree[2];
+                choppers++;
+            }
+        }
+        GoldMine busiest = null;
+        int most = 0;
+        for (Map.Entry<Integer, Integer> entry : miners.entrySet()) {
+            GoldMine mine = game.getMine(entry.getKey());
+            if (mine != null && !mine.isDepleted() && entry.getValue() > most) {
+                busiest = mine;
+                most = entry.getValue();
+            }
+        }
+        List<double[]> spots = new ArrayList<>();
+        if (most >= OUTPOST_WORKERS) {
+            spots.add(new double[] { busiest.minX + busiest.size / 2.0, busiest.minZ + busiest.size / 2.0, most });
+        }
+        if (choppers >= OUTPOST_WORKERS) {
+            spots.add(new double[] { treeX / choppers, treeZ / choppers, choppers });
+        }
+        spots.sort((a, b) -> Double.compare(b[2], a[2]));
+        for (double[] spot : spots) {
+            if (nearestOwn(game, team, spot[0], spot[1], BuildingType.TOWN_HALL, BuildingType.STOREHOUSE)
+                > OUTPOST_DISTANCE) {
+                return spot;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * A barracks or tower a town center it took besides its first still wants by it, and where: the type and the
+     * town center's middle; or null.
+     */
+    private static Object[] outpostGuard(Game game, Team team, Building hall) {
+        if (game.getAge(team) < 2) {
+            return null;
+        }
+        for (Building center : game.getBuildings(team)) {
+            if (center.type != BuildingType.TOWN_HALL || !center.isComplete() || center == hall) {
+                continue;
+            }
+            double[] middle = { center.getCenterX(), center.getCenterZ() };
+            for (BuildingType type : new BuildingType[] { BuildingType.BARRACKS, BuildingType.TOWER }) {
+                if (nearestOwn(game, team, middle[0], middle[1], type) > OUTPOST_RANGE) {
+                    return new Object[] { type, middle };
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Blocks from x, z to the nearest of the team's buildings of the types, sites too; very far if none. */
+    private static double nearestOwn(Game game, Team team, double x, double z, BuildingType... types) {
+        double best = Double.MAX_VALUE;
+        for (Building building : game.getBuildings(team)) {
+            for (BuildingType type : types) {
+                if (building.type == type) {
+                    best = Math.min(best, building.distanceTo(x, z));
+                }
+            }
+        }
+        return best;
+    }
+
+    /** The nearest spot round x, z a building of the type fits, a few blocks out and further; or null. */
+    private static Buildings.Plan spotNear(Game game, WorldServer world, BuildingType type, double x, double z) {
+        for (int ring = 8; ring <= OUTPOST_RANGE; ring += 3) {
+            for (int step = 0; step < 16; step++) {
+                double angle = 2 * Math.PI * step / 16;
+                Buildings.Plan plan = Buildings.get()
+                    .plan(
+                        game,
+                        world,
+                        type,
+                        (int) Math.round(x + Math.cos(angle) * ring),
+                        (int) Math.round(z + Math.sin(angle) * ring),
+                        step / 4);
+                if (plan.problem == null) {
+                    return plan;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Walls one side of the town at a time once it has an armory and gold to spare: from each of its towers round the
+     * town center to the next, or further out where a building stands in the way, with the middle segment to be made
+     * a gate.
+     */
+    private static void wall(Game game, WorldServer world, Team team, State state, Building hall,
+        List<EntityUnit> workers) {
+        if (game.getAge(team) < 2 || count(game, team, BuildingType.ARMORY, true) == 0) {
+            return;
+        }
+        for (Building building : game.getBuildings(team)) {
+            if (building.type.isWall() && !building.isComplete()) {
+                return;
+            }
+        }
+        double cx = hall.getCenterX();
+        double cz = hall.getCenterZ();
+        List<Building> towers = new ArrayList<>();
+        for (Building tower : game.getBuildings(team)) {
+            if (tower.type == BuildingType.TOWER && tower.distanceTo(cx, cz) <= HOME_RANGE) {
+                towers.add(tower);
+            }
+        }
+        if (towers.size() < 2) {
+            return;
+        }
+        towers.sort(
+            (a, b) -> Double.compare(
+                Math.atan2(a.getCenterZ() - cz, a.getCenterX() - cx),
+                Math.atan2(b.getCenterZ() - cz, b.getCenterX() - cx)));
+        int sides = towers.size() == 2 ? 1 : towers.size();
+        if (state.wallSides >= sides) {
+            return;
+        }
+        Building from = towers.get(state.wallSides);
+        Building to = towers.get((state.wallSides + 1) % towers.size());
+        // Outward is away from the town center, square to the side.
+        double mx = (from.getCenterX() + to.getCenterX()) / 2 - cx;
+        double mz = (from.getCenterZ() + to.getCenterZ()) / 2 - cz;
+        double length = Math.max(1, Math.sqrt(mx * mx + mz * mz));
+        for (int offset : WALL_OFFSETS) {
+            double ox = mx / length * offset;
+            double oz = mz / length * offset;
+            Buildings.WallPlan plan = Buildings.get()
+                .planWall(
+                    game,
+                    world,
+                    team,
+                    (int) Math.floor(from.getCenterX() + ox),
+                    (int) Math.floor(from.getCenterZ() + oz),
+                    (int) Math.floor(to.getCenterX() + ox),
+                    (int) Math.floor(to.getCenterZ() + oz));
+            if (plan.problem != null) {
+                continue;
+            }
+            Map<Resource, Long> cost = Buildings.wallCost(plan.pieces.size());
+            if (!affords(team, cost, SPARE_MARGIN)) {
+                return;
+            }
+            team.spend(cost);
+            List<Building> sites = Buildings.get()
+                .startWall(game, team, plan);
+            List<Building> segments = new ArrayList<>();
+            for (Building site : sites) {
+                // A gate takes a full segment, not a post or a short one.
+                if (site.type == BuildingType.WALL && site.sizeX >= WallLine.SIZE && site.sizeZ >= WallLine.SIZE) {
+                    segments.add(site);
+                }
+            }
+            if (!segments.isEmpty()) {
+                state.gates.add(segments.get(segments.size() / 2).id);
+            }
+            List<EntityUnit> builders = spareWorkers(workers, WALL_BUILDERS);
+            for (int i = 0; i < sites.size(); i++) {
+                Units.get()
+                    .orderBuild(builders, sites.get(i), i > 0);
+            }
+            state.wallSides++;
+            WarOfTheGods.LOG.info(
+                "AI {} laid out a wall of {} pieces with {} workers",
+                team.getName(),
+                sites.size(),
+                builders.size());
+            return;
+        }
+        state.wallSides++;
+    }
+
+    /** Makes the wall segments it meant for gates gates once they are built; forgets those that are gone. */
+    private static void makeGates(Game game, WorldServer world, State state) {
+        for (int i = state.gates.size() - 1; i >= 0; i--) {
+            Building wall = game.getBuilding(state.gates.get(i));
+            if (wall == null || wall.type != BuildingType.WALL) {
+                state.gates.remove(i);
+            } else if (Buildings.gateProblem(wall) == null) {
+                Buildings.get()
+                    .makeGate(game, world, wall);
+                state.gates.remove(i);
+            }
+        }
     }
 
     /** The knights' fortress of the team's god. */
@@ -383,9 +652,25 @@ public final class AiPlayers {
         return count;
     }
 
-    /** Sends a worker to every building site nobody is building. */
+    /**
+     * Sends a worker to every building site nobody is building, but to unbuilt wall only while fewer than a couple
+     * are on it, as each goes on along the wall by itself.
+     */
     private static void staffSites(Game game, Team team, List<EntityUnit> workers) {
+        int onWalls = 0;
+        for (EntityUnit worker : workers) {
+            Building site = worker.getOrder() == EntityUnit.Order.BUILD ? game.getBuilding(worker.getBuildingId())
+                : null;
+            onWalls += site != null && site.type.isWall() && !site.isComplete() ? 1 : 0;
+        }
         for (Building site : game.getBuildings(team)) {
+            if (site.type.isWall() && !site.isComplete()) {
+                if (onWalls < WALL_BUILDERS && assigned(workers, site) == 0) {
+                    onWalls += Units.get()
+                        .orderBuild(spareWorkers(workers, 1), site);
+                }
+                continue;
+            }
             if (!site.isComplete() && Buildings.countBuilders(site) == 0 && assigned(workers, site) == 0) {
                 Units.get()
                     .orderBuild(spareWorkers(workers, 1), site);
@@ -393,8 +678,13 @@ public final class AiPlayers {
         }
     }
 
-    /** Puts idle workers on whichever of food, wood and gold has the fewest workers for its share. */
-    private static void gather(Game game, WorldServer world, Team team, Building hall, List<EntityUnit> workers) {
+    /**
+     * Puts idle workers on whichever of food, wood and gold has the fewest workers for its share, and moves a worker
+     * a look from what has the most workers over its share to what has the most too few, so the share comes right
+     * again once what ran short, such as trees, is found.
+     */
+    private void gather(Game game, WorldServer world, Team team, Building hall, List<EntityUnit> workers,
+        State state) {
         int[] on = new int[Resource.values().length];
         List<EntityUnit> idle = new ArrayList<>();
         for (EntityUnit worker : workers) {
@@ -418,13 +708,14 @@ public final class AiPlayers {
             // Where there is nothing of it to gather, the others in turn.
             Resource[] tries = { best, Resource.WOOD, Resource.GOLD, Resource.FOOD };
             for (Resource resource : tries) {
-                if (sendTo(game, world, team, hall, worker, resource)) {
+                if (sendTo(game, world, team, hall, worker, resource, state)) {
                     on[resource.ordinal()]++;
                     sent[resource.ordinal()]++;
                     break;
                 }
             }
         }
+        rebalance(game, world, team, hall, workers, state, on, share);
         if (sent[0] + sent[1] + sent[2] > 0) {
             WarOfTheGods.LOG.info(
                 "AI {} put idle workers to work: {} on food, {} on wood, {} on gold",
@@ -435,8 +726,40 @@ public final class AiPlayers {
         }
     }
 
-    private static boolean sendTo(Game game, WorldServer world, Team team, Building hall, EntityUnit worker,
-        Resource resource) {
+    private void rebalance(Game game, WorldServer world, Team team, Building hall, List<EntityUnit> workers,
+        State state, int[] on, double[] share) {
+        int total = on[0] + on[1] + on[2];
+        Resource over = null;
+        Resource under = null;
+        for (Resource resource : Resource.values()) {
+            double off = on[resource.ordinal()] - share[resource.ordinal()] * total;
+            if (off >= 2 && (over == null || off > on[over.ordinal()] - share[over.ordinal()] * total)) {
+                over = resource;
+            }
+            if (off <= -2 && (under == null || off < on[under.ordinal()] - share[under.ordinal()] * total)) {
+                under = resource;
+            }
+        }
+        if (over == null || under == null) {
+            return;
+        }
+        for (EntityUnit worker : workers) {
+            // Not one carrying home what it has gathered.
+            if (resourceOf(worker) == over && !worker.isDelivering()) {
+                if (sendTo(game, world, team, hall, worker, under, state)) {
+                    WarOfTheGods.LOG.info(
+                        "AI {} moved a worker from {} to {}",
+                        team.getName(),
+                        over.displayName.toLowerCase(),
+                        under.displayName.toLowerCase());
+                }
+                return;
+            }
+        }
+    }
+
+    private boolean sendTo(Game game, WorldServer world, Team team, Building hall, EntityUnit worker,
+        Resource resource, State state) {
         List<EntityUnit> one = new ArrayList<>();
         one.add(worker);
         double x = hall.getCenterX();
@@ -458,7 +781,7 @@ public final class AiPlayers {
                     .orderHunt(one, animal) > 0;
             }
             case WOOD: {
-                int[] tree = Trees.nearest(world, game, x, hall.groundY, z, TREE_RANGE);
+                int[] tree = nearestTree(game, world, team, x, z, state);
                 if (tree == null || Units.get()
                     .orderChop(one, tree[0], tree[1], tree[2]) == 0) {
                     return false;
@@ -472,6 +795,45 @@ public final class AiPlayers {
                     .orderMine(one, mine) > 0;
             }
         }
+    }
+
+    /**
+     * The tree it chops next: the nearest to the town center, else by one of its storehouses, else round trees it
+     * found further off, looking for those now and then as far again; or null.
+     */
+    private int[] nearestTree(Game game, WorldServer world, Team team, double x, double z, State state) {
+        int[] tree = Trees.nearest(world, game, x, z, TREE_RANGE);
+        if (tree != null) {
+            return tree;
+        }
+        for (Building store : game.getBuildings(team)) {
+            if (store.type == BuildingType.STOREHOUSE && store.isComplete()) {
+                tree = Trees.nearest(world, game, store.getCenterX(), store.getCenterZ(), STORE_TREE_RANGE);
+                if (tree != null) {
+                    return tree;
+                }
+            }
+        }
+        if (state.forest != null) {
+            tree = Trees.nearest(world, game, state.forest[0] + 0.5, state.forest[2] + 0.5, FOREST_RANGE);
+            state.forest = tree;
+            if (tree != null) {
+                return tree;
+            }
+        }
+        if (ticks - state.lastFarTreeSearch < FAR_TREE_TICKS) {
+            return null;
+        }
+        state.lastFarTreeSearch = ticks;
+        state.forest = Trees.nearest(world, game, x, z, FAR_TREE_RANGE);
+        if (state.forest != null) {
+            WarOfTheGods.LOG.info(
+                "AI {} found trees {} blocks from its town center",
+                team.getName(),
+                (int) Math.sqrt(
+                    (state.forest[0] - x) * (state.forest[0] - x) + (state.forest[2] - z) * (state.forest[2] - z)));
+        }
+        return state.forest;
     }
 
     /** What the worker is gathering, or null if it is gathering nothing. */
@@ -587,6 +949,7 @@ public final class AiPlayers {
         EntityLivingBase intruder = Units.get()
             .findEnemyNear(world, team, x, hall.groundY + 1, z, DANGER_RANGE);
         if (intruder != null) {
+            state.march.clear();
             List<EntityUnit> defenders = new ArrayList<>(Units.isMob(intruder) ? home : fighters);
             defenders.removeIf(unit -> unit.getOrder() == EntityUnit.Order.ATTACK || unit.isAttackMoving());
             if (!defenders.isEmpty()) {
@@ -595,19 +958,29 @@ public final class AiPlayers {
             }
             return;
         }
-        home.removeIf(unit -> unit.getOrder() != EntityUnit.Order.IDLE);
+        state.march.retainAll(fighters);
+        march(game, team, state);
+        home.removeIf(unit -> unit.getOrder() != EntityUnit.Order.IDLE || state.march.contains(unit));
         if (home.size() >= FIRST_WAVE + WAVE_GROWTH * state.waves && ticks - state.lastWave >= WAVE_TICKS) {
             Building target = nearestEnemyBuilding(game, team, x, z);
             if (target != null) {
-                Units.get()
-                    .orderAttackMove(home, target.getCenterX(), target.getCenterZ(), Units.Formation.BOX);
+                Units.Formation formation = WAVE_FORMATIONS[state.waves % WAVE_FORMATIONS.length];
+                if (formation == null) {
+                    Units.get()
+                        .orderAttackMove(home, target.getCenterX(), target.getCenterZ(), Units.Formation.BOX);
+                } else {
+                    state.march.clear();
+                    state.march.addAll(home);
+                    state.marchFormation = formation;
+                    march(game, team, state);
+                }
                 state.waves++;
                 state.lastWave = ticks;
                 WarOfTheGods.LOG
                     .info("AI {} is attacking {} with {} units", team.getName(), target.describe(game), home.size());
             }
         }
-        away.removeIf(unit -> unit.getOrder() != EntityUnit.Order.IDLE);
+        away.removeIf(unit -> unit.getOrder() != EntityUnit.Order.IDLE || state.march.contains(unit));
         if (away.isEmpty()) {
             return;
         }
@@ -628,6 +1001,50 @@ public final class AiPlayers {
             Units.get()
                 .orderAttackMove(away, target.getCenterX(), target.getCenterZ(), Units.Formation.BOX);
         }
+    }
+
+    /**
+     * Moves a marching army on in its formation: a short way toward the enemy building nearest it at each look, the
+     * formation facing the way it goes and fighting what it meets, so it keeps together as it walks; near enough, it
+     * charges the building and stops marching.
+     */
+    private static void march(Game game, Team team, State state) {
+        if (state.march.isEmpty()) {
+            return;
+        }
+        double cx = 0;
+        double cz = 0;
+        for (EntityUnit unit : state.march) {
+            cx += unit.posX / state.march.size();
+            cz += unit.posZ / state.march.size();
+        }
+        Building target = nearestEnemyBuilding(game, team, cx, cz);
+        if (target == null) {
+            state.march.clear();
+            return;
+        }
+        double dx = target.getCenterX() - cx;
+        double dz = target.getCenterZ() - cz;
+        double distance = Math.sqrt(dx * dx + dz * dz);
+        if (target.distanceTo(cx, cz) <= CHARGE_RANGE || distance <= MARCH_LEG) {
+            Units.get()
+                .orderAttackMove(
+                    new ArrayList<>(state.march),
+                    target.getCenterX(),
+                    target.getCenterZ(),
+                    state.marchFormation);
+            state.march.clear();
+            return;
+        }
+        // Those still fighting what they met catch up when they are done.
+        List<EntityUnit> walking = new ArrayList<>(state.march);
+        walking.removeIf(unit -> unit.getOrder() == EntityUnit.Order.ATTACK);
+        Units.get()
+            .orderAttackMove(
+                walking,
+                cx + dx / distance * MARCH_LEG,
+                cz + dz / distance * MARCH_LEG,
+                state.marchFormation);
     }
 
     /** The enemy building nearest x, z, a town center if any is left; or null. */

@@ -1124,7 +1124,7 @@ public class CommandRts extends CommandBase {
             throw new CommandException("Team %s has no town center", team.getName());
         }
         WorldServer world = GameWorld.getWorld();
-        int[] tree = Trees.nearest(world, game, hall.getCenterX(), hall.groundY, hall.getCenterZ(), 48);
+        int[] tree = Trees.nearest(world, game, hall.getCenterX(), hall.getCenterZ(), 48);
         if (tree == null) {
             throw new CommandException("Found no tree near the town center of %s", team.getName());
         }

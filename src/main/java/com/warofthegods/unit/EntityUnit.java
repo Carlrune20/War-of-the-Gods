@@ -1275,7 +1275,7 @@ public class EntityUnit extends EntityCreature {
         }
         if (!Trees.isLog(worldObj.getBlock(treeX, treeY, treeZ))) {
             // Felled, by this worker or another: on to the next.
-            int[] next = Trees.nearest(worldObj, game, treeX + 0.5, treeY, treeZ + 0.5, NEXT_TREE_RANGE);
+            int[] next = Trees.nearest(worldObj, game, treeX + 0.5, treeZ + 0.5, NEXT_TREE_RANGE);
             if (next != null) {
                 orderChop(next[0], next[1], next[2]);
             } else if (getCarried() > 0) {

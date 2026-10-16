@@ -191,11 +191,13 @@ public final class Trees {
         WebMap.blocksChanged(world, minX - 1, minZ - 1, maxX + 1, maxZ + 1);
     }
 
-    /** The foot of the nearest standing tree within range of x, z; null if none. */
-    public static int[] nearest(World world, Game game, double x, double y, double z, int range) {
+    /**
+     * The foot of the nearest standing tree within range of x, z; null if none. Each column is looked down from its
+     * top, so trees on hills and in hollows are found as well as those level with x, z.
+     */
+    public static int[] nearest(World world, Game game, double x, double z, int range) {
         int bx = (int) Math.floor(x);
         int bz = (int) Math.floor(z);
-        int by = (int) Math.floor(y);
         int[] best = null;
         double bestDistance = Double.MAX_VALUE;
         for (int dx = -range; dx <= range; dx++) {
@@ -209,19 +211,36 @@ public final class Trees {
                 if (!game.isInside(cx, cz) || game.getBuildingAt(cx + 0.5, cz + 0.5) != null) {
                     continue;
                 }
-                for (int cy = Math.min(255, by + 4); cy >= Math.max(1, by - 6); cy--) {
-                    if (isLog(world.getBlock(cx, cy, cz)) && !isLog(world.getBlock(cx, cy - 1, cz))) {
-                        Block ground = world.getBlock(cx, cy - 1, cz);
-                        if (ground.getMaterial()
-                            .isSolid() && !isLeaves(ground)) {
-                            best = new int[] { cx, cy, cz };
-                            bestDistance = distance;
-                        }
-                        break;
-                    }
+                int[] foot = trunkFoot(world, cx, cz);
+                if (foot != null) {
+                    best = foot;
+                    bestDistance = distance;
                 }
             }
         }
         return best;
+    }
+
+    /**
+     * The foot of a trunk in the column, as x, y, z: down from the top through leaves, logs and air to a log standing
+     * on the ground. Null if the column reaches the ground without one.
+     */
+    private static int[] trunkFoot(World world, int x, int z) {
+        int top = world.getChunkFromBlockCoords(x, z)
+            .getHeightValue(x & 15, z & 15) - 1;
+        for (int y = Math.min(255, top); y > 1; y--) {
+            Block block = world.getBlock(x, y, z);
+            if (isLog(block)) {
+                Block below = world.getBlock(x, y - 1, z);
+                if (!isLog(below) && below.getMaterial()
+                    .isSolid() && !isLeaves(below)) {
+                    return new int[] { x, y, z };
+                }
+            } else if (!isLeaves(block) && block.getMaterial()
+                .isSolid()) {
+                return null;
+            }
+        }
+        return null;
     }
 }
