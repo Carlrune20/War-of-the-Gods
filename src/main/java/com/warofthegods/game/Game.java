@@ -134,7 +134,7 @@ public class Game {
         }
         Team team = new Team(this, name, color);
         for (Resource resource : Resource.values()) {
-            team.setResource(resource, startingResources[resource.ordinal()]);
+            team.setResource(resource, Resource.amount(startingResources, resource));
         }
         teams.put(team.getId(), team);
         changed();

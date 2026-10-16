@@ -628,7 +628,7 @@ public final class Units {
         List<Building> rest = game == null ? new ArrayList<>() : wallAfter(game, building);
         int sent = 0;
         for (EntityUnit unit : units) {
-            if (unit.isWorker()) {
+            if (unit.canRaise(building.type)) {
                 if (queue) {
                     unit.queueBuild(building);
                 } else {

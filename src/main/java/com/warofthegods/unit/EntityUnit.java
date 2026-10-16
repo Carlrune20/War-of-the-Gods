@@ -28,6 +28,7 @@ import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 
 import com.warofthegods.Config;
+import com.warofthegods.WarOfTheGods;
 import com.warofthegods.building.Buildings;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
@@ -36,6 +37,7 @@ import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.Resource;
+import com.warofthegods.game.Spell;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.Tree;
 import com.warofthegods.game.UnitKind;
@@ -146,6 +148,8 @@ public class EntityUnit extends EntityCreature {
     /** What arrows that hit a rider do, and blows up close, as a share of their damage. */
     private static final float MOUNTED_ARROW_DAMAGE = 0.75F;
     private static final float MOUNTED_MELEE_DAMAGE = 1.25F;
+    /** How much harder a Zamorak mage's fire strikes than a dark wizard's. */
+    private static final int MAGE_EXTRA_DAMAGE = 4;
     /** Ticks an archer waits after a shot before drawing again. */
     private static final int ARCHER_REST = 10;
     /** Damage a worker's hit does to an animal it hunts. */
@@ -392,6 +396,17 @@ public class EntityUnit extends EntityCreature {
      */
     private Item tool() {
         Team team = team();
+        // Wizards hold a staff, Zamorak mages Zamorak's own; priests and monks a holy book; a demon its claws.
+        if (kind.isCaster()) {
+            return kind == UnitKind.ZAMORAK_MAGE ? WarOfTheGods.zamorakStaff
+                : kind == UnitKind.DARK_WIZARD ? Items.blaze_rod : Items.stick;
+        }
+        if (kind.worships()) {
+            return Items.book;
+        }
+        if (kind == UnitKind.LESSER_DEMON) {
+            return null;
+        }
         if (kind.ranged) {
             return Items.bow;
         }
@@ -422,7 +437,7 @@ public class EntityUnit extends EntityCreature {
     void updateTeam(Team team) {
         // A hero goes by his own name, in his team's color.
         String name = kind.hero ? team.getColor() + kind.displayName
-            : team.getColor() + team.getName() + " " + kind.displayName.toLowerCase() + " " + number;
+            : team.getColor() + team.getName() + " " + kind.lowerName() + " " + number;
         if (!name.equals(getCustomNameTag())) {
             setCustomNameTag(name);
             setAlwaysRenderNameTag(true);
@@ -534,6 +549,11 @@ public class EntityUnit extends EntityCreature {
         return kind == UnitKind.WORKER;
     }
 
+    /** Whether the unit can raise or repair a building of the type: dark wizards a stone circle, workers the rest. */
+    public boolean canRaise(BuildingType type) {
+        return type.raisedByWizards() ? kind == UnitKind.DARK_WIZARD : isWorker();
+    }
+
     /** The foot of the tree a worker chops, as x, y, z, or null when it chops none. */
     public int[] getTree() {
         return order == Order.CHOP ? new int[] { treeX, treeY, treeZ } : null;
@@ -624,8 +644,8 @@ public class EntityUnit extends EntityCreature {
         Item item = most < 0 ? tool()
             : order == Order.HUNT && most == Resource.FOOD.ordinal() ? Items.beef : CARRIED_ITEMS[most];
         ItemStack held = getHeldItem();
-        if (held == null || held.getItem() != item) {
-            setCurrentItemOrArmor(0, new ItemStack(item));
+        if (item == null ? held != null : held == null || held.getItem() != item) {
+            setCurrentItemOrArmor(0, item == null ? null : new ItemStack(item));
         }
     }
 
@@ -833,6 +853,10 @@ public class EntityUnit extends EntityCreature {
     }
 
     void orderAttackBuilding(Building building) {
+        // Priests and monks do not fight.
+        if (!kind.fights() && !isWorker()) {
+            return;
+        }
         dropPlans();
         order = Order.ATTACK_BUILDING;
         buildingId = building.id;
@@ -843,6 +867,9 @@ public class EntityUnit extends EntityCreature {
     }
 
     void orderAttack(EntityLivingBase target) {
+        if (!kind.fights() && !isWorker()) {
+            return;
+        }
         dropPlans();
         engage(target);
     }
@@ -852,7 +879,7 @@ public class EntityUnit extends EntityCreature {
      * across on the way, and goes on once that is down. Workers, who do not fight, just go.
      */
     void makeAttackMove() {
-        if (order == Order.MOVE && !isWorker()) {
+        if (order == Order.MOVE && kind.fights()) {
             attackMove = true;
             attackMoveX = goalX;
             attackMoveZ = goalZ;
@@ -1136,11 +1163,21 @@ public class EntityUnit extends EntityCreature {
         }
     }
 
-    /** A rider on its horse is wider than a man on foot. */
+    /** A rider on its horse is wider than a man on foot, and a demon wider and taller. */
     private void fitSize(UnitKind kind) {
-        float wanted = kind.isMounted() ? MOUNTED_WIDTH : 0.6F;
-        if (width != wanted) {
-            setSize(wanted, 1.8F);
+        float wide = kind.isMounted() || kind == UnitKind.LESSER_DEMON ? MOUNTED_WIDTH : 0.6F;
+        float tall = 1.8F * Math.max(1, kind == UnitKind.LESSER_DEMON ? kind.scale() : 1);
+        if (width != wide || height != tall) {
+            setSize(wide, tall);
+        }
+    }
+
+    /** A chaos priest praying at a temple faces it and now and then raises its hands, sparks rising round it. */
+    public void pray(Building temple) {
+        getLookHelper().setLookPosition(temple.getCenterX(), temple.groundY + 2, temple.getCenterZ(), 10, 30);
+        if (rand.nextInt(4) == 0) {
+            swingItem();
+            ((WorldServer) worldObj).func_147487_a("witchMagic", posX, posY + 2.1, posZ, 3, 0.2, 0.2, 0.2, 0.02);
         }
     }
 
@@ -1244,7 +1281,7 @@ public class EntityUnit extends EntityCreature {
             guardHere();
             return;
         }
-        if (attackMove && !isWorker() && attackOnTheWay()) {
+        if (attackMove && kind.fights() && attackOnTheWay()) {
             return;
         }
         if (getNavigator().noPath() && --planTicks <= 0) {
@@ -1780,10 +1817,17 @@ public class EntityUnit extends EntityCreature {
             int damage = Config.unitBuildingDamage * (1 + (kind.extraDamage + kind.extraArrowDamage) / 3);
             if (kind.ranged) {
                 if (drawBow()) {
-                    EntityTeamArrow arrow = new EntityTeamArrow(worldObj, this);
-                    arrow.aimAt(building.getCenterX(), building.groundY + 2, building.getCenterZ(), 0);
-                    worldObj.spawnEntityInWorld(arrow);
-                    playSound("random.bow", 1.0F, 1.0F / (rand.nextFloat() * 0.4F + 0.8F));
+                    // A wizard's spell, or an archer's arrow; either way the building takes the same.
+                    if (kind.isCaster()) {
+                        EntitySpell spell = new EntitySpell(worldObj, this, teamId, pickSpell(null), 0);
+                        spell.aimAt(building.getCenterX(), building.groundY + 2, building.getCenterZ());
+                        worldObj.spawnEntityInWorld(spell);
+                    } else {
+                        EntityTeamArrow arrow = new EntityTeamArrow(worldObj, this);
+                        arrow.aimAt(building.getCenterX(), building.groundY + 2, building.getCenterZ(), 0);
+                        worldObj.spawnEntityInWorld(arrow);
+                        playSound("random.bow", 1.0F, 1.0F / (rand.nextFloat() * 0.4F + 0.8F));
+                    }
                     Buildings.get()
                         .damage(building, damage / 2, getCommandSenderName().replaceAll("\u00a7.", ""));
                 }
@@ -1825,6 +1869,10 @@ public class EntityUnit extends EntityCreature {
     }
 
     private void shoot(EntityLivingBase victim) {
+        if (kind.isCaster()) {
+            cast(victim);
+            return;
+        }
         Team team = team();
         EntityTeamArrow arrow = new EntityTeamArrow(worldObj, this);
         arrow.aim(
@@ -1833,6 +1881,33 @@ public class EntityUnit extends EntityCreature {
         arrow.setFlaming(team != null && team.has(Upgrade.FIRE_ARROWS));
         worldObj.spawnEntityInWorld(arrow);
         playSound("random.bow", 1.0F, 1.0F / (rand.nextFloat() * 0.4F + 0.8F));
+    }
+
+    /** Casts a spell at the victim: now and then a curse it is not already under, otherwise a strike. */
+    private void cast(EntityLivingBase victim) {
+        Spell spell = pickSpell(victim);
+        float damage = spell.isCurse() ? 0 : spell.damage + (kind == UnitKind.ZAMORAK_MAGE ? MAGE_EXTRA_DAMAGE : 0);
+        EntitySpell bolt = new EntitySpell(worldObj, this, teamId, spell, damage);
+        bolt.aim(victim);
+        worldObj.spawnEntityInWorld(bolt);
+        playSound(spell == Spell.FIRE ? "mob.ghast.fireball" : "random.fizz", 0.6F, 1.2F + rand.nextFloat() * 0.3F);
+    }
+
+    /** One of the spells it knows: a curse the victim is not under, one time in three, else a strike at random. */
+    private Spell pickSpell(EntityLivingBase victim) {
+        List<Spell> strikes = new ArrayList<>();
+        List<Spell> curses = new ArrayList<>();
+        for (Spell spell : kind.spells()) {
+            if (!spell.isCurse()) {
+                strikes.add(spell);
+            } else if (victim != null && !victim.isPotionActive(spell.potion)) {
+                curses.add(spell);
+            }
+        }
+        if (!curses.isEmpty() && (strikes.isEmpty() || rand.nextInt(3) == 0)) {
+            return curses.get(rand.nextInt(curses.size()));
+        }
+        return strikes.isEmpty() ? Spell.FIRE : strikes.get(rand.nextInt(strikes.size()));
     }
 
     /** Walks toward the nearest side of a building; gives up and guards when stuck too long. */
@@ -1919,7 +1994,7 @@ public class EntityUnit extends EntityCreature {
             postZ = posZ;
             hasPost = true;
         }
-        if (!isWorker() && stance != Stance.PASSIVE && --scanTicks <= 0) {
+        if (kind.fights() && stance != Stance.PASSIVE && --scanTicks <= 0) {
             scanTicks = 10 + rand.nextInt(5);
             EntityLivingBase enemy = Units.get()
                 .findEnemyNear(this, guardRange());
@@ -2190,7 +2265,7 @@ public class EntityUnit extends EntityCreature {
         boolean hurt = super.attackEntityFrom(source, amount);
         computerPrays(style);
         // Guarding units hit back; units on the move keep going.
-        if (hurt && !isWorker()
+        if (hurt && kind.fights()
             && stance != Stance.PASSIVE
             && attacker instanceof EntityLivingBase
             && attacker != this

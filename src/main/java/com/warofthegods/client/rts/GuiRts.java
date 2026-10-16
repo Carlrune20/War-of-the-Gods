@@ -89,7 +89,18 @@ public final class GuiRts extends GuiScreen {
         "archery_range",
         "stables",
         "cavalry",
-        "horse");
+        "horse",
+        "favor",
+        "chaos_temple",
+        "monastery",
+        "wizards_tower",
+        "stone_circle",
+        "chaos_priest",
+        "monk",
+        "dark_wizard",
+        "zamorak_mage",
+        "blue_wizard",
+        "lesser_demon");
 
     /** Icons drawn as Minecraft items in the view; icons.png has the same pictures for the web map. */
     private static final Map<String, ItemStack> VANILLA_ICONS = new HashMap<>();
@@ -98,6 +109,7 @@ public final class GuiRts extends GuiScreen {
         VANILLA_ICONS.put("food", new ItemStack(Items.beef));
         VANILLA_ICONS.put("wood", new ItemStack(Blocks.log));
         VANILLA_ICONS.put("gold", new ItemStack(Items.gold_ingot));
+        VANILLA_ICONS.put("favor", new ItemStack(Items.nether_star));
         VANILLA_ICONS.put("sword", new ItemStack(Items.iron_sword));
         VANILLA_ICONS.put("axe", new ItemStack(Items.iron_axe));
         VANILLA_ICONS.put("pickaxe", new ItemStack(Items.iron_pickaxe));
@@ -875,9 +887,9 @@ public final class GuiRts extends GuiScreen {
     /** Right-clicking one of the team's building sites, or a farm, sends the selected workers to it. */
     private boolean orderBuild(int px, int py) {
         RtsState.BuildingInfo building = buildingAt(px, py);
-        Set<String> workers = client.selectedWorkers();
         RtsState.TeamInfo team = state().myTeam();
         RtsState.BuildingTypeInfo type = building == null ? null : state().buildingType(building.type);
+        Set<String> workers = client.selectedBuilders();
         if (building == null || team == null
             || !building.team.equals(team.id)
             || workers.isEmpty()
@@ -1256,7 +1268,7 @@ public final class GuiRts extends GuiScreen {
                 true);
             return;
         }
-        Set<String> workers = client.selectedWorkers();
+        Set<String> workers = client.selectedBuilders();
         if (workers.isEmpty()) {
             client.showToast("Select a worker to build with", true);
             client.stopPlacing();
@@ -2036,12 +2048,16 @@ public final class GuiRts extends GuiScreen {
             actions.add(button("Cancel", "Esc or right-click", shift -> client.stopLighting(), true));
         } else if (building != null) {
             buildingActions(actions, team, building);
-        } else if (!client.selectedWorkers()
+        } else if (!client.selectedBuilders()
             .isEmpty()) {
+                // Workers build all but the stone circle, which only dark wizards raise.
+                boolean wizards = client.selectedWorkers()
+                    .isEmpty();
                 for (Map.Entry<String, RtsState.BuildingTypeInfo> entry : state.game.buildingTypes.entrySet()) {
                     RtsState.BuildingTypeInfo type = entry.getValue();
-                    // Each knights' fortress belongs to its own god's teams.
-                    if (!type.buildable || (type.faction != null && !type.faction.equals(team.faction))) {
+                    // Each god's buildings belong to its own teams.
+                    if (!type.buildable || type.wizards != wizards
+                        || (type.faction != null && !type.faction.equals(team.faction))) {
                         continue;
                     }
                     String id = entry.getKey();
@@ -2061,13 +2077,15 @@ public final class GuiRts extends GuiScreen {
                             shift -> client.startPlacing(id),
                             aged && RtsState.canAfford(team, type.cost)));
                 }
-                actions.add(
-                    square(
-                        "torches",
-                        "wood",
-                        "Torches\nLight up an area so no mobs spawn there: click two corners. Each torch costs wood",
-                        shift -> client.startLighting(),
-                        true));
+                if (!wizards) {
+                    actions.add(
+                        square(
+                            "torches",
+                            "wood",
+                            "Torches\nLight up an area so no mobs spawn there: click two corners. Each torch costs wood",
+                            shift -> client.startLighting(),
+                            true));
+                }
             } else {
                 RtsState.BuildingInfo hall = state.townHallOf(team.id);
                 if (hall != null) {

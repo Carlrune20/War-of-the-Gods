@@ -62,8 +62,8 @@ public final class Shop {
         Map<Resource, Long> cost() {
             Map<Resource, Long> cost = new LinkedHashMap<>();
             for (Resource resource : Resource.values()) {
-                if (this.cost[resource.ordinal()] > 0) {
-                    cost.put(resource, this.cost[resource.ordinal()]);
+                if (Resource.amount(this.cost, resource) > 0) {
+                    cost.put(resource, Resource.amount(this.cost, resource));
                 }
             }
             return cost;
@@ -133,6 +133,8 @@ public final class Shop {
         ARMORY.put(0, 8, new Ware(new ItemStack(Items.iron_boots), 0, 0, 40, 2));
         ARMORY.put(1, 0, new Ware(new ItemStack(Items.bow), 0, 20, 10, 2));
         ARMORY.put(1, 1, new Ware(new ItemStack(Items.arrow, 16), 0, 10, 0, 2));
+        // Zamorak's staff casts fire strikes.
+        ARMORY.put(1, 3, new Ware(new ItemStack(WarOfTheGods.zamorakStaff), 0, 50, 150, 3));
 
         ARMORY.put(3, 0, new Ware(new ItemStack(Items.diamond_sword), 0, 0, 250, 3));
         ARMORY.put(3, 1, new Ware(new ItemStack(Items.diamond_pickaxe), 0, 0, 200, 3));

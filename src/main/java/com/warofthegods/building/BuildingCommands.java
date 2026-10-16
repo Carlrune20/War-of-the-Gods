@@ -234,9 +234,10 @@ public final class BuildingCommands {
         if (units == null) {
             return;
         }
-        units.removeIf(unit -> !unit.isWorker());
+        units.removeIf(unit -> !unit.canRaise(type));
         if (units.isEmpty()) {
-            request.replyError("Select a worker to build with");
+            request.replyError(
+                type.raisedByWizards() ? "Select a dark wizard to raise it" : "Select a worker to build with");
             return;
         }
         Game game = GameManager.getGame();

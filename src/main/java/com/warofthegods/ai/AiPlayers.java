@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityLivingBase;
@@ -179,7 +180,9 @@ public final class AiPlayers {
             .isEmpty();
         for (EntityUnit unit : Units.get()
             .getUnits(team)) {
-            if (!alongsidePlayers || unit.isAiControlled()) {
+            // Priests and monks only pray, and are left where they are.
+            if ((!alongsidePlayers || unit.isAiControlled()) && (unit.isWorker() || unit.getKind()
+                .fights())) {
                 (unit.isWorker() ? workers : fighters).add(unit);
             }
         }
@@ -201,6 +204,7 @@ public final class AiPlayers {
         if (!saving && !savingForFortress) {
             research(game, team);
             trainFighters(game, team, state, fighters.size());
+            trainWorshippers(game, team);
         }
         fight(game, world, team, hall, fighters, state);
     }
@@ -325,6 +329,12 @@ public final class AiPlayers {
         }
         if (count(game, team, BuildingType.STABLES, false) == 0) {
             return BuildingType.STABLES;
+        }
+        // Its god's houses: Zamorak's chaos temple, or Saradomin's monastery and wizards' tower.
+        for (BuildingType godly : godsBuildings(team)) {
+            if (count(game, team, godly, false) == 0) {
+                return godly;
+            }
         }
         if (age >= 3 && !state.noFortressSpot && count(game, team, fortressOf(team), false) == 0) {
             return fortressOf(team);
@@ -572,6 +582,11 @@ public final class AiPlayers {
     }
 
     /** The knights' fortress of the team's god. */
+    private static BuildingType[] godsBuildings(Team team) {
+        return team.getFaction() == Faction.ZAMORAK ? new BuildingType[] { BuildingType.CHAOS_TEMPLE }
+            : new BuildingType[] { BuildingType.MONASTERY, BuildingType.WIZARDS_TOWER };
+    }
+
     private static BuildingType fortressOf(Team team) {
         return team.getFaction() == Faction.ZAMORAK ? BuildingType.BLACK_KNIGHTS_FORTRESS
             : BuildingType.WHITE_KNIGHTS_FORTRESS;
@@ -703,7 +718,7 @@ public final class AiPlayers {
         int[] sent = new int[Resource.values().length];
         for (EntityUnit worker : idle) {
             Resource best = null;
-            for (Resource resource : Resource.values()) {
+            for (Resource resource : Resource.GATHERED) {
                 if (best == null || on[resource.ordinal()] / share[resource.ordinal()]
                     < on[best.ordinal()] / share[best.ordinal()]) {
                     best = resource;
@@ -735,7 +750,7 @@ public final class AiPlayers {
         int total = on[0] + on[1] + on[2];
         Resource over = null;
         Resource under = null;
-        for (Resource resource : Resource.values()) {
+        for (Resource resource : Resource.GATHERED) {
             double off = on[resource.ordinal()] - share[resource.ordinal()] * total;
             if (off >= 2 && (over == null || off > on[over.ordinal()] - share[over.ordinal()] * total)) {
                 over = resource;
@@ -897,11 +912,41 @@ public final class AiPlayers {
         return spare;
     }
 
+    /** Priests at each chaos temple, as many as pray there for favor, and monks at a monastery. */
+    private static final int PRIESTS_WANTED = Buildings.PRIESTS_PER_TEMPLE;
+    private static final int MONKS_WANTED = 4;
+
+    /** Trains chaos priests to pray at its chaos temples, or monks at its monastery, for its god's favor. */
+    private static void trainWorshippers(Game game, Team team) {
+        for (Building building : game.getBuildings(team)) {
+            UnitKind kind = building.type == BuildingType.CHAOS_TEMPLE ? UnitKind.CHAOS_PRIEST
+                : building.type == BuildingType.MONASTERY ? UnitKind.MONK : null;
+            if (kind == null || !building.isComplete()
+                || building.getQueue()
+                    .size() >= QUEUE
+                || Buildings.room(game, team) <= 0) {
+                continue;
+            }
+            int wanted = kind == UnitKind.CHAOS_PRIEST
+                ? PRIESTS_WANTED * count(game, team, BuildingType.CHAOS_TEMPLE, true)
+                : MONKS_WANTED;
+            int have = queued(game, team, kind);
+            for (EntityUnit unit : Units.get()
+                .getUnits(team)) {
+                have += unit.getKind() == kind ? 1 : 0;
+            }
+            if (have < wanted && team.spend(kind.cost())) {
+                building.enqueue(kind, true);
+            }
+        }
+    }
+
     // ---------------------------------------------------------------- army
 
     /**
-     * Trains warriors at its barracks, archers at its archery range and cavalry at its stables, and at a knights'
-     * fortress its hero when it has none, and knights otherwise.
+     * Trains warriors at its barracks, archers at its archery range, cavalry at its stables, dark wizards and now and
+     * then a Zamorak mage at a chaos temple and blue wizards at a wizards' tower, and at a knights' fortress its hero
+     * when it has none, and knights otherwise.
      */
     private static void trainFighters(Game game, Team team, State state, int fighters) {
         int planned = fighters;
@@ -918,7 +963,10 @@ public final class AiPlayers {
             }
             UnitKind trains = building.type == BuildingType.BARRACKS ? UnitKind.SOLDIER
                 : building.type == BuildingType.ARCHERY_RANGE ? UnitKind.ARCHER
-                    : building.type == BuildingType.STABLES ? UnitKind.CAVALRY : null;
+                    : building.type == BuildingType.STABLES ? UnitKind.CAVALRY
+                        : building.type == BuildingType.CHAOS_TEMPLE ? (ThreadLocalRandom.current()
+                            .nextInt(3) == 0 ? UnitKind.ZAMORAK_MAGE : UnitKind.DARK_WIZARD)
+                            : building.type == BuildingType.WIZARDS_TOWER ? UnitKind.BLUE_WIZARD : null;
             if (trains != null) {
                 if (team.spend(trains.cost())) {
                     building.enqueue(trains, true);

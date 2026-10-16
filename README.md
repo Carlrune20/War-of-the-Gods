@@ -41,8 +41,8 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts units stop <team>` | (op) Make a team's units stop and guard where they stand. |
 | `/rts units kill <team\|all>` | (op) Remove units. |
 | `/rts buildings [team]` | List buildings and building sites with their health, how far each site is built and how many workers work each farm. |
-| `/rts build <team> <type> [x z] [rotation]` | (op) Lay out a building site for free (farm, house, barracks, archery_range, stables, storehouse, armory, tower, town center, or white_knights_fortress or black_knights_fortress for their own god's teams), near the town center unless x z is given (a town center goes on the nearest settlement nobody holds), and send the team's idle workers to build it. |
-| `/rts train <team> <worker\|warrior\|archer\|cavalry\|horse\|white_knight\|black_knight\|tragidee\|sagittare> [count]` | (op) Queue units for free at the team's town center, barracks, archery range, stables or knights' fortress; only one of a hero. |
+| `/rts build <team> <type> [x z] [rotation]` | (op) Lay out a building site for free (farm, house, barracks, archery_range, stables, storehouse, armory, tower, town center, or for their own god's teams white_knights_fortress, monastery and wizards_tower or black_knights_fortress, chaos_temple and stone_circle), near the town center unless x z is given (a town center goes on the nearest settlement nobody holds), and send the team's idle workers to build it, or for a stone circle its dark wizards. |
+| `/rts train <team> <worker\|warrior\|archer\|cavalry\|horse\|white_knight\|black_knight\|tragidee\|sagittare\|chaos_priest\|dark_wizard\|zamorak_mage\|lesser_demon\|monk\|blue_wizard> [count]` | (op) Queue units for free at the team's town center, barracks, archery range, stables, knights' fortress, chaos temple, stone circle, monastery or wizards' tower; only one of a hero. A lesser demon is only summoned with four dark wizards at the stone circle. |
 | `/rts upgrade <building id>` | (op) Take a town center, and with it its whole town, into the next age at once, for free. |
 | `/rts research <team> <upgrade>` | (op) Give a team an upgrade at once, such as `forged_blades` or `fortified_walls`. |
 | `/rts wall <team> <x1> <z1> <x2> <z2>` | (op) Lay out a wall from one point to another for free, running up to the team's towers at either end, and send the team's idle workers to build it. |
@@ -156,6 +156,10 @@ is built, and the finished building stands once the site is done; more workers b
 | Barracks | Trains warriors; needs Age II | 150 Wood, 50 Gold | 800 | 25 s |
 | Archery range | Trains archers; needs Age II | 150 Wood | 700 | 25 s |
 | Stables | Trains cavalry, and tame horses for players to ride; needs Age II | 175 Wood, 50 Gold | 800 | 30 s |
+| Chaos temple | Zamorak's teams only, Age II: trains chaos priests, who pray there for favor, dark wizards and Zamorak mages | 150 Wood, 100 Gold | 900 | 30 s |
+| Stone circle | Zamorak's teams only, Age II: raised by dark wizards, not workers; four dark wizards standing in it summon a lesser demon | 100 Gold | 600 | 20 s |
+| Monastery | Saradomin's teams only, Age II: trains monks, who earn favor just by living | 150 Wood, 75 Gold | 800 | 30 s |
+| Wizards' tower | Saradomin's teams only, Age II: trains blue wizards | 100 Wood, 150 Gold | 900 | 30 s |
 | Armory | Researches military upgrades; needs Age II | 120 Wood, 60 Gold | 700 | 25 s |
 | Tower | Watches over the land round it; with watch towers (Age II) shoots arrows at enemies within 16 blocks, and with guard towers (Age III) within 24; researches both | 50 Wood, 100 Gold | 900 | 25 s |
 | Wall | Keeps enemies out; laid out from one point to another, a 5 by 5 piece at a time | 10 Gold a piece | 600 a segment, 800 a post | 10 s a piece |
@@ -170,6 +174,12 @@ is built, and the finished building stands once the site is done; more workers b
 | Archer | 40 Food, 40 Wood | Shoots arrows from up to 14 blocks; trained at the archery range |
 | Cavalryman | 80 Food, 60 Gold | Rides a horse with a sword: half again as fast as a warrior, twice a warrior's health, hits 2 harder; trained at the stables (see below) |
 | Horse | 60 Food, 20 Gold | Not a unit: a tame, saddled horse that comes out of the stables for anyone to ride, white for Saradomin and black for Zamorak; it takes no room |
+| Chaos priest | 50 Food, 30 Gold | Never fights; prays at its team's chaos temple while idle there, 1 favor every 4 s, up to 5 priests a temple |
+| Monk | 60 Food, 20 Gold | Never fights; earns 1 favor every 8 s wherever it is |
+| Dark wizard | 60 Food, 50 Gold | Casts air (4), water (5), earth (6) and fire (7, and sets alight) strikes from archer range, and now and then weakens or confuses an enemy instead; raises stone circles; trained at the chaos temple |
+| Zamorak mage | 80 Food, 120 Gold | Twice a dark wizard's health, carries a Zamorak staff and casts only fire strikes, 4 harder, from 2 blocks farther; trained at the chaos temple |
+| Blue wizard | 60 Food, 50 Gold | Saradomin's wizard, casting the same spells as a dark wizard; trained at the wizards' tower |
+| Lesser demon | 300 Food, 200 Wood, 300 Gold, 150 Favor | Huge, horned and tailed: ten times a warrior's health, hits 8 harder; summoned at a stone circle while four of its team's dark wizards stand in it |
 | White Knight | 60 Food, 75 Gold | Saradomin's knight in white plate: twice a warrior's health, hits 3 harder; trained at the White Knights' fortress |
 | Black Knight | 60 Food, 75 Gold | Zamorak's knight in black plate: twice a warrior's health, hits 3 harder; trained at the Black Knights' fortress |
 | Sir Tragidee | 200 Food, 350 Gold | A justiciar hero who fights up close with a diamond sword: eight times a warrior's health, hits 6 harder; trained at the White Knights' fortress |
@@ -184,6 +194,25 @@ only Zamorak's the Black Knights'.
 Cavalry ride into battle: once a rider has been on the move for over a second, every other arrow misses it and flies
 on past, until it stops. Arrows that do hit do three quarters of their damage, and warriors' and players' blows up
 close do a quarter more. The horse is part of the rider, so hitting the horse hurts the rider.
+
+### Favor and magic
+
+Favor is the fourth resource, shown with a nether star. It is not gathered but given by the gods for worship: Zamorak
+grants it for chaos priests praying at a chaos temple, one favor every 4 seconds for each priest standing idle by the
+temple (up to five a temple), and Saradomin for monks, one favor every 8 seconds for each monk alive, wherever it is.
+Favor pays for the lesser demon; more of Saradomin's favor units are still to come.
+
+Wizards and mages fight from a distance with spells: bolts of air, water, earth or fire that fly straight and trail
+their element's particles. Fire sets what it hits alight. One time in three, against an enemy not already under it, a
+wizard casts a curse instead: weaken puts weakness on the enemy for 3 seconds, so its blows land softer, and confuse
+gives it nausea for 6 seconds. Like arrows, spells fly on past friends. Zamorak mages carry a Zamorak staff and know
+only fire. A player can buy a Zamorak staff at the armory in Age III (50 Wood, 150 Gold): right-click to cast a fire
+strike, once a second.
+
+Dark wizards raise stone circles: select dark wizards (and no workers), and the build menu offers the stone circle.
+Once it stands, gather four dark wizards inside it and train a lesser demon there: the wizards summon it in a swirl of
+portal sparks, and it rises amid lava and smoke with a wither's roar. Training waits while fewer than four stand in
+the circle.
 
 Units walk as fast as a player. Warriors carry stone swords until the armory researches iron and then diamond ones,
 and warriors and archers wear the armor upgrades from helmet to boots: chainmail with padded armor and iron with
@@ -225,7 +254,7 @@ A team's town center sets its age: taking it up a level advances the whole town 
 of the team takes on the new age's look with it, at once, and buildings put up later look the age too; nothing else
 about them changes. Age I has no military and no farms: workers build, chop, mine and hunt, and towers stand watch
 but do not shoot. In Age II the town center houses 5 more units and starts shooting, the second row of upgrades opens
-up, and barracks, archery ranges, stables, farms and armories can be built. For more health, research fortified walls at the town center.
+up, and barracks, archery ranges, stables, farms and armories can be built, and each god's temples and towers. For more health, research fortified walls at the town center.
 
 Each team starts with four towers, one well off each corner of its town center, so between them they cover the
 ground all round it. Towers can be built from Age I. Researching watch towers at a tower in Age II makes every tower of the
@@ -485,8 +514,8 @@ body alone for now.
 
 `config/warofthegods.cfg`: default map size, default team count, whether players may join teams themselves,
 starting resources per team, the game dimension id and the width of the terrain margin around the map. The `units`
-section sets what warriors, archers and workers cost, how many a team may have, their health and how long training
-takes; the `buildings` section sets what each building costs, its health and build time, what going up a level
+section sets what each unit costs, how many a team may have, their health, how long training takes and how often
+priests and monks earn favor; the `buildings` section sets what each building costs, its health and build time, what going up a level
 costs, how many units the town center and houses house, how far and hard towers shoot, how much wood trees hold and
 how fast workers chop, how much farms and gold mines bring in, how many settlements and gold mines a map gets, how much a worker carries and how much damage warriors
 and enemy players and explosions do to buildings. The `games` section sets whether players are shared out over the

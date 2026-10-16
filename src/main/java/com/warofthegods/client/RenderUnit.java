@@ -25,7 +25,8 @@ import com.warofthegods.unit.Prayer;
 /**
  * Draws a unit with the player model in the skin of its kind and its team's faction, with bands round its arms and
  * waist in its team's color, and any armor its team's upgrades give it. The name above its head is in its team's
- * color too. Archers raise their bow as they draw it, and heroes stand taller than the rest. A hero's protection
+ * color too. Archers raise their bow as they draw it, and heroes stand taller than the rest, a lesser demon, horned and
+ * tailed, tallest of all. A hero's protection
  * prayer shows above his name while it is up. Cavalry sit on a horse, white for Saradomin and black for Zamorak, drawn
  * with the horse's own model; it is part of the unit, not a horse of its own.
  */
@@ -48,7 +49,6 @@ public class RenderUnit extends RenderBiped {
         }
     }
 
-    private static final float HERO_SCALE = 1.15F;
     private static final Map<Prayer, ResourceLocation> OVERHEADS = new HashMap<>();
 
     static {
@@ -69,11 +69,14 @@ public class RenderUnit extends RenderBiped {
     private static final int HORSE_BLACK = 4;
 
     private final ModelBiped overlayModel = new ModelBiped(0.08F);
+    private final ModelBiped manModel;
+    private final ModelBiped demonModel = new ModelDemon();
     /** The horse drawn under each rider, kept only to be drawn; it is in no world's entity list. */
     private final Map<EntityUnit, EntityHorse> horses = new WeakHashMap<>();
 
     public RenderUnit() {
         super(new ModelBiped(), 0.5F);
+        manModel = modelBipedMain;
     }
 
     /** An archer drawing its bow holds it up in both hands, as a player does. */
@@ -84,6 +87,10 @@ public class RenderUnit extends RenderBiped {
         field_82423_g.aimedBow = aiming;
         field_82425_h.aimedBow = aiming;
         EntityUnit unit = (EntityUnit) entity;
+        // A lesser demon has horns and a tail.
+        modelBipedMain = unit.getWatchedKind() == UnitKind.LESSER_DEMON ? demonModel : manModel;
+        mainModel = modelBipedMain;
+        modelBipedMain.aimedBow = aiming;
         if (unit.getWatchedKind()
             .isMounted()) {
             renderHorse(unit, x, y, z, yaw, partialTicks);
@@ -130,12 +137,16 @@ public class RenderUnit extends RenderBiped {
         RenderManager.instance.renderEntityWithPosYaw(horse, x, y, z, yaw, partialTicks);
     }
 
-    /** Heroes stand a head taller than other units; riders sit in the saddle with their legs astride. */
+    /**
+     * Heroes stand a head taller than other units, and a lesser demon taller still; riders sit in the saddle with their
+     * legs astride.
+     */
     @Override
     protected void preRenderCallback(EntityLivingBase entity, float partialTicks) {
         UnitKind kind = ((EntityUnit) entity).getWatchedKind();
-        if (kind.hero) {
-            GL11.glScalef(HERO_SCALE, HERO_SCALE, HERO_SCALE);
+        float size = kind.scale();
+        if (size != 1) {
+            GL11.glScalef(size, size, size);
         }
         if (kind.isMounted()) {
             modelBipedMain.isRiding = true;

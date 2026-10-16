@@ -50,7 +50,22 @@ public enum BuildingType {
     /** Trains archers: a shooting shed with lanes of targets in front. */
     ARCHERY_RANGE("archery_range", "Archery range", "archeryRange", 2, true, false, UnitKind.ARCHER),
     /** Trains cavalry, and tame horses for players to ride: stalls at the back, a paddock in front. */
-    STABLES("stables", "Stables", "stables", 2, true, false, UnitKind.CAVALRY, UnitKind.HORSE);
+    STABLES("stables", "Stables", "stables", 2, true, false, UnitKind.CAVALRY, UnitKind.HORSE),
+    /**
+     * Zamorak's temple: trains chaos priests, who pray here for favor, and dark wizards and Zamorak mages. Zamorak's
+     * teams only.
+     */
+    CHAOS_TEMPLE("chaos_temple", "Chaos temple", "chaosTemple", 2, true, false, UnitKind.CHAOS_PRIEST,
+        UnitKind.DARK_WIZARD, UnitKind.ZAMORAK_MAGE),
+    /** Saradomin's monastery: trains monks, who earn favor just by living. Saradomin's teams only. */
+    MONASTERY("monastery", "Monastery", "monastery", 2, true, false, UnitKind.MONK),
+    /** Saradomin's wizards' tower: trains blue wizards. Saradomin's teams only. */
+    WIZARDS_TOWER("wizards_tower", "Wizards' tower", "wizardsTower", 2, true, false, UnitKind.BLUE_WIZARD),
+    /**
+     * A ring of standing stones raised by dark wizards, not workers. Four dark wizards standing at it summon a lesser
+     * demon. Zamorak's teams only.
+     */
+    STONE_CIRCLE("stone_circle", "Stone circle", "stoneCircle", 1, true, false, UnitKind.LESSER_DEMON);
 
     public final String id;
     public final String displayName;
@@ -76,7 +91,8 @@ public enum BuildingType {
         if (isFortress()) {
             return 3;
         }
-        return this == ARMORY || this == BARRACKS || this == ARCHERY_RANGE || this == STABLES || this == FARM ? 2 : 1;
+        // Everything else but houses, storehouses and towers waits for Age II, as do the gods' own buildings.
+        return this == HOUSE || this == STOREHOUSE || this == TOWER || this == TOWN_HALL || isWall() ? 1 : 2;
     }
 
     /** Whether it is one of the knights' fortresses. */
@@ -89,8 +105,23 @@ public enum BuildingType {
      * the Black Knights Zamorak.
      */
     public Faction faction() {
-        return this == WHITE_KNIGHTS_FORTRESS ? Faction.SARADOMIN
-            : this == BLACK_KNIGHTS_FORTRESS ? Faction.ZAMORAK : null;
+        switch (this) {
+            case WHITE_KNIGHTS_FORTRESS:
+            case MONASTERY:
+            case WIZARDS_TOWER:
+                return Faction.SARADOMIN;
+            case BLACK_KNIGHTS_FORTRESS:
+            case CHAOS_TEMPLE:
+            case STONE_CIRCLE:
+                return Faction.ZAMORAK;
+            default:
+                return null;
+        }
+    }
+
+    /** Whether dark wizards raise it rather than workers. */
+    public boolean raisedByWizards() {
+        return this == STONE_CIRCLE;
     }
 
     /** Whether a team of the faction can build it. */
@@ -165,7 +196,7 @@ public enum BuildingType {
     private static Map<Resource, Long> amounts(long[] amounts, double factor) {
         Map<Resource, Long> cost = new LinkedHashMap<>();
         for (Resource resource : Resource.values()) {
-            long amount = Math.round(amounts[resource.ordinal()] * factor);
+            long amount = Math.round(Resource.amount(amounts, resource) * factor);
             if (amount > 0) {
                 cost.put(resource, amount);
             }

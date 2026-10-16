@@ -34,6 +34,12 @@ public class Config {
         unitCosts.put(UnitKind.TRAGIDEE, new long[] { 200, 0, 350 });
         unitCosts.put(UnitKind.CAVALRY, new long[] { 80, 0, 60 });
         unitCosts.put(UnitKind.HORSE, new long[] { 60, 0, 20 });
+        unitCosts.put(UnitKind.CHAOS_PRIEST, new long[] { 50, 0, 30, 0 });
+        unitCosts.put(UnitKind.MONK, new long[] { 60, 0, 20, 0 });
+        unitCosts.put(UnitKind.DARK_WIZARD, new long[] { 60, 0, 50, 0 });
+        unitCosts.put(UnitKind.ZAMORAK_MAGE, new long[] { 80, 0, 120, 0 });
+        unitCosts.put(UnitKind.BLUE_WIZARD, new long[] { 60, 0, 50, 0 });
+        unitCosts.put(UnitKind.LESSER_DEMON, new long[] { 300, 200, 300, 150 });
     }
 
     public static int unitsPerTeam = 100;
@@ -62,6 +68,10 @@ public class Config {
         defaults(BuildingType.BLACK_KNIGHTS_FORTRESS, new long[] { 0, 300, 400 }, 4000, 90);
         defaults(BuildingType.ARCHERY_RANGE, new long[] { 0, 150, 0 }, 700, 25);
         defaults(BuildingType.STABLES, new long[] { 0, 175, 50 }, 800, 30);
+        defaults(BuildingType.CHAOS_TEMPLE, new long[] { 0, 150, 100 }, 900, 30);
+        defaults(BuildingType.MONASTERY, new long[] { 0, 150, 75 }, 800, 30);
+        defaults(BuildingType.WIZARDS_TOWER, new long[] { 0, 100, 150 }, 900, 30);
+        defaults(BuildingType.STONE_CIRCLE, new long[] { 0, 0, 100 }, 600, 20);
     }
 
     /** Food, Wood and Gold the town center costs to go up to level 2, and to level 3. */
@@ -81,6 +91,9 @@ public class Config {
     public static int fortressRange = 20;
     /** Blocks guard towers see and shoot farther than watch towers. */
     public static int guardTowerRange = 8;
+    /** Seconds a chaos priest praying at a chaos temple takes to earn a favor, and a monk just living. */
+    public static int priestFavorSeconds = 4;
+    public static int monkFavorSeconds = 8;
     /** Wood one log of a tree holds; a tree holds between treeWoodMin and treeWoodMax in all. */
     public static int woodPerLog = 25;
     public static int treeWoodMin = 100;
@@ -269,7 +282,7 @@ public class Config {
             512,
             "Blocks of terrain generated beyond the map edge, sloping down into the sea around the map.");
 
-        for (Resource resource : Resource.values()) {
+        for (Resource resource : Resource.GATHERED) {
             startingResources[resource.ordinal()] = configuration.getInt(
                 resource.id,
                 "startingResources",
@@ -288,6 +301,10 @@ public class Config {
             long[] cost = unitCosts.get(kind);
             String name = kind == UnitKind.SOLDIER ? "warrior" : kind.displayName.toLowerCase();
             for (Resource resource : Resource.values()) {
+                // Costs from before favor have none.
+                if (resource.ordinal() >= cost.length) {
+                    continue;
+                }
                 cost[resource.ordinal()] = configuration.getInt(
                     kind.configName.isEmpty() ? "cost" + resource.displayName
                         : kind.configName + "Cost" + resource.displayName,
@@ -333,6 +350,9 @@ public class Config {
                 // A gate is made from a wall segment at once, for its cost.
                 long[] cost = buildingCost.get(type);
                 for (Resource resource : Resource.values()) {
+                    if (resource.ordinal() >= cost.length) {
+                        continue;
+                    }
                     cost[resource.ordinal()] = configuration.getInt(
                         type.configName + "Cost" + resource.displayName,
                         buildings,
@@ -390,7 +410,7 @@ public class Config {
             0,
             3600,
             "Seconds a building takes to go up to level 2; level 3 takes twice as long.");
-        for (Resource resource : Resource.values()) {
+        for (Resource resource : Resource.GATHERED) {
             townCenterLevel2Cost[resource.ordinal()] = configuration.getInt(
                 "townCenterLevel2Cost" + resource.displayName,
                 buildings,
@@ -428,6 +448,20 @@ public class Config {
             5,
             1200,
             "Ticks between the shots of a watch tower or a town center from Age II.");
+        priestFavorSeconds = configuration.getInt(
+            "priestFavorSeconds",
+            units,
+            priestFavorSeconds,
+            1,
+            3600,
+            "Seconds a chaos priest praying at a chaos temple takes to earn its team a favor; a temple has room for 5.");
+        monkFavorSeconds = configuration.getInt(
+            "monkFavorSeconds",
+            units,
+            monkFavorSeconds,
+            1,
+            3600,
+            "Seconds a monk takes to earn its team a favor, wherever it is.");
         guardTowerRange = configuration.getInt(
             "guardTowerRange",
             buildings,

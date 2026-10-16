@@ -307,6 +307,136 @@ def cavalry(faction):
     return parts
 
 
+def robed(robe, trim, hood=None, hair=(60, 44, 32), beard=None, belt=None, emblem=None, pointed=False, bald=False):
+    """A figure in a long robe to the ground, with trim at its hem and cuffs: priests, monks, wizards and mages. Over
+    the head a hood, a wizard's pointed hat, or with neither and bald, a monk's shaved crown."""
+    def body(face, x, y, w, h):
+        if face == "top":
+            return robe
+        if face == "bottom":
+            return trim
+        if belt and y == 7:
+            return belt
+        if face == "front" and emblem and 2 <= y <= 5 and (x in (3, 4) or y == 3 and 2 <= x <= 5):
+            return emblem
+        if face == "front" and y == 0 and x in (3, 4):
+            return SKIN_DARK if hood is None else hood
+        if face == "front" and x in (3, 4) and y > 0:
+            return trim
+        if y == 11:
+            return trim
+        return robe
+
+    def arm(face, x, y, w, h):
+        if face == "bottom" or y >= 10:
+            return SKIN
+        if y == 9:
+            return trim
+        return robe
+
+    def leg(face, x, y, w, h):
+        # The skirt of the robe, down to the feet.
+        if face == "bottom":
+            return (40, 32, 28)
+        if y >= 10:
+            return trim
+        return robe
+
+    def hat(face, x, y, w, h):
+        if hood is not None:
+            if face == "bottom":
+                return None
+            if face == "front":
+                return hood if y < 1 or x == 0 or x == 7 else None
+            if face in ("left", "right") and y > 6:
+                return None
+            return hood
+        if pointed:
+            # A brim round the head and a cone, drawn as its lower part.
+            if face == "top":
+                return robe if 2 <= x <= 5 and 2 <= y <= 5 else trim
+            if face != "bottom" and y < 2:
+                return trim if y == 1 else robe
+            return None
+        return None
+
+    head = face_fn(hair, beard=beard)
+    if bald:
+        plain = head
+
+        def head(face, x, y, w, h):
+            if face == "top":
+                return SKIN if 2 <= x <= 5 and 2 <= y <= 5 else hair
+            if face == "front" and y < 2:
+                return SKIN
+            return plain(face, x, y, w, h)
+    return {"head": head, "hat": hat, "body": body, "arm": arm, "leg": leg}
+
+
+def chaos_priest(faction):
+    """Zamorak's priest: a black robe with his red emblem on the breast and a red hood."""
+    return robed((40, 34, 36), (150, 26, 24), hood=(126, 22, 24), emblem=(196, 40, 34), hair=(28, 24, 24))
+
+
+def monk(faction):
+    """Saradomin's monk: a plain brown habit tied with a rope, the crown of his head shaved."""
+    return robed((106, 76, 48), (78, 54, 34), belt=(214, 196, 140), hair=(92, 62, 36), bald=True)
+
+
+def dark_wizard(faction):
+    """A dark wizard: black robes trimmed in purple, under a dark hood."""
+    return robed((32, 30, 40), (100, 40, 130), hood=(26, 24, 32), hair=(30, 26, 28), beard=(70, 66, 70))
+
+
+def zamorak_mage(faction):
+    """A Zamorak mage: Zamorak's red robes with black and gold trim, hooded."""
+    return robed((170, 30, 28), (30, 24, 24), hood=(140, 22, 22), emblem=(226, 186, 60), hair=(28, 24, 24))
+
+
+def blue_wizard(faction):
+    """A blue wizard of Saradomin's tower: blue robes and a pointed hat, and a long white beard."""
+    return robed((44, 72, 170), (220, 200, 90), hair=(222, 222, 216), beard=(232, 232, 226), pointed=True)
+
+
+# The demon's horns and tail, in the corner of the skin right of the arm, as ModelDemon draws them.
+HORN = (56, 16, 1, 3, 1)
+TAIL = (56, 20, 1, 8, 1)
+
+
+def lesser_demon(faction):
+    """A lesser demon: red hide all over, darker at the joints, black horns, yellow eyes and claws."""
+    hide, dark, claw, horn = (168, 34, 26), (110, 20, 18), (40, 30, 26), (36, 30, 30)
+
+    def head(face, x, y, w, h):
+        if face == "front":
+            if y == 3 and x in (1, 2, 5, 6):
+                return (40, 10, 8)
+            if y == 4 and x in (1, 2, 5, 6):
+                return (250, 210, 60)
+            if y == 6 and 2 <= x <= 5:
+                return (40, 10, 8) if x in (3, 4) else (236, 230, 214)
+        return dark if face in ("top", "back") and y < 2 else hide
+
+    def body(face, x, y, w, h):
+        if face == "front" and y in (2, 3, 5, 6, 8) and x in (2, 3, 4, 5):
+            return dark
+        return hide
+
+    def arm(face, x, y, w, h):
+        if face == "bottom" or y == 11:
+            return claw
+        return dark if y in (4, 5) else hide
+
+    def leg(face, x, y, w, h):
+        if face == "bottom" or y == 11:
+            return claw
+        return dark if y in (5, 6) else hide
+
+    return {"head": head, "hat": lambda face, x, y, w, h: None, "body": body, "arm": arm, "leg": leg,
+            "extra": [(HORN, lambda face, x, y, w, h: horn if y < 2 else (60, 50, 46)),
+                      (TAIL, lambda face, x, y, w, h: claw if y >= 7 else hide)]}
+
+
 def knight(faction):
     """A White Knight (Saradomin) or Black Knight (Zamorak): full plate from head to foot with a closed full helm,
     the same whichever team trains them; their own look, not the armor upgrades."""
@@ -525,6 +655,8 @@ def skin(kind, faction):
     paint(image, BODY, parts["body"], rng)
     paint(image, ARM, parts["arm"], rng)
     paint(image, LEG, parts["leg"], rng)
+    for part, fn in parts.get("extra", []):
+        paint(image, part, fn, rng)
     return image
 
 
@@ -537,20 +669,23 @@ PALETTE = {
     "I": (132, 138, 150), "h": (226, 196, 92), "o": (224, 134, 62), "c": (96, 204, 214), "d": (122, 86, 56),
     "x": (44, 50, 66), "e": (60, 40, 30), "m": (196, 52, 50), "M": (138, 30, 34), "t": (190, 154, 100),
     "u": (255, 240, 150), "Y": (176, 124, 28), "n": (60, 58, 66), "N": (30, 28, 32), "v": (248, 248, 246),
-    "a": (242, 110, 30), "j": (60, 84, 44),
+    "a": (242, 110, 30), "j": (60, 84, 44), "p": (150, 70, 190), "P": (96, 36, 130),
 }
 
 ICON_ORDER = ["town_hall", "house", "barracks", "storehouse", "quarry", "farm", "armory", "tower",
               "worker", "soldier", "archer", "tree", "upgrade", "level",
               "food", "wood", "gold", "sword", "axe", "pickaxe", "hoe", "wall", "gate",
               "white_knights_fortress", "black_knights_fortress", "white_knight", "black_knight", "tragidee",
-              "sagittare", "archery_range", "stables", "cavalry", "horse"]
+              "sagittare", "archery_range", "stables", "cavalry", "horse", "favor", "chaos_temple", "monastery",
+              "wizards_tower", "stone_circle", "chaos_priest", "monk", "dark_wizard", "zamorak_mage", "blue_wizard",
+              "lesser_demon"]
 
 # Icons that are Minecraft's own item pictures, taken from the game's jar: the resources and the tools of the actions
 # in tooltips. An oak log is drawn as a little block, the way the inventory shows it.
 VANILLA = {
     "food": "items/beef_raw.png", "gold": "items/gold_ingot.png", "sword": "items/iron_sword.png",
     "axe": "items/iron_axe.png", "pickaxe": "items/iron_pickaxe.png", "hoe": "items/iron_hoe.png",
+    "favor": "items/nether_star.png",
 }
 MINECRAFT_JAR = os.path.expanduser("~/.gradle/caches/retro_futura_gradle/mc-vanilla/1.7.10/client.jar")
 
@@ -963,6 +1098,176 @@ ICON_ART = {
         .........kssmk..
         .........ksssSk.
         .........kkkkkk.""",
+    "chaos_temple": """
+        .......kk.......
+        ......kmmk......
+        .......kk.......
+        ......kNNk......
+        .....kNnnNk.....
+        ....kNnnnnNk....
+        ...kNnnnnnnNk...
+        ..kkkkkkkkkkkk..
+        ..knnnnnnnnnnk..
+        ..knMnnnnnnMnk..
+        ..knMnnkknnMnk..
+        ..knMnkmmknMnk..
+        ..knMnkmmknMnk..
+        ..knMnkmmknMnk..
+        .kNNNNNNNNNNNNk.
+        kkkkkkkkkkkkkkkk""",
+    "monastery": """
+        ................
+        ..........k.....
+        .........kyk....
+        ..........k.....
+        .........kwk....
+        ........kwwwk...
+        ..kkkkkkkssskk..
+        .kwwwwwwkssssk..
+        kwwwwwwwwkskssk.
+        kkkkkkkkkksksksk
+        .kssssssskssssk.
+        .ksxsxsxsksxxsk.
+        .ksxsxsxsksxxsk.
+        .ksssssssksssskk
+        .kSSSSSSSkSWWSk.
+        kkkkkkkkkkkkkkkk""",
+    "wizards_tower": """
+        .......kk.......
+        ......kbbk......
+        .....kbbbbk.....
+        ....kbbbbbbk....
+        ...kkkkkkkkkk...
+        ....kssssssk....
+        ....kssxxssk....
+        ....kssxxssk....
+        ....kssssssk....
+        ....ksSssssk....
+        ....kssssSsk....
+        ....kssxxssk....
+        ....kssxxssk....
+        ....kssssssk....
+        ...kssskkksssk..
+        ..kkkkkWWkkkkkk.""",
+    "stone_circle": """
+        ................
+        ................
+        ......kk.kk.....
+        .....ksSkSsk....
+        ..kk.ksSkSsk.kk.
+        .ksSkksSkSskksSk
+        .ksSk.kk.kk.ksSk
+        .ksSk..pPp..ksSk
+        .ksSk.pPpPp.ksSk
+        .kkkk..pPp..kkkk
+        ..kk..........kk
+        .ksSk..kk..ksSk.
+        .ksSk.ksSk.ksSk.
+        .ksSk.ksSk.ksSk.
+        jjjjjjjjjjjjjjjj
+        ................""",
+    "chaos_priest": """
+        ................
+        .....kkkkkk.....
+        ....kmmmmmmk....
+        ...kmMMMMMMmk...
+        ...kmMffffMmk...
+        ...kmMfkfkMmk...
+        ...kmMffffMmk...
+        ....kkNmmNkk....
+        ...kNNNmmNNNk...
+        ..kNNNmmmmNNNk..
+        ..kfNNNmmNNNfk..
+        ...kNNNmmNNNk...
+        ...kNNNNNNNNk...
+        ...kNNNNNNNNk...
+        ...kmmmmmmmmk...
+        ...kkkkkkkkkk...""",
+    "monk": """
+        ................
+        .....kkkkkk.....
+        ....kffffffk....
+        ....kWffffWk....
+        ....kWfkfkWk....
+        ....kWffffWk....
+        .....kffffk.....
+        ....kkddddkk....
+        ...kddddddddk...
+        ..kddddddddddk..
+        ..kftttttttdfk..
+        ...kddddddddk...
+        ...kddddddddk...
+        ...kddddddddk...
+        ...kWWWWWWWWk...
+        ...kkkkkkkkkk...""",
+    "dark_wizard": """
+        ................
+        .....kkkkkk.....
+        ....kNNNNNNk....
+        ...kNNNNNNNNk...
+        ...kNNffffNNk...
+        ...kNNfkfkNNk...
+        ...kNNffffNNk...
+        ....kkSSSSkk..k.
+        ...kNNNSSNNNkkyk
+        ..kNNNNppNNNNkWk
+        ..kfNNNppNNNfWk.
+        ...kNNNppNNNkWk.
+        ...kNNNppNNNkWk.
+        ...kNNNNNNNNkk..
+        ...kppppppppk...
+        ...kkkkkkkkkk...""",
+    "zamorak_mage": """
+        ................
+        .....kkkkkk.....
+        ....kMMMMMMk....
+        ...kMMMMMMMMk...
+        ...kMMffffMMk...
+        ...kMMfkfkMMk...
+        ...kMMffffMMk.km
+        ....kkmmmmkk.kmk
+        ...kmmmNNmmmkyk.
+        ..kmmmmyymmmmIk.
+        ..kfmmmNNmmmIfk.
+        ...kmmmNNmmkIk..
+        ...kmmmNNmmkIk..
+        ...kmmmmmmmkk...
+        ...kNNNNNNNNk...
+        ...kkkkkkkkkk...""",
+    "blue_wizard": """
+        .......kk.......
+        ......kbbk......
+        .....kbbbbk.....
+        ....kbbbbbbk....
+        ..kkkkkkkkkkkk..
+        ....kffffffk....
+        ....kfkffkfk....
+        ....kvvvvvvk..k.
+        ...kbvvvvvvbkkck
+        ..kbbbvvvvbbbkWk
+        ..kfbbbvvbbbfWk.
+        ...kbbbbbbbbkWk.
+        ...kbbbbbbbbkWk.
+        ...kbbbbbbbbkk..
+        ...kyyyyyyyyk...
+        ...kkkkkkkkkk...""",
+    "lesser_demon": """
+        ..kk........kk..
+        ..kNk......kNk..
+        ...kNkkkkkkNk...
+        ....kmmmmmmk....
+        ....kmymmymk....
+        ....kmmmmmmk....
+        ....kmvkkvmk....
+        ..kkkkmmmmkkkk..
+        .kmmmmMmmMmmmmk.
+        kmmkkmMmmMmkkmmk
+        kmk.kmmmmmmk.kmk
+        kNk.kmMmmMmk.kNk
+        ....kmmkkmmk..k.
+        ....kmmk.kmmkkmk
+        ...kNNk...kNNkk.
+        ...kkk.....kkk..""",
     "horse": """
         ................
         .........kk.....
@@ -997,6 +1302,30 @@ ICON_ART = {
         ....kNkkNk..kk..
         ....kykkyk......
         ....kkk.kkk.....""",
+}
+
+
+# Items of the mod's own, drawn as the icons are and held diagonally the way Minecraft's tools are.
+ITEMS = os.path.join(ROOT, "textures", "items")
+ITEM_ART = {
+    # Zamorak's staff: a dark shaft bound in gold, crowned by his red hook.
+    "zamorak_staff": """
+        ..........kkkk..
+        .........kmmmMk.
+        ........kmMkkmMk
+        ........kmk..kmk
+        .........kk.kmMk
+        ..........kykmk.
+        .........kyYyk..
+        ........kSnyk...
+        .......kSnk.....
+        ......kSnk......
+        .....kyYk.......
+        ....kSnk........
+        ...kSnk.........
+        ..kSnk..........
+        .kyYk...........
+        .kk.............""",
 }
 
 
@@ -1046,7 +1375,11 @@ def icon(name, jar):
         return texture(jar, VANILLA[name])
     if name == "wood":
         return block_icon(texture(jar, "blocks/log_oak_top.png"), texture(jar, "blocks/log_oak.png"))
-    rows = [row.strip() for row in ICON_ART[name].strip("\n").split("\n")]
+    return pixel_art(ICON_ART[name])
+
+
+def pixel_art(art):
+    rows = [row.strip() for row in art.strip("\n").split("\n")]
     image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
     for y, row in enumerate(rows[:16]):
         for x, char in enumerate(row[:16].ljust(16, ".")):
@@ -1075,19 +1408,26 @@ def main():
         # Knights and heroes look the same whichever team trains them; both factions get a copy.
         for kind, name in ((worker, "worker"), (warrior, "soldier"), (archer, "archer"),
                            (white_knight, "white_knight"), (black_knight, "black_knight"), (tragidee, "tragidee"),
-                           (sagittare, "sagittare"), (cavalry, "cavalry")):
+                           (sagittare, "sagittare"), (cavalry, "cavalry"), (chaos_priest, "chaos_priest"),
+                           (monk, "monk"), (dark_wizard, "dark_wizard"), (zamorak_mage, "zamorak_mage"),
+                           (blue_wizard, "blue_wizard"), (lesser_demon, "lesser_demon")):
             path = os.path.join(SKINS, "%s_%s.png" % (faction, name))
             skin(kind, faction).save(path)
             written.append(path)
     overlay().save(os.path.join(SKINS, "team_overlay.png"))
     icons(args.minecraft_jar).save(ICONS)
+    os.makedirs(ITEMS, exist_ok=True)
+    for name, art in ITEM_ART.items():
+        path = os.path.join(ITEMS, name + ".png")
+        pixel_art(art).save(path)
+        written.append(path)
     if args.preview:
         os.makedirs(args.preview, exist_ok=True)
         for path in written + [ICONS]:
             image = Image.open(path)
             image.resize((image.width * 8, image.height * 8), Image.NEAREST).save(
                 os.path.join(args.preview, os.path.basename(path)))
-    print("Wrote %d skins and %d icons" % (len(written), len(ICON_ORDER)))
+    print("Wrote %d skins and items and %d icons" % (len(written), len(ICON_ORDER)))
 
 
 if __name__ == "__main__":

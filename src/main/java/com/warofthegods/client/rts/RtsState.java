@@ -18,7 +18,7 @@ import com.google.gson.JsonObject;
  */
 public final class RtsState {
 
-    public static final String[] RESOURCES = { "food", "wood", "gold" };
+    public static final String[] RESOURCES = { "food", "wood", "gold", "favor" };
 
     public static final class UnitKindInfo {
 
@@ -63,6 +63,8 @@ public final class RtsState {
         public String faction;
         public int health;
         public int workers;
+        /** Raised by dark wizards rather than workers, as the stone circle is. */
+        public boolean wizards;
         public final List<String> trains = new ArrayList<>();
         public int levels;
         /** What going up to each level costs, by level. */
@@ -152,6 +154,10 @@ public final class RtsState {
 
         public boolean isWorker() {
             return "worker".equals(kind);
+        }
+
+        public boolean isDarkWizard() {
+            return "dark_wizard".equals(kind);
         }
 
         public boolean isArcher() {
@@ -298,6 +304,7 @@ public final class RtsState {
             typeInfo.name = string(type, "name");
             typeInfo.cost = amounts(object(type, "cost"));
             typeInfo.buildable = bool(type, "buildable");
+            typeInfo.wizards = bool(type, "wizards");
             typeInfo.faction = type.has("faction") ? string(type, "faction") : null;
             typeInfo.age = type.has("age") ? integer(type, "age") : 1;
             typeInfo.health = integer(type, "health");

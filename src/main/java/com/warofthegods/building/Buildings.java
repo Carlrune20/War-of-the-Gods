@@ -187,6 +187,7 @@ public final class Buildings {
         construct(game, world);
         train(game);
         harvest(game);
+        worship(game, world);
         research(game);
         shoot(game, world);
         gates(game, world);
@@ -677,6 +678,23 @@ public final class Buildings {
                 continue;
             }
             Team team = game.getTeam(building.team);
+            // A lesser demon is summoned only while enough dark wizards stand at the stone circle.
+            if (building.type == BuildingType.STONE_CIRCLE) {
+                if (countSummoners(game, building) < SUMMONERS) {
+                    continue;
+                }
+                GameWorld.getWorld()
+                    .func_147487_a(
+                        "portal",
+                        building.getCenterX(),
+                        building.groundY + 1.5,
+                        building.getCenterZ(),
+                        20,
+                        1.5,
+                        0.5,
+                        1.5,
+                        0.5);
+            }
             UnitKind trained = building.train(
                 INTERVAL,
                 building.getQueue()
@@ -708,6 +726,13 @@ public final class Buildings {
                     Units.get()
                         .orderMove(spawned, rally[0], rally[1]);
                 }
+                if (trained == UnitKind.LESSER_DEMON) {
+                    // Summoned in a blast of fire and smoke.
+                    WorldServer world = GameWorld.getWorld();
+                    world.func_147487_a("lava", door[0], building.groundY + 1, door[1], 30, 1, 1, 1, 0.1);
+                    world.func_147487_a("largesmoke", door[0], building.groundY + 1, door[1], 40, 1, 1.5, 1, 0.05);
+                    world.playSoundEffect(door[0], building.groundY + 1, door[1], "mob.wither.spawn", 1.0F, 1.2F);
+                }
                 WarOfTheGods.LOG.info(
                     "{} trained {}",
                     building.describe(game),
@@ -716,6 +741,81 @@ public final class Buildings {
                         .replaceAll("\u00a7.", ""));
             }
         }
+    }
+
+    // ---------------------------------------------------------------- worship
+
+    /** Blocks from a chaos temple a chaos priest prays at, and most priests one temple has room for. */
+    public static final double TEMPLE_RANGE = 8;
+    public static final int PRIESTS_PER_TEMPLE = 5;
+    /** How near a stone circle's stones dark wizards stand, or inside it, to summon, and how many it takes. */
+    public static final double CIRCLE_REACH = 3;
+    public static final int SUMMONERS = 4;
+
+    /** Favor each team has earned towards its next whole one, by team id. */
+    private final Map<String, Double> favorDue = new HashMap<>();
+
+    /**
+     * The gods grant favor: Zamorak for each chaos priest standing praying by one of its team's chaos temples, up to
+     * five a temple, and Saradomin for each monk alive.
+     */
+    private void worship(Game game, WorldServer world) {
+        Map<Integer, Integer> praying = new HashMap<>();
+        for (EntityUnit unit : Units.get()
+            .getLoaded()) {
+            double seconds;
+            if (unit.getKind() == UnitKind.MONK) {
+                seconds = Config.monkFavorSeconds;
+            } else if (unit.getKind() == UnitKind.CHAOS_PRIEST) {
+                Building temple = templeOf(game, unit);
+                if (temple == null || praying.merge(temple.id, 1, Integer::sum) > PRIESTS_PER_TEMPLE) {
+                    continue;
+                }
+                unit.pray(temple);
+                seconds = Config.priestFavorSeconds;
+            } else {
+                continue;
+            }
+            favorDue.merge(unit.getTeamId(), INTERVAL / (seconds * 20), Double::sum);
+        }
+        for (Map.Entry<String, Double> due : favorDue.entrySet()) {
+            int whole = (int) Math.floor(due.getValue());
+            if (whole > 0) {
+                Team team = game.getTeam(due.getKey());
+                if (team != null) {
+                    team.addResource(Resource.FAVOR, whole);
+                }
+                due.setValue(due.getValue() - whole);
+            }
+        }
+    }
+
+    /** The finished chaos temple of its team a priest stands idle by, or null. */
+    private static Building templeOf(Game game, EntityUnit priest) {
+        if (priest.getOrder() != EntityUnit.Order.IDLE) {
+            return null;
+        }
+        for (Building building : game.getBuildings()) {
+            if (building.type == BuildingType.CHAOS_TEMPLE && building.isComplete()
+                && building.team.equals(priest.getTeamId())
+                && building.distanceTo(priest.posX, priest.posZ) <= TEMPLE_RANGE) {
+                return building;
+            }
+        }
+        return null;
+    }
+
+    /** Dark wizards of the stone circle's team standing at it, to summon a lesser demon. */
+    public static int countSummoners(Game game, Building circle) {
+        int count = 0;
+        for (EntityUnit unit : Units.get()
+            .getLoaded()) {
+            if (unit.getKind() == UnitKind.DARK_WIZARD && unit.getTeamId()
+                .equals(circle.team) && circle.distanceTo(unit.posX, unit.posZ) <= CIRCLE_REACH) {
+                count++;
+            }
+        }
+        return count;
     }
 
     // ---------------------------------------------------------------- gathering
