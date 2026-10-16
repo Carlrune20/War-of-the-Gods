@@ -9,6 +9,7 @@ import net.minecraft.init.Blocks;
 import net.minecraft.util.IProgressUpdate;
 import net.minecraft.world.ChunkPosition;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
 import net.minecraft.world.biome.BiomeGenBase;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.IChunkProvider;
@@ -17,6 +18,7 @@ import net.minecraft.world.gen.feature.WorldGenBigTree;
 import net.minecraft.world.gen.feature.WorldGenForest;
 import net.minecraft.world.gen.feature.WorldGenTrees;
 
+import com.warofthegods.building.Ruins;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GoldMine;
@@ -167,13 +169,17 @@ public class ChunkProviderRts implements IChunkProvider {
     }
 
     /**
-     * Trees, grass and flowers on land, none by the river or at the ends of the bridges. Animals are not spawned
-     * here: each team gets the same herds near its town center once the game is under way.
+     * Old ruins now and then, then trees, grass and flowers on land, none by the river or at the ends of the bridges.
+     * Animals are not spawned here: each team gets the same herds near its town center once the game is under way.
      */
     @Override
     public void populate(IChunkProvider provider, int chunkX, int chunkZ) {
         int originX = chunkX * 16 + 8;
         int originZ = chunkZ * 16 + 8;
+        // Ruins first, so the trees keep off them.
+        if (world instanceof WorldServer) {
+            Ruins.populate((WorldServer) world, chunkX, chunkZ, seed);
+        }
         random.setSeed(chunkX * 341873128712L + chunkZ * 132897987541L + seed + 1);
 
         double forest = forestAt(originX + 8, originZ + 8);

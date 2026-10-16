@@ -183,7 +183,6 @@ public final class Buildings {
         placeTownHalls(game, world);
         features.placeBridgesIfDue(game, world);
         features.placeIfDue(game, world);
-        features.placeRuinsIfDue(game, world);
         construct(game, world);
         train(game);
         harvest(game);

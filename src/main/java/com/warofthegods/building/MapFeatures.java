@@ -177,13 +177,6 @@ public final class MapFeatures {
         return false;
     }
 
-    /** Lays out the map's ruins a few at a time, once the settlements and gold mines are laid out. */
-    void placeRuinsIfDue(Game game, WorldServer world) {
-        if (game.areFeaturesPlaced()) {
-            Ruins.placeSome(game, world);
-        }
-    }
-
     /** Settlements laid out for each team besides the one it starts on, by the size of the map. */
     static int settlementsPerTeam(Game game) {
         return Math.max(1, (int) Math.round(game.getSize() / (double) Config.settlementEvery));
@@ -316,6 +309,11 @@ public final class MapFeatures {
         }
         for (GoldMine mine : game.getMines()) {
             if (mine.overlaps(minX, minZ, sizeX, sizeZ, SPACING)) {
+                return false;
+            }
+        }
+        for (Ruin ruin : game.getRuins()) {
+            if (ruin.overlaps(minX, minZ, sizeX, sizeZ, SPACING)) {
                 return false;
             }
         }

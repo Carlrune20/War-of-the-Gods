@@ -61,7 +61,7 @@ public final class GameWorld {
     }
 
     /** The running game, or null when there is none or the overworld is not loaded yet. */
-    static Game currentGame() {
+    public static Game currentGame() {
         return DimensionManager.getWorld(0) == null ? null : GameManager.getGame();
     }
 

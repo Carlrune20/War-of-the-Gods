@@ -9,7 +9,6 @@ import net.minecraft.init.Blocks;
 import net.minecraft.world.WorldServer;
 
 import com.warofthegods.Config;
-import com.warofthegods.WarOfTheGods;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GoldMine;
@@ -21,15 +20,15 @@ import com.warofthegods.world.GameWorld;
 import com.warofthegods.world.Misthalin;
 
 /**
- * Old ruins of Misthalin lying about the map, scattered at random by the map's seed so they are come upon rather than
- * known: crumbled walls like those round Varrock, broken towers like Draynor's, chapels like Paterdomus, a fallen
- * manor, abandoned Lumbridge farmsteads and wooden huts, graveyards, wells, arches, colonnades, stretches of old wall
- * and toppled statues. Sometimes a few small ones lie together. They are built in stone gone mossy and cracked or in
- * rotten wood, low and full of gaps, so units walk through and round them, and keep away from where teams start,
- * town centers, settlements, gold mines, the river and its bridges. Some are haunted: cobwebs hang in them and
- * spiders lurk there, or zombies and skeletons walk round them (see {@code Mobs}).
+ * Old ruins of Misthalin lying about the map, laid out as the world is generated, at random by the map's seed, so they
+ * are come upon rather than known: crumbled walls like those round Varrock, broken towers like Draynor's, chapels like
+ * Paterdomus, a fallen manor, abandoned Lumbridge farmsteads and wooden huts, graveyards, wells, arches, colonnades,
+ * stretches of old wall and toppled statues. Sometimes a few small ones lie together. They are built in stone gone
+ * mossy and cracked or in rotten wood, low and full of gaps, so units walk through and round them, and keep away from
+ * where teams start, town centers, settlements, gold mines, the river and its bridges. Some are haunted: cobwebs hang
+ * in them and spiders lurk there, or zombies and skeletons walk round them (see {@code Mobs}).
  */
-final class Ruins {
+public final class Ruins {
 
     /** The kinds of ruin, with their footprints before turning, whether they are small and how common they are. */
     enum Design {
@@ -76,70 +75,44 @@ final class Ruins {
     private static final int MAX_SLOPE = 2;
     /** How high above its ground a ruin reaches, at most; the air above is cleared up to here. */
     private static final int HEIGHT = 12;
-    /** Ruin sites laid out per server pass, so a big map does not hold up the server all at once. */
-    private static final int SITES_PER_PASS = 2;
+    /** How many spots in a chunk a ruin is tried at before giving up on that chunk. */
+    private static final int TRIES = 6;
 
     private Ruins() {}
 
-    /** Ruin sites on the map, by its area: one for every {@link Config#ruinEvery} blocks square. */
-    static int sites(Game game) {
-        if (Config.ruinEvery <= 0) {
-            return 0;
-        }
-        double across = game.getSize() / (double) Config.ruinEvery;
-        return Math.max(2, (int) Math.round(across * across));
-    }
-
-    /** Lays out the next few ruin sites, once the settlements are laid out, until the map has all of them. */
-    static void placeSome(Game game, WorldServer world) {
-        int sites = sites(game);
-        for (int pass = 0; pass < SITES_PER_PASS && game.getRuinSites() < sites; pass++) {
-            int site = game.getRuinSites();
-            placeSite(game, world, site);
-            game.setRuinSites(site + 1);
-            if (site + 1 == sites) {
-                WarOfTheGods.LOG.info(
-                    "Laid out {} ruins",
-                    game.getRuins()
-                        .size());
-            }
-        }
-    }
-
     /**
-     * Lays out one ruin site somewhere on the map, picked by the seed: one ruin, or now and then a few small ones
-     * together. All the ruins of a site are haunted the same way, if at all.
+     * Lays out ruins as the world is generated, chunk by chunk, while the chunk is being filled in: one site in
+     * about every {@link Config#ruinEvery} blocks square, picked by the map's seed. A site is one ruin, or now and
+     * then a few small ones together, all haunted the same way if at all. Everything stays inside the chunk and the
+     * ones east and south of it, which are already there, so no further chunks are generated for it.
      */
-    private static void placeSite(Game game, WorldServer world, int site) {
-        Random random = new Random(game.getSeed() * 1000003L + site * 7919L + 11);
-        int edge = 12;
-        int span = Math.max(1, game.getSize() - 2 * edge);
-        int x = game.getMinX() + edge + random.nextInt(span);
-        int z = game.getMinZ() + edge + random.nextInt(span);
+    public static void populate(WorldServer world, int chunkX, int chunkZ, long seed) {
+        Game game = GameWorld.currentGame();
+        if (game == null || Config.ruinEvery <= 0 || GameWorld.layout(game) == null) {
+            return;
+        }
+        int baseX = chunkX * 16;
+        int baseZ = chunkZ * 16;
+        if (!game.isInside(baseX + 16, baseZ + 16)) {
+            return;
+        }
+        Random random = new Random(chunkX * 341873128712L + chunkZ * 132897987541L + seed + 2);
+        if (random.nextDouble() >= 256.0 / ((double) Config.ruinEvery * Config.ruinEvery)) {
+            return;
+        }
         int roll = random.nextInt(100);
         int haunt = roll < 30 ? Ruin.SPIDERS : roll < 50 ? Ruin.UNDEAD : Ruin.QUIET;
         if (random.nextInt(4) == 0) {
             int count = 2 + random.nextInt(3);
             for (int i = 0; i < count; i++) {
-                double angle = random.nextDouble() * 2 * Math.PI;
-                double reach = i == 0 ? 0 : 6 + random.nextDouble() * 9;
-                Design design = pick(random, true);
-                placeRuin(
-                    game,
-                    world,
-                    (int) Math.round(x + Math.cos(angle) * reach),
-                    (int) Math.round(z + Math.sin(angle) * reach),
-                    design,
-                    haunt,
-                    8,
-                    random);
+                placeRuin(game, world, baseX, baseZ, pick(random, true), haunt, random);
             }
         } else {
             Design design = pick(random, false);
             if (design == Design.GRAVEYARD && haunt == Ruin.QUIET && random.nextBoolean()) {
                 haunt = Ruin.UNDEAD;
             }
-            placeRuin(game, world, x, z, design, haunt, 16, random);
+            placeRuin(game, world, baseX, baseZ, design, haunt, random);
         }
     }
 
@@ -162,40 +135,28 @@ final class Ruins {
         return Design.HUT;
     }
 
-    private static void placeRuin(Game game, WorldServer world, int x, int z, Design design, int haunt, int maxDistance,
+    /** Puts a ruin somewhere in the two chunks square from baseX, baseZ that are already generated, if it fits. */
+    private static void placeRuin(Game game, WorldServer world, int baseX, int baseZ, Design design, int haunt,
         Random random) {
         int rotation = random.nextInt(4);
         int sizeX = rotation % 2 == 0 ? design.width : design.length;
         int sizeZ = rotation % 2 == 0 ? design.length : design.width;
-        int[] spot = findSpot(game, world, x, z, sizeX, sizeZ, maxDistance);
-        if (spot == null) {
-            return;
-        }
-        Buildings.clearTrees(game, world, spot[0], spot[1], sizeX, sizeZ, spot[2]);
-        Ruin ruin = game.addRuin(spot[0], spot[1], sizeX, sizeZ, spot[2], design.name, haunt);
-        build(world, ruin, design, rotation, random);
-    }
-
-    /** A spot near x, z for a ruin's footprint, as minX, minZ, groundY; null if there is none. */
-    private static int[] findSpot(Game game, WorldServer world, int x, int z, int sizeX, int sizeZ, int maxDistance) {
-        for (int ring = 0; ring <= maxDistance; ring += 4) {
-            int steps = ring == 0 ? 1 : 12;
-            for (int step = 0; step < steps; step++) {
-                double angle = 2 * Math.PI * step / steps;
-                int minX = x + (int) Math.round(Math.cos(angle) * ring) - sizeX / 2;
-                int minZ = z + (int) Math.round(Math.sin(angle) * ring) - sizeZ / 2;
-                if (!clear(game, minX, minZ, sizeX, sizeZ)) {
-                    continue;
-                }
-                Buildings.Site site = Buildings.survey(world, minX, minZ, sizeX, sizeZ);
-                if (site.water == 0 && site.slope <= MAX_SLOPE
-                    && site.groundY > ChunkProviderRts.BANK
-                    && site.groundY + HEIGHT < 255) {
-                    return new int[] { minX, minZ, site.groundY };
-                }
+        for (int tries = 0; tries < TRIES; tries++) {
+            // From the middle of this chunk to the middle of the next, a block in from either side.
+            int minX = baseX + 8 + random.nextInt(Math.max(1, 23 - sizeX));
+            int minZ = baseZ + 8 + random.nextInt(Math.max(1, 23 - sizeZ));
+            if (!clear(game, minX, minZ, sizeX, sizeZ)) {
+                continue;
+            }
+            Buildings.Site site = Buildings.survey(world, minX, minZ, sizeX, sizeZ);
+            if (site.water == 0 && site.slope <= MAX_SLOPE
+                && site.groundY > ChunkProviderRts.BANK
+                && site.groundY + HEIGHT < 255) {
+                Ruin ruin = game.addRuin(minX, minZ, sizeX, sizeZ, site.groundY, design.name, haunt);
+                build(world, ruin, design, rotation, random);
+                return;
             }
         }
-        return null;
     }
 
     /**
@@ -211,9 +172,19 @@ final class Ruins {
         }
         double centerX = minX + sizeX / 2.0;
         double centerZ = minZ + sizeZ / 2.0;
-        // Teams build out round where they start, so ruins keep further off from there.
-        if (MapFeatures.nearBase(game, centerX, centerZ, Math.max(40, game.getSize() * 0.08))) {
+        // Teams build out round where they start, so ruins keep further off from there, including where a team
+        // will start but has not yet.
+        double baseSpacing = Math.max(40, game.getSize() * 0.08);
+        if (MapFeatures.nearBase(game, centerX, centerZ, baseSpacing)) {
             return false;
+        }
+        Misthalin layout = GameWorld.layout(game);
+        for (double[] base : layout == null ? new double[0][] : layout.getBases()) {
+            double dx = base[0] - centerX;
+            double dz = base[1] - centerZ;
+            if (dx * dx + dz * dz < baseSpacing * baseSpacing) {
+                return false;
+            }
         }
         for (Building building : game.getBuildings()) {
             if (building.overlaps(minX, minZ, sizeX, sizeZ, SPACING)) {
@@ -238,7 +209,6 @@ final class Ruins {
         if (MapFeatures.bridgeNear(game, minX, minZ, sizeX, sizeZ, BRIDGE_SPACING)) {
             return false;
         }
-        Misthalin layout = GameWorld.layout(game);
         if (layout != null) {
             double reach = Misthalin.RIVER_HALF_WIDTH + 0.5 + RIVER_SPACING + Math.max(sizeX, sizeZ) / 2.0;
             if (layout.riverDistance((int) centerX, (int) centerZ) < reach) {
