@@ -14,6 +14,7 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 |---|---|
 | `/rts info` | Show the current game: map area, teams, resources, alliances. |
 | `/rts newgame [teams] [mapSize] [seed]` | (op) End the current game and start a new one on a freshly generated map, moving everyone online onto it and sharing them out over the teams. Defaults: 2 teams, 1000x1000 map, random seed. Teams are named after their color: Red, Blue, Green... |
+| `/rts lobby [close\|start]` | (op) End the current game and open the new game lobby for everyone (see below); `close` closes it without a game, `start` starts the game at once without waiting for everyone to be ready. |
 | `/rts endgame` | (op) End the current game. |
 | `/rts spawn [player]` | Go to your team's town center on the game map, or its middle on no team (sending someone else needs op). |
 | `/rts surrender` | Give up: after `/rts surrender confirm`, your team is defeated. An op can make any team give up with `/rts surrender <team>`. |
@@ -52,11 +53,32 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts explode <building id>` | (op) Set off a creeper-sized explosion beside a building, hurting no one, to see what it does to the building. |
 | `/rts finish [team]` | (op) Finish every building site at once. |
 | `/rts damage <building id> <amount>` | (op) Take health off a building; at 0 it is gone. The id is the `#` number `/rts buildings` shows. |
+| `/rts ai [team] [on\|off]` | List the teams the computer plays on, or (op) have it play on a team or stop. On a team with players it plays alongside them. |
 | `/rts web` | Get a link to the live web map. From the server console it gives an observer link. |
 | `/rts web <player>` | (op) Send a player their own web map link. |
 | `/rts web observer` | (op) Get a link that shows the map without being on a team. |
 
 A game with no enemy teams is fine: build and fight the wilderness mobs.
+
+## The new game lobby
+
+An op opens the lobby with `/rts lobby` or the **New game** button in the team menu (B). That ends the running game,
+and the lobby comes up on everyone's screen; anyone who closes it, or logs in while it is open, gets it back with B.
+It starts with the teams of the game that just ended and everyone on the team they were on.
+
+Only ops change the settings: the map (Misthalin is the only one so far), its size, its seed (blank for a random one),
+how many teams there are (1 to 8), which god each team follows, and whether the computer plays on a team. Ops click a
+player and then **Move here** to put them on a team; players join a team themselves when the server allows it
+(`allowSelfJoin`). Any change to the settings takes everyone's Ready away, so they see it before they agree.
+
+The game starts on its own once every player online has clicked **Ready**; the computer needs no click. Players still
+on no team then go on the team with the fewest players, the computer counting as one.
+
+The computer can play a team on its own or share one with players. Sharing, it plays as one more player: it spends
+the team's resources, and commands only the units it trained itself, which players cannot order about.
+
+Players who change team, in the lobby, the team menu or with `/rts team join`, come back after dying in front of
+their new team's main town center.
 
 ## The game map
 

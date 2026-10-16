@@ -182,6 +182,7 @@ public final class GuiTeams extends GuiScreen {
         int bottom = Math.min(this.height - 24, top + rows * (height + GAP) + 4);
         List<Object[]> footer = new ArrayList<>();
         if (op) {
+            footer.add(new Object[] { "New game", (Runnable) () -> send("lobby.open", new JsonObject()) });
             footer.add(new Object[] { "Fill teams", (Runnable) () -> send("teams.auto", new JsonObject()) });
             footer.add(new Object[] { "Shuffle everyone", (Runnable) () -> {
                 JsonObject body = new JsonObject();

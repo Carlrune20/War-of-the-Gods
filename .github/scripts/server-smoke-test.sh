@@ -549,6 +549,15 @@ echo "rts resources blue" >&3
 echo "rts buildings blue" >&3
 echo "rts units blue" >&3
 sleep 2
+# The lobby ends the game and starts the next with the same teams, the computer still on Blue.
+echo "rts lobby" >&3
+wait_for_log "opened the lobby for a new game" 30
+echo "rts lobby start" >&3
+wait_for_log "has started on Misthalin, 256x256, with 2 teams." 120
+wait_for_log "The computer plays on team " 30
+echo "rts ai" >&3
+sleep 2
+echo "ok: the lobby started a new game with the computer on Blue"
 stop_server
 cat "$WEB_LOG"
 if grep -qE 'This crash report has been saved|Encountered an unexpected exception' "$WEB_LOG"; then

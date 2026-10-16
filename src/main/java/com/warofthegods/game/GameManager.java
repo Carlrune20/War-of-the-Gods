@@ -2,11 +2,15 @@ package com.warofthegods.game;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.storage.WorldInfo;
 
@@ -44,10 +48,47 @@ public final class GameManager {
      * the game world, which is rebuilt from the seed.
      */
     public static Game newGame(int size, int teamCount, long seed) {
+        List<TeamSetup> teams = new ArrayList<>();
+        for (int i = 0; i < teamCount; i++) {
+            teams.add(new TeamSetup(Team.COLORS[i % Team.COLORS.length]));
+        }
+        return newGame(size, teams, seed);
+    }
+
+    /** How one team of a new game is set up: its color, its god, whether the computer plays it, and its players. */
+    public static final class TeamSetup {
+
+        public final EnumChatFormatting color;
+        public Faction faction;
+        public boolean ai;
+        /** Player UUID to name. */
+        public final Map<UUID, String> players = new LinkedHashMap<>();
+
+        public TeamSetup(EnumChatFormatting color) {
+            this.color = color;
+            this.faction = Faction.forColor(color);
+        }
+    }
+
+    /**
+     * Ends any running game and starts a new one with the given teams, each named after its color. The map is centred
+     * on 0,0 of the game world, which is rebuilt from the seed.
+     */
+    public static Game newGame(int size, List<TeamSetup> teams, long seed) {
         GameSavedData data = getData();
         Game game = new Game(data.getLastGameNumber() + 1, System.currentTimeMillis(), 0, 0, size, seed);
-        for (int i = 0; i < teamCount; i++) {
-            game.addDefaultTeam(Config.startingResources);
+        int teamCount = teams.size();
+        for (TeamSetup setup : teams) {
+            String name = Game.colorDisplayName(setup.color);
+            for (int i = 2; game.getTeam(name) != null; i++) {
+                name = Game.colorDisplayName(setup.color) + i;
+            }
+            Team team = game.addTeam(name, setup.color, Config.startingResources);
+            team.setFaction(setup.faction);
+            team.setAi(setup.ai);
+            for (Map.Entry<UUID, String> player : setup.players.entrySet()) {
+                game.setTeamOf(player.getKey(), player.getValue(), team);
+            }
         }
         game.setMapTeams(teamCount);
         data.setGame(game);
@@ -104,6 +145,9 @@ public final class GameManager {
         Team smallest = game.getSmallestTeam();
         if (smallest != null) {
             game.setTeamOf(player.getUniqueID(), player.getCommandSenderName(), smallest);
+            if (player instanceof EntityPlayerMP) {
+                GameWorld.setTeamSpawn((EntityPlayerMP) player, game);
+            }
         }
         return smallest;
     }

@@ -37,6 +37,10 @@ public final class Building {
     private int buildTicks;
     private int health;
     private final List<UnitKind> queue = new ArrayList<>();
+    /** For each unit in the queue, whether the computer queued it, and so commands it once trained. */
+    private final List<Boolean> queuedByAi = new ArrayList<>();
+    /** Whether the computer queued the unit {@link #train} last gave back. */
+    private boolean lastTrainedByAi;
     /** Ticks spent training the first unit in the queue. */
     private int trainingTicks;
     private int level = 1;
@@ -313,8 +317,19 @@ public final class Building {
     }
 
     public void enqueue(UnitKind kind) {
+        enqueue(kind, false);
+    }
+
+    /** Queues a unit; one the computer queues is the computer's to command once trained. */
+    public void enqueue(UnitKind kind, boolean byAi) {
         queue.add(kind);
+        queuedByAi.add(byAi);
         game.changed();
+    }
+
+    /** Whether the computer queued the unit {@link #train} last gave back. */
+    public boolean wasLastTrainedByAi() {
+        return lastTrainedByAi;
     }
 
     public int getTrainingTicks() {
@@ -333,6 +348,7 @@ public final class Building {
             return null;
         }
         trainingTicks = 0;
+        lastTrainedByAi = queuedByAi.remove(0);
         return queue.remove(0);
     }
 
@@ -348,12 +364,14 @@ public final class Building {
             trainingTicks = 0;
         }
         game.changed();
+        queuedByAi.remove(index);
         return queue.remove(index);
     }
 
     /** Takes the unit in training back, as when it could not be placed; it trains again from the start. */
-    public void requeueFirst(UnitKind kind) {
+    public void requeueFirst(UnitKind kind, boolean byAi) {
         queue.add(0, kind);
+        queuedByAi.add(0, byAi);
         game.changed();
     }
 
@@ -385,6 +403,11 @@ public final class Building {
             queueList.appendTag(new NBTTagString(kind.id));
         }
         tag.setTag("queue", queueList);
+        byte[] byAi = new byte[queuedByAi.size()];
+        for (int i = 0; i < byAi.length; i++) {
+            byAi[i] = (byte) (queuedByAi.get(i) ? 1 : 0);
+        }
+        tag.setByteArray("queueAi", byAi);
         tag.setInteger("trainingTicks", trainingTicks);
         tag.setInteger("level", level);
         if (research != null) {
@@ -421,10 +444,12 @@ public final class Building {
             box[5],
             tag.getBoolean("complete"));
         NBTTagList queueList = tag.getTagList("queue", 8);
+        byte[] byAi = tag.getByteArray("queueAi");
         for (int i = 0; i < queueList.tagCount(); i++) {
             UnitKind kind = UnitKind.byId(queueList.getStringTagAt(i));
             if (kind != null) {
                 building.queue.add(kind);
+                building.queuedByAi.add(i < byAi.length && byAi[i] != 0);
             }
         }
         building.trainingTicks = tag.getInteger("trainingTicks");

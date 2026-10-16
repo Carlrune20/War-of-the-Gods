@@ -481,6 +481,7 @@ public final class UnitCommands {
     /** The team's loaded units the request names, or null after replying that there are none. */
     public static List<EntityUnit> ownUnits(WebRequest request, Team team) {
         List<EntityUnit> units = new ArrayList<>();
+        boolean computers = false;
         JsonElement ids = request.body.get("units");
         if (ids != null && ids.isJsonArray()) {
             JsonArray array = ids.getAsJsonArray();
@@ -491,12 +492,17 @@ public final class UnitCommands {
                         .getUnit(id);
                 if (unit != null && unit.getTeamId()
                     .equals(team.getId())) {
-                    units.add(unit);
+                    // The computer playing alongside the team commands the units it trained itself.
+                    if (team.isAi() && unit.isAiControlled()) {
+                        computers = true;
+                    } else {
+                        units.add(unit);
+                    }
                 }
             }
         }
         if (units.isEmpty()) {
-            request.replyError("None of those units are yours");
+            request.replyError(computers ? "The computer commands those units" : "None of those units are yours");
             return null;
         }
         return units;

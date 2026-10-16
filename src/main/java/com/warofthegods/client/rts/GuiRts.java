@@ -428,7 +428,7 @@ public final class GuiRts extends GuiScreen {
         } else if (key == client.toggleKey.getKeyCode()) {
             client.leave();
         } else if (key == client.teamsKey.getKeyCode()) {
-            mc.displayGuiScreen(new GuiTeams(client));
+            mc.displayGuiScreen(client.getLobby() != null ? new GuiLobby(client) : new GuiTeams(client));
         } else if (key == Keyboard.KEY_SPACE && !client.selectedFighters()
             .isEmpty()) {
                 startAttackMove();

@@ -59,6 +59,7 @@ public class CommandRts extends CommandBase {
         "help",
         "info",
         "newgame",
+        "lobby",
         "endgame",
         "spawn",
         "surrender",
@@ -98,7 +99,7 @@ public class CommandRts extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/rts <help|info|newgame|endgame|spawn|surrender|team|ally|unally|resources|units|buildings|build|wall|gate|train|damage"
+        return "/rts <help|info|newgame|lobby|endgame|spawn|surrender|team|ally|unally|resources|units|buildings|build|wall|gate|train|damage"
             + "|upgrade|research|chop|mine|finish|ai|web>";
     }
 
@@ -129,6 +130,9 @@ public class CommandRts extends CommandBase {
                 break;
             case "newgame":
                 newGame(sender, rest);
+                break;
+            case "lobby":
+                lobby(sender, rest);
                 break;
             case "endgame":
                 endGame(sender);
@@ -212,6 +216,7 @@ public class CommandRts extends CommandBase {
         send(sender, EnumChatFormatting.GOLD + "War of the Gods commands:");
         send(sender, "/rts info - show the current game");
         send(sender, "/rts newgame [teams] [mapSize] [seed] - start a new game on a fresh map (op)");
+        send(sender, "/rts lobby [close|start] - open the new game lobby, close it, or start without waiting (op)");
         send(sender, "/rts endgame - end the current game (op)");
         send(sender, "/rts spawn [player] - go to the game map");
         send(sender, "/rts surrender - give up: your team is defeated");
@@ -356,6 +361,7 @@ public class CommandRts extends CommandBase {
         int size = args.length > 1 ? parseIntBounded(sender, args[1], 64, 100000) : Config.defaultMapSize;
         long seed = args.length > 2 ? parseSeed(args[2]) : new Random().nextLong();
 
+        Lobby.close();
         Game previous = GameManager.getGame();
         if (previous != null) {
             broadcast("Game #" + previous.getNumber() + " has ended. Building a new map...");
@@ -371,8 +377,39 @@ public class CommandRts extends CommandBase {
         GameWorld.sendAllToGame(game);
     }
 
+    /**
+     * Opens the new game lobby, ending the running game; with close, closes it without a game; with start, starts the
+     * game at once without waiting for everyone to be ready.
+     */
+    private void lobby(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        String action = args.length > 0 ? args[0].toLowerCase() : "open";
+        switch (action) {
+            case "open":
+                if (Lobby.isOpen()) {
+                    throw new CommandException("The lobby is open already");
+                }
+                Lobby.open(sender.getCommandSenderName());
+                break;
+            case "close":
+                if (!Lobby.isOpen()) {
+                    throw new CommandException("The lobby is not open");
+                }
+                Lobby.close();
+                broadcast(sender.getCommandSenderName() + " closed the lobby. No game is running.");
+                break;
+            case "start":
+                if (Lobby.startNow() == null) {
+                    throw new CommandException("The lobby is not open");
+                }
+                break;
+            default:
+                throw new WrongUsageException("/rts lobby [open|close|start]");
+        }
+    }
+
     /** Tells everyone who is on which team. */
-    private static void announceTeams(Game game) {
+    static void announceTeams(Game game) {
         for (Team team : game.getTeams()) {
             if (!team.getMembers()
                 .isEmpty()) {
@@ -389,7 +426,7 @@ public class CommandRts extends CommandBase {
     }
 
     /** A number is used as is; any other text is turned into a seed the way vanilla does for world seeds. */
-    private static long parseSeed(String text) {
+    static long parseSeed(String text) {
         try {
             return Long.parseLong(text);
         } catch (NumberFormatException e) {
@@ -517,6 +554,7 @@ public class CommandRts extends CommandBase {
                 Team team = requireTeam(game, args[1]);
                 EntityPlayerMP player = targetPlayer(sender, args, 2);
                 game.setTeamOf(player.getUniqueID(), player.getCommandSenderName(), team);
+                GameWorld.setTeamSpawn(player, game);
                 broadcast(player.getCommandSenderName() + " joined team " + team.getColoredName());
                 break;
             }
@@ -526,6 +564,7 @@ public class CommandRts extends CommandBase {
                 if (team == null) {
                     throw new CommandException("%s is not on a team", player.getCommandSenderName());
                 }
+                GameWorld.setTeamSpawn(player, game);
                 broadcast(player.getCommandSenderName() + " left team " + team.getColoredName());
                 break;
             }
@@ -1575,6 +1614,8 @@ public class CommandRts extends CommandBase {
                     return getListOfStringsFromIterableMatchingLastWord(args, teams);
                 }
                 return null;
+            case "lobby":
+                return args.length == 2 ? getListOfStringsMatchingLastWord(args, "open", "close", "start") : null;
             case "ai":
                 if (args.length == 2) {
                     return getListOfStringsFromIterableMatchingLastWord(args, teams);

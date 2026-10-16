@@ -208,6 +208,8 @@ public class EntityUnit extends EntityCreature {
     private final List<Integer> buildQueue = new ArrayList<>();
     /** The building that trained it, or 0. */
     private int trainedAt;
+    /** Whether the computer trained it, and so commands it while it plays the team. */
+    private boolean aiControlled;
     /** The player it follows, and its place behind them: blocks to their right and behind them. */
     private UUID leaderId;
     private double followAcross;
@@ -642,6 +644,15 @@ public class EntityUnit extends EntityCreature {
 
     public void setTrainedAt(int buildingId) {
         trainedAt = buildingId;
+    }
+
+    /** Whether the computer trained it, and so commands it while it plays the team. */
+    public boolean isAiControlled() {
+        return aiControlled;
+    }
+
+    public void setAiControlled(boolean aiControlled) {
+        this.aiControlled = aiControlled;
     }
 
     public UUID getTargetId() {
@@ -2104,6 +2115,7 @@ public class EntityUnit extends EntityCreature {
         // Nor is following someone, who may not be online when the server starts again.
         tag.setString("Order", defending || order == Order.FOLLOW ? Order.IDLE.name() : order.name());
         tag.setInteger("TrainedAt", trainedAt);
+        tag.setBoolean("AiControlled", aiControlled);
         tag.setDouble("GoalX", goalX);
         tag.setDouble("GoalZ", goalZ);
         tag.setBoolean("HasPost", hasPost);
@@ -2140,6 +2152,7 @@ public class EntityUnit extends EntityCreature {
             buildQueue.add(id);
         }
         trainedAt = tag.getInteger("TrainedAt");
+        aiControlled = tag.getBoolean("AiControlled");
         int[] carried = tag.getIntArray("Carrying");
         for (int i = 0; i < carrying.length; i++) {
             carrying[i] = i < carried.length ? carried[i] : 0;

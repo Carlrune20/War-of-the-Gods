@@ -10,6 +10,7 @@ import com.warofthegods.ai.AiPlayers;
 import com.warofthegods.building.BuildingCommands;
 import com.warofthegods.building.Buildings;
 import com.warofthegods.command.CommandRts;
+import com.warofthegods.command.Lobby;
 import com.warofthegods.command.TeamCommands;
 import com.warofthegods.game.PlayerEvents;
 import com.warofthegods.game.WinConditions;
@@ -113,6 +114,7 @@ public class WarOfTheGods {
             .bus()
             .register(new AiPlayers());
         TeamCommands.register();
+        Lobby.register();
         FMLCommonHandler.instance()
             .bus()
             .register(Commanders.get());
