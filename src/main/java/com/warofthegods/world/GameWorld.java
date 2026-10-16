@@ -219,7 +219,21 @@ public final class GameWorld {
         WorldServer world = getWorld();
         int[] spawn = findTeamSpawn(world, game, game.getTeamOf(player.getUniqueID()));
         teleport(player, world, spawn[0] + 0.5, spawn[1], spawn[2] + 0.5);
+        player.setSpawnChunk(new ChunkCoordinates(spawn[0], spawn[1], spawn[2]), true, dimensionId());
         persistedData(player).setInteger(PLAYER_GAME_KEY, game.getNumber());
+    }
+
+    /**
+     * Moves the player's spawn point in the game world to in front of their team's main town center, or the middle of
+     * the map on no team, so they come back there after dying. Called whenever a player changes team.
+     */
+    public static void setTeamSpawn(EntityPlayerMP player, Game game) {
+        WorldServer world = DimensionManager.getWorld(dimensionId());
+        if (world == null || game != GameManager.getGame()) {
+            return;
+        }
+        int[] spawn = findTeamSpawn(world, game, game.getTeamOf(player.getUniqueID()));
+        player.setSpawnChunk(new ChunkCoordinates(spawn[0], spawn[1], spawn[2]), true, dimensionId());
     }
 
     /** Whether the player is somewhere other than the running game's world, such as an older game's world. */

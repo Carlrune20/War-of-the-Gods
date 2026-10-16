@@ -93,6 +93,7 @@ public final class RtsClient {
     private static final int NIGHT_VISION_TICKS = 1000000;
 
     private boolean active;
+    private JsonObject lobby;
     private boolean nightVision;
     private boolean entering;
     private RtsCamera camera;
@@ -263,6 +264,9 @@ public final class RtsClient {
             case "rts.left":
                 stop();
                 break;
+            case "lobby":
+                onLobby(message);
+                break;
             case "rts.commanders":
                 commanders.clear();
                 for (JsonElement id : message.getAsJsonArray("ids")) {
@@ -270,6 +274,29 @@ public final class RtsClient {
                 }
                 break;
             default:
+        }
+    }
+
+    /** The new game lobby as the server last told it, or null while it is closed. */
+    public JsonObject getLobby() {
+        return lobby;
+    }
+
+    /** The lobby opened, changed or closed: it comes up when it opens and goes away when it closes. */
+    private void onLobby(JsonObject message) {
+        boolean open = message.has("open") && message.get("open")
+            .getAsBoolean();
+        boolean wasOpen = lobby != null;
+        lobby = open ? message : null;
+        if (open && !wasOpen && !(mc.currentScreen instanceof GuiLobby) && mc.thePlayer != null) {
+            if (active) {
+                stop();
+            }
+            mc.displayGuiScreen(new GuiLobby(this));
+        } else if (!open && mc.currentScreen instanceof GuiLobby) {
+            mc.displayGuiScreen(null);
+        } else if (mc.currentScreen instanceof GuiLobby) {
+            ((GuiLobby) mc.currentScreen).lobbyChanged();
         }
     }
 
@@ -505,7 +532,7 @@ public final class RtsClient {
     @SubscribeEvent
     public void onKeyInput(InputEvent.KeyInputEvent event) {
         if (teamsKey.isPressed() && mc.currentScreen == null && mc.thePlayer != null) {
-            mc.displayGuiScreen(new GuiTeams(this));
+            mc.displayGuiScreen(lobby != null ? new GuiLobby(this) : new GuiTeams(this));
             return;
         }
         if (toggleKey.isPressed() && mc.currentScreen == null) {
@@ -533,6 +560,7 @@ public final class RtsClient {
             pending.clear();
             commanders.clear();
             entering = false;
+            lobby = null;
             return;
         }
         if (!active) {

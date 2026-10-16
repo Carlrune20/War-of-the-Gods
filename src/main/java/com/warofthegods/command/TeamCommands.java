@@ -16,6 +16,7 @@ import com.warofthegods.game.Team;
 import com.warofthegods.web.WebCommand;
 import com.warofthegods.web.WebJson;
 import com.warofthegods.web.WebRequest;
+import com.warofthegods.world.GameWorld;
 
 /**
  * The team menu players open with B. The same rules as /rts team apply: players join and leave teams themselves when
@@ -39,7 +40,7 @@ public final class TeamCommands {
         WebCommand.register("teams.auto", TeamCommands::auto);
     }
 
-    private static EntityPlayerMP online(UUID id) {
+    static EntityPlayerMP online(UUID id) {
         if (id == null) {
             return null;
         }
@@ -54,7 +55,7 @@ public final class TeamCommands {
         return null;
     }
 
-    private static boolean isOp(WebRequest request) {
+    static boolean isOp(WebRequest request) {
         EntityPlayerMP player = online(request.viewer.getPlayer());
         return player != null && player.canCommandSenderUseCommand(2, "rts");
     }
@@ -182,6 +183,7 @@ public final class TeamCommands {
             return;
         }
         game.setTeamOf(subject[0], name, team);
+        moveSpawn(game, subject[0]);
         CommandRts.broadcast(name + " joined team " + team.getColoredName());
         request.reply(WebJson.message("ok"));
     }
@@ -197,10 +199,19 @@ public final class TeamCommands {
         }
         String name = nameOf(game, subject[0], request);
         Team team = game.removePlayer(subject[0]);
+        moveSpawn(game, subject[0]);
         if (team != null) {
             CommandRts.broadcast(name + " left team " + team.getColoredName());
         }
         request.reply(WebJson.message("ok"));
+    }
+
+    /** Players who change team come back to life at their new team's town center. */
+    private static void moveSpawn(Game game, UUID id) {
+        EntityPlayerMP player = online(id);
+        if (player != null) {
+            GameWorld.setTeamSpawn(player, game);
+        }
     }
 
     private static void auto(WebRequest request) {

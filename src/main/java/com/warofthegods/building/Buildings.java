@@ -659,10 +659,11 @@ public final class Buildings {
                 .spawn(game, team, trained, 1, door[0], door[1]);
             if (spawned.isEmpty()) {
                 // Over the limit after all, such as after an op spawned units; try again later.
-                building.requeueFirst(trained);
+                building.requeueFirst(trained, building.wasLastTrainedByAi());
             } else {
                 for (EntityUnit unit : spawned) {
                     unit.setTrainedAt(building.id);
+                    unit.setAiControlled(building.wasLastTrainedByAi());
                 }
                 double[] rally = building.getRally();
                 if (rally != null) {

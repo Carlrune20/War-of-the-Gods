@@ -6,6 +6,7 @@ import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 
 import com.warofthegods.Config;
+import com.warofthegods.command.Lobby;
 import com.warofthegods.world.GameWorld;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -15,6 +16,9 @@ public class PlayerEvents {
 
     @SubscribeEvent
     public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.player instanceof EntityPlayerMP) {
+            Lobby.onLogin((EntityPlayerMP) event.player);
+        }
         Game game = GameManager.getGame();
         if (game == null) {
             return;
@@ -36,6 +40,11 @@ public class PlayerEvents {
         if (player instanceof EntityPlayerMP && GameWorld.isOutsideGame((EntityPlayerMP) player, game)) {
             GameWorld.sendToGame((EntityPlayerMP) player, game);
         }
+    }
+
+    @SubscribeEvent
+    public void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        Lobby.onLogout(event.player.getUniqueID());
     }
 
     /** Players who die in the game world come back in front of their town center. */

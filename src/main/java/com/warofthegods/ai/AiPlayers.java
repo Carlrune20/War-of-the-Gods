@@ -31,11 +31,12 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 
 /**
- * A simple computer opponent, for testing. Every two seconds it looks over each team an op handed to it with /rts ai
- * and gives the orders a player could: it trains workers and spreads them over food, wood and gold, puts up houses,
- * farms and barracks near its town center, takes its town into the next age, trains warriors and archers, sends them
- * on an attack move at the nearest enemy every few minutes and pulls them back when its town center is attacked. It
- * pays for everything like a player and gets no bonuses.
+ * A simple computer player. Every two seconds it looks over each team an op handed to it with /rts ai or the new
+ * game lobby and gives the orders a player could. On a team with people on it, it plays alongside them as one more
+ * player, commanding only the units it trained itself and sharing the team's resources. It trains workers and spreads
+ * them over food, wood and gold, puts up houses, farms and barracks near its town center, takes its town into the next
+ * age, trains warriors and archers, sends them on an attack move at the nearest enemy every few minutes and pulls
+ * them back when its town center is attacked. It pays for everything like a player and gets no bonuses.
  */
 public final class AiPlayers {
 
@@ -106,9 +107,14 @@ public final class AiPlayers {
         }
         List<EntityUnit> workers = new ArrayList<>();
         List<EntityUnit> fighters = new ArrayList<>();
+        // Playing alongside people, it commands only the units it trained; on its own, the whole team's.
+        boolean alongsidePlayers = !team.getMembers()
+            .isEmpty();
         for (EntityUnit unit : Units.get()
             .getUnits(team)) {
-            (unit.isWorker() ? workers : fighters).add(unit);
+            if (!alongsidePlayers || unit.isAiControlled()) {
+                (unit.isWorker() ? workers : fighters).add(unit);
+            }
         }
         trainWorkers(game, team, hall, workers.size());
         boolean saving = advanceAge(game, team, hall, workers.size(), fighters.size());
@@ -127,7 +133,7 @@ public final class AiPlayers {
         int wanted = WORKERS_WANTED[game.getAge(team)];
         if (workers + queued(game, team, UnitKind.WORKER) < wanted && hall.getQueue()
             .size() < QUEUE && Buildings.room(game, team) > 0 && team.spend(UnitKind.WORKER.cost())) {
-            hall.enqueue(UnitKind.WORKER);
+            hall.enqueue(UnitKind.WORKER, true);
         }
     }
 
@@ -359,7 +365,7 @@ public final class AiPlayers {
             }
             UnitKind kind = state.archerNext ? UnitKind.ARCHER : UnitKind.SOLDIER;
             if (team.spend(kind.cost())) {
-                barracks.enqueue(kind);
+                barracks.enqueue(kind, true);
                 state.archerNext = !state.archerNext;
             }
         }
