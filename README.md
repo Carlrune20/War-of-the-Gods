@@ -67,9 +67,8 @@ and the lobby comes up on everyone's screen; anyone who closes it, or logs in wh
 It starts with the teams of the game that just ended and everyone on the team they were on.
 
 Only ops change the settings: the map (Misthalin is the only one so far), its size, its seed (blank for a random one),
-how many teams there are (1 to 8), which god each team follows, and whether the computer plays on a team. Ops click a
-player and then **Move here** to put them on a team; players join a team themselves when the server allows it
-(`allowSelfJoin`). Any change to the settings takes everyone's Ready away, so they see it before they agree.
+how many teams there are (1 to 8), which god each team follows, and whether the computer plays on a team. Teams are
+numbered, and every player picks their own with **Join**; ops can also click a player and then **Move here**. Any change to the settings takes everyone's Ready away, so they see it before they agree.
 
 The game starts on its own once every player online has clicked **Ready**; the computer needs no click. Players still
 on no team then go on the team with the fewest players, the computer counting as one.

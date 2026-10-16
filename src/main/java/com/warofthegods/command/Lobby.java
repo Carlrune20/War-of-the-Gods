@@ -32,8 +32,8 @@ import com.warofthegods.world.GameWorld;
 
 /**
  * The new game lobby. An op opens it, which ends the running game; everyone online then sees it. Ops pick the map, its
- * size and seed, how many teams there are, which god each team follows and whether the computer plays on it; ops put
- * players on teams, and players pick their own team when the server allows it. The game starts once every player
+ * size and seed, how many teams there are, which god each team follows and whether the computer plays on it. Teams
+ * are numbered, and players pick their own; ops can move anyone. The game starts once every player
  * online has clicked ready. Players still on no team then go on the team with the fewest players, the computer
  * counting as one. The lobby lives only in memory: a restart closes it.
  *
@@ -353,10 +353,6 @@ public final class Lobby {
             }
             id = other;
         }
-        if (!op && !Config.allowSelfJoin) {
-            request.replyError("Only ops can change teams on this server");
-            return;
-        }
         EntityPlayerMP player = TeamCommands.online(id);
         if (player == null) {
             request.replyError("That player is not online");
@@ -545,7 +541,6 @@ public final class Lobby {
             "lobby",
             new JsonObject());
         message.addProperty("op", TeamCommands.isOp(asViewer));
-        message.addProperty("selfJoin", Config.allowSelfJoin);
         message.addProperty(
             "me",
             viewer.getUniqueID()
