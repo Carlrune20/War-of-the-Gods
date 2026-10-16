@@ -5,6 +5,9 @@ public class CommonProxy {
 
     public void init() {}
 
+    /** All mods have loaded; Forge reloads resources right after this. */
+    public void loadComplete() {}
+
     /** A message for the in-game RTS view arrived from the server; called on a Netty thread. */
     public void receiveRts(String json) {}
 }
