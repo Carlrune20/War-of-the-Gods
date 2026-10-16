@@ -202,10 +202,14 @@ anywhere in among its leaves: a tree holds 25 wood per log, between 100 and 200,
 the workers go on to the nearest tree around. A worker carries up to 20 and then walks it to the nearest town center
 or storehouse, where it goes to the team, and walks back to work. A worker that built a farm stays to work it.
 
-Gold comes from gold mines, rocky mounds with gold ore in them that hold 2000 gold each. Select workers and right-click
-a mine: each worker there mines 4 gold every 3 seconds and carries it to the nearest town center or storehouse, and a
-bar over the mine shows how much is left. A mine that runs out is left as bare rock, and its workers go on to the
-nearest mine within 64 blocks. Training takes 5 seconds per unit, one at a time per
+Gold comes from mines, laid out like Old School RuneScape's surface mining sites: bare brown ground with rocks
+showing their ore, as an open patch of rocks (Rimmington), rocks under a ridge (Al Kharid) or a rocky mound (south-west
+of Varrock). Whatever their ores, mines yield gold, and the rarer the best ore, the more: coal mines hold 1200 gold,
+iron 1600, gold 2000, adamantite (emerald ore) 2600 and runite (diamond ore) 3200. Runite is the rarest, about one mine
+in twelve, and the extra mine each team gets is the same kind for every team and never runite. Select workers and
+right-click a mine: each worker there mines 4 gold every 3 seconds and carries it to the nearest town center or
+storehouse, and a bar over the mine shows how much is left. A mine that runs out is left as bare grey rock, and its
+workers go on to the nearest mine within 64 blocks. Training takes 5 seconds per unit, one at a time per
 building.
 
 A team's town center sets its age: taking it up a level advances the whole town from Age I to Age II, for 200 Food,
@@ -263,6 +267,26 @@ wool, which do it no harm. Explosions, such as creepers going off, break nothing
 building site; the building loses up to 120 health instead, the more the closer they go off. Below half health a
 building smokes, and below a quarter it burns, though the fire spreads nowhere. Players in creative mode break blocks as usual. At 0 health a building falls to a ruin,
 and units training there are lost.
+
+## Shops, caves and selling ores
+
+Commanders kit themselves out at shop chests, paid for from their team's resources; the whole team is told what was
+bought. Right-click the chest in your own finished town center or armory to open its shop, and click a ware to buy it.
+
+| Shop | Age | Wares |
+|---|---|---|
+| Town center | I | Cooked beef, porkchops or chicken x8 (25, 25, 20 food), bread or baked potatoes x8 (15 food), apples x8 (10 food); torches x16 (5 wood), planks x32 (15 wood), cobblestone x32 (10 gold), ladders x8 (5 wood), fences x16 (10 wood), crafting table (5 wood), furnace (5 gold); stone sword (10 wood, 5 gold), stone pickaxe, axe and shovel (10 wood each); leather armor dyed in the team's color (12, 20, 16 and 12 gold) |
+| Armory | II | Iron sword (40 gold), iron pickaxe, axe and shovel (30 gold each), iron armor (50, 80, 70 and 40 gold), bow (20 wood, 10 gold), arrows x16 (10 wood) |
+| Armory | III | Diamond sword (250 gold), diamond pickaxe, axe and shovel (200 gold each), diamond armor (250, 400, 350 and 200 gold) |
+
+The town center also buys ores for gold: coal 2, iron ore 6, iron ingots 7, gold ore 12, gold ingots 13, emeralds 30
+and diamonds 50 (ore blocks mined with silk touch count the same). Click the hopper to sell all you carry, or
+shift-click a stack in your inventory to sell just that. Nothing a shop sells can be sold back.
+
+Ores come from under the ruins. Most old wells have gone dry: climb down the ladder in one to a small cave, and towers,
+chapels, manors, farmsteads, huts, old forts and graveyards now and then have a cellar or crypt with a ladder down
+inside them. Their walls are thick with coal and iron ore, and about one in four also holds a diamond or a few, low
+down. Sell what you dig out, or smelt it and make armor yourself.
 
 ## Winning and losing
 

@@ -19,6 +19,7 @@ import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GoldMine;
+import com.warofthegods.game.MineKind;
 import com.warofthegods.game.Ruin;
 import com.warofthegods.game.Settlement;
 import com.warofthegods.game.Team;
@@ -40,7 +41,7 @@ public final class MapFeatures {
 
     private final Map<String, Schematic> schematics = new HashMap<>();
 
-    /** A neutral structure, such as settlement or gold_mine; loaded the first time. */
+    /** A neutral structure, such as settlement or bridge; loaded the first time. */
     public Schematic schematic(String name) {
         Schematic schematic = schematics.get(name);
         if (schematic == null) {
@@ -76,8 +77,11 @@ public final class MapFeatures {
         int settlements = settlementsPerTeam(game) * teams.size();
         double sector = 2 * Math.PI / n;
         scatterSettlements(game, world, camp, settlements);
-        Schematic mine = schematic("gold_mine");
+        // Settlements' mines are of any kind, by the map's seed; each team's extra mines are of the same kinds.
+        Random kinds = new Random(game.getSeed() * 13 + 5);
         for (Settlement settlement : new ArrayList<>(game.getSettlements())) {
+            MineKind kind = MineKind.byRoll(kinds.nextInt(MineKind.totalWeight()));
+            int design = kinds.nextInt(MineSites.DESIGNS);
             // Behind the settlement, away from the middle of the map.
             double dx = settlement.getCenterX() - game.getCenterX();
             double dz = settlement.getCenterZ() - game.getCenterZ();
@@ -86,10 +90,20 @@ public final class MapFeatures {
                 dx = 1;
                 length = 1;
             }
-            double out = Math.max(settlement.sizeX, settlement.sizeZ) / 2.0 + SPACING + mine.width / 2.0 + 2;
+            double out = Math.max(settlement.sizeX, settlement.sizeZ) / 2.0 + SPACING
+                + MineSites.sizeOf(design) / 2.0
+                + 2;
             int x = (int) Math.round(settlement.getCenterX() + dx / length * out);
             int z = (int) Math.round(settlement.getCenterZ() + dz / length * out);
-            addMine(game, world, x, z, 32);
+            addMine(game, world, x, z, 32, kind, design);
+        }
+        // The extra mines are never runite, so no team's start leans on one.
+        MineKind[] extraKinds = new MineKind[Config.extraGoldMines];
+        int[] extraDesigns = new int[Config.extraGoldMines];
+        for (int k = 0; k < extraKinds.length; k++) {
+            int common = MineKind.totalWeight() - MineKind.RUNITE.weight;
+            extraKinds[k] = MineKind.byRoll(kinds.nextInt(common));
+            extraDesigns[k] = kinds.nextInt(MineSites.DESIGNS);
         }
         for (int i = 0; i < teams.size(); i++) {
             double angle = -Math.PI / 2 + 2 * Math.PI * i / n;
@@ -97,7 +111,7 @@ public final class MapFeatures {
                 // Between the team and the middle, off to the side its extra settlement is not on.
                 double turn = (k % 2 == 0 ? -1 : 1) * Math.PI / 4.5 * (1 + k / 2) / Math.max(1, n / 2.0);
                 int[] spot = around(game, angle + turn, 0.2);
-                addMine(game, world, spot[0], spot[1], 48);
+                addMine(game, world, spot[0], spot[1], 48, extraKinds[k], extraDesigns[k]);
             }
         }
         for (Team team : teams) {
@@ -249,14 +263,14 @@ public final class MapFeatures {
         }
     }
 
-    private void addMine(Game game, WorldServer world, int x, int z, int search) {
-        Schematic schematic = schematic("gold_mine");
-        int[] spot = findSpot(game, world, x, z, schematic.width, schematic.length, 8, search);
+    private void addMine(Game game, WorldServer world, int x, int z, int search, MineKind kind, int design) {
+        int size = MineSites.sizeOf(design);
+        int[] spot = findSpot(game, world, x, z, size, size, 8, search);
         if (spot == null) {
             return;
         }
-        GoldMine mine = game.addMine(spot[0], spot[1], schematic.width, spot[2], Config.goldMineGold);
-        paste(world, schematic, mine.minX, mine.minZ, mine.size, mine.size, mine.groundY, 0);
+        GoldMine mine = game.addMine(spot[0], spot[1], size, spot[2], kind, design);
+        MineSites.build(world, game, mine, false);
     }
 
     /** The quarter turn that faces a spot toward the middle of the map. */
@@ -349,10 +363,10 @@ public final class MapFeatures {
             settlement.rotation);
     }
 
-    /** A mined out gold mine is left as bare rock. */
-    public void deplete(WorldServer world, GoldMine mine) {
-        paste(world, schematic("gold_mine_depleted"), mine.minX, mine.minZ, mine.size, mine.size, mine.groundY, 0);
-        WarOfTheGods.LOG.info("Gold mine #{} is mined out", mine.id);
+    /** A mined out mine is left as bare rock, its ores gone grey. */
+    public void deplete(WorldServer world, Game game, GoldMine mine) {
+        MineSites.build(world, game, mine, true);
+        WarOfTheGods.LOG.info("{} #{} is mined out", mine.getName(), mine.id);
     }
 
     private static void paste(WorldServer world, Schematic schematic, int minX, int minZ, int sizeX, int sizeZ,
@@ -361,10 +375,10 @@ public final class MapFeatures {
         WebMap.blocksChanged(world, minX - 1, minZ - 1, minX + sizeX, minZ + sizeZ);
     }
 
-    /** What map feature x, y, z is a block of, as "a gold mine", "a settlement" or "a bridge"; null for none. */
+    /** What map feature x, y, z is a block of, as "a mine", "a settlement" or "a bridge"; null for none. */
     public static String featureWithBlock(Game game, int x, int y, int z) {
         if (mineWithBlock(game, x, y, z) != null) {
-            return "a gold mine";
+            return "a mine";
         }
         if (freeSettlementWithBlock(game, x, y, z) != null) {
             return "a settlement";
@@ -413,7 +427,7 @@ public final class MapFeatures {
     /** Whether x, y, z is one of a gold mine's blocks. */
     public static GoldMine mineWithBlock(Game game, int x, int y, int z) {
         GoldMine mine = game.mineAt(x + 0.5, z + 0.5, 0);
-        return mine != null && y >= mine.groundY - 1 && y <= mine.groundY + 6 ? mine : null;
+        return mine != null && y >= mine.groundY - 1 && y <= mine.groundY + MineSites.HEIGHT ? mine : null;
     }
 
     /** Whether x, y, z is one of the blocks of a settlement nobody holds. */

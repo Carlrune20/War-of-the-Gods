@@ -1482,13 +1482,13 @@ public final class GuiRts extends GuiScreen {
             if (goldMine != null) {
                 String gold = goldMine.gold + "/" + goldMine.maxGold + " gold";
                 if (goldMine.gold <= 0) {
-                    return new Object[] { "gold", "Mined out gold mine", null };
+                    return new Object[] { "gold", "Mined out " + goldMine.name.toLowerCase(), null };
                 }
                 if (workers > 0) {
-                    return new Object[] { "pickaxe", "Mine gold · " + gold, "act" };
+                    return new Object[] { "pickaxe", "Mine gold · " + goldMine.name + " · " + gold, "act" };
                 }
                 return new Object[] { "gold",
-                    "Gold mine · " + gold + (team != null ? " · select workers to mine it" : ""), null };
+                    goldMine.name + " · " + gold + (team != null ? " · select workers to mine it" : ""), null };
             }
             double[] ground = groundUnder(px, py);
             RtsState.FeatureInfo settlement = ground == null ? null

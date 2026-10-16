@@ -45,6 +45,7 @@ import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.Upgrade;
 import com.warofthegods.game.WallLine;
+import com.warofthegods.shop.Shop;
 import com.warofthegods.unit.EntityTeamArrow;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Units;
@@ -603,7 +604,36 @@ public final class Buildings {
             return false;
         }
         paste(world, building, schematic);
+        placeShopChest(world, game, building);
         return true;
+    }
+
+    /**
+     * A finished town center or armory keeps its shop chest whatever its look: where the building has its first chest
+     * when whole, one is put back if a damaged look left none there.
+     */
+    private void placeShopChest(WorldServer world, Game game, Building building) {
+        if (!building.isComplete() || !Shop.keepsShop(building.type)) {
+            return;
+        }
+        Schematic whole = variant(factionOf(game, building), building.type.id + "_l" + building.getLevel());
+        int baseY = building.groundY - whole.ground;
+        for (int y = 0; y < whole.height; y++) {
+            for (int z = 0; z < whole.length; z++) {
+                for (int x = 0; x < whole.width; x++) {
+                    if (whole.blockId(x, y, z) != Block.getIdFromBlock(Blocks.chest)) {
+                        continue;
+                    }
+                    int[] at = whole.turned(x, z, building.rotation);
+                    int wx = building.minX + at[0];
+                    int wz = building.minZ + at[1];
+                    if (world.getBlock(wx, baseY + y, wz) != Blocks.chest) {
+                        world.setBlock(wx, baseY + y, wz, Blocks.chest, whole.turnedMeta(x, y, z, building.rotation), 2);
+                    }
+                    return;
+                }
+            }
+        }
     }
 
     private static void paste(WorldServer world, Building building, Schematic schematic) {
