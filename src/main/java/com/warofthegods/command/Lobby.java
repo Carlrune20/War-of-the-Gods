@@ -162,7 +162,10 @@ public final class Lobby {
     /** Shows a player who logs in the lobby, if it is open. */
     public static void onLogin(EntityPlayerMP player) {
         if (current != null) {
-            RtsNetwork.sendTo(player, current.toJson(player).toString());
+            RtsNetwork.sendTo(
+                player,
+                current.toJson(player)
+                    .toString());
             sendAll();
         }
     }
@@ -277,8 +280,12 @@ public final class Lobby {
             lobby.seed = seed.length() > 32 ? seed.substring(0, 32) : seed;
         }
         if (body.has("teams")) {
-            int teams = Math.max(1, Math.min(MAX_TEAMS, body.get("teams")
-                .getAsInt()));
+            int teams = Math.max(
+                1,
+                Math.min(
+                    MAX_TEAMS,
+                    body.get("teams")
+                        .getAsInt()));
             while (lobby.slots.size() < teams) {
                 lobby.addSlot();
             }
@@ -473,10 +480,8 @@ public final class Lobby {
         CommandRts.announceTeams(game);
         for (Team team : game.getTeams()) {
             if (team.isAi()) {
-                CommandRts.broadcast(
-                    "The computer plays on team " + team.getColoredName()
-                        + EnumChatFormatting.GOLD
-                        + ".");
+                CommandRts
+                    .broadcast("The computer plays on team " + team.getColoredName() + EnumChatFormatting.GOLD + ".");
             }
         }
         GameWorld.sendAllToGame(game);
@@ -516,7 +521,10 @@ public final class Lobby {
             return;
         }
         for (EntityPlayerMP player : online()) {
-            RtsNetwork.sendTo(player, current.toJson(player).toString());
+            RtsNetwork.sendTo(
+                player,
+                current.toJson(player)
+                    .toString());
         }
     }
 
@@ -538,8 +546,10 @@ public final class Lobby {
             new JsonObject());
         message.addProperty("op", TeamCommands.isOp(asViewer));
         message.addProperty("selfJoin", Config.allowSelfJoin);
-        message.addProperty("me", viewer.getUniqueID()
-            .toString());
+        message.addProperty(
+            "me",
+            viewer.getUniqueID()
+                .toString());
         message.addProperty("map", map);
         message.addProperty("mapName", mapName(map));
         JsonArray maps = new JsonArray();

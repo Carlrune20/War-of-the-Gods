@@ -137,8 +137,10 @@ public final class GuiLobby extends GuiScreen {
             addButton(at[0], y, 100, "Map: " + text(lobby, "mapName"), () -> {
                 int index = 0;
                 for (int i = 0; i < maps.size(); i++) {
-                    if (text(maps.get(i)
-                        .getAsJsonObject(), "id").equals(map)) {
+                    if (text(
+                        maps.get(i)
+                            .getAsJsonObject(),
+                        "id").equals(map)) {
                         index = i;
                     }
                 }
@@ -421,8 +423,7 @@ public final class GuiLobby extends GuiScreen {
             fontRendererObj.drawStringWithShadow("Map: " + text(lobby, "mapName"), at[0], y, 0xFFFFFF);
             fontRendererObj.drawStringWithShadow("Size: " + size + "x" + size, at[1], y, 0xFFFFFF);
             fontRendererObj.drawStringWithShadow("Teams: " + teamCount, at[2], y, 0xFFFFFF);
-            fontRendererObj
-                .drawStringWithShadow("Seed: " + (seed.isEmpty() ? "random" : seed), at[3], y, 0xFFFFFF);
+            fontRendererObj.drawStringWithShadow("Seed: " + (seed.isEmpty() ? "random" : seed), at[3], y, 0xFFFFFF);
         }
 
         JsonArray teams = lobby.getAsJsonArray("teams");
@@ -510,11 +511,8 @@ public final class GuiLobby extends GuiScreen {
             seedField.drawTextBox();
             if (!seedField.isFocused() && seedField.getText()
                 .isEmpty()) {
-                fontRendererObj.drawStringWithShadow(
-                    "random",
-                    seedField.xPosition + 4,
-                    seedField.yPosition + 5,
-                    0x707070);
+                fontRendererObj
+                    .drawStringWithShadow("random", seedField.xPosition + 4, seedField.yPosition + 5, 0x707070);
             }
         }
     }

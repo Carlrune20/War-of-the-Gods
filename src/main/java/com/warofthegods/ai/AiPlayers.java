@@ -33,10 +33,10 @@ import cpw.mods.fml.common.gameevent.TickEvent;
 /**
  * A simple computer player. Every two seconds it looks over each team an op handed to it with /rts ai or the new
  * game lobby and gives the orders a player could. On a team with people on it, it plays alongside them as one more
- * player, commanding only the units it trained itself and sharing the team's resources. It trains workers and spreads them over food, wood and gold,
- * puts up houses, farms and barracks near its town center, takes its town into the next age, trains warriors and archers, sends them
- * on an attack move at the nearest enemy every few minutes and pulls them back when its town center is attacked. It
- * pays for everything like a player and gets no bonuses.
+ * player, commanding only the units it trained itself and sharing the team's resources. It trains workers and spreads
+ * them over food, wood and gold, puts up houses, farms and barracks near its town center, takes its town into the next
+ * age, trains warriors and archers, sends them on an attack move at the nearest enemy every few minutes and pulls
+ * them back when its town center is attacked. It pays for everything like a player and gets no bonuses.
  */
 public final class AiPlayers {
 
