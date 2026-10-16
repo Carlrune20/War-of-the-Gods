@@ -24,6 +24,11 @@ public class ClientProxy extends CommonProxy {
     }
 
     @Override
+    public void loadComplete() {
+        SoundStartup.awaitFirstStart();
+    }
+
+    @Override
     public void receiveRts(String json) {
         RtsClient client = RtsClient.get();
         if (client != null) {
