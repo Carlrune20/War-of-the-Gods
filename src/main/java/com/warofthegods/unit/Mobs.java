@@ -47,11 +47,11 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 
 /**
- * Hostile mobs on the game map. Only zombies and skeletons, and only the ones spawned here: now and then, day or
- * night, a small group turns up in the wilderness, most often among trees, never near a town center or on a
- * building. Haunted ruins keep their own: spiders lurk in the ones hung with cobwebs, and zombies and skeletons walk
- * round others. They do not burn in daylight, notice enemies only from close by and chase them further once they have,
- * go after units as readily as after players, and often wear armor; some skeletons carry swords.
+ * Hostile mobs on the game map. Only zombies and skeletons, and only the ones spawned here: now and then, day or night,
+ * a small group turns up in the wilderness, most often among trees, never near a town center or on a building. Haunted
+ * ruins keep their own: spiders lurk in the ones hung with cobwebs, and zombies and skeletons walk round others, until
+ * someone builds nearby. They do not burn in daylight, notice enemies only from close by and chase them further once
+ * they have, go after units as readily as after players, and often wear armor; some skeletons carry swords.
  */
 public final class Mobs {
 
@@ -208,11 +208,14 @@ public final class Mobs {
     /** A ruin's mobs turn up only while a player or unit is this near, and none nearer than {@link #RUIN_HIDDEN}. */
     private static final int RUIN_NEAR = 96;
     private static final int RUIN_HIDDEN = 14;
+    /** A building this near a ruin lays it to rest: its mobs go and no more come. */
+    private static final int RUIN_SETTLED = 32;
 
     /**
      * Keeps the haunted ruins haunted: spiders in the ones with cobwebs, zombies and skeletons round the others,
      * topped up one at a time while someone is about but not in sight of the spot. They keep round their ruin; one
-     * that strays off with nothing to chase vanishes, and another comes in time.
+     * that strays off with nothing to chase vanishes, and another comes in time. Once anyone builds near a ruin, its
+     * mobs leave as soon as they have nothing to chase, and no more come.
      */
     private void haunt(Game game, WorldServer world, List<EntityLiving> haunting) {
         Map<Integer, Integer> counts = new HashMap<>();
@@ -227,7 +230,8 @@ public final class Mobs {
                 chasing |= ((EntityCreature) mob).getEntityToAttack() != null;
             }
             double reach = RUIN_REACH + Math.max(ruin.sizeX, ruin.sizeZ);
-            if (!chasing && mob.getDistanceSq(ruin.getCenterX(), mob.posY, ruin.getCenterZ()) > reach * reach) {
+            boolean strayed = mob.getDistanceSq(ruin.getCenterX(), mob.posY, ruin.getCenterZ()) > reach * reach;
+            if (!chasing && (strayed || settled(game, ruin))) {
                 mob.setDead();
                 continue;
             }
@@ -240,7 +244,7 @@ public final class Mobs {
             anchors.add((Entity) player);
         }
         for (Ruin ruin : game.getRuins()) {
-            if (ruin.haunt == Ruin.QUIET) {
+            if (ruin.haunt == Ruin.QUIET || settled(game, ruin)) {
                 continue;
             }
             int most = ruin.haunt == Ruin.SPIDERS ? RUIN_SPIDERS : RUIN_UNDEAD;
@@ -263,6 +267,20 @@ public final class Mobs {
                 spawnAtRuin(world, ruin);
             }
         }
+    }
+
+    /**
+     * Whether someone has built near a ruin: a building or building site of any team within {@link #RUIN_SETTLED}
+     * blocks of it. Nothing haunts it any more then, so a town can grow up beside old ruins.
+     */
+    private static boolean settled(Game game, Ruin ruin) {
+        double margin = RUIN_SETTLED + Math.max(ruin.sizeX, ruin.sizeZ) / 2.0;
+        for (Building building : game.getBuildings()) {
+            if (building.covers(ruin.getCenterX(), ruin.getCenterZ(), margin)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The ruin a mob haunts, or null if it is gone. */

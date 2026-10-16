@@ -4,8 +4,9 @@ import net.minecraft.nbt.NBTTagCompound;
 
 /**
  * Old ruins that lie about the map and belong to no team: crumbled walls, broken towers, chapels and manors fallen
- * in, abandoned huts and farmsteads, graveyards and the like. Units walk through and around them, but nothing can be
- * built on them. Some are haunted: spiders lurk among cobwebs in them, or the dead walk round them.
+ * in, abandoned huts and farmsteads, graveyards and the like. Units walk through and around them, and players can
+ * break them down and build over them. Some are haunted: spiders lurk among cobwebs in them, or the dead walk round
+ * them, until a building goes up nearby.
  */
 public final class Ruin {
 

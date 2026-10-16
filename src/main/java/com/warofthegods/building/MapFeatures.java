@@ -361,10 +361,7 @@ public final class MapFeatures {
         WebMap.blocksChanged(world, minX - 1, minZ - 1, minX + sizeX, minZ + sizeZ);
     }
 
-    /**
-     * What map feature x, y, z is a block of, as "a gold mine", "a settlement", "a bridge" or "old ruins"; null for
-     * none.
-     */
+    /** What map feature x, y, z is a block of, as "a gold mine", "a settlement" or "a bridge"; null for none. */
     public static String featureWithBlock(Game game, int x, int y, int z) {
         if (mineWithBlock(game, x, y, z) != null) {
             return "a gold mine";
@@ -374,19 +371,6 @@ public final class MapFeatures {
         }
         if (bridgeWithBlock(game, x, y, z) != null) {
             return "a bridge";
-        }
-        if (ruinWithBlock(game, x, y, z) != null) {
-            return "old ruins";
-        }
-        return null;
-    }
-
-    /** Whether x, y, z is one of the blocks of old ruins. */
-    public static Ruin ruinWithBlock(Game game, int x, int y, int z) {
-        for (Ruin ruin : game.getRuins()) {
-            if (ruin.overlaps(x, z, 1, 1, 0) && y >= ruin.groundY && y <= ruin.groundY + 12) {
-                return ruin;
-            }
         }
         return null;
     }

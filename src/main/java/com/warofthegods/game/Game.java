@@ -459,6 +459,9 @@ public class Game {
             rotation,
             complete);
         buildings.put(building.id, building);
+        // Old ruins built over are ruins no more: nothing haunts them, and what is left of them is only rubble.
+        ruins.values()
+            .removeIf(ruin -> ruin.overlaps(minX, minZ, sizeX, sizeZ, 0));
         changed();
         return building;
     }

@@ -26,7 +26,8 @@ import com.warofthegods.world.Misthalin;
  * stretches of old wall and toppled statues. Sometimes a few small ones lie together. They are built in stone gone
  * mossy and cracked or in rotten wood, low and full of gaps, so units walk through and round them, and keep away from
  * where teams start, town centers, settlements, gold mines, the river and its bridges. Some are haunted: cobwebs hang
- * in them and spiders lurk there, or zombies and skeletons walk round them (see {@code Mobs}).
+ * in them and spiders lurk there, or zombies and skeletons walk round them (see {@code Mobs}) until someone builds
+ * nearby. Players can break them down and build over them.
  */
 public final class Ruins {
 
