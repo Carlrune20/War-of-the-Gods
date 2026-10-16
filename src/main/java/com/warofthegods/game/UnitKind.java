@@ -21,7 +21,14 @@ public enum UnitKind {
     /** A ranger hero, the boss of Daemonheim; one at a time, trained at the Black Knights' fortress. */
     SAGITTARE("sagittare", "Sagittare", "sagittare", 6, 0, 6, 14, 4, true, true),
     /** A justiciar hero fighting up close; one at a time, trained at the White Knights' fortress. */
-    TRAGIDEE("tragidee", "Sir Tragidee", "tragidee", 8, 6, 0, 0, 4, false, true);
+    TRAGIDEE("tragidee", "Sir Tragidee", "tragidee", 8, 6, 0, 0, 4, false, true),
+    /**
+     * A rider on horseback with a sword, faster than a warrior and stronger; trained at the stables. Hard to hit with
+     * arrows on the move, but warriors' blows land harder on it.
+     */
+    CAVALRY("cavalry", "Cavalryman", "cavalry", 2, 2, 0, 0, 2, false, false),
+    /** Not a unit but a tame, saddled horse for a player to ride; trained at the stables. */
+    HORSE("horse", "Horse", "horse", 1, 0, 0, 0, 1, false, false);
 
     public final String id;
     public final String displayName;
@@ -68,9 +75,22 @@ public enum UnitKind {
         return cost;
     }
 
-    /** Whether it fights; workers do not. */
+    /** Whether it fights; workers do not, nor horses. */
     public boolean fights() {
-        return this != WORKER;
+        return this != WORKER && this != HORSE;
+    }
+
+    /** Whether it rides a horse: faster, with a horse drawn under it, and hit differently by arrows and blows. */
+    public boolean isMounted() {
+        return this == CAVALRY;
+    }
+
+    /**
+     * Whether training it brings out a tame horse for players to ride rather than a unit: it takes no room and is
+     * not commanded.
+     */
+    public boolean isAnimal() {
+        return this == HORSE;
     }
 
     /**
@@ -79,6 +99,11 @@ public enum UnitKind {
      */
     public boolean showsArmor() {
         return this == SOLDIER || this == ARCHER;
+    }
+
+    /** How several are named, such as archers; a hero by his own name, as a team has only one. */
+    public String plural() {
+        return hero ? displayName : this == CAVALRY ? id : id + "s";
     }
 
     /** Ticks training one takes. */

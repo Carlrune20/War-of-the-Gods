@@ -13,6 +13,8 @@
   "building/saradomin/gate",
   "building/saradomin/white_knights_fortress",
   "building/saradomin/black_knights_fortress",
+  "building/saradomin/archery_range",
+  "building/saradomin/stables",
   "building/zamorak/town_hall",
   "building/zamorak/house",
   "building/zamorak/farm",
@@ -24,6 +26,8 @@
   "building/zamorak/gate",
   "building/zamorak/white_knights_fortress",
   "building/zamorak/black_knights_fortress",
+  "building/zamorak/archery_range",
+  "building/zamorak/stables",
   "face/saradomin/worker",
   "face/saradomin/soldier",
   "face/saradomin/archer",
@@ -31,6 +35,7 @@
   "face/saradomin/black_knight",
   "face/saradomin/tragidee",
   "face/saradomin/sagittare",
+  "face/saradomin/cavalry",
   "face/zamorak/worker",
   "face/zamorak/soldier",
   "face/zamorak/archer",
@@ -38,6 +43,7 @@
   "face/zamorak/black_knight",
   "face/zamorak/tragidee",
   "face/zamorak/sagittare",
+  "face/zamorak/cavalry",
   "upgrade/forged_blades",
   "upgrade/tempered_steel",
   "upgrade/fletching",
@@ -59,6 +65,8 @@
   "upgrade/citadel_walls",
   "level",
   "gate",
-  "torches"
+  "torches",
+  "face/saradomin/horse",
+  "face/zamorak/horse"
  ]
 }

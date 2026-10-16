@@ -28,6 +28,8 @@ public final class RtsState {
         public boolean fights;
         /** Whether it is a hero, who goes by his own name and of whom a team has one at a time. */
         public boolean hero;
+        /** Whether training it brings out a horse for players to ride, which takes no room, rather than a unit. */
+        public boolean animal;
     }
 
     public static final class LevelInfo {
@@ -285,6 +287,7 @@ public final class RtsState {
             kindInfo.cost = amounts(object(kind, "cost"));
             kindInfo.fights = bool(kind, "fights");
             kindInfo.hero = bool(kind, "hero");
+            kindInfo.animal = bool(kind, "animal");
             info.unitKinds.put(kindInfo.id, kindInfo);
         }
         for (Map.Entry<String, JsonElement> entry : object(json, "buildingTypes").entrySet()) {

@@ -656,8 +656,10 @@ public class Game {
         int count = 0;
         for (Building building : buildings.values()) {
             if (building.team.equals(team.getId())) {
-                count += building.getQueue()
-                    .size();
+                for (UnitKind queued : building.getQueue()) {
+                    // Horses are not units and take no room.
+                    count += queued.isAnimal() ? 0 : 1;
+                }
             }
         }
         return count;

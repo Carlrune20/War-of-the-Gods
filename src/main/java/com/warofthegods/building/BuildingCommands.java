@@ -406,7 +406,8 @@ public final class BuildingCommands {
             request.replyError("Its queue is full");
             return;
         }
-        int room = Buildings.room(game, team);
+        // Horses are not units, and need no room.
+        int room = kind.isAnimal() ? count : Buildings.room(game, team);
         if (room <= 0) {
             request.replyError(
                 game.getPopulationCap(team) < Config.unitsPerTeam ? "Build more houses to train more units"

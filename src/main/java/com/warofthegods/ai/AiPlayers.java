@@ -127,7 +127,6 @@ public final class AiPlayers {
 
         int lastWave = -WAVE_TICKS;
         int waves;
-        boolean archerNext;
         /** Whether no spot near the town center fits a knights' fortress, so it stops waiting to build one. */
         boolean noFortressSpot;
         /** The foot of a tree it found far from home, round which it chops; null when it knows of none. */
@@ -318,8 +317,14 @@ public final class AiPlayers {
         if (count(game, team, BuildingType.FARM, false) * BuildingType.FARM.maxWorkers() < foodWorkers) {
             return BuildingType.FARM;
         }
+        if (count(game, team, BuildingType.ARCHERY_RANGE, false) == 0) {
+            return BuildingType.ARCHERY_RANGE;
+        }
         if (count(game, team, BuildingType.ARMORY, false) == 0) {
             return BuildingType.ARMORY;
+        }
+        if (count(game, team, BuildingType.STABLES, false) == 0) {
+            return BuildingType.STABLES;
         }
         if (age >= 3 && !state.noFortressSpot && count(game, team, fortressOf(team), false) == 0) {
             return fortressOf(team);
@@ -895,8 +900,8 @@ public final class AiPlayers {
     // ---------------------------------------------------------------- army
 
     /**
-     * Trains warriors and archers in turn at its barracks, and at a knights' fortress its hero when it has none, and
-     * knights otherwise.
+     * Trains warriors at its barracks, archers at its archery range and cavalry at its stables, and at a knights'
+     * fortress its hero when it has none, and knights otherwise.
      */
     private static void trainFighters(Game game, Team team, State state, int fighters) {
         int planned = fighters;
@@ -911,11 +916,12 @@ public final class AiPlayers {
                 .size() >= QUEUE || Buildings.room(game, team) <= 0) {
                 continue;
             }
-            if (building.type == BuildingType.BARRACKS) {
-                UnitKind kind = state.archerNext ? UnitKind.ARCHER : UnitKind.SOLDIER;
-                if (team.spend(kind.cost())) {
-                    building.enqueue(kind, true);
-                    state.archerNext = !state.archerNext;
+            UnitKind trains = building.type == BuildingType.BARRACKS ? UnitKind.SOLDIER
+                : building.type == BuildingType.ARCHERY_RANGE ? UnitKind.ARCHER
+                    : building.type == BuildingType.STABLES ? UnitKind.CAVALRY : null;
+            if (trains != null) {
+                if (team.spend(trains.cost())) {
+                    building.enqueue(trains, true);
                 }
             } else if (building.type.isFortress()) {
                 // The hero first, whenever it has none.

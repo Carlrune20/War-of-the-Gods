@@ -217,6 +217,9 @@ public final class WebMap {
             if (kind.hero) {
                 kindJson.addProperty("hero", true);
             }
+            if (kind.isAnimal()) {
+                kindJson.addProperty("animal", true);
+            }
             unitKinds.add(kind.id, kindJson);
         }
         json.add("unitKinds", unitKinds);

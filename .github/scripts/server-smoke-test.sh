@@ -213,8 +213,8 @@ red1_after=$(grep -oE 'Red warrior 1 at -?[0-9]+,-?[0-9]+,-?[0-9]+' "$WEB_LOG" |
 echo "ok: $red1_before, then $red1_after"
 
 # Buildings: a worker walks to a farm site, builds it, and stays to work it, carrying the harvest to the town
-# center. A worker trained at the town center builds a barracks, which trains a warrior and an archer, and a
-# storehouse, which is then damaged until it is gone.
+# center. A worker trained at the town center builds a barracks, which trains a warrior, and a storehouse, which is
+# then damaged until it is gone. Archers come from the archery range, tested with the AI below; one joins here.
 echo "rts units spawn blue 1 worker" >&3
 wait_for_log "Spawned 1 units for Blue" 30
 echo "rts build blue farm" >&3
@@ -244,8 +244,8 @@ echo "ok: $(grep -oE 'Blue barracks #12 at .*% built by 1 workers' "$WEB_LOG" | 
 wait_for_log "Built Blue barracks #12" 120
 echo "rts train blue warrior 1" >&3
 wait_for_log "trained Blue warrior 5" 60
-echo "rts train blue archer 1" >&3
-wait_for_log "trained Blue archer 6" 60
+echo "rts units spawn blue 1 archer" >&3
+wait_for_log "Spawned 1 units for Blue" 30
 # The farm worker carries what it gathers to the town center once its hands are full.
 food=0
 for _ in $(seq 45); do
@@ -545,6 +545,24 @@ echo "rts train red sagittare" >&3
 wait_for_log "Team Red already has Sagittare" 30
 wait_for_log "trained Sagittare" 90
 echo "ok: the fortress trained a Black Knight and Sagittare, one hero at a time"
+# The archery range trains archers, the stables cavalry and a horse for players to ride, which takes no room.
+echo "rts build red archery_range" >&3
+wait_for_log "Laid out Red archery range #" 30
+echo "rts build red stables" >&3
+wait_for_log "Laid out Red stables #" 30
+echo "rts finish red" >&3
+wait_for_log "Built Red archery range #" 60
+wait_for_log "Built Red stables #" 60
+echo "ok: Red raised an archery range and stables"
+echo "rts train red archer 1" >&3
+wait_for_log "trained Red archer " 60
+echo "rts train red cavalry 1" >&3
+wait_for_log "trained Red cavalryman " 60
+echo "rts train red horse 1" >&3
+wait_for_log "trained a horse" 60
+echo "rts units spawn red 1 horse" >&3
+wait_for_log "A horse is no unit; train one at the stables" 30
+echo "ok: the archery range trained an archer, the stables a cavalryman and a horse"
 echo "rts resources blue" >&3
 echo "rts buildings blue" >&3
 echo "rts units blue" >&3
