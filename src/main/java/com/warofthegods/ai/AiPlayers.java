@@ -15,12 +15,14 @@ import com.warofthegods.WarOfTheGods;
 import com.warofthegods.building.Buildings;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
+import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
+import com.warofthegods.game.Upgrade;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Hunting;
 import com.warofthegods.unit.Trees;
@@ -36,7 +38,10 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  * player, commanding only the units it trained itself and sharing the team's resources. It trains workers and spreads
  * them over food, wood and gold, puts up houses, farms and barracks near its town center, takes its town into the next
  * age, trains warriors and archers, sends them on an attack move at the nearest enemy every few minutes and pulls
- * them back when its town center is attacked. It pays for everything like a player and gets no bonuses.
+ * them back when its town center is attacked. It also puts up a storehouse and an armory and researches their
+ * upgrades, builds its god's knights' fortress in Age III and trains knights and the hero there, sends workers to
+ * repair damaged buildings once no enemy is at them, and spends what it has to spare on more barracks, towers and
+ * houses. It pays for everything like a player and gets no bonuses.
  */
 public final class AiPlayers {
 
@@ -65,6 +70,30 @@ public final class AiPlayers {
     private static final int MAX_FIGHTERS = 40;
     /** Most units it keeps waiting in a building's training queue. */
     private static final int QUEUE = 2;
+    /** Workers it puts up a storehouse with in Age I. */
+    private static final int STOREHOUSE_WORKERS = 8;
+    /** Fighters it has before it saves up for a knights' fortress rather than train more. */
+    private static final int FORTRESS_FIGHTERS = 8;
+    /** Of each resource a building or upgrade costs, how much more it keeps in hand after paying for it. */
+    private static final long RESEARCH_MARGIN = 50;
+    /** How much it has to have left over after paying for a building it does not need, to count it as to spare. */
+    private static final long SPARE_MARGIN = 250;
+    /** Most of each building it builds in all once it has resources to spare. */
+    private static final int MAX_EXTRA_BARRACKS = 3;
+    private static final int MAX_TOWERS = 6;
+    private static final int MAX_FORTRESSES = 2;
+    /** Workers it sends to repair a building, and most repairing at once. */
+    private static final int REPAIRERS = 2;
+    private static final int MAX_REPAIRERS = 6;
+    /** Enemies this close to a damaged building keep its workers away until they are gone. */
+    private static final double REPAIR_DANGER_RANGE = 16;
+    /** Workers it lays a knights' fortress out with; other buildings get two. */
+    private static final int FORTRESS_BUILDERS = 3;
+    /** The upgrades it researches, in the order it wants them; wall upgrades are left out, as it builds no walls. */
+    private static final Upgrade[] RESEARCH_ORDER = { Upgrade.BASKETS, Upgrade.SHARP_AXES, Upgrade.PLOUGHS,
+        Upgrade.PICKAXES, Upgrade.FORGED_BLADES, Upgrade.PADDED_ARMOR, Upgrade.FLETCHING, Upgrade.WATCH_TOWER,
+        Upgrade.MASONRY, Upgrade.PLATE_ARMOR, Upgrade.FIRE_ARROWS, Upgrade.FORTIFIED_WALLS, Upgrade.DIAMOND_HOES,
+        Upgrade.DIAMOND_AXES, Upgrade.DIAMOND_PICKAXES, Upgrade.TEMPERED_STEEL, Upgrade.GUARD_TOWER };
 
     /** What the computer remembers about a team between looks; lost on a restart, which does no harm. */
     private static final class State {
@@ -72,6 +101,8 @@ public final class AiPlayers {
         int lastWave = -WAVE_TICKS;
         int waves;
         boolean archerNext;
+        /** Whether no spot near the town center fits a knights' fortress, so it stops waiting to build one. */
+        boolean noFortressSpot;
     }
 
     private final Map<String, State> states = new HashMap<>();
@@ -118,10 +149,17 @@ public final class AiPlayers {
         }
         trainWorkers(game, team, hall, workers.size());
         boolean saving = advanceAge(game, team, hall, workers.size(), fighters.size());
-        build(game, world, team, workers, saving);
+        // In Age III, with a few fighters to hold the town, it saves up for its knights' fortress before more of them.
+        boolean savingForFortress = !saving && !state.noFortressSpot
+            && game.getAge(team) >= 3
+            && count(game, team, fortressOf(team), false) == 0
+            && fighters.size() >= FORTRESS_FIGHTERS;
+        build(game, world, team, state, workers, saving, fighters.size());
         staffSites(game, team, workers);
+        repair(game, world, team, workers);
         gather(game, world, team, hall, workers);
-        if (!saving) {
+        if (!saving && !savingForFortress) {
+            research(game, team);
             trainFighters(game, team, state, fighters.size());
         }
         fight(game, world, team, hall, fighters, state);
@@ -159,47 +197,196 @@ public final class AiPlayers {
         return false;
     }
 
-    /** Lays out one building at a time near the town center: a house when it runs short of room, then the rest. */
-    private static void build(Game game, WorldServer world, Team team, List<EntityUnit> workers, boolean saving) {
+    /**
+     * Lays out one building at a time near the town center: a house when it runs short of room, then what it needs
+     * for its age, then, with resources to spare, more barracks, towers, houses and fortresses.
+     */
+    private static void build(Game game, WorldServer world, Team team, State state, List<EntityUnit> workers,
+        boolean saving, int fighters) {
         for (Building building : game.getBuildings(team)) {
             if (!building.isComplete() && !building.type.isWall()) {
                 return;
             }
         }
-        BuildingType type = null;
-        if (Buildings.room(game, team) <= 3 && game.getPopulationCap(team) < Config.unitsPerTeam) {
-            type = BuildingType.HOUSE;
-        } else if (!saving && game.getAge(team) >= 2) {
-            int foodWorkers = (int) Math.round(WORKERS_WANTED[game.getAge(team)] * SHARE_LATER[0]);
-            if (count(game, team, BuildingType.BARRACKS, false) == 0) {
-                type = BuildingType.BARRACKS;
-            } else if (count(game, team, BuildingType.FARM, false) * BuildingType.FARM.maxWorkers() < foodWorkers) {
-                type = BuildingType.FARM;
-            } else if (game.getAge(team) >= 3 && count(game, team, BuildingType.BARRACKS, false) < 2) {
-                type = BuildingType.BARRACKS;
+        BuildingType type = neededBuilding(game, team, state, workers.size(), saving);
+        if (type != null) {
+            if (!team.canAfford(type.cost())) {
+                return;
             }
+        } else if (!saving) {
+            type = spareBuilding(game, team, state, fighters);
         }
-        if (type == null || !team.canAfford(type.cost())) {
+        if (type == null) {
             return;
         }
         Buildings.Plan plan = Buildings.get()
             .findSpot(game, world, team, type);
+        if (plan == null && type.isFortress()) {
+            state.noFortressSpot = true;
+            WarOfTheGods.LOG.info("AI {} found no spot for {}", team.getName(), type.displayName);
+        }
         if (plan == null || !team.spend(type.cost())) {
             return;
         }
         Building site = Buildings.get()
             .startSite(game, team, plan);
-        List<EntityUnit> builders = spareWorkers(workers, 2);
+        List<EntityUnit> builders = spareWorkers(workers, type.isFortress() ? FORTRESS_BUILDERS : 2);
         Units.get()
             .orderBuild(builders, site);
         WarOfTheGods.LOG
             .info("AI {} laid out {} with {} workers", team.getName(), site.describe(game), builders.size());
     }
 
+    /** The building it needs next, which it waits to afford; or null when it needs none now. */
+    private static BuildingType neededBuilding(Game game, Team team, State state, int workers, boolean saving) {
+        int age = game.getAge(team);
+        if (Buildings.room(game, team) <= 3 && game.getPopulationCap(team) < Config.unitsPerTeam) {
+            return BuildingType.HOUSE;
+        }
+        if (saving) {
+            return null;
+        }
+        if (count(game, team, BuildingType.STOREHOUSE, false) == 0 && (workers >= STOREHOUSE_WORKERS || age >= 2)) {
+            return BuildingType.STOREHOUSE;
+        }
+        if (age < 2) {
+            return null;
+        }
+        int foodWorkers = (int) Math.round(WORKERS_WANTED[age] * SHARE_LATER[0]);
+        if (count(game, team, BuildingType.BARRACKS, false) == 0) {
+            return BuildingType.BARRACKS;
+        }
+        if (count(game, team, BuildingType.FARM, false) * BuildingType.FARM.maxWorkers() < foodWorkers) {
+            return BuildingType.FARM;
+        }
+        if (count(game, team, BuildingType.ARMORY, false) == 0) {
+            return BuildingType.ARMORY;
+        }
+        if (age >= 3 && !state.noFortressSpot && count(game, team, fortressOf(team), false) == 0) {
+            return fortressOf(team);
+        }
+        if (age >= 3 && count(game, team, BuildingType.BARRACKS, false) < 2) {
+            return BuildingType.BARRACKS;
+        }
+        return null;
+    }
+
+    /** A building it does not need but has the resources to spare for, or null. */
+    private static BuildingType spareBuilding(Game game, Team team, State state, int fighters) {
+        int age = game.getAge(team);
+        List<BuildingType> wanted = new ArrayList<>();
+        if (age >= 3 && !state.noFortressSpot && count(game, team, fortressOf(team), false) < MAX_FORTRESSES) {
+            wanted.add(fortressOf(team));
+        }
+        if (age >= 2 && count(game, team, BuildingType.BARRACKS, false) < MAX_EXTRA_BARRACKS) {
+            wanted.add(BuildingType.BARRACKS);
+        }
+        if (age >= 2 && count(game, team, BuildingType.TOWER, false) < MAX_TOWERS) {
+            wanted.add(BuildingType.TOWER);
+        }
+        // Room for the army it means to train.
+        if (Buildings.room(game, team) <= 8 && fighters < MAX_FIGHTERS
+            && game.getPopulationCap(team) < Config.unitsPerTeam) {
+            wanted.add(BuildingType.HOUSE);
+        }
+        for (BuildingType type : wanted) {
+            if (affords(team, type.cost(), SPARE_MARGIN)) {
+                return type;
+            }
+        }
+        return null;
+    }
+
+    /** The knights' fortress of the team's god. */
+    private static BuildingType fortressOf(Team team) {
+        return team.getFaction() == Faction.ZAMORAK ? BuildingType.BLACK_KNIGHTS_FORTRESS
+            : BuildingType.WHITE_KNIGHTS_FORTRESS;
+    }
+
+    /** Whether the team can pay the cost and keep the margin of each resource it costs. */
+    private static boolean affords(Team team, Map<Resource, Long> cost, long margin) {
+        for (Map.Entry<Resource, Long> entry : cost.entrySet()) {
+            if (team.getResource(entry.getKey()) < entry.getValue() + margin) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Starts researching the first upgrade it wants that one of its buildings can research now and it can pay for. */
+    private static void research(Game game, Team team) {
+        for (Upgrade upgrade : RESEARCH_ORDER) {
+            if (team.has(upgrade) || game.getAge(team) < upgrade.level) {
+                continue;
+            }
+            for (Building building : game.getBuildings(team)) {
+                if (building.type != upgrade.at || Buildings.researchProblem(game, building, upgrade) != null) {
+                    continue;
+                }
+                if (!affords(team, upgrade.cost(), RESEARCH_MARGIN) || !team.spend(upgrade.cost())) {
+                    // It waits for this one rather than spend on those after it.
+                    return;
+                }
+                building.startResearch(upgrade.id);
+                WarOfTheGods.LOG.info("AI {} is researching {}", team.getName(), upgrade.displayName.toLowerCase());
+                return;
+            }
+        }
+    }
+
+    /**
+     * Sends workers to repair its damaged buildings that no enemy is at, most damaged first, a few workers at a time.
+     */
+    private static void repair(Game game, WorldServer world, Team team, List<EntityUnit> workers) {
+        int repairing = 0;
+        List<Building> damaged = new ArrayList<>();
+        for (Building building : game.getBuildings(team)) {
+            if (building.isDamaged()) {
+                damaged.add(building);
+                repairing += assigned(workers, building);
+            }
+        }
+        damaged.sort(
+            (a, b) -> Double
+                .compare(a.getHealth() / (double) a.getMaxHealth(), b.getHealth() / (double) b.getMaxHealth()));
+        for (Building building : damaged) {
+            int wanted = REPAIRERS - assigned(workers, building);
+            if (wanted <= 0 || repairing >= MAX_REPAIRERS
+                || Units.get()
+                    .findEnemyNear(
+                        world,
+                        team,
+                        building.getCenterX(),
+                        building.groundY + 1,
+                        building.getCenterZ(),
+                        REPAIR_DANGER_RANGE)
+                    != null) {
+                continue;
+            }
+            List<EntityUnit> repairers = spareWorkers(workers, Math.min(wanted, MAX_REPAIRERS - repairing));
+            int sent = Units.get()
+                .orderBuild(repairers, building);
+            repairing += sent;
+            if (sent > 0) {
+                WarOfTheGods.LOG
+                    .info("AI {} sent {} workers to repair {}", team.getName(), sent, building.describe(game));
+            }
+        }
+    }
+
+    /** Its workers sent to build or repair the building, whether there yet or on the way. */
+    private static int assigned(List<EntityUnit> workers, Building building) {
+        int count = 0;
+        for (EntityUnit worker : workers) {
+            count += worker.getOrder() == EntityUnit.Order.BUILD && worker.getBuildingId() == building.id ? 1 : 0;
+        }
+        return count;
+    }
+
     /** Sends a worker to every building site nobody is building. */
     private static void staffSites(Game game, Team team, List<EntityUnit> workers) {
         for (Building site : game.getBuildings(team)) {
-            if (!site.isComplete() && Buildings.countBuilders(site) == 0) {
+            if (!site.isComplete() && Buildings.countBuilders(site) == 0 && assigned(workers, site) == 0) {
                 Units.get()
                     .orderBuild(spareWorkers(workers, 1), site);
             }
@@ -352,21 +539,40 @@ public final class AiPlayers {
 
     // ---------------------------------------------------------------- army
 
+    /**
+     * Trains warriors and archers in turn at its barracks, and at a knights' fortress its hero when it has none, and
+     * knights otherwise.
+     */
     private static void trainFighters(Game game, Team team, State state, int fighters) {
-        if (fighters + queued(game, team, UnitKind.SOLDIER) + queued(game, team, UnitKind.ARCHER) >= MAX_FIGHTERS) {
+        int planned = fighters;
+        for (UnitKind kind : UnitKind.values()) {
+            planned += kind.fights() ? queued(game, team, kind) : 0;
+        }
+        if (planned >= MAX_FIGHTERS) {
             return;
         }
-        for (Building barracks : game.getBuildings(team)) {
-            if (barracks.type != BuildingType.BARRACKS || !barracks.isComplete()
-                || barracks.getQueue()
-                    .size() >= QUEUE
-                || Buildings.room(game, team) <= 0) {
+        for (Building building : game.getBuildings(team)) {
+            if (!building.isComplete() || building.getQueue()
+                .size() >= QUEUE || Buildings.room(game, team) <= 0) {
                 continue;
             }
-            UnitKind kind = state.archerNext ? UnitKind.ARCHER : UnitKind.SOLDIER;
-            if (team.spend(kind.cost())) {
-                barracks.enqueue(kind, true);
-                state.archerNext = !state.archerNext;
+            if (building.type == BuildingType.BARRACKS) {
+                UnitKind kind = state.archerNext ? UnitKind.ARCHER : UnitKind.SOLDIER;
+                if (team.spend(kind.cost())) {
+                    building.enqueue(kind, true);
+                    state.archerNext = !state.archerNext;
+                }
+            } else if (building.type.isFortress()) {
+                // The hero first, whenever it has none.
+                List<UnitKind> kinds = new ArrayList<>(building.type.trains);
+                kinds.sort((a, b) -> Boolean.compare(b.hero, a.hero));
+                for (UnitKind kind : kinds) {
+                    if (game.heroRoom(team, kind) > 0 && team.spend(kind.cost())) {
+                        building.enqueue(kind, true);
+                        WarOfTheGods.LOG.info("AI {} is training {}", team.getName(), kind.displayName);
+                        break;
+                    }
+                }
             }
         }
     }
