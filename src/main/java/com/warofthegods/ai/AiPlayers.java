@@ -683,8 +683,7 @@ public final class AiPlayers {
      * a look from what has the most workers over its share to what has the most too few, so the share comes right
      * again once what ran short, such as trees, is found.
      */
-    private void gather(Game game, WorldServer world, Team team, Building hall, List<EntityUnit> workers,
-        State state) {
+    private void gather(Game game, WorldServer world, Team team, Building hall, List<EntityUnit> workers, State state) {
         int[] on = new int[Resource.values().length];
         List<EntityUnit> idle = new ArrayList<>();
         for (EntityUnit worker : workers) {
@@ -758,8 +757,8 @@ public final class AiPlayers {
         }
     }
 
-    private boolean sendTo(Game game, WorldServer world, Team team, Building hall, EntityUnit worker,
-        Resource resource, State state) {
+    private boolean sendTo(Game game, WorldServer world, Team team, Building hall, EntityUnit worker, Resource resource,
+        State state) {
         List<EntityUnit> one = new ArrayList<>();
         one.add(worker);
         double x = hall.getCenterX();

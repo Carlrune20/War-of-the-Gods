@@ -238,8 +238,8 @@ public final class Trees {
                 }
             } else if (!isLeaves(block) && block.getMaterial()
                 .isSolid()) {
-                return null;
-            }
+                    return null;
+                }
         }
         return null;
     }
