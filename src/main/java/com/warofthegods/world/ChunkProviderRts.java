@@ -9,6 +9,7 @@ import net.minecraft.init.Blocks;
 import net.minecraft.util.IProgressUpdate;
 import net.minecraft.world.ChunkPosition;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
 import net.minecraft.world.biome.BiomeGenBase;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.IChunkProvider;
@@ -16,6 +17,14 @@ import net.minecraft.world.gen.feature.WorldGenAbstractTree;
 import net.minecraft.world.gen.feature.WorldGenBigTree;
 import net.minecraft.world.gen.feature.WorldGenForest;
 import net.minecraft.world.gen.feature.WorldGenTrees;
+
+import com.warofthegods.building.Ruins;
+import com.warofthegods.game.Building;
+import com.warofthegods.game.Game;
+import com.warofthegods.game.GoldMine;
+import com.warofthegods.game.Ruin;
+import com.warofthegods.game.Settlement;
+import com.warofthegods.game.Team;
 
 /**
  * The terrain of a Misthalin map: rolling grassland with low hills and forests, and a river right across it with
@@ -160,13 +169,17 @@ public class ChunkProviderRts implements IChunkProvider {
     }
 
     /**
-     * Trees, grass and flowers on land, none by the river or at the ends of the bridges. Animals are not spawned
-     * here: each team gets the same herds near its town center once the game is under way.
+     * Old ruins now and then, then trees, grass and flowers on land, none by the river or at the ends of the bridges.
+     * Animals are not spawned here: each team gets the same herds near its town center once the game is under way.
      */
     @Override
     public void populate(IChunkProvider provider, int chunkX, int chunkZ) {
         int originX = chunkX * 16 + 8;
         int originZ = chunkZ * 16 + 8;
+        // Ruins first, so the trees keep off them.
+        if (world instanceof WorldServer) {
+            Ruins.populate((WorldServer) world, chunkX, chunkZ, seed);
+        }
         random.setSeed(chunkX * 341873128712L + chunkZ * 132897987541L + seed + 1);
 
         double forest = forestAt(originX + 8, originZ + 8);
@@ -179,7 +192,8 @@ public class ChunkProviderRts implements IChunkProvider {
                 && layout.riverDistance(x, z) > Misthalin.RIVER_HALF_WIDTH + 4
                 && layout.bridgeApproach(x, z) >= 1
                 && !isCutOff(x + 3, z + 3)
-                && !isCutOff(x - 3, z - 3)) {
+                && !isCutOff(x - 3, z - 3)
+                && !keptClear(x, z)) {
                 treeGenerator().generate(world, random, x, y, z);
             }
         }
@@ -200,6 +214,56 @@ public class ChunkProviderRts implements IChunkProvider {
             }
         }
 
+    }
+
+    /** How far round where a team starts no tree grows, so its town center is not buried in a forest. */
+    private static final int BASE_CLEARING = 24;
+    /** How far round a town center, building, settlement, gold mine or ruin no tree grows. */
+    private static final int FEATURE_CLEARING = 7;
+
+    /**
+     * Whether no tree may grow at x, z: near where a team starts, or near what already stands on the map. Chunks
+     * further off are often filled in only after a town center goes up, and their trees would grow into it.
+     */
+    private boolean keptClear(int x, int z) {
+        for (double[] base : layout.getBases()) {
+            double dx = base[0] - x;
+            double dz = base[1] - z;
+            if (dx * dx + dz * dz < BASE_CLEARING * BASE_CLEARING) {
+                return true;
+            }
+        }
+        Game game = GameWorld.currentGame();
+        if (game == null) {
+            return false;
+        }
+        for (Team team : game.getTeams()) {
+            int[] base = team.getBase();
+            if (base != null && Math.abs(base[0] - x) < BASE_CLEARING && Math.abs(base[1] - z) < BASE_CLEARING) {
+                return true;
+            }
+        }
+        for (Building building : game.getBuildings()) {
+            if (building.covers(x + 0.5, z + 0.5, FEATURE_CLEARING)) {
+                return true;
+            }
+        }
+        for (Settlement settlement : game.getSettlements()) {
+            if (settlement.overlaps(x, z, 1, 1, FEATURE_CLEARING)) {
+                return true;
+            }
+        }
+        for (GoldMine mine : game.getMines()) {
+            if (mine.overlaps(x, z, 1, 1, FEATURE_CLEARING)) {
+                return true;
+            }
+        }
+        for (Ruin ruin : game.getRuins()) {
+            if (ruin.overlaps(x, z, 1, 1, FEATURE_CLEARING)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private WorldGenAbstractTree treeGenerator() {

@@ -3,6 +3,7 @@ package com.warofthegods.world;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 
 /**
  * The layout of a Misthalin map: grassland and forest with a river running right across it, crossed by three stone
@@ -32,6 +33,7 @@ public final class Misthalin {
     private final double wavelength;
     private final TerrainNoise noise;
     private final List<Bridge> bridges = new ArrayList<>();
+    private final double[][] bases;
 
     /** A bridge: its footprint and the quarter turn its schematic is pasted with. */
     public static final class Bridge {
@@ -60,7 +62,7 @@ public final class Misthalin {
         this.noise = new TerrainNoise(seed * 13 + 5);
         int size = Math.max(area.getMaxX() - area.getMinX(), area.getMaxZ() - area.getMinZ()) + 1;
         // The line along x or z, near the middle, that passes furthest from every team's base.
-        double[][] bases = basesOf(area, size, teams);
+        this.bases = basesOf(area, size, seed, teams);
         boolean bestAlongX = true;
         int bestLine = area.getCenterZ();
         double bestDistance = -1;
@@ -101,16 +103,30 @@ public final class Misthalin {
         }
     }
 
-    /** Where the teams' bases go, as x, z; the same circle {@code Units.assignBase} puts them on. */
-    private static double[][] basesOf(MapArea area, int size, int teams) {
+    /** Where the teams' bases go, as x, z; the same spots {@code Units.assignBase} puts them on. */
+    private static double[][] basesOf(MapArea area, int size, long seed, int teams) {
         int n = Math.max(2, teams);
         double[][] bases = new double[Math.max(1, teams)][];
         for (int i = 0; i < bases.length; i++) {
-            double angle = -Math.PI / 2 + 2 * Math.PI * i / n;
-            bases[i] = new double[] { area.getCenterX() + Math.cos(angle) * size * 0.3,
-                area.getCenterZ() + Math.sin(angle) * size * 0.3 };
+            bases[i] = baseSpot(area.getCenterX(), area.getCenterZ(), size, seed, i, n);
         }
         return bases;
+    }
+
+    /**
+     * Where the base of team i of n goes, as x, z: round a circle about the middle of the map, the teams spread
+     * evenly round it, but each pushed a little round and in or out by the seed, so no two maps start the same.
+     */
+    public static double[] baseSpot(int centerX, int centerZ, int size, long seed, int i, int n) {
+        Random random = new Random(seed * 6364136223846793005L + i * 1442695040888963407L + 17);
+        double angle = -Math.PI / 2 + 2 * Math.PI * i / n + (random.nextDouble() * 2 - 1) * 0.3 * Math.PI / n;
+        double radius = size * (0.25 + random.nextDouble() * 0.1);
+        return new double[] { centerX + Math.cos(angle) * radius, centerZ + Math.sin(angle) * radius };
+    }
+
+    /** Where the teams' bases go, as x, z. */
+    public double[][] getBases() {
+        return bases.clone();
     }
 
     public List<Bridge> getBridges() {

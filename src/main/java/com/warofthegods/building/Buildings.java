@@ -39,6 +39,7 @@ import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.Resource;
+import com.warofthegods.game.Ruin;
 import com.warofthegods.game.Settlement;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
@@ -282,6 +283,9 @@ public final class Buildings {
                 }
                 for (GoldMine mine : game.getMines()) {
                     taken |= mine.overlaps(x, z, 1, 1, 0);
+                }
+                for (Ruin ruin : game.getRuins()) {
+                    taken |= ruin.overlaps(x, z, 1, 1, 0);
                 }
                 if (taken) {
                     continue;

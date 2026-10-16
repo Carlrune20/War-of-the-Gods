@@ -111,6 +111,8 @@ public class Config {
     public static int startingLivestock = 6;
     /** Blocks of map width for each wild herd laid out for each team: a 1000 block map has 8 for each team. */
     public static int herdEvery = 125;
+    /** One ruin site for every so many blocks square of map: a 1000 block map has about 250; 0 for none. */
+    public static int ruinEvery = 64;
     /** Most a worker carries before taking it to the town center or a storehouse. */
     public static int carryCapacity = 20;
     /** Health a building loses to one hit of a warrior. */
@@ -171,7 +173,7 @@ public class Config {
     public static boolean rtsEdgeScroll = true;
 
     /** Bumped when defaults change in a way that should replace what older config files hold. */
-    private static final int CONFIG_VERSION = 6;
+    private static final int CONFIG_VERSION = 7;
 
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
@@ -221,6 +223,10 @@ public class Config {
             // Warriors cost gold instead of wood.
             forget(configuration, "units", "costWood");
             forget(configuration, "units", "costGold");
+        }
+        if (oldVersion < 7) {
+            // Ruins became several times as common.
+            forget(configuration, "buildings", "ruinEvery");
         }
         version.set(CONFIG_VERSION);
 
@@ -502,6 +508,16 @@ public class Config {
             100000,
             "Blocks of map width for each wild herd of chickens, pigs, cows or sheep laid out for each team on a new"
                 + " map, spread over its side of the map.");
+        ruinEvery = configuration.getInt(
+            "ruinEvery",
+            buildings,
+            ruinEvery,
+            0,
+            100000,
+            "One site of old ruins (crumbled walls, broken towers, chapels, huts, graveyards and more, sometimes a few"
+                + " small ones together) for every so many blocks square of a new map, scattered at random away from"
+                + " where teams start, settlements and the river: 64 gives a 1000 block map about 250. Some are haunted"
+                + " by spiders or the undead. 0 for none.");
         carryCapacity = configuration.getInt(
             "carryCapacity",
             buildings,

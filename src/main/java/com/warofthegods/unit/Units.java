@@ -37,6 +37,7 @@ import com.warofthegods.game.UnitRecord;
 import com.warofthegods.rts.Commanders;
 import com.warofthegods.rts.EntityCommanderBody;
 import com.warofthegods.world.GameWorld;
+import com.warofthegods.world.Misthalin;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
@@ -239,7 +240,7 @@ public final class Units {
     // ---------------------------------------------------------------- bases
 
     /**
-     * Gives teams without a base one, spread evenly on a circle around the middle of the map, on dry land. One team
+     * Gives teams without a base one, roughly opposite each other round the middle of the map, on dry land. One team
      * per scan, since finding dry land may load chunks. The team's town hall goes up there.
      */
     private static void assignBases(Game game, WorldServer world) {
@@ -258,10 +259,10 @@ public final class Units {
         if (i < 0 || team.getBase() != null) {
             return;
         }
-        double angle = -Math.PI / 2 + 2 * Math.PI * i / Math.max(2, teams.size());
-        double radius = game.getSize() * 0.3;
-        int x = (int) Math.round(game.getCenterX() + Math.cos(angle) * radius);
-        int z = (int) Math.round(game.getCenterZ() + Math.sin(angle) * radius);
+        int n = Math.max(2, teams.size());
+        double[] spot = Misthalin.baseSpot(game.getCenterX(), game.getCenterZ(), game.getSize(), game.getSeed(), i, n);
+        int x = (int) Math.round(spot[0]);
+        int z = (int) Math.round(spot[1]);
         int[] ground = GameWorld.findDryGround(world, x, z, 64);
         team.setBase(ground[0], ground[2]);
     }

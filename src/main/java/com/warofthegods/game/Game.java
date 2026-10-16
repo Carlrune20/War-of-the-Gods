@@ -43,6 +43,8 @@ public class Game {
     private final Map<Integer, Settlement> settlements = new LinkedHashMap<>();
     /** Gold mines on the map, by id. */
     private final Map<Integer, GoldMine> mines = new LinkedHashMap<>();
+    /** Old ruins on the map, by id. */
+    private final Map<Integer, Ruin> ruins = new LinkedHashMap<>();
     private int lastFeatureId;
     /** Whether the neutral settlements and the gold mines have been laid out on the map. */
     private boolean featuresPlaced;
@@ -457,6 +459,9 @@ public class Game {
             rotation,
             complete);
         buildings.put(building.id, building);
+        // Old ruins built over are ruins no more: nothing haunts them, and what is left of them is only rubble.
+        ruins.values()
+            .removeIf(ruin -> ruin.overlaps(minX, minZ, sizeX, sizeZ, 0));
         changed();
         return building;
     }
@@ -477,6 +482,18 @@ public class Game {
         settlements.put(settlement.id, settlement);
         changed();
         return settlement;
+    }
+
+    public Collection<Ruin> getRuins() {
+        return Collections.unmodifiableCollection(ruins.values());
+    }
+
+    public Ruin addRuin(int minX, int minZ, int sizeX, int sizeZ, int groundY, String design, int haunt) {
+        lastFeatureId++;
+        Ruin ruin = new Ruin(lastFeatureId, minX, minZ, sizeX, sizeZ, groundY, design, haunt);
+        ruins.put(ruin.id, ruin);
+        changed();
+        return ruin;
     }
 
     /** The settlement the building stands on, or null. */
@@ -694,6 +711,11 @@ public class Game {
             mineList.appendTag(mine.writeToNBT());
         }
         tag.setTag("mines", mineList);
+        NBTTagList ruinList = new NBTTagList();
+        for (Ruin ruin : ruins.values()) {
+            ruinList.appendTag(ruin.writeToNBT());
+        }
+        tag.setTag("ruins", ruinList);
         tag.setInteger("lastFeatureId", lastFeatureId);
         tag.setBoolean("featuresPlaced", featuresPlaced);
         tag.setInteger("mapTeams", mapTeams);
@@ -764,6 +786,13 @@ public class Game {
             GoldMine mine = GoldMine.readFromNBT(mineList.getCompoundTagAt(i));
             if (mine != null) {
                 game.mines.put(mine.id, mine);
+            }
+        }
+        NBTTagList ruinList = tag.getTagList("ruins", 10);
+        for (int i = 0; i < ruinList.tagCount(); i++) {
+            Ruin ruin = Ruin.readFromNBT(ruinList.getCompoundTagAt(i));
+            if (ruin != null) {
+                game.ruins.put(ruin.id, ruin);
             }
         }
         game.lastFeatureId = tag.getInteger("lastFeatureId");
