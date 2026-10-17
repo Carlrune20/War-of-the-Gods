@@ -266,25 +266,17 @@ def archer(faction):
 
 
 def cavalry(faction):
-    """A rider: a warrior's plate and tabard, with a plume on the helm in the god's color and riding boots."""
+    """A rider: dressed as a warrior, in tall riding boots."""
     parts = warrior(faction)
-    plume = (44, 72, 164) if faction == "saradomin" else (150, 26, 24)
     boots, cuff = ((92, 62, 38), (122, 88, 56)) if faction == "saradomin" else ((36, 28, 26), (70, 52, 44))
-    helm, legs = parts["hat"], parts["leg"]
-
-    def hat(face, x, y, w, h):
-        if face == "top" and x in (3, 4):
-            return plume
-        if face in ("front", "back") and y == 0 and x in (3, 4):
-            return plume
-        return helm(face, x, y, w, h)
+    legs = parts["leg"]
 
     def leg(face, x, y, w, h):
         if face != "top" and y >= 6:
             return cuff if y == 6 else boots
         return legs(face, x, y, w, h)
 
-    parts.update(hat=hat, leg=leg)
+    parts.update(leg=leg)
     return parts
 
 
