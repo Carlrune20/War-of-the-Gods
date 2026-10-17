@@ -373,8 +373,7 @@ public final class AiPlayers {
                     .replaceAll("\u00a7.", ""));
         }
         EntityUnit scout = state.scout;
-        boolean there = state.scoutGoal == null
-            || distance(scout, state.scoutGoal[0], state.scoutGoal[1]) <= SCOUTED
+        boolean there = state.scoutGoal == null || distance(scout, state.scoutGoal[0], state.scoutGoal[1]) <= SCOUTED
             || explored(state, state.scoutGoal[0], state.scoutGoal[1]);
         if (!there && scout.getOrder() != EntityUnit.Order.IDLE) {
             return;
@@ -451,7 +450,8 @@ public final class AiPlayers {
             demons += fighter.getKind() == UnitKind.LESSER_DEMON ? 1 : 0;
         }
         if (circle.isComplete() && circle.getQueue()
-            .isEmpty() && demons < MAX_DEMONS
+            .isEmpty()
+            && demons < MAX_DEMONS
             && state.summoners.size() >= Buildings.SUMMONERS
             && Buildings.room(game, team) > 0
             && affordsDemon(team)
