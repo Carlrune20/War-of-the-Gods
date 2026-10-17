@@ -54,7 +54,8 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  * It plays by the fog of war: it attacks only enemy buildings its units or buildings have come near, and while it
  * knows of none it sends scouts, cavalry first, to where the enemy teams' bases are, which every player knows from the
  * team list, and on from one unexplored part of the map to the next until they find the enemy. Its
- * Sir Tradigee keeps up the protection prayer against what most of the enemies around him fight with. Playing
+ * Sir Tradigee puts up the protection prayer against what most of the enemies around him fight with, and from then
+ * on switches only to the one against what he is hit with. Playing
  * Zamorak, it raises a stone circle once it has dark wizards, keeps four of them standing at it and summons lesser
  * demons there when it has the favor; playing Saradomin, its monks earn favor and its wizards' tower trains blue
  * wizards. Once it has walls it researches stone and then citadel walls. It pays for everything like a player and gets
@@ -538,12 +539,14 @@ public final class AiPlayers {
     }
 
     /**
-     * Has its Sir Tradigee keep up the protection prayer against what most of the enemies near him fight with:
-     * magic against wizards, missiles against archers and towers, melee against the rest.
+     * Has its Sir Tradigee put up a protection prayer when he has none, against what most of the enemies near him
+     * fight with: magic against wizards, missiles against archers and towers, melee against the rest. Once one is up
+     * he keeps it until he is hit with another style (see EntityUnit's computerPrays), so a spell's burning or a
+     * crowd of swordsmen nearby does not take him off magic.
      */
     private static void pray(Game game, WorldServer world, Team team, List<EntityUnit> fighters) {
         for (EntityUnit hero : fighters) {
-            if (hero.getKind() != UnitKind.TRADIGEE) {
+            if (hero.getKind() != UnitKind.TRADIGEE || hero.getPrayer() != Prayer.NONE) {
                 continue;
             }
             int melee = 0;
