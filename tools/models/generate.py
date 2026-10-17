@@ -576,18 +576,23 @@ def silverlight():
 
 MODELS_BUILT = {"lesser_demon": lesser_demon, "zamorak_staff": zamorak_staff, "silverlight": silverlight}
 ICONS = {"zamorak_staff", "silverlight"}
+ICON_SIZE = 32
 
 
 def icon(model, texture):
-    """The model laid diagonally across a 16 pixel icon, top right, as Minecraft draws its swords."""
-    big = boxmodel.render(model, texture, size=160, yaw=0, pitch=0, roll=-45, margin=0.02,
+    """The model laid diagonally across a 32 pixel icon, its top to the top right, as Minecraft draws its swords."""
+    big = boxmodel.render(model, texture, size=128, yaw=0, pitch=0, roll=45, margin=0.01,
                           up=boxmodel.np.diag([1.0, -1.0, 1.0]))
-    small = big.resize((16, 16), Image.LANCZOS)
+    small = big.resize((ICON_SIZE, ICON_SIZE), Image.BOX)
     pixels = small.load()
-    for y in range(16):
-        for x in range(16):
+    for y in range(ICON_SIZE):
+        for x in range(ICON_SIZE):
             r, g, b, a = pixels[x, y]
-            pixels[x, y] = (r, g, b, 255) if a > 90 else (0, 0, 0, 0)
+            if a < 80:
+                pixels[x, y] = (0, 0, 0, 0)
+            else:
+                # Undo the darkening of pixels the model only partly covered.
+                pixels[x, y] = tuple(min(255, int(c * 255 / a)) for c in (r, g, b)) + (255,)
     return small
 
 
@@ -626,7 +631,7 @@ def main():
                     image = boxmodel.render(model, texture, size=640, yaw=yaw, pitch=8, background=background,
                                             roll=0)
                     image.save(os.path.join(args.preview, "%s_%d.png" % (name, yaw)))
-                icon(model, texture).resize((128, 128), Image.NEAREST).save(
+                icon(model, texture).resize((256, 256), Image.NEAREST).save(
                     os.path.join(args.preview, name + "_icon.png"))
 
 
