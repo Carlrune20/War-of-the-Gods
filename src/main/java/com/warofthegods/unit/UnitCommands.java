@@ -458,8 +458,7 @@ public final class UnitCommands {
             .orderPrayer(units, prayer);
         if (praying == 0) {
             request.replyError(
-                prayer == Prayer.MELEE || prayer == Prayer.MAGIC
-                    ? "Only Sir Tradigee can protect from " + prayer.id
+                prayer == Prayer.MELEE || prayer == Prayer.MAGIC ? "Only Sir Tradigee can protect from " + prayer.id
                     : "Only Sir Tradigee can switch prayers");
             return;
         }
