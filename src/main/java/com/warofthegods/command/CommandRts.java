@@ -255,7 +255,7 @@ public class CommandRts extends CommandBase {
                 + "|black_knights_fortress> [x z] [rotation] - lay out a site for the team's workers (op)");
         send(
             sender,
-            "/rts train <team> <worker|warrior|archer|cavalry|horse|white_knight|black_knight|tragidee|sagittare>"
+            "/rts train <team> <worker|warrior|archer|cavalry|horse|white_knight|black_knight|tradigee|sagittare>"
                 + " [count] - queue"
                 + " units for free at a building (op)");
         send(sender, "/rts upgrade <building id> - take a town center, and its town, into the next age at once (op)");
@@ -810,7 +810,7 @@ public class CommandRts extends CommandBase {
         UnitKind kind = UnitKind.byId(text);
         if (kind == null) {
             throw new CommandException(
-                "Unknown unit kind %s; use warrior, archer, worker, cavalry, horse, white_knight, black_knight, tragidee"
+                "Unknown unit kind %s; use warrior, archer, worker, cavalry, horse, white_knight, black_knight, tradigee"
                     + " or sagittare",
                 text);
         }

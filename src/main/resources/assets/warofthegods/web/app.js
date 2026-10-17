@@ -748,7 +748,7 @@
     // The building, unit and resource icons in icons.png, one 16 pixel square each, in this order.
     const SPRITES = ["town_hall", "house", "barracks", "storehouse", "quarry", "farm", "armory", "tower", "worker",
         "soldier", "archer", "tree", "upgrade", "level", "food", "wood", "gold", "sword", "axe", "pickaxe", "hoe", "wall",
-        "gate", "white_knights_fortress", "black_knights_fortress", "white_knight", "black_knight", "tragidee",
+        "gate", "white_knights_fortress", "black_knights_fortress", "white_knight", "black_knight", "tradigee",
         "sagittare", "archery_range", "stables", "cavalry", "horse", "favor", "chaos_temple", "monastery",
         "wizards_tower", "stone_circle", "chaos_priest", "monk", "dark_wizard", "zamorak_mage", "blue_wizard",
         "lesser_demon"];

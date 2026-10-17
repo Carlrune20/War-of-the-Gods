@@ -31,7 +31,7 @@ public class Config {
         unitCosts.put(UnitKind.WHITE_KNIGHT, new long[] { 60, 0, 75 });
         unitCosts.put(UnitKind.BLACK_KNIGHT, new long[] { 60, 0, 75 });
         unitCosts.put(UnitKind.SAGITTARE, new long[] { 200, 0, 350 });
-        unitCosts.put(UnitKind.TRAGIDEE, new long[] { 200, 0, 350 });
+        unitCosts.put(UnitKind.TRADIGEE, new long[] { 200, 0, 350 });
         unitCosts.put(UnitKind.CAVALRY, new long[] { 80, 0, 60 });
         unitCosts.put(UnitKind.HORSE, new long[] { 60, 0, 20 });
         unitCosts.put(UnitKind.CHAOS_PRIEST, new long[] { 50, 0, 30, 0 });

@@ -27,7 +27,8 @@ import com.warofthegods.unit.Prayer;
  * waist in its team's color, and any armor its team's upgrades give it. The name above its head is in its team's
  * color too. Archers raise their bow as they draw it, and heroes stand taller than the rest, a lesser demon, horned and
  * tailed, tallest of all. A hero's protection
- * prayer shows above his name while it is up. Cavalry sit on a horse, white for Saradomin and black for Zamorak, drawn
+ * prayer shows above his name while it is up. Knights wear full plate with a plume in their team's color, and their
+ * elite upgrades change their armor. Cavalry sit on a horse, white for Saradomin and black for Zamorak, drawn
  * with the horse's own model; it is part of the unit, not a horse of its own.
  */
 public class RenderUnit extends RenderBiped {
@@ -45,6 +46,23 @@ public class RenderUnit extends RenderBiped {
                     new ResourceLocation(
                         WarOfTheGods.MODID,
                         "textures/entity/unit/" + faction.id + "_" + kind.id + ".png"));
+            }
+        }
+    }
+
+    /** Elite Black Knights' and Justiciars' skins, by faction and the knight's own kind. */
+    private static final Map<String, ResourceLocation> ELITE_SKINS = new HashMap<>();
+
+    static {
+        for (Faction faction : Faction.values()) {
+            for (UnitKind kind : UnitKind.values()) {
+                if (kind.eliteUpgrade() != null) {
+                    ELITE_SKINS.put(
+                        faction.id + "_" + kind.id,
+                        new ResourceLocation(
+                            WarOfTheGods.MODID,
+                            "textures/entity/unit/" + faction.id + "_" + kind.id + "_elite.png"));
+                }
             }
         }
     }
@@ -71,6 +89,7 @@ public class RenderUnit extends RenderBiped {
     private final ModelBiped overlayModel = new ModelBiped(0.08F);
     private final ModelBiped manModel;
     private final ModelBiped demonModel = new ModelDemon();
+    private final ModelKnight knightModel = new ModelKnight();
     /** The horse drawn under each rider, kept only to be drawn; it is in no world's entity list. */
     private final Map<EntityUnit, EntityHorse> horses = new WeakHashMap<>();
 
@@ -87,8 +106,17 @@ public class RenderUnit extends RenderBiped {
         field_82423_g.aimedBow = aiming;
         field_82425_h.aimedBow = aiming;
         EntityUnit unit = (EntityUnit) entity;
-        // A lesser demon has horns and a tail.
-        modelBipedMain = unit.getWatchedKind() == UnitKind.LESSER_DEMON ? demonModel : manModel;
+        // A lesser demon has horns and a tail, and knights wear full plate with a plume.
+        UnitKind kind = unit.getWatchedKind();
+        if (kind == UnitKind.LESSER_DEMON) {
+            modelBipedMain = demonModel;
+        } else if (kind.eliteUpgrade() != null) {
+            boolean elite = unit.isWatchedElite();
+            knightModel.setStyle(elite && kind == UnitKind.BLACK_KNIGHT, elite && kind == UnitKind.WHITE_KNIGHT);
+            modelBipedMain = knightModel;
+        } else {
+            modelBipedMain = manModel;
+        }
         mainModel = modelBipedMain;
         modelBipedMain.aimedBow = aiming;
         if (unit.getWatchedKind()
@@ -195,7 +223,8 @@ public class RenderUnit extends RenderBiped {
     @Override
     protected ResourceLocation getEntityTexture(EntityLiving entity) {
         EntityUnit unit = (EntityUnit) entity;
-        return SKINS.get(unit.getWatchedFaction().id + "_" + unit.getWatchedKind().id);
+        String key = unit.getWatchedFaction().id + "_" + unit.getWatchedKind().id;
+        return unit.isWatchedElite() && ELITE_SKINS.containsKey(key) ? ELITE_SKINS.get(key) : SKINS.get(key);
     }
 
     /**
@@ -210,6 +239,11 @@ public class RenderUnit extends RenderBiped {
             return;
         }
         int color = ((EntityUnit) entity).getTeamColor();
+        if (mainModel == knightModel && knightModel.isPlumed()) {
+            // The plume, in the team's color, from the skin still bound.
+            GL11.glColor3f((color >> 16 & 255) / 255F, (color >> 8 & 255) / 255F, (color & 255) / 255F);
+            knightModel.renderPlume(scale);
+        }
         bindTexture(OVERLAY);
         overlayModel.onGround = mainModel.onGround;
         overlayModel.isRiding = mainModel.isRiding;

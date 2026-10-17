@@ -190,6 +190,11 @@ public class EntityUnit extends EntityCreature {
     private static final int WATCH_FACTION = 22;
     private static final int WATCH_DRAWING = 23;
     private static final int WATCH_PRAYER = 24;
+    /** Whether its team has made it elite, for its look; well clear of the ids above for others to add to. */
+    private static final int WATCH_ELITE = 29;
+    /** Health and damage an Elite Black Knight or a Justiciar has over a plain knight. */
+    private static final int ELITE_HEALTH = 20;
+    private static final int ELITE_DAMAGE = 3;
     /** Ticks the computer waits after switching a hero's prayer before it switches again. */
     private static final int AI_PRAYER_SWITCH_TICKS = 100;
 
@@ -309,6 +314,17 @@ public class EntityUnit extends EntityCreature {
         dataWatcher.addObject(WATCH_FACTION, (byte) 0);
         dataWatcher.addObject(WATCH_DRAWING, (byte) 0);
         dataWatcher.addObject(WATCH_PRAYER, (byte) 0);
+        dataWatcher.addObject(WATCH_ELITE, (byte) 0);
+    }
+
+    /** On a client, whether its team has made it elite: an Elite Black Knight or a Justiciar. */
+    public boolean isWatchedElite() {
+        return dataWatcher.getWatchableObjectByte(WATCH_ELITE) != 0;
+    }
+
+    /** Whether its team has the upgrade that makes its kind elite. */
+    private static boolean isElite(UnitKind kind, Team team) {
+        return team != null && kind.eliteUpgrade() != null && team.has(kind.eliteUpgrade());
     }
 
     /** On a client, the protection prayer it has up, shown above its head. */
@@ -410,7 +426,7 @@ public class EntityUnit extends EntityCreature {
         if (kind.ranged) {
             return Items.bow;
         }
-        if (kind == UnitKind.TRAGIDEE) {
+        if (kind == UnitKind.TRADIGEE) {
             return Items.diamond_sword;
         }
         if (kind.fights() || order == Order.HUNT) {
@@ -437,7 +453,12 @@ public class EntityUnit extends EntityCreature {
     void updateTeam(Team team) {
         // A hero goes by his own name, in his team's color.
         String name = kind.hero ? team.getColor() + kind.displayName
-            : team.getColor() + team.getName() + " " + kind.lowerName() + " " + number;
+            : team.getColor() + team.getName()
+                + " "
+                + (isElite(kind, team) ? kind.eliteName()
+                    .toLowerCase() : kind.lowerName())
+                + " "
+                + number;
         if (!name.equals(getCustomNameTag())) {
             setCustomNameTag(name);
             setAlwaysRenderNameTag(true);
@@ -468,6 +489,14 @@ public class EntityUnit extends EntityCreature {
         if (kind.fights() && !kind.ranged) {
             damage += kind.extraDamage + (team.has(Upgrade.FORGED_BLADES) ? 2 : 0)
                 + (team.has(Upgrade.TEMPERED_STEEL) ? 2 : 0);
+        }
+        boolean elite = isElite(kind, team);
+        if (elite) {
+            health += ELITE_HEALTH;
+            damage += ELITE_DAMAGE;
+        }
+        if (isWatchedElite() != elite) {
+            dataWatcher.updateObject(WATCH_ELITE, (byte) (elite ? 1 : 0));
         }
         IAttributeInstance maxHealth = getEntityAttribute(SharedMonsterAttributes.maxHealth);
         double gained = health - maxHealth.getBaseValue();
@@ -2295,7 +2324,7 @@ public class EntityUnit extends EntityCreature {
      * with, then leaves it a few seconds before switching again.
      */
     private void computerPrays(Prayer style) {
-        if (kind != UnitKind.TRAGIDEE || style == Prayer.NONE || style == prayer || prayerSwitchTicks > 0) {
+        if (kind != UnitKind.TRADIGEE || style == Prayer.NONE || style == prayer || prayerSwitchTicks > 0) {
             return;
         }
         Team team = team();

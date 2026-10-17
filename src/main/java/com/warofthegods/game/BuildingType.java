@@ -37,10 +37,10 @@ public enum BuildingType {
     GATE("gate", "Gate", "gate", 3, false, false),
     /**
      * Saradomin's stronghold in Age III: a white stone keep with much health that shoots many arrows, training White
-     * Knights and Sir Tragidee.
+     * Knights and Sir Tradigee.
      */
     WHITE_KNIGHTS_FORTRESS("white_knights_fortress", "White Knights' fortress", "whiteKnightsFortress", 1, true, false,
-        UnitKind.WHITE_KNIGHT, UnitKind.TRAGIDEE),
+        UnitKind.WHITE_KNIGHT, UnitKind.TRADIGEE),
     /**
      * Zamorak's stronghold in Age III: a black stone keep with much health that shoots many arrows, training Black
      * Knights and Sagittare.
@@ -169,7 +169,7 @@ public enum BuildingType {
 
     /** Whether upgrades are researched here. */
     public boolean researches() {
-        return this == ARMORY || this == STOREHOUSE || this == TOWN_HALL || this == TOWER;
+        return this == ARMORY || this == STOREHOUSE || this == TOWN_HALL || this == TOWER || isFortress();
     }
 
     /** What building one costs, leaving out resources it costs none of. */

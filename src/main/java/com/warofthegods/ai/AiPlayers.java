@@ -121,7 +121,8 @@ public final class AiPlayers {
     private static final Upgrade[] RESEARCH_ORDER = { Upgrade.BASKETS, Upgrade.SHARP_AXES, Upgrade.PLOUGHS,
         Upgrade.PICKAXES, Upgrade.FORGED_BLADES, Upgrade.PADDED_ARMOR, Upgrade.FLETCHING, Upgrade.WATCH_TOWER,
         Upgrade.MASONRY, Upgrade.PLATE_ARMOR, Upgrade.FIRE_ARROWS, Upgrade.FORTIFIED_WALLS, Upgrade.DIAMOND_HOES,
-        Upgrade.DIAMOND_AXES, Upgrade.DIAMOND_PICKAXES, Upgrade.TEMPERED_STEEL, Upgrade.GUARD_TOWER };
+        Upgrade.DIAMOND_AXES, Upgrade.DIAMOND_PICKAXES, Upgrade.TEMPERED_STEEL, Upgrade.GUARD_TOWER,
+        Upgrade.ELITE_BLACK_KNIGHTS, Upgrade.JUSTICIARS };
 
     /** What the computer remembers about a team between looks; lost on a restart, which does no harm. */
     private static final class State {
