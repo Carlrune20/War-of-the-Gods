@@ -206,6 +206,8 @@ public class EntityUnit extends EntityCreature {
     /** Health and damage an Elite Black Knight or a Justiciar has over a plain knight. */
     private static final int ELITE_HEALTH = 20;
     private static final int ELITE_DAMAGE = 3;
+    /** How much harder a hero hits a myth unit. */
+    private static final float HERO_VS_MYTH_DAMAGE = 2.0F;
     /** Ticks the computer waits after switching a hero's prayer before it switches again. */
     private static final int AI_PRAYER_SWITCH_TICKS = 100;
 
@@ -2422,6 +2424,10 @@ public class EntityUnit extends EntityCreature {
         if (attacker != null && Units.get()
             .isAlly(this, attacker)) {
             return false;
+        }
+        // Heroes hit myth units, such as lesser demons, twice as hard, blows and arrows alike.
+        if (kind.isMyth() && attacker instanceof EntityUnit && ((EntityUnit) attacker).kind.hero) {
+            amount *= HERO_VS_MYTH_DAMAGE;
         }
         // A protection prayer against the hit's style takes most of its damage and all of its knockback.
         Prayer style = Prayer.styleOf(source);

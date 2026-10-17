@@ -475,7 +475,7 @@ public final class AiPlayers {
 
     /**
      * Has its Sir Tradigee keep up the protection prayer against what most of the enemies near him fight with:
-     * missiles against archers, wizards' spells aside, and towers; melee against the rest.
+     * magic against wizards, missiles against archers and towers, melee against the rest.
      */
     private static void pray(Game game, WorldServer world, Team team, List<EntityUnit> fighters) {
         for (EntityUnit hero : fighters) {
@@ -484,13 +484,13 @@ public final class AiPlayers {
             }
             int melee = 0;
             int missiles = 0;
+            int magic = 0;
             for (EntityLivingBase enemy : Units.get()
                 .findEnemiesNear(world, team, hero.posX, hero.posY, hero.posZ, PRAYER_RANGE, 12)) {
                 UnitKind kind = enemy instanceof EntityUnit ? ((EntityUnit) enemy).getKind() : null;
                 if (kind != null && kind.isCaster()) {
-                    continue;
-                }
-                if (kind != null && kind.ranged) {
+                    magic++;
+                } else if (kind != null && kind.ranged) {
                     missiles++;
                 } else {
                     melee++;
@@ -506,7 +506,14 @@ public final class AiPlayers {
                     missiles += 2;
                 }
             }
-            Prayer wanted = missiles > melee ? Prayer.MISSILES : melee > 0 ? Prayer.MELEE : hero.getPrayer();
+            Prayer wanted = hero.getPrayer();
+            if (magic > missiles && magic > melee) {
+                wanted = Prayer.MAGIC;
+            } else if (missiles > melee) {
+                wanted = Prayer.MISSILES;
+            } else if (melee > 0) {
+                wanted = Prayer.MELEE;
+            }
             if (wanted != hero.getPrayer()) {
                 List<EntityUnit> one = new ArrayList<>();
                 one.add(hero);

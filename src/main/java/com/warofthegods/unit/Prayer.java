@@ -8,7 +8,7 @@ import com.warofthegods.game.UnitKind;
 /**
  * A protection prayer a hero keeps up: against the attack style it protects from, hits do a quarter of their damage
  * and never knock him back. Sir Tradigee switches between them freely; Sagittare always protects from missiles and
- * cannot protect from melee.
+ * cannot protect from melee or magic.
  */
 public enum Prayer {
 
@@ -16,7 +16,9 @@ public enum Prayer {
     /** Against swords, fists and claws: hits from whoever does the damage themselves. */
     MELEE("melee", "Protect from Melee"),
     /** Against arrows and anything else shot or thrown. */
-    MISSILES("missiles", "Protect from Missiles");
+    MISSILES("missiles", "Protect from Missiles"),
+    /** Against wizards' spells. */
+    MAGIC("magic", "Protect from Magic");
 
     /** What is left of a protected hit's damage. */
     public static final float DAMAGE_TAKEN = 0.25F;
@@ -29,12 +31,18 @@ public enum Prayer {
         this.displayName = displayName;
     }
 
-    /** The style of attack a hit is, as a prayer protecting from it; NONE when no prayer does, such as fire. */
+    /**
+     * The style of attack a hit is, as a prayer protecting from it; NONE when no prayer does, such as the burning a
+     * fire spell leaves behind.
+     */
     public static Prayer styleOf(DamageSource source) {
+        if (source.isMagicDamage()) {
+            return MAGIC;
+        }
         if (source.isProjectile()) {
             return MISSILES;
         }
-        if (source.isMagicDamage() || source.isExplosion() || source.isFireDamage()) {
+        if (source.isExplosion() || source.isFireDamage()) {
             return NONE;
         }
         Entity attacker = source.getEntity();

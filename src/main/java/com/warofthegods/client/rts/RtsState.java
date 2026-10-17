@@ -153,7 +153,7 @@ public final class RtsState {
         /** Building sites a worker builds after the one it is on. */
         public int queued;
         public String stance = "defensive";
-        /** The protection prayer it has up: melee, missiles or none. */
+        /** The protection prayer it has up: melee, missiles, magic or none. */
         public String prayer = "none";
 
         public boolean isWorker() {

@@ -2304,7 +2304,8 @@ public final class GuiRts extends GuiScreen {
     }
 
     private static final String[][] PRAYERS = { { "melee", "Protect from Melee", "melee attacks" },
-        { "missiles", "Protect from Missiles", "arrows and other missiles" } };
+        { "missiles", "Protect from Missiles", "arrows and other missiles" },
+        { "magic", "Protect from Magic", "wizards' spells" } };
 
     /**
      * With Sir Tradigee or Sagittare of one's own selected: their protection prayers, which take three quarters of the
@@ -2338,12 +2339,13 @@ public final class GuiRts extends GuiScreen {
         }
         actions.add(label("Prayer", 0xC8C8C8));
         for (String[] prayer : PRAYERS) {
-            boolean melee = "melee".equals(prayer[0]);
-            boolean on = praying.isEmpty() ? !melee : !mixed && prayer[0].equals(common);
+            boolean missiles = "missiles".equals(prayer[0]);
+            boolean on = praying.isEmpty() ? missiles : !mixed && prayer[0].equals(common);
             String tip;
             if (praying.isEmpty()) {
                 tip = prayer[1] + "\n"
-                    + (melee ? "Sagittare cannot protect from melee" : "Sagittare always protects from missiles");
+                    + (missiles ? "Sagittare always protects from missiles"
+                        : "Sagittare cannot protect from " + ("melee".equals(prayer[0]) ? "melee" : "magic"));
             } else {
                 tip = prayer[1] + "\nTakes 75% less damage and no knockback from "
                     + prayer[2]
