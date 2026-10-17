@@ -7,8 +7,10 @@ import java.util.Set;
 /**
  * What the viewer's team has seen of the map, for the fog of war in the RTS view. The map is cut into cells of
  * {@link #CELL} blocks. A cell is visible while one of the team's or its allies' units, players or buildings is near
- * it; once seen it stays explored, so its ground shows, dimmed, after they move on, while what moves there is hidden.
- * Cells nobody has been near are black. Without a team, as an observer, and once the game is over, there is no fog.
+ * it; once seen it stays explored, so its ground and the enemy buildings found there show after they move on, while
+ * what moves there is hidden. Cells nobody has been near are black. Walking the map on foot, out of the RTS view,
+ * explores it too.
+ * Without a team, as an observer, and once the game is over, there is no fog.
  */
 final class FogOfWar {
 
@@ -33,6 +35,8 @@ final class FogOfWar {
     private int ticks;
     /** Bumped whenever what is explored or visible changes, so the fog's look is only made again then. */
     private int version;
+    /** Cells, counted from 0, 0, the viewer walked near on foot before the map was known here. */
+    private final Set<Long> walked = new HashSet<>();
 
     /** Whether there is fog at all: the viewer is on a team in a game that goes on. */
     boolean isOn() {
@@ -62,6 +66,13 @@ final class FogOfWar {
             visible = new boolean[columns * rows];
             version++;
             ticks = 0;
+        }
+        if (!walked.isEmpty()) {
+            for (long cell : walked) {
+                see(explored, (int) (cell >> 32) * CELL + CELL / 2.0, (int) cell * CELL + CELL / 2.0, PLAYER_SIGHT);
+            }
+            walked.clear();
+            version++;
         }
         if (!on || ticks++ % INTERVAL != 0) {
             return;
@@ -104,22 +115,50 @@ final class FogOfWar {
         }
     }
 
-    /** Marks the cells within range of x, z visible. */
-    private void see(boolean[] now, double x, double z, double range) {
+    /**
+     * The viewer on foot, out of the RTS view, explores around x, z; call every client tick while they are on the
+     * game map but not commanding.
+     */
+    void walk(RtsClient client, double x, double z) {
+        if (ticks++ % INTERVAL != 0) {
+            return;
+        }
+        RtsState.GameInfo info = client.state.game;
+        if (info != null && info.number == game && explored.length > 0) {
+            if (see(explored, x, z, PLAYER_SIGHT)) {
+                version++;
+            }
+        } else {
+            long cx = (long) Math.floor(x / CELL);
+            long cz = (long) Math.floor(z / CELL);
+            walked.add(cx << 32 | cz & 0xFFFFFFFFL);
+        }
+    }
+
+    /** Forgets where the viewer walked, on leaving the server. */
+    void forgetWalked() {
+        walked.clear();
+    }
+
+    /** Marks the cells within range of x, z; whether any was not marked yet. */
+    private boolean see(boolean[] now, double x, double z, double range) {
         int c0 = Math.max(0, (int) Math.floor((x - range - minX) / CELL));
         int c1 = Math.min(columns - 1, (int) Math.floor((x + range - minX) / CELL));
         int r0 = Math.max(0, (int) Math.floor((z - range - minZ) / CELL));
         int r1 = Math.min(rows - 1, (int) Math.floor((z + range - minZ) / CELL));
         double rangeSq = range * range;
+        boolean changed = false;
         for (int r = r0; r <= r1; r++) {
             double dz = minZ + r * CELL + CELL / 2.0 - z;
             for (int c = c0; c <= c1; c++) {
                 double dx = minX + c * CELL + CELL / 2.0 - x;
-                if (dx * dx + dz * dz <= rangeSq) {
+                if (dx * dx + dz * dz <= rangeSq && !now[r * columns + c]) {
                     now[r * columns + c] = true;
+                    changed = true;
                 }
             }
         }
+        return changed;
     }
 
     private int index(double x, double z) {

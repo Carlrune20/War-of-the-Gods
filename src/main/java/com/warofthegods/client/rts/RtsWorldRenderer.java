@@ -276,9 +276,9 @@ public final class RtsWorldRenderer {
     }
 
     /**
-     * The fog of war near the camera: black over the ground nobody of the viewer's team has been near, and a dark veil
-     * over what they have seen but do not see now. It lies on top of every column the client has, sides down cliffs
-     * included, and is kept in a display list, made again when what is seen changes or the camera moves on.
+     * The fog of war near the camera: solid black over all the ground the viewer's team has not explored. It lies on
+     * top of every column the client has, sides down cliffs included, and is kept in a display list, made again when
+     * what is seen changes or the camera moves on.
      */
     private void fog() {
         FogOfWar fog = client.fog;
@@ -319,46 +319,35 @@ public final class RtsWorldRenderer {
                 heights[(z - z0) * width + x - x0] = (int) client.groundHeight(x, z);
             }
         }
-        // The unseen ground first, solid, then the veil over the rest without writing depth, so it never hides
-        // itself.
-        for (int pass = 0; pass < 2; pass++) {
-            boolean black = pass == 0;
-            GL11.glDepthMask(black);
-            tessellator.startDrawingQuads();
-            if (black) {
-                tessellator.setColorRGBA_F(0.04F, 0.04F, 0.06F, 1);
-            } else {
-                tessellator.setColorRGBA_F(0, 0, 0.03F, 0.5F);
-            }
-            for (int z = z0; z <= z1; z++) {
-                for (int x = x0; x <= x1; x++) {
-                    boolean explored = fog.isExplored(x + 0.5, z + 0.5);
-                    if (black == explored || !black && fog.isVisible(x + 0.5, z + 0.5)) {
-                        continue;
-                    }
-                    double y = heights[(z - z0) * width + x - x0] + (black ? 0.02 : 0.04);
-                    quad(x, y, z, x, y, z + 1, x + 1, y, z + 1, x + 1, y, z);
-                    // Down the sides to lower neighbours, so a cliff is covered as well as its top.
-                    double west = x > x0 ? heights[(z - z0) * width + x - 1 - x0] : y;
-                    double east = x < x1 ? heights[(z - z0) * width + x + 1 - x0] : y;
-                    double north = z > z0 ? heights[(z - 1 - z0) * width + x - x0] : y;
-                    double south = z < z1 ? heights[(z + 1 - z0) * width + x - x0] : y;
-                    if (west < y) {
-                        quad(x, west, z, x, y, z, x, y, z + 1, x, west, z + 1);
-                    }
-                    if (east < y) {
-                        quad(x + 1, east, z, x + 1, east, z + 1, x + 1, y, z + 1, x + 1, y, z);
-                    }
-                    if (north < y) {
-                        quad(x, north, z, x + 1, north, z, x + 1, y, z, x, y, z);
-                    }
-                    if (south < y) {
-                        quad(x, south, z + 1, x, y, z + 1, x + 1, y, z + 1, x + 1, south, z + 1);
-                    }
+        tessellator.startDrawingQuads();
+        tessellator.setColorRGBA_F(0, 0, 0, 1);
+        for (int z = z0; z <= z1; z++) {
+            for (int x = x0; x <= x1; x++) {
+                if (fog.isExplored(x + 0.5, z + 0.5)) {
+                    continue;
+                }
+                double y = heights[(z - z0) * width + x - x0] + 0.02;
+                quad(x, y, z, x, y, z + 1, x + 1, y, z + 1, x + 1, y, z);
+                // Down the sides to lower neighbours, so a cliff is covered as well as its top.
+                double west = x > x0 ? heights[(z - z0) * width + x - 1 - x0] : y;
+                double east = x < x1 ? heights[(z - z0) * width + x + 1 - x0] : y;
+                double north = z > z0 ? heights[(z - 1 - z0) * width + x - x0] : y;
+                double south = z < z1 ? heights[(z + 1 - z0) * width + x - x0] : y;
+                if (west < y) {
+                    quad(x, west, z, x, y, z, x, y, z + 1, x, west, z + 1);
+                }
+                if (east < y) {
+                    quad(x + 1, east, z, x + 1, east, z + 1, x + 1, y, z + 1, x + 1, y, z);
+                }
+                if (north < y) {
+                    quad(x, north, z, x + 1, north, z, x + 1, y, z, x, y, z);
+                }
+                if (south < y) {
+                    quad(x, south, z + 1, x, y, z + 1, x + 1, y, z + 1, x + 1, south, z + 1);
                 }
             }
-            tessellator.draw();
         }
+        tessellator.draw();
         GL11.glDepthMask(true);
     }
 
