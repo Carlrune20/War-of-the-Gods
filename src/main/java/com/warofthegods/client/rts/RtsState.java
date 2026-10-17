@@ -448,11 +448,13 @@ public final class RtsState {
                 info.toX = number(unit, "toX");
                 info.toZ = number(unit, "toZ");
             }
-            JsonArray waypoints = array(unit, "waypoints");
+            List<Double> waypoints = new ArrayList<>();
+            for (JsonElement waypoint : array(unit, "waypoints")) {
+                waypoints.add(waypoint.getAsDouble());
+            }
             info.waypoints = new double[waypoints.size()];
             for (int i = 0; i < waypoints.size(); i++) {
-                info.waypoints[i] = waypoints.get(i)
-                    .getAsDouble();
+                info.waypoints[i] = waypoints.get(i);
             }
             info.building = integer(unit, "building");
             info.from = integer(unit, "from");
