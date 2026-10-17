@@ -18,6 +18,8 @@ import java.util.function.Consumer;
 import net.minecraft.block.material.Material;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiChat;
+import net.minecraft.client.renderer.OpenGlHelper;
+import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.multiplayer.WorldClient;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
@@ -37,6 +39,7 @@ import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.client.event.RenderHandEvent;
 import net.minecraftforge.client.event.RenderLivingEvent;
 import net.minecraftforge.client.event.RenderPlayerEvent;
+import net.minecraftforge.client.event.RenderWorldEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.common.MinecraftForge;
 
@@ -98,6 +101,8 @@ public final class RtsClient {
     private boolean active;
     private JsonObject lobby;
     private boolean nightVision;
+    /** Whether the world is drawn lit by the fog of war, rather than as it is. */
+    private boolean lit;
     private boolean entering;
     private RtsCamera camera;
     private float savedFov;
@@ -536,6 +541,10 @@ public final class RtsClient {
             mc.thePlayer.removePotionEffectClient(Potion.nightVision.id);
         }
         nightVision = false;
+        if (lit) {
+            lit = false;
+            mc.renderGlobal.loadRenderers();
+        }
         mc.gameSettings.thirdPersonView = savedThirdPerson;
         if (mc.theWorld != null && mc.theWorld.provider.getCloudRenderer() == NO_CLOUDS) {
             mc.theWorld.provider.setCloudRenderer(null);
@@ -597,6 +606,7 @@ public final class RtsClient {
         }
         ticks++;
         fog.update(this);
+        light();
         // Dead: the death screen takes over.
         if (camera.worldObj != mc.theWorld || mc.thePlayer.dimension != GameWorld.dimensionId()
             || mc.thePlayer.getHealth() <= 0) {
@@ -804,13 +814,55 @@ public final class RtsClient {
         }
     }
 
-    /** What moves in the fog of war is not drawn; the viewer's team always sees its own, as they stand in sight. */
+    /**
+     * What moves in the fog of war is not drawn; the viewer's team always sees its own, as they stand in sight. What is
+     * drawn is in full light, like the ground it stands on.
+     */
     @SubscribeEvent
     public void onRenderLiving(RenderLivingEvent.Pre event) {
         if (active && fog.isOn()
             && event.entity != mc.thePlayer
             && !fog.isVisible(event.entity.posX, event.entity.posZ)) {
             event.setCanceled(true);
+        } else if (lit) {
+            OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240, 240);
+        }
+    }
+
+    /**
+     * The fog of war as light: while there is fog, the world is drawn again lit by what the team has seen, and night
+     * vision, which would light it all, is taken off; without fog it is back, and the world is drawn as it is.
+     */
+    private void light() {
+        if (lit != fog.isOn()) {
+            lit = fog.isOn();
+            mc.renderGlobal.loadRenderers();
+        } else if (lit) {
+            fog.redrawChanged(mc);
+        }
+        if (lit && nightVision) {
+            mc.thePlayer.removePotionEffectClient(Potion.nightVision.id);
+            nightVision = false;
+        } else if (!lit && !mc.thePlayer.isPotionActive(Potion.nightVision)) {
+            mc.thePlayer.addPotionEffect(new PotionEffect(Potion.nightVision.id, NIGHT_VISION_TICKS, 0, true));
+            nightVision = true;
+        }
+    }
+
+    /** Chunks drawn while the world is lit by the fog of war take their light from it. */
+    @SubscribeEvent
+    public void onRenderChunk(RenderWorldEvent.Pre event) {
+        if (lit && !(event.renderBlocks.blockAccess instanceof FogChunkCache)) {
+            WorldRenderer chunk = event.renderer;
+            event.renderBlocks.blockAccess = new FogChunkCache(
+                chunk.worldObj,
+                chunk.posX - 1,
+                chunk.posY - 1,
+                chunk.posZ - 1,
+                chunk.posX + 17,
+                chunk.posY + 17,
+                chunk.posZ + 17,
+                fog);
         }
     }
 
