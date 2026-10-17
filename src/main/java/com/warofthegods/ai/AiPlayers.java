@@ -418,8 +418,8 @@ public final class AiPlayers {
                 for (double[] other : state.scouts.values()) {
                     taken |= other != null && other[0] == base[0] && other[1] == base[1];
                 }
-                if (!taken && !explored(state, base[0], base[1]) && (next == null
-                    || distance(scout, base[0], base[1]) < distance(scout, next[0], next[1]))) {
+                if (!taken && !explored(state, base[0], base[1])
+                    && (next == null || distance(scout, base[0], base[1]) < distance(scout, next[0], next[1]))) {
                     next = base;
                 }
             }
