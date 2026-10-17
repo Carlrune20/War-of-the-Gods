@@ -5,6 +5,7 @@ import net.minecraft.block.material.Material;
 import net.minecraft.init.Blocks;
 import net.minecraft.world.WorldServer;
 
+import com.warofthegods.game.BridgeLine;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
@@ -12,13 +13,13 @@ import com.warofthegods.game.Team;
 import com.warofthegods.web.WebMap;
 
 /**
- * The bridges workers build, a piece at a time: each piece a block long and three wide, a deck of planks with a rail
+ * The bridges workers build, a piece at a time: each piece a block long and five wide, a deck of planks with a rail
  * either side, standing on posts that go down to the bottom of the water under every other piece. Laid in the world
  * here rather than from a structure file, as how far down the posts go depends on the water under each piece.
  *
  * <p>
  * The deck lies a block over the water, level with the banks, or in the ground where a piece is on land. A site
- * shows its posts first, then a plank along the middle, then the whole deck; the rails go on last. A damaged bridge
+ * shows its posts first, then planks along the middle, then the whole deck; the rails go on last. A damaged bridge
  * loses rails, then planks at the edges, but its middle stays walkable until it is gone.
  */
 final class Bridges {
@@ -28,10 +29,10 @@ final class Bridges {
 
     private Bridges() {}
 
-    /** The blocks across a piece, as x, z: the middle one second. */
+    /** The blocks across a piece, as x, z, from one edge to the other. */
     private static int[][] cells(Building piece) {
-        int[][] cells = new int[3][];
-        for (int i = 0; i < 3; i++) {
+        int[][] cells = new int[BridgeLine.WIDTH][];
+        for (int i = 0; i < BridgeLine.WIDTH; i++) {
             cells[i] = (piece.rotation & 1) == 0 ? new int[] { piece.minX, piece.minZ + i }
                 : new int[] { piece.minX + i, piece.minZ };
         }
@@ -67,11 +68,11 @@ final class Bridges {
         int damage = !piece.isComplete() ? 0 : health < 0.25 ? 3 : health < 0.5 ? 2 : health < 0.75 ? 1 : 0;
         int[][] cells = cells(piece);
         // Which side loses its rail and edge plank first, so a damaged bridge looks broken rather than trimmed.
-        int worse = ((piece.minX * 31 + piece.minZ * 17) & 1) == 0 ? 0 : 2;
-        for (int i = 0; i < 3; i++) {
+        int worse = ((piece.minX * 31 + piece.minZ * 17) & 1) == 0 ? 0 : cells.length - 1;
+        for (int i = 0; i < cells.length; i++) {
             int x = cells[i][0];
             int z = cells[i][1];
-            boolean edge = i != 1;
+            boolean edge = i == 0 || i == cells.length - 1;
             if (edge && hasPosts(piece)) {
                 for (int down = y - 1; down > y - 1 - MAX_DEPTH && down > 0; down--) {
                     Block block = world.getBlock(x, down, z);

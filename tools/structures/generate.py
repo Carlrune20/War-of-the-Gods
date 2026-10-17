@@ -703,12 +703,12 @@ def bridge():
 
 
 def bridge_piece():
-    """A block's length of the wooden bridges workers build: a plank deck three wide with a rail either side. Only
+    """A block's length of the wooden bridges workers build: a plank deck five wide with a rail either side. Only
     its size and shape come from here; the game lays the pieces itself, with posts down to the bottom of the water."""
-    s = Struct(1, 3, 1, 0)
-    s.fill(0, 0, 0, 0, 0, 2, (PLANKS, 0))
+    s = Struct(1, 5, 1, 0)
+    s.fill(0, 0, 0, 0, 0, 4, (PLANKS, 0))
     s.set(0, 1, 0, (FENCE, 0))
-    s.set(0, 1, 2, (FENCE, 0))
+    s.set(0, 1, 4, (FENCE, 0))
     return s
 
 

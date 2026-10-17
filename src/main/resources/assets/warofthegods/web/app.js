@@ -1458,8 +1458,8 @@
         const pieces = [];
         let water = false;
         for (let at = from; pieces.length < 48; at += step) {
-            const p = alongX ? {x: at, z: z1 - 1, sizeX: 1, sizeZ: 3, rotation: 0}
-                : {x: x1 - 1, z: at, sizeX: 3, sizeZ: 1, rotation: 1};
+            const p = alongX ? {x: at, z: z1 - 2, sizeX: 1, sizeZ: 5, rotation: 0}
+                : {x: x1 - 2, z: at, sizeX: 5, sizeZ: 1, rotation: 1};
             p.type = "bridge";
             const hits = (f) => p.x < f.x + f.sizeX && f.x < p.x + p.sizeX && p.z < f.z + f.sizeZ && f.z < p.z + p.sizeZ;
             let fits = p.x >= g.minX && p.z >= g.minZ && p.x + p.sizeX - 1 <= g.maxX && p.z + p.sizeZ - 1 <= g.maxZ;

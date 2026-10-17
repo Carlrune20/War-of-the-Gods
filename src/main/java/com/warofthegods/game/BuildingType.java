@@ -67,7 +67,7 @@ public enum BuildingType {
      */
     STONE_CIRCLE("stone_circle", "Stone circle", "stoneCircle", 1, true, false, UnitKind.LESSER_DEMON),
     /**
-     * A piece of a wooden bridge, a block long and three wide, laid out with others in a line across water by
+     * A piece of a wooden bridge, a block long and five wide, laid out with others in a line across water by
      * {@link BridgeLine}: a plank deck with rails, on posts down to the bottom. Anyone can walk over it.
      */
     BRIDGE("bridge", "Bridge", "bridge", 1, true, false);

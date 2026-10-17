@@ -11,7 +11,7 @@ import java.util.List;
 public final class BridgeLine {
 
     /** Blocks across a bridge. */
-    public static final int WIDTH = 3;
+    public static final int WIDTH = 5;
     /** Most pieces one bridge can have. */
     public static final int MAX_PIECES = 48;
 
