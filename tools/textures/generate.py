@@ -449,17 +449,14 @@ BOOT = (0, 47, 5, 3, 6)
 SKIRT = (22, 48, 8, 7, 1)
 CAPE = (42, 37, 10, 20, 1)
 
-# Zamorak's sign, as on his cape: two hooked strokes, one over the other, on a 6x9 grid.
+# Zamorak's sign, as on his cape: a pair of horns curving up from a joined base, on an 8x6 grid.
 ZAMORAK_SIGN = [
-    "..##..",
-    ".#..#.",
-    "....#.",
-    "...#..",
-    "..##..",
-    ".#....",
-    "#...#.",
-    "#..#..",
-    ".##...",
+    "#......#",
+    "##....##",
+    "##....##",
+    ".##..##.",
+    ".######.",
+    "..####..",
 ]
 
 KNIGHTS = {
@@ -648,14 +645,12 @@ def knight(style):
     def cape(face, x, y, w, h):
         red, red_dark, black = (164, 22, 20), (118, 14, 14), (14, 12, 12)
         if face == "back":
-            # The outside, seen from behind: Zamorak's sign in black, a black edge and a ragged hem.
-            if 2 <= x <= 7 and 4 <= y <= 12 and ZAMORAK_SIGN[y - 4][x - 2] == "#":
+            # The outside, seen from behind: Zamorak's sign in black and a ragged black hem.
+            if 1 <= x <= 8 and 4 <= y <= 9 and ZAMORAK_SIGN[y - 4][x - 1] == "#":
                 return black
             if y == h - 1:
                 return black if x % 3 else None
             if y == h - 2 and x % 3 == 0:
-                return black
-            if x in (0, w - 1):
                 return black
             return red if (x + y) % 5 else red_dark
         if face == "front":
