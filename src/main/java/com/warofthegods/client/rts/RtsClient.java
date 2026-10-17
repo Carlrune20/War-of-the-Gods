@@ -585,9 +585,13 @@ public final class RtsClient {
             commanders.clear();
             entering = false;
             lobby = null;
+            fog.forgetWalked();
             return;
         }
         if (!active) {
+            if (mc.thePlayer.dimension == GameWorld.dimensionId()) {
+                fog.walk(this, mc.thePlayer.posX, mc.thePlayer.posZ);
+            }
             return;
         }
         ticks++;
