@@ -153,75 +153,56 @@ def worker(faction):
 
 
 def warrior(faction):
+    # A plain fighting man, not a knight: bare-headed in a shirt and trousers of his god's color, with his team's belt
+    # and leather boots. Saradomin's wears blue, Zamorak's a red shirt and black trousers.
     if faction == "saradomin":
-        steel, steel_dark = (188, 194, 204), (130, 136, 148)
-        tabard, tabard_trim, emblem = (44, 72, 164), (232, 232, 226), (230, 190, 60)
-        slit = (30, 34, 44)
+        shirt, shirt_dark = (52, 86, 176), (36, 60, 132)
+        trousers, trousers_dark = (34, 50, 104), (24, 36, 78)
+        hair = (104, 70, 40)
     else:
-        steel, steel_dark = (58, 54, 60), (34, 32, 36)
-        tabard, tabard_trim, emblem = (124, 20, 22), (24, 20, 20), (214, 204, 176)
-        slit = (230, 50, 30)
-    chain = (150, 154, 160) if faction == "saradomin" else (72, 68, 72)
+        shirt, shirt_dark = (156, 30, 28), (112, 20, 20)
+        trousers, trousers_dark = (34, 32, 36), (22, 20, 24)
+        hair = (40, 30, 26)
+    belt = (78, 54, 32)
+    boots = (58, 40, 26)
 
     def body(face, x, y, w, h):
-        if face in ("top", "bottom"):
-            return steel
-        if face in ("front", "back") and 1 <= x <= 6:
-            if x in (1, 6) or y == 11:
-                return tabard_trim
-            if face == "front" and faction == "saradomin" and ((x in (3, 4) and 2 <= y <= 7) or (y == 4 and 2 <= x <= 5)):
-                return emblem
-            if face == "front" and faction == "zamorak" and (
-                    (y == 3 and 2 <= x <= 5) or (y == 7 and 2 <= x <= 5) or (y == 4 and x == 4) or (y == 5 and x == 3)
-                    or (y == 6 and x == 2)):
-                return emblem
-            return tabard
-        if y == 7:
-            return steel_dark
-        return steel if y < 3 else chain
+        if face == "top":
+            return shirt
+        if face == "bottom":
+            return trousers
+        if y >= 10:
+            return trousers
+        if y in (8, 9):
+            # Under the belt in the team's color, which team_overlay.png draws over it.
+            return belt
+        if face == "front" and y == 0 and 2 <= x <= 5:
+            # The open neck of the shirt.
+            return SKIN if 3 <= x <= 4 else shirt_dark
+        if face == "front" and x in (3, 4) and y in (1, 2):
+            return SKIN if y == 1 else shirt_dark
+        return shirt
 
     def arm(face, x, y, w, h):
         if face == "top":
-            return steel
-        if y < 4:
-            # A pauldron; Zamorak's has a spike of bone on top.
-            if faction == "zamorak" and face == "top":
-                return emblem
-            return steel if y < 3 else steel_dark
-        if y >= 9:
-            return steel_dark if y == 9 else steel
-        return chain
+            return shirt
+        if face == "bottom" or y >= 10:
+            return SKIN
+        if y == 9:
+            return shirt_dark
+        return shirt
 
     def leg(face, x, y, w, h):
-        if face == "bottom" or y >= 10:
-            return steel_dark
-        if y < 3 and face in ("front", "back"):
-            return tabard
-        return steel if y % 4 else steel_dark
+        if face == "bottom" or y >= 9:
+            return boots if y != 9 else (44, 30, 20)
+        if face == "top":
+            return trousers
+        return trousers_dark if (face == "front" and x == 3) or y == 8 else trousers
 
     def hat(face, x, y, w, h):
-        if face == "bottom":
-            return None
-        if face == "top":
-            if faction == "zamorak" and (x in (0, 7) and y in (0, 1)):
-                return emblem
-            return steel
-        if face == "front":
-            if y == 3 and 1 <= x <= 6 and x not in (3, 4):
-                return slit
-            if faction == "saradomin" and x in (3, 4) and 3 <= y <= 6:
-                return steel_dark
-            if y >= 5 and 2 <= x <= 5 and faction == "saradomin":
-                return None
-            if faction == "zamorak" and y >= 5 and x in (3, 4):
-                return steel_dark
-            return steel
-        if face == "back" and y == 0 and faction == "saradomin" and x in (3, 4):
-            return tabard
-        return steel if y != 2 else steel_dark
+        return None
 
-    return {"head": face_fn((60, 44, 30), beard=(70, 50, 34) if faction == "saradomin" else None), "hat": hat,
-            "body": body, "arm": arm, "leg": leg}
+    return {"head": face_fn(hair), "hat": hat, "body": body, "arm": arm, "leg": leg}
 
 
 def archer(faction):
