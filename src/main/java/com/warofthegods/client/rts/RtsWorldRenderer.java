@@ -5,6 +5,7 @@ import java.util.Map;
 
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GLAllocation;
 import net.minecraft.client.renderer.RenderBlocks;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.entity.RenderManager;
@@ -38,6 +39,17 @@ public final class RtsWorldRenderer {
     private GhostBlocks ghostBlocks;
     private String ghostKey;
     private final Map<String, Schematic> looks = new HashMap<>();
+
+    /** How far around what the camera looks at the fog of war is drawn, in blocks. */
+    private static final int FOG_REACH = 144;
+    /** Milliseconds before the fog is made again anyway, as the ground it lies on comes in. */
+    private static final long FOG_REFRESH = 2000;
+    /** The fog of war as made last, in a display list, and what it was made for. */
+    private int fogList = -1;
+    private int fogVersion = -1;
+    private int fogX;
+    private int fogZ;
+    private long fogTime;
 
     RtsWorldRenderer(RtsClient client) {
         this.client = client;
@@ -117,6 +129,10 @@ public final class RtsWorldRenderer {
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDisable(GL11.GL_ALPHA_TEST);
 
+        if (client.fog.isOn()) {
+            fog();
+        }
+
         // The see-through building being placed first, without writing depth, so lines show through it: as it will
         // look where it fits, red where it does not. Building sites need no copy: their scaffolding stands in the
         // world.
@@ -176,6 +192,9 @@ public final class RtsWorldRenderer {
         RtsState state = client.state;
         tessellator.startDrawing(GL11.GL_LINES);
         for (RtsState.BuildingInfo b : state.buildings.values()) {
+            if (state.isEnemyTeam(b.team) && !client.fog.isExplored(b.x, b.z, b.sizeX, b.sizeZ)) {
+                continue;
+            }
             RtsState.TeamInfo team = state.teamsById.get(b.team);
             boolean chosen = client.selectedBuildings.contains(b.id);
             float[] color = chosen ? SELECTED : team == null ? new float[] { 0.8F, 0.8F, 0.8F } : rgb(team.color);
@@ -226,8 +245,11 @@ public final class RtsWorldRenderer {
                 : state.units.containsKey(unit.target) ? state.units.get(unit.target)
                     : state.players.containsKey(unit.target) ? state.players.get(unit.target)
                         : state.mobs.get(unit.target);
-            if ("attack".equals(unit.order) && target != null) {
-                double[] to = client.positionOf(target, partialTicks);
+            double[] to = target == null ? null : client.positionOf(target, partialTicks);
+            if (to != null && !client.fog.isVisible(to[0], to[2])) {
+                to = null;
+            }
+            if ("attack".equals(unit.order) && to != null) {
                 line(at[0], at[1] + 0.1, at[2], to[0], to[1] + 0.1, to[2], ATTACK, alpha);
             } else if (!"attack".equals(unit.order) && !"idle".equals(unit.order) && !Double.isNaN(unit.toX)) {
                 double y = client.groundHeight(unit.toX, unit.toZ);
@@ -251,6 +273,93 @@ public final class RtsWorldRenderer {
         }
         border(alpha);
         tessellator.draw();
+    }
+
+    /**
+     * The fog of war near the camera: black over the ground nobody of the viewer's team has been near, and a dark veil
+     * over what they have seen but do not see now. It lies on top of every column the client has, sides down cliffs
+     * included, and is kept in a display list, made again when what is seen changes or the camera moves on.
+     */
+    private void fog() {
+        FogOfWar fog = client.fog;
+        RtsCamera camera = client.getCamera();
+        int cx = fog.cellX(camera.focusX) >> 4;
+        int cz = fog.cellZ(camera.focusZ) >> 4;
+        long now = System.currentTimeMillis();
+        if (fogList < 0) {
+            fogList = GLAllocation.generateDisplayLists(1);
+            fogVersion = -1;
+        }
+        if (fogVersion != fog.version() || cx != fogX || cz != fogZ || now - fogTime > FOG_REFRESH) {
+            fogVersion = fog.version();
+            fogX = cx;
+            fogZ = cz;
+            fogTime = now;
+            GL11.glNewList(fogList, GL11.GL_COMPILE);
+            makeFog(camera);
+            GL11.glEndList();
+        }
+        GL11.glCallList(fogList);
+    }
+
+    private void makeFog(RtsCamera camera) {
+        RtsState.GameInfo game = client.state.game;
+        FogOfWar fog = client.fog;
+        int x0 = Math.max(game.minX, (int) camera.focusX - FOG_REACH);
+        int x1 = Math.min(game.maxX, (int) camera.focusX + FOG_REACH);
+        int z0 = Math.max(game.minZ, (int) camera.focusZ - FOG_REACH);
+        int z1 = Math.min(game.maxZ, (int) camera.focusZ + FOG_REACH);
+        if (x0 > x1 || z0 > z1) {
+            return;
+        }
+        int width = x1 - x0 + 1;
+        int[] heights = new int[width * (z1 - z0 + 1)];
+        for (int z = z0; z <= z1; z++) {
+            for (int x = x0; x <= x1; x++) {
+                heights[(z - z0) * width + x - x0] = (int) client.groundHeight(x, z);
+            }
+        }
+        // The unseen ground first, solid, then the veil over the rest without writing depth, so it never hides
+        // itself.
+        for (int pass = 0; pass < 2; pass++) {
+            boolean black = pass == 0;
+            GL11.glDepthMask(black);
+            tessellator.startDrawingQuads();
+            if (black) {
+                tessellator.setColorRGBA_F(0.04F, 0.04F, 0.06F, 1);
+            } else {
+                tessellator.setColorRGBA_F(0, 0, 0.03F, 0.5F);
+            }
+            for (int z = z0; z <= z1; z++) {
+                for (int x = x0; x <= x1; x++) {
+                    boolean explored = fog.isExplored(x + 0.5, z + 0.5);
+                    if (black == explored || !black && fog.isVisible(x + 0.5, z + 0.5)) {
+                        continue;
+                    }
+                    double y = heights[(z - z0) * width + x - x0] + (black ? 0.02 : 0.04);
+                    quad(x, y, z, x, y, z + 1, x + 1, y, z + 1, x + 1, y, z);
+                    // Down the sides to lower neighbours, so a cliff is covered as well as its top.
+                    double west = x > x0 ? heights[(z - z0) * width + x - 1 - x0] : y;
+                    double east = x < x1 ? heights[(z - z0) * width + x + 1 - x0] : y;
+                    double north = z > z0 ? heights[(z - 1 - z0) * width + x - x0] : y;
+                    double south = z < z1 ? heights[(z + 1 - z0) * width + x - x0] : y;
+                    if (west < y) {
+                        quad(x, west, z, x, y, z, x, y, z + 1, x, west, z + 1);
+                    }
+                    if (east < y) {
+                        quad(x + 1, east, z, x + 1, east, z + 1, x + 1, y, z + 1, x + 1, y, z);
+                    }
+                    if (north < y) {
+                        quad(x, north, z, x + 1, north, z, x + 1, y, z, x, y, z);
+                    }
+                    if (south < y) {
+                        quad(x, south, z + 1, x, y, z + 1, x + 1, y, z + 1, x + 1, south, z + 1);
+                    }
+                }
+            }
+            tessellator.draw();
+        }
+        GL11.glDepthMask(true);
     }
 
     /** The edge of the map near the camera, along the ground. */

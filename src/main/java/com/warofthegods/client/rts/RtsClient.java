@@ -34,6 +34,7 @@ import net.minecraftforge.client.event.EntityViewRenderEvent;
 import net.minecraftforge.client.event.FOVUpdateEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.client.event.RenderHandEvent;
+import net.minecraftforge.client.event.RenderLivingEvent;
 import net.minecraftforge.client.event.RenderPlayerEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.common.MinecraftForge;
@@ -49,6 +50,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import com.warofthegods.Config;
+import com.warofthegods.game.BridgeLine;
 import com.warofthegods.game.WallLine;
 import com.warofthegods.rts.RtsNetwork;
 import com.warofthegods.world.GameWorld;
@@ -145,6 +147,8 @@ public final class RtsClient {
     /** The first corner of that area, x, y, z, once clicked; null before. */
     public double[] lightCorner;
     final Minimap minimap = new Minimap();
+    /** What the viewer's team has seen and sees now. */
+    final FogOfWar fog = new FogOfWar();
     /** How units line up where they are sent: box, line or wedge. */
     public String formation = "box";
     /** The building being placed, or null. */
@@ -587,6 +591,7 @@ public final class RtsClient {
             return;
         }
         ticks++;
+        fog.update(this);
         // Dead: the death screen takes over.
         if (camera.worldObj != mc.theWorld || mc.thePlayer.dimension != GameWorld.dimensionId()
             || mc.thePlayer.getHealth() <= 0) {
@@ -794,6 +799,16 @@ public final class RtsClient {
         }
     }
 
+    /** What moves in the fog of war is not drawn; the viewer's team always sees its own, as they stand in sight. */
+    @SubscribeEvent
+    public void onRenderLiving(RenderLivingEvent.Pre event) {
+        if (active && fog.isOn()
+            && event.entity != mc.thePlayer
+            && !fog.isVisible(event.entity.posX, event.entity.posZ)) {
+            event.setCanceled(true);
+        }
+    }
+
     // ---------------------------------------------------------------- placing and selecting
 
     public void startPlacing(String type) {
@@ -867,7 +882,7 @@ public final class RtsClient {
      */
     public Footprint footprint() {
         RtsState.BuildingTypeInfo type = placing == null ? null : state.buildingType(placing.type);
-        if (type == null || placing.cx == Integer.MIN_VALUE || state.game == null || "wall".equals(placing.type)) {
+        if (type == null || placing.cx == Integer.MIN_VALUE || state.game == null || isLine(placing.type)) {
             return null;
         }
         Footprint spot = new Footprint();
@@ -930,19 +945,25 @@ public final class RtsClient {
         return spot;
     }
 
-    /** The wall being laid out, as its pieces' footprints, and whether it fits. */
+    /** The wall or bridge being laid out, as its pieces' footprints, and whether it fits. */
     public static final class WallSpot {
 
         public final List<Footprint> pieces = new ArrayList<>();
         public final List<String> types = new ArrayList<>();
         public boolean ok;
+        /** For a bridge, whether it crosses no water, and so cannot go there. */
+        public boolean dry;
     }
 
     /**
-     * The wall being laid out, from where it starts to the pointer, or at the pointer before the first click; null
-     * when no wall is being laid out. See {@link WallLine}, which the server lays the wall out with too.
+     * The wall or bridge being laid out, from where it starts to the pointer, or at the pointer before the first
+     * click; null when none is being laid out. See {@link WallLine} and {@link BridgeLine}, which the server lays them
+     * out with too.
      */
     public WallSpot wallSpot() {
+        if (placing != null && BRIDGE.equals(placing.type) && placing.cx != Integer.MIN_VALUE && state.game != null) {
+            return bridgeSpot();
+        }
         if (placing == null || !"wall".equals(placing.type) || placing.cx == Integer.MIN_VALUE || state.game == null) {
             return null;
         }
@@ -1014,6 +1035,68 @@ public final class RtsClient {
         return spot;
     }
 
+    /**
+     * The bridge being laid out, as the server will lay it: pieces where the team has bridge already are left out, and
+     * its deck lies a block over the water, or in the ground on land.
+     */
+    private WallSpot bridgeSpot() {
+        RtsState.TeamInfo team = state.myTeam();
+        int[] start = placing.start == null ? new int[] { placing.cx, placing.cz } : placing.start;
+        WallSpot spot = new WallSpot();
+        spot.ok = true;
+        spot.dry = true;
+        RtsState.GameInfo game = state.game;
+        for (BridgeLine.Piece piece : BridgeLine.pieces(start[0], start[1], placing.cx, placing.cz)) {
+            Footprint footprint = new Footprint();
+            footprint.x = piece.minX;
+            footprint.z = piece.minZ;
+            footprint.sizeX = piece.sizeX;
+            footprint.sizeZ = piece.sizeZ;
+            footprint.rotation = piece.rotation;
+            footprint.ok = piece.minX >= game.minX && piece.minZ >= game.minZ
+                && piece.minX + piece.sizeX - 1 <= game.maxX
+                && piece.minZ + piece.sizeZ - 1 <= game.maxZ;
+            boolean built = false;
+            for (RtsState.BuildingInfo b : state.buildings.values()) {
+                if (piece.minX < b.x + b.sizeX && b.x < piece.minX + piece.sizeX
+                    && piece.minZ < b.z + b.sizeZ
+                    && b.z < piece.minZ + piece.sizeZ) {
+                    if (team != null && b.team.equals(team.id) && BRIDGE.equals(b.type)) {
+                        built = true;
+                    } else {
+                        footprint.ok = false;
+                    }
+                }
+            }
+            if (built) {
+                continue;
+            }
+            for (List<RtsState.FeatureInfo> features : Arrays.asList(state.settlements, state.mines)) {
+                for (RtsState.FeatureInfo f : features) {
+                    if (piece.minX < f.x + f.sizeX && f.x < piece.minX + piece.sizeX
+                        && piece.minZ < f.z + f.sizeZ
+                        && f.z < piece.minZ + piece.sizeZ) {
+                        footprint.ok = false;
+                    }
+                }
+            }
+            int x = (int) Math.floor(piece.centerX());
+            int z = (int) Math.floor(piece.centerZ());
+            int top = mc.theWorld == null ? 63 : mc.theWorld.getTopSolidOrLiquidBlock(x, z) - 1;
+            boolean wet = mc.theWorld != null && mc.theWorld.getBlock(x, top, z)
+                .getMaterial()
+                .isLiquid();
+            spot.dry &= !wet;
+            // The ghost is drawn a block over its ground, so a block under the deck.
+            footprint.y = (wet ? top + 1 : top) - 1;
+            spot.ok &= footprint.ok;
+            spot.pieces.add(footprint);
+            spot.types.add(BRIDGE);
+        }
+        spot.ok &= !spot.pieces.isEmpty() && !spot.dry;
+        return spot;
+    }
+
     /** A wall end at x, z: the middle of the team's tower there, if there is one, else x, z itself. */
     private int[] wallEnd(RtsState.TeamInfo team, int x, int z) {
         RtsState.BuildingInfo b = towerNear(team, x, z);
@@ -1038,6 +1121,14 @@ public final class RtsClient {
 
     public static boolean isWall(String type) {
         return "wall".equals(type) || "wall_post".equals(type) || "gate".equals(type);
+    }
+
+    /** The type of the pieces of a bridge. */
+    public static final String BRIDGE = "bridge";
+
+    /** Whether the type is laid out from one point to another, a piece at a time: a wall or a bridge. */
+    public static boolean isLine(String type) {
+        return isWall(type) || BRIDGE.equals(type);
     }
 
     /**

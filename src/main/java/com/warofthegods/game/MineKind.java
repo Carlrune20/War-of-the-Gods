@@ -35,9 +35,9 @@ public enum MineKind {
         this.weight = weight;
     }
 
-    /** Gold a new site of this kind holds. */
+    /** Gold a new site of this kind holds: its share of a gold mine's, and the same extra for every kind. */
     public int gold() {
-        return Math.max(1, (int) Math.round(Config.goldMineGold * richness));
+        return Math.max(1, (int) Math.round(Config.goldMineGold * richness) + Config.mineExtraGold);
     }
 
     /** The ores of its lesser rocks, which stand among the best ones as in a mine of mixed rocks. */

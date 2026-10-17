@@ -206,6 +206,8 @@ public final class RtsState {
         public double rallyX = Double.NaN;
         public double rallyZ = Double.NaN;
         public final List<String> queue = new ArrayList<>();
+        /** The unit it trains one more of whenever its queue runs empty, or null. */
+        public String autoTrain;
         public double progress;
         public int workers;
         public int level = 1;
@@ -504,6 +506,7 @@ public final class RtsState {
             for (JsonElement kind : array(building, "queue")) {
                 info.queue.add(kind.getAsString());
             }
+            info.autoTrain = building.has("autoTrain") ? string(building, "autoTrain") : null;
             info.progress = number(building, "progress");
             info.workers = integer(building, "workers");
             info.level = Math.max(1, integer(building, "level"));

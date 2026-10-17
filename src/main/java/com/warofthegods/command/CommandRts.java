@@ -71,6 +71,7 @@ public class CommandRts extends CommandBase {
         "buildings",
         "build",
         "wall",
+        "bridge",
         "gate",
         "train",
         "damage",
@@ -99,7 +100,7 @@ public class CommandRts extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "/rts <help|info|newgame|quickgame|endgame|spawn|surrender|team|ally|unally|resources|units|buildings|build|wall|gate|train|damage"
+        return "/rts <help|info|newgame|quickgame|endgame|spawn|surrender|team|ally|unally|resources|units|buildings|build|wall|bridge|gate|train|damage"
             + "|upgrade|research|chop|mine|finish|ai|web>";
     }
 
@@ -199,6 +200,9 @@ public class CommandRts extends CommandBase {
             case "wall":
                 wall(sender, rest);
                 break;
+            case "bridge":
+                bridge(sender, rest);
+                break;
             case "gate":
                 gate(sender, rest);
                 break;
@@ -255,7 +259,7 @@ public class CommandRts extends CommandBase {
                 + "|black_knights_fortress> [x z] [rotation] - lay out a site for the team's workers (op)");
         send(
             sender,
-            "/rts train <team> <worker|warrior|archer|cavalry|horse|white_knight|black_knight|tragidee|sagittare>"
+            "/rts train <team> <worker|warrior|archer|cavalry|horse|white_knight|black_knight|tradigee|sagittare>"
                 + " [count] - queue"
                 + " units for free at a building (op)");
         send(sender, "/rts upgrade <building id> - take a town center, and its town, into the next age at once (op)");
@@ -273,6 +277,10 @@ public class CommandRts extends CommandBase {
             sender,
             "/rts wall <team> <x1> <z1> <x2> <z2> - lay out a wall for free and send the team's idle workers to build"
                 + " it (op)");
+        send(
+            sender,
+            "/rts bridge <team> <x1> <z1> <x2> <z2> - lay out a wooden bridge across water for free and send the"
+                + " team's idle workers to build it (op)");
         send(sender, "/rts gate <building id> - make a finished wall segment a gate, for free (op)");
         send(sender, "/rts mine <team> - send a team's idle workers to the nearest gold mine (op)");
         send(sender, "/rts damage <building id> <amount> - take health off a building; at 0 it is gone (op)");
@@ -810,7 +818,7 @@ public class CommandRts extends CommandBase {
         UnitKind kind = UnitKind.byId(text);
         if (kind == null) {
             throw new CommandException(
-                "Unknown unit kind %s; use warrior, archer, worker, cavalry, horse, white_knight, black_knight, tragidee"
+                "Unknown unit kind %s; use warrior, archer, worker, cavalry, horse, white_knight, black_knight, tradigee"
                     + " or sagittare",
                 text);
         }
@@ -912,6 +920,47 @@ public class CommandRts extends CommandBase {
                 + " workers on the way");
     }
 
+    /** Lays out a bridge for a team, for free, and sends its workers that have nothing to do to build it. */
+    private void bridge(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        Game game = requireGame();
+        requireArgs(args, 5, "/rts bridge <team> <x1> <z1> <x2> <z2>");
+        Team team = requireTeam(game, args[0]);
+        int x1 = MathHelper.floor_double(coordinate(sender, args[1], true));
+        int z1 = MathHelper.floor_double(coordinate(sender, args[2], false));
+        int x2 = MathHelper.floor_double(coordinate(sender, args[3], true));
+        int z2 = MathHelper.floor_double(coordinate(sender, args[4], false));
+        Buildings.BridgePlan plan = Buildings.get()
+            .planBridge(game, GameWorld.getWorld(), team, x1, z1, x2, z2);
+        if (plan.problem != null) {
+            throw new CommandException(plan.problem);
+        }
+        List<Building> sites = Buildings.get()
+            .startBridge(game, team, plan);
+        List<EntityUnit> idle = new ArrayList<>();
+        for (EntityUnit unit : Units.get()
+            .getUnits(team)) {
+            if (unit.isWorker() && unit.getOrder() == EntityUnit.Order.IDLE) {
+                idle.add(unit);
+            }
+        }
+        // Sent to the first piece, they go on along the rest of the bridge.
+        Units.get()
+            .orderBuild(idle, sites.get(0), false);
+        send(
+            sender,
+            "Laid out a bridge of " + sites.size()
+                + " pieces for "
+                + team.getColoredName()
+                + ", from #"
+                + sites.get(0).id
+                + " to #"
+                + sites.get(sites.size() - 1).id
+                + ", "
+                + idle.size()
+                + " workers on the way");
+    }
+
     /** Makes a finished wall segment a gate, for free. */
     private void gate(ICommandSender sender, String[] args) {
         requireOp(sender);
@@ -950,6 +999,9 @@ public class CommandRts extends CommandBase {
         }
         if (type == BuildingType.WALL) {
             throw new CommandException("Lay a wall out with /rts wall <team> <x1> <z1> <x2> <z2>");
+        }
+        if (type == BuildingType.BRIDGE) {
+            throw new CommandException("Lay a bridge out with /rts bridge <team> <x1> <z1> <x2> <z2>");
         }
         WorldServer world = GameWorld.getWorld();
         Buildings.Plan plan;

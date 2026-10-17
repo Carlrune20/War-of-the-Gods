@@ -28,6 +28,7 @@ import org.lwjgl.opengl.GL12;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import com.warofthegods.unit.Trees;
 
 /**
  * The screen of the RTS view: it frees the mouse over the world the camera shows and draws the panels on top, like
@@ -84,7 +85,7 @@ public final class GuiRts extends GuiScreen {
         "black_knights_fortress",
         "white_knight",
         "black_knight",
-        "tragidee",
+        "tradigee",
         "sagittare",
         "archery_range",
         "stables",
@@ -114,6 +115,7 @@ public final class GuiRts extends GuiScreen {
         VANILLA_ICONS.put("axe", new ItemStack(Items.iron_axe));
         VANILLA_ICONS.put("pickaxe", new ItemStack(Items.iron_pickaxe));
         VANILLA_ICONS.put("hoe", new ItemStack(Items.iron_hoe));
+        VANILLA_ICONS.put("bridge", new ItemStack(Blocks.planks));
     }
 
     private final RtsClient client;
@@ -372,6 +374,9 @@ public final class GuiRts extends GuiScreen {
                 continue;
             }
             double[] at = client.positionOf(thing, 1);
+            if (!client.fog.isVisible(at[0], at[2])) {
+                continue;
+            }
             double[] p = project(at[0], at[1] + at[3] / 2, at[2]);
             if (p != null && p[0] >= left && p[0] <= right && p[1] >= top && p[1] <= bottom) {
                 (enemy ? enemies : mobs).add(thing);
@@ -557,6 +562,10 @@ public final class GuiRts extends GuiScreen {
         for (Object[] candidate : candidates) {
             RtsState.Thing thing = (RtsState.Thing) candidate[1];
             double[] at = client.positionOf(thing, partialTicks);
+            // What moves in the fog is not drawn, so cannot be picked.
+            if (!client.fog.isVisible(at[0], at[2])) {
+                continue;
+            }
             double[] feet = project(at[0], at[1], at[2]);
             double[] head = project(at[0], at[1] + at[3], at[2]);
             // Half the width it is drawn at, measured across the screen.
@@ -658,7 +667,21 @@ public final class GuiRts extends GuiScreen {
         // A ray that hits a wall stops just outside the footprint; step a little further in.
         double[] ray = camera().ray(px, py, mc.displayWidth, mc.displayHeight);
         RtsState.BuildingInfo building = state().buildingAt(ground[0], ground[2]);
-        return building != null ? building : state().buildingAt(ground[0] + ray[3] * 0.3, ground[2] + ray[5] * 0.3);
+        if (building == null) {
+            building = state().buildingAt(ground[0] + ray[3] * 0.3, ground[2] + ray[5] * 0.3);
+        }
+        return building == null || seen(building) ? building : null;
+    }
+
+    /** Whether the viewer's team knows of the building: it stands where they have been, or it is their own. */
+    private boolean seen(RtsState.BuildingInfo b) {
+        return !state().isEnemyTeam(b.team) || client.fog.isExplored(b.x, b.z, b.sizeX, b.sizeZ);
+    }
+
+    /** Whether the unit, player or mob is out of the fog. */
+    private boolean seen(RtsState.Thing thing, float partialTicks) {
+        double[] at = client.positionOf(thing, partialTicks);
+        return client.fog.isVisible(at[0], at[2]);
     }
 
     private double[] project(double x, double y, double z) {
@@ -954,10 +977,25 @@ public final class GuiRts extends GuiScreen {
         int x = MathHelper.floor_double(ground[0] + ray[3] * 0.05);
         int y = MathHelper.floor_double(ground[1] + ray[4] * 0.05);
         int z = MathHelper.floor_double(ground[2] + ray[5] * 0.05);
-        Block block = mc.theWorld.getBlock(x, y, z);
-        boolean tree = block == Blocks.log || block == Blocks.log2 || block.getMaterial() == Material.leaves;
-        return tree && state().buildingAt(x + 0.5, z + 0.5) == null ? new int[] { x, y, z } : null;
+        if (state().buildingAt(x + 0.5, z + 0.5) != null) {
+            return null;
+        }
+        long key = ((long) x << 36) ^ ((long) (y & 0xFF) << 28) ^ (z & 0xFFFFFFFL);
+        if (key != treeKey || mc.theWorld.getTotalWorldTime() - treeTime > 20) {
+            // Only logs and leaves that grew on a tree; those of buildings, walls and ruins are no tree's.
+            treeKey = key;
+            treeTime = mc.theWorld.getTotalWorldTime();
+            treeFound = Trees.treeOf(mc.theWorld, x, y, z) != null;
+        }
+        return treeFound ? new int[] { x, y, z } : null;
     }
+
+    /**
+     * The block treeUnder looked at last, when, and whether it was part of a tree, as working that out takes a while.
+     */
+    private long treeKey = Long.MIN_VALUE;
+    private long treeTime;
+    private boolean treeFound;
 
     /** The tracked tree nearest a block of a tree, within a few blocks across; null if none is tracked. */
     private RtsState.TreeInfo trackedTreeNear(int[] block) {
@@ -1253,7 +1291,7 @@ public final class GuiRts extends GuiScreen {
 
     private void place(int px, int py, boolean keep) {
         movePlacing(px, py);
-        if (RtsClient.isWall(client.placing.type)) {
+        if (RtsClient.isLine(client.placing.type)) {
             placeWall(keep);
             return;
         }
@@ -1290,8 +1328,8 @@ public final class GuiRts extends GuiScreen {
     }
 
     /**
-     * A click while laying out a wall: the first sets where it starts, the second where it ends, and sends it. With
-     * shift the next wall starts where this one ended.
+     * A click while laying out a wall or bridge: the first sets where it starts, the second where it ends, and sends
+     * it. With shift the next one starts where this one ended.
      */
     private void placeWall(boolean keep) {
         RtsClient.Placing placing = client.placing;
@@ -1303,8 +1341,12 @@ public final class GuiRts extends GuiScreen {
         if (spot == null) {
             return;
         }
+        boolean bridge = RtsClient.BRIDGE.equals(placing.type);
         if (!spot.ok) {
-            client.showToast("The wall does not fit there", true);
+            client.showToast(
+                !bridge ? "The wall does not fit there"
+                    : spot.dry ? "A bridge has to cross water" : "The bridge does not fit there",
+                true);
             return;
         }
         Set<String> workers = client.selectedWorkers();
@@ -1325,11 +1367,11 @@ public final class GuiRts extends GuiScreen {
             client.stopPlacing();
         }
         client.command(
-            "buildings.wall",
+            bridge ? "buildings.bridge" : "buildings.wall",
             body,
             reply -> client.showToast(
-                "Wall of " + (reply.has("pieces") ? reply.get("pieces")
-                    .getAsInt() : spot.pieces.size()) + " pieces laid out",
+                (bridge ? "Bridge of " : "Wall of ") + (reply.has("pieces") ? reply.get("pieces")
+                    .getAsInt() : spot.pieces.size()) + (bridge ? " blocks laid out" : " pieces laid out"),
                 false));
     }
 
@@ -1795,6 +1837,7 @@ public final class GuiRts extends GuiScreen {
             RtsState.TeamInfo team = state.teamsById.get(b.team);
             boolean hurt = b.complete && b.health < b.maxHealth;
             if (type == null || team == null
+                || !seen(b)
                 || (!"town_hall".equals(b.type) && !client.selectedBuildings.contains(b.id)
                     && b.complete
                     && b.queue.isEmpty()
@@ -1839,7 +1882,7 @@ public final class GuiRts extends GuiScreen {
         }
         for (RtsState.UnitInfo unit : state.units.values()) {
             boolean selected = client.selected.contains(unit.id);
-            if (!selected && unit.health >= unit.maxHealth) {
+            if (!selected && unit.health >= unit.maxHealth || !seen(unit, partialTicks)) {
                 continue;
             }
             double[] at = client.positionOf(unit, partialTicks);
@@ -1850,7 +1893,7 @@ public final class GuiRts extends GuiScreen {
             }
         }
         for (RtsState.MobInfo mob : state.mobs.values()) {
-            if (mob.health >= mob.maxHealth) {
+            if (mob.health >= mob.maxHealth || !seen(mob, partialTicks)) {
                 continue;
             }
             double[] at = client.positionOf(mob, partialTicks);
@@ -1860,6 +1903,9 @@ public final class GuiRts extends GuiScreen {
             }
         }
         for (RtsState.PlayerInfo player : state.players.values()) {
+            if (!seen(player, partialTicks)) {
+                continue;
+            }
             double[] at = client.positionOf(player, partialTicks);
             double[] p = project(at[0], at[1] + 2.2, at[2]);
             // Anyone hurt shows it, the viewer's own body too; commanders' bodies carry their own names.
@@ -2017,7 +2063,19 @@ public final class GuiRts extends GuiScreen {
         RtsState.BuildingInfo building = state.buildings.get(client.selectedBuilding);
         if (client.placing != null) {
             RtsState.BuildingTypeInfo type = state.buildingType(client.placing.type);
-            if (RtsClient.isWall(client.placing.type)) {
+            if (RtsClient.BRIDGE.equals(client.placing.type)) {
+                RtsClient.WallSpot bridge = client.wallSpot();
+                int pieces = bridge == null ? 0 : bridge.pieces.size();
+                actions.add(
+                    label(
+                        client.placing.start == null ? "Bridge: click the bank it starts from"
+                            : "Bridge: click the far bank; " + pieces
+                                + (pieces == 1 ? " block, " : " blocks, ")
+                                + RtsState.costText(wallCost(type, pieces))
+                                + "; shift to go on",
+                        0xC8C8C8));
+                actions.add(button("Cancel", "Esc or right-click", shift -> client.stopPlacing(), true));
+            } else if (RtsClient.isWall(client.placing.type)) {
                 RtsClient.WallSpot wall = client.wallSpot();
                 int pieces = wall == null ? 0 : wall.pieces.size();
                 actions.add(
@@ -2068,12 +2126,14 @@ public final class GuiRts extends GuiScreen {
                             id,
                             type.name + " ("
                                 + RtsState.costText(type.cost)
-                                + (RtsClient.isWall(id) ? " a piece)" : ")")
+                                + (RtsClient.BRIDGE.equals(id) ? " a block)" : RtsClient.isWall(id) ? " a piece)" : ")")
                                 + "\n"
                                 + (!aged ? "Needs " + ageName(type.age) + ": take your town center up a level"
-                                    : RtsClient.isWall(id)
-                                        ? "Build a wall: click where it starts, or a tower, then where it ends"
-                                        : "Build a " + type.name.toLowerCase() + ", then click where it goes"),
+                                    : RtsClient.BRIDGE.equals(id)
+                                        ? "Build a wooden bridge: click one bank, then the other"
+                                        : RtsClient.isWall(id)
+                                            ? "Build a wall: click where it starts, or a tower, then where it ends"
+                                            : "Build a " + type.name.toLowerCase() + ", then click where it goes"),
                             shift -> client.startPlacing(id),
                             aged && RtsState.canAfford(team, type.cost)));
                 }
@@ -2246,8 +2306,8 @@ public final class GuiRts extends GuiScreen {
         { "missiles", "Protect from Missiles", "arrows and other missiles" } };
 
     /**
-     * With Sir Tragidee or Sagittare of one's own selected: their protection prayers, which take three quarters of the
-     * damage and all the knockback of the attack style they protect from. Sir Tragidee switches between them at a
+     * With Sir Tradigee or Sagittare of one's own selected: their protection prayers, which take three quarters of the
+     * damage and all the knockback of the attack style they protect from. Sir Tradigee switches between them at a
      * click, and clicking the one that is up puts it down; Sagittare always protects from missiles.
      */
     private void prayerActions(List<Widget> actions) {
@@ -2261,7 +2321,7 @@ public final class GuiRts extends GuiScreen {
             if (unit == null || !state.isMine(unit)) {
                 continue;
             }
-            if ("tragidee".equals(unit.kind)) {
+            if ("tradigee".equals(unit.kind)) {
                 praying.add(id);
                 if (common == null) {
                     common = unit.prayer;
@@ -2423,6 +2483,46 @@ public final class GuiRts extends GuiScreen {
                     number != null ? "New units join group " + number
                         : rallied ? "Rally point set" : "Right-click to set a rally point",
                     0xC8C8C8));
+            // Training over and over: off, then each kind it trains in turn, then off again.
+            List<String> repeatable = new ArrayList<>();
+            for (String kindId : type.trains) {
+                RtsState.UnitKindInfo kind = state.unitKind(kindId);
+                if (kind != null && !kind.hero) {
+                    repeatable.add(kindId);
+                }
+            }
+            if (!repeatable.isEmpty()) {
+                int at = building.autoTrain == null ? -1 : repeatable.indexOf(building.autoTrain);
+                String next = at + 1 < repeatable.size() ? repeatable.get(at + 1) : null;
+                RtsState.UnitKindInfo current = building.autoTrain == null ? null : state.unitKind(building.autoTrain);
+                RtsState.UnitKindInfo following = next == null ? null : state.unitKind(next);
+                actions.add(
+                    button(
+                        "Auto: " + (current == null ? "off" : current.name.toLowerCase()),
+                        "Keeps training one more whenever the queue runs empty, while your team can pay\nClick for "
+                            + (following == null ? "off" : following.name.toLowerCase()),
+                        shift -> {
+                            List<RtsState.BuildingInfo> trainers = new ArrayList<>();
+                            for (RtsState.BuildingInfo trainer : selectedTrainers()) {
+                                RtsState.BuildingTypeInfo trainerType = state.buildingType(trainer.type);
+                                if (next == null || trainerType != null && trainerType.trains.contains(next)) {
+                                    trainers.add(trainer);
+                                }
+                            }
+                            JsonObject body = buildingsBody(trainers);
+                            if (next != null) {
+                                body.addProperty("unit", next);
+                            }
+                            client.command(
+                                "buildings.auto",
+                                body,
+                                reply -> client.showToast(
+                                    following == null ? "Stopped training over and over"
+                                        : "Training " + following.name.toLowerCase() + "s over and over",
+                                    false));
+                        },
+                        true));
+            }
             if (rallied) {
                 actions.add(button("Clear rally", "New units stay at the door", shift -> {
                     List<RtsState.BuildingInfo> trainers = selectedTrainers();

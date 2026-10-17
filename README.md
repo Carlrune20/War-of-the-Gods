@@ -42,7 +42,7 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts units kill <team\|all>` | (op) Remove units. |
 | `/rts buildings [team]` | List buildings and building sites with their health, how far each site is built and how many workers work each farm. |
 | `/rts build <team> <type> [x z] [rotation]` | (op) Lay out a building site for free (farm, house, barracks, archery_range, stables, storehouse, armory, tower, town center, or for their own god's teams white_knights_fortress, monastery and wizards_tower or black_knights_fortress, chaos_temple and stone_circle), near the town center unless x z is given (a town center goes on the nearest settlement nobody holds), and send the team's idle workers to build it, or for a stone circle its dark wizards. |
-| `/rts train <team> <worker\|warrior\|archer\|cavalry\|horse\|white_knight\|black_knight\|tragidee\|sagittare\|chaos_priest\|dark_wizard\|zamorak_mage\|lesser_demon\|monk\|blue_wizard> [count]` | (op) Queue units for free at the team's town center, barracks, archery range, stables, knights' fortress, chaos temple, stone circle, monastery or wizards' tower; only one of a hero. A lesser demon is only summoned with four dark wizards at the stone circle. |
+| `/rts train <team> <worker\|warrior\|archer\|cavalry\|horse\|white_knight\|black_knight\|tradigee\|sagittare\|chaos_priest\|dark_wizard\|zamorak_mage\|lesser_demon\|monk\|blue_wizard> [count]` | (op) Queue units for free at the team's town center, barracks, archery range, stables, knights' fortress, chaos temple, stone circle, monastery or wizards' tower; only one of a hero. A lesser demon is only summoned with four dark wizards at the stone circle. |
 | `/rts upgrade <building id>` | (op) Take a town center, and with it its whole town, into the next age at once, for free. |
 | `/rts research <team> <upgrade>` | (op) Give a team an upgrade at once, such as `forged_blades` or `fortified_walls`. |
 | `/rts wall <team> <x1> <z1> <x2> <z2>` | (op) Lay out a wall from one point to another for free, running up to the team's towers at either end, and send the team's idle workers to build it. |
@@ -164,7 +164,7 @@ is built, and the finished building stands once the site is done; more workers b
 | Tower | Watches over the land round it; with watch towers (Age II) shoots arrows at enemies within 16 blocks, and with guard towers (Age III) within 24; researches both | 50 Wood, 100 Gold | 900 | 25 s |
 | Wall | Keeps enemies out; laid out from one point to another, a 5 by 5 piece at a time | 10 Gold a piece | 600 a segment, 800 a post | 10 s a piece |
 | Gate | A wall segment your own units and allies walk through; it opens as they come near | 40 Gold | 600 | at once |
-| White Knights' fortress | Saradomin's teams only, Age III: a white stone keep that trains White Knights and Sir Tragidee, and shoots a volley of 4 arrows a second at the nearest enemies within 20 blocks | 300 Wood, 400 Gold | 4000 | 90 s |
+| White Knights' fortress | Saradomin's teams only, Age III: a white stone keep that trains White Knights and Sir Tradigee, and shoots a volley of 4 arrows a second at the nearest enemies within 20 blocks | 300 Wood, 400 Gold | 4000 | 90 s |
 | Black Knights' fortress | Zamorak's teams only, Age III: a black stone keep that trains Black Knights and Sagittare, and shoots a volley of 4 arrows a second at the nearest enemies within 20 blocks | 300 Wood, 400 Gold | 4000 | 90 s |
 
 | Unit | Costs (default) | |
@@ -182,13 +182,14 @@ is built, and the finished building stands once the site is done; more workers b
 | Lesser demon | 300 Food, 300 Gold, 7 Favor | Huge, horned and tailed: ten times a warrior's health, hits 8 harder, and nothing knocks it back; between its blows it hurls a fireball (10, and burns all enemies round where it bursts) every 10 to 15 s at an enemy within 16 blocks; summoned at a stone circle while four of its team's dark wizards stand in it |
 | White Knight | 60 Food, 75 Gold | Saradomin's knight in white plate: twice a warrior's health, hits 3 harder; trained at the White Knights' fortress |
 | Black Knight | 60 Food, 75 Gold | Zamorak's knight in black plate: twice a warrior's health, hits 3 harder; trained at the Black Knights' fortress |
-| Sir Tragidee | 200 Food, 350 Gold | A justiciar hero who fights up close with a diamond sword: eight times a warrior's health, hits 6 harder; trained at the White Knights' fortress |
+| Sir Tradigee | 200 Food, 350 Gold | A justiciar hero who fights up close with a diamond sword: eight times a warrior's health, hits 6 harder; trained at the White Knights' fortress |
 | Sagittare | 200 Food, 350 Gold | A ranger hero, the boss of Daemonheim: six times a warrior's health, arrows 6 harder and 14 blocks farther than an archer's (28 blocks to their 14); trained at the Black Knights' fortress |
 
 A team has at most one of each hero, alive or in training; once he falls it can train him again. Heroes stand a head
 taller than other units and go by their own names. Knights take twice as long as a warrior to train and heroes four
 times as long. Knights and heroes keep their own look: the armor upgrades make them stronger but do not change what
-they wear. Each knights' fortress belongs to its god: only Saradomin's teams can build the White Knights' fortress and
+they wear. Knights wear full plate, with a plume on the helm in their team's color; their fortress's own upgrade makes
+Black Knights elite and White Knights justiciars. Each knights' fortress belongs to its god: only Saradomin's teams can build the White Knights' fortress and
 only Zamorak's the Black Knights'.
 
 Cavalry ride into battle: once a rider has been on the move for over a second, every other arrow misses it and flies
@@ -301,6 +302,8 @@ An upgrade that needs another one first only shows up once the team has that one
 | Guard towers | Tower, Age III, after watch towers, for 150 Wood and 200 Gold | Towers see and shoot 8 farther |
 | Stone walls | Town center, Age II, for 100 Wood and 150 Gold | Walls and gates are rebuilt in stone, with twice the health |
 | Citadel walls | Town center, Age III, after stone walls, for 150 Wood and 300 Gold | Walls and gates are rebuilt in stone brick, or nether brick, with three times the health |
+| Elite Black Knights | Black Knights' fortress, for 400 Food and 600 Gold | Black Knights have 20 more health and hit 3 harder, and wear gold-trimmed black plate and a red cape with Zamorak's sign |
+| Justiciars | White Knights' fortress, for 400 Food and 600 Gold | White Knights become justiciars, with 20 more health and hitting 3 harder, in gold-trimmed silver plate with a crowned helm and a blue tabard |
 
 Buildings have health. A building site starts with a tenth of it and gains the rest as it is built. As a building
 loses health it looks it: at three quarters, half and a quarter it shows holes, cracks, cobwebs and rubble. Enemy

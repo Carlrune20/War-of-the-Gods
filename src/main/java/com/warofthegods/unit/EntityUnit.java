@@ -191,6 +191,8 @@ public class EntityUnit extends EntityCreature {
     private static final double MINE_REACH = 2.5;
     /** How far a worker looks for the next gold mine once one is mined out. */
     private static final int NEXT_MINE_RANGE = 64;
+    /** How far round a storehouse it has just put up a worker looks for a tree or gold mine to work. */
+    private static final int STORE_GATHER_RANGE = 32;
     /** How far a worker looks for the next tree once one falls. */
     private static final int NEXT_TREE_RANGE = 14;
 
@@ -199,6 +201,11 @@ public class EntityUnit extends EntityCreature {
     private static final int WATCH_FACTION = 22;
     private static final int WATCH_DRAWING = 23;
     private static final int WATCH_PRAYER = 24;
+    /** Whether its team has made it elite, for its look; well clear of the ids above for others to add to. */
+    private static final int WATCH_ELITE = 29;
+    /** Health and damage an Elite Black Knight or a Justiciar has over a plain knight. */
+    private static final int ELITE_HEALTH = 20;
+    private static final int ELITE_DAMAGE = 3;
     /** Ticks the computer waits after switching a hero's prayer before it switches again. */
     private static final int AI_PRAYER_SWITCH_TICKS = 100;
 
@@ -321,6 +328,17 @@ public class EntityUnit extends EntityCreature {
         dataWatcher.addObject(WATCH_FACTION, (byte) 0);
         dataWatcher.addObject(WATCH_DRAWING, (byte) 0);
         dataWatcher.addObject(WATCH_PRAYER, (byte) 0);
+        dataWatcher.addObject(WATCH_ELITE, (byte) 0);
+    }
+
+    /** On a client, whether its team has made it elite: an Elite Black Knight or a Justiciar. */
+    public boolean isWatchedElite() {
+        return dataWatcher.getWatchableObjectByte(WATCH_ELITE) != 0;
+    }
+
+    /** Whether its team has the upgrade that makes its kind elite. */
+    private static boolean isElite(UnitKind kind, Team team) {
+        return team != null && kind.eliteUpgrade() != null && team.has(kind.eliteUpgrade());
     }
 
     /** On a client, the protection prayer it has up, shown above its head. */
@@ -423,7 +441,7 @@ public class EntityUnit extends EntityCreature {
         if (kind.ranged) {
             return Items.bow;
         }
-        if (kind == UnitKind.TRAGIDEE) {
+        if (kind == UnitKind.TRADIGEE) {
             return Items.diamond_sword;
         }
         if (kind.fights() || order == Order.HUNT) {
@@ -450,7 +468,12 @@ public class EntityUnit extends EntityCreature {
     void updateTeam(Team team) {
         // A hero goes by his own name, in his team's color.
         String name = kind.hero ? team.getColor() + kind.displayName
-            : team.getColor() + team.getName() + " " + kind.lowerName() + " " + number;
+            : team.getColor() + team.getName()
+                + " "
+                + (isElite(kind, team) ? kind.eliteName()
+                    .toLowerCase() : kind.lowerName())
+                + " "
+                + number;
         if (!name.equals(getCustomNameTag())) {
             setCustomNameTag(name);
             setAlwaysRenderNameTag(true);
@@ -481,6 +504,14 @@ public class EntityUnit extends EntityCreature {
         if (kind.fights() && !kind.ranged) {
             damage += kind.extraDamage + (team.has(Upgrade.FORGED_BLADES) ? 2 : 0)
                 + (team.has(Upgrade.TEMPERED_STEEL) ? 2 : 0);
+        }
+        boolean elite = isElite(kind, team);
+        if (elite) {
+            health += ELITE_HEALTH;
+            damage += ELITE_DAMAGE;
+        }
+        if (isWatchedElite() != elite) {
+            dataWatcher.updateObject(WATCH_ELITE, (byte) (elite ? 1 : 0));
         }
         IAttributeInstance maxHealth = getEntityAttribute(SharedMonsterAttributes.maxHealth);
         double gained = health - maxHealth.getBaseValue();
@@ -818,6 +849,31 @@ public class EntityUnit extends EntityCreature {
                 buildQueue.addAll(rest);
                 return true;
             }
+        }
+        return false;
+    }
+
+    /**
+     * Sends a worker that has just put up a storehouse to the tree or gold mine nearest it, as that is what it was put
+     * up for; false when there is neither near it.
+     */
+    private boolean gatherNear(Game game, Building store) {
+        if (game == null || !isWorker()) {
+            return false;
+        }
+        double x = store.getCenterX();
+        double z = store.getCenterZ();
+        GoldMine mine = Units.nearestMine(game, x, z, STORE_GATHER_RANGE);
+        int[] tree = Trees.nearest(worldObj, game, x, z, STORE_GATHER_RANGE);
+        double mineDistance = mine == null ? Double.MAX_VALUE : mine.distanceTo(x, z);
+        double treeDistance = tree == null ? Double.MAX_VALUE : Math.hypot(tree[0] + 0.5 - x, tree[2] + 0.5 - z);
+        if (mine != null && mineDistance <= treeDistance) {
+            orderMine(mine);
+            return true;
+        }
+        if (tree != null) {
+            orderChop(tree[0], tree[1], tree[2]);
+            return true;
         }
         return false;
     }
@@ -1342,7 +1398,7 @@ public class EntityUnit extends EntityCreature {
                 : Units.workplaceFor(game, this, site);
             if (workplace != null) {
                 orderBuild(workplace);
-            } else {
+            } else if (site.type != BuildingType.STOREHOUSE || !gatherNear(game, site)) {
                 getNavigator().clearPathEntity();
                 guardHere();
             }
@@ -2211,7 +2267,8 @@ public class EntityUnit extends EntityCreature {
 
     /**
      * The emergency way out for a stuck unit: puts it on the nearest open ground two or more blocks away, with room
-     * to stand, out of water and off every building's footprint. Returns false if there is none within 8 blocks.
+     * to stand, out of water and off every building's footprint but a bridge's. Returns false if there is none within 8
+     * blocks.
      */
     public boolean rescue() {
         int x0 = MathHelper.floor_double(posX);
@@ -2226,7 +2283,8 @@ public class EntityUnit extends EntityCreature {
                     }
                     int x = x0 + dx;
                     int z = z0 + dz;
-                    if (game != null && game.getBuildingAt(x + 0.5, z + 0.5) != null) {
+                    Building building = game == null ? null : game.getBuildingAt(x + 0.5, z + 0.5);
+                    if (building != null && building.type != BuildingType.BRIDGE) {
                         continue;
                     }
                     for (int dy = 3; dy >= -12; dy--) {
@@ -2356,7 +2414,7 @@ public class EntityUnit extends EntityCreature {
      * with, then leaves it a few seconds before switching again.
      */
     private void computerPrays(Prayer style) {
-        if (kind != UnitKind.TRAGIDEE || style == Prayer.NONE || style == prayer || prayerSwitchTicks > 0) {
+        if (kind != UnitKind.TRADIGEE || style == Prayer.NONE || style == prayer || prayerSwitchTicks > 0) {
             return;
         }
         Team team = team();

@@ -546,6 +546,9 @@ public final class WebMap {
             if (building.type.isWorkplace() && building.isComplete()) {
                 json.addProperty("workers", Buildings.countWorkers(building));
             }
+            if (building.getAutoTrain() != null) {
+                json.addProperty("autoTrain", building.getAutoTrain().id);
+            }
             buildings.add(json);
         }
         return buildings;
