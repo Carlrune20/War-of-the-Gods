@@ -37,9 +37,13 @@ import com.warofthegods.world.GameWorld;
  *   {type: "buildings.research", building: id, upgrade: id}  research an upgrade at an armory or storehouse
  *   {type: "buildings.rally", buildings: [id...], x?, z?}  send the units they train to x, z; with no x, z, keep
  *       them at the door
+ *   {type: "buildings.auto", buildings: [id...], unit?}  train the unit over and over, one more whenever the
+ *       queue runs empty while the team can pay; with no unit, stop
  *   {type: "buildings.wall", x1, z1, x2, z2, units: [id...], queue?}  lay out a wall from x1, z1 to x2, z2,
  *       paying for every piece, and send the workers to build it piece by piece; an end on one of the team's
  *       towers runs up to the tower
+ *   {type: "buildings.bridge", x1, z1, x2, z2, units: [id...], queue?}  lay out a wooden bridge from x1, z1
+ *       to x2, z2 across water, paying for every block of it, and send the workers to build it from the first end
  *   {type: "buildings.gate", building: id}  make a finished wall segment a gate at once, paying for it
  *   {type: "buildings.cancel", building: id, index}  take the unit at that place off the training queue, giving
  *       back what it cost; with research: true instead, stop what the building researches or its level-up
@@ -58,7 +62,9 @@ public final class BuildingCommands {
         WebCommand.register("buildings.upgrade", BuildingCommands::upgrade);
         WebCommand.register("buildings.research", BuildingCommands::research);
         WebCommand.register("buildings.rally", BuildingCommands::rally);
+        WebCommand.register("buildings.auto", BuildingCommands::auto);
         WebCommand.register("buildings.wall", BuildingCommands::wall);
+        WebCommand.register("buildings.bridge", BuildingCommands::bridge);
         WebCommand.register("buildings.gate", BuildingCommands::gate);
         WebCommand.register("buildings.cancel", BuildingCommands::cancel);
         WebCommand.register("buildings.destroy", BuildingCommands::destroy);
@@ -213,6 +219,10 @@ public final class BuildingCommands {
             request.replyError("Lay a wall out from one point to another");
             return;
         }
+        if (type == BuildingType.BRIDGE) {
+            request.replyError("Lay a bridge out from one bank to the other");
+            return;
+        }
         if (!type.buildableBy(team.getFaction())) {
             request.replyError("Only " + type.faction().displayName + "'s teams can build a " + type.displayName);
             return;
@@ -318,6 +328,58 @@ public final class BuildingCommands {
         request.reply(reply);
     }
 
+    private static void bridge(WebRequest request) {
+        Team team = UnitCommands.commander(request);
+        if (team == null) {
+            return;
+        }
+        Double x1 = UnitCommands.doubleField(request.body, "x1");
+        Double z1 = UnitCommands.doubleField(request.body, "z1");
+        Double x2 = UnitCommands.doubleField(request.body, "x2");
+        Double z2 = UnitCommands.doubleField(request.body, "z2");
+        if (x1 == null || z1 == null || x2 == null || z2 == null) {
+            request.replyError("From where to where?");
+            return;
+        }
+        List<EntityUnit> units = UnitCommands.ownUnits(request, team);
+        if (units == null) {
+            return;
+        }
+        units.removeIf(unit -> !unit.isWorker());
+        if (units.isEmpty()) {
+            request.replyError("Select a worker to build with");
+            return;
+        }
+        Game game = GameManager.getGame();
+        Buildings.BridgePlan plan = Buildings.get()
+            .planBridge(
+                game,
+                GameWorld.getWorld(),
+                team,
+                (int) Math.floor(x1),
+                (int) Math.floor(z1),
+                (int) Math.floor(x2),
+                (int) Math.floor(z2));
+        if (plan.problem != null) {
+            request.replyError(plan.problem);
+            return;
+        }
+        if (!team.spend(Buildings.bridgeCost(plan.pieces.size()))) {
+            request.replyError("Not enough wood for a bridge " + plan.pieces.size() + " blocks long");
+            return;
+        }
+        List<Building> sites = Buildings.get()
+            .startBridge(game, team, plan);
+        boolean queue = UnitCommands.boolField(request.body, "queue");
+        for (int i = 0; i < sites.size(); i++) {
+            Units.get()
+                .orderBuild(units, sites.get(i), queue || i > 0);
+        }
+        JsonObject reply = WebJson.message("buildings.bridged");
+        reply.addProperty("pieces", sites.size());
+        request.reply(reply);
+    }
+
     private static void gate(WebRequest request) {
         Team team = UnitCommands.commander(request);
         Building building = team == null ? null : ownBuilding(request, team);
@@ -366,6 +428,37 @@ public final class BuildingCommands {
         }
         if (count == 0) {
             request.replyError("Select a building that trains units");
+            return;
+        }
+        JsonObject reply = WebJson.message("ok");
+        reply.addProperty("buildings", count);
+        request.reply(reply);
+    }
+
+    private static void auto(WebRequest request) {
+        Team team = UnitCommands.commander(request);
+        if (team == null) {
+            return;
+        }
+        Game game = GameManager.getGame();
+        JsonElement unitField = request.body.get("unit");
+        UnitKind kind = unitField != null && unitField.isJsonPrimitive() ? UnitKind.byId(unitField.getAsString())
+            : null;
+        int count = 0;
+        JsonElement ids = request.body.get("buildings");
+        if (ids != null && ids.isJsonArray()) {
+            for (JsonElement id : ids.getAsJsonArray()) {
+                Building building = id.isJsonPrimitive() ? game.getBuilding(id.getAsInt()) : null;
+                if (building != null && building.team.equals(team.getId())
+                    && (kind == null ? !building.type.trains.isEmpty() : building.type.trains.contains(kind))) {
+                    building.setAutoTrain(kind);
+                    count++;
+                }
+            }
+        }
+        if (count == 0) {
+            request.replyError(
+                kind == null ? "Select a building that trains units" : "Select a building that trains those");
             return;
         }
         JsonObject reply = WebJson.message("ok");

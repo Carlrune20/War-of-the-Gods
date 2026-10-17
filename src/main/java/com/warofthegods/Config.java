@@ -54,7 +54,7 @@ public class Config {
 
     static {
         defaults(BuildingType.TOWN_HALL, new long[] { 0, 300, 200 }, 1500, 60);
-        defaults(BuildingType.FARM, new long[] { 0, 75, 0 }, 300, 15);
+        defaults(BuildingType.FARM, new long[] { 0, 75, 0 }, 120, 15);
         defaults(BuildingType.BARRACKS, new long[] { 0, 150, 50 }, 800, 25);
         defaults(BuildingType.STOREHOUSE, new long[] { 0, 100, 0 }, 600, 20);
         defaults(BuildingType.HOUSE, new long[] { 0, 60, 0 }, 300, 12);
@@ -72,6 +72,8 @@ public class Config {
         defaults(BuildingType.MONASTERY, new long[] { 0, 150, 75 }, 800, 30);
         defaults(BuildingType.WIZARDS_TOWER, new long[] { 0, 100, 150 }, 900, 30);
         defaults(BuildingType.STONE_CIRCLE, new long[] { 0, 0, 100 }, 600, 20);
+        // Bridges cost wood for every block of their length.
+        defaults(BuildingType.BRIDGE, new long[] { 0, 6, 0 }, 150, 3);
     }
 
     /** Food, Wood and Gold the town center costs to go up to level 2, and to level 3. */
@@ -113,6 +115,8 @@ public class Config {
     public static int farmFood = 5;
     /** Gold a gold mine holds when the game starts. */
     public static int goldMineGold = 2000;
+    /** Gold every mining site holds on top of its share of goldMineGold, whatever its ore. */
+    public static int mineExtraGold = 600;
     /** Gold a worker mines per mineSeconds. */
     public static int mineGold = 4;
     public static int mineSeconds = 3;
@@ -190,7 +194,7 @@ public class Config {
     public static boolean rtsEdgeScroll = true;
 
     /** Bumped when defaults change in a way that should replace what older config files hold. */
-    private static final int CONFIG_VERSION = 7;
+    private static final int CONFIG_VERSION = 8;
 
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
@@ -244,6 +248,10 @@ public class Config {
         if (oldVersion < 7) {
             // Ruins became several times as common.
             forget(configuration, "buildings", "ruinEvery");
+        }
+        if (oldVersion < 8) {
+            // Farms soaked up too much damage.
+            forget(configuration, "buildings", "farmHealth");
         }
         version.set(CONFIG_VERSION);
 
@@ -499,7 +507,14 @@ public class Config {
             1,
             1000000,
             "Gold a gold mine holds when a game starts. Coal mines hold 0.6 times as much, iron 0.8, adamantite 1.3"
-                + " and runite 1.6.");
+                + " and runite 1.6, and every mine mineExtraGold on top.");
+        mineExtraGold = configuration.getInt(
+            "mineExtraGold",
+            buildings,
+            mineExtraGold,
+            0,
+            1000000,
+            "Gold every mining site holds on top of its share of goldMineGold, whatever its ore.");
         mineGold = configuration.getInt(
             "mineGold",
             buildings,

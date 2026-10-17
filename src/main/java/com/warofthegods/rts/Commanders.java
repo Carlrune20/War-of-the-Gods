@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
@@ -238,11 +239,16 @@ public final class Commanders {
             player.getEntityData()
                 .setTag(SAVED_KEY, saved);
             commanding.add(player.getUniqueID());
-            if (player.ridingEntity != null) {
+            // A rider's body stays in the saddle, so the horse is still under them when they come back.
+            Entity mount = player.ridingEntity;
+            if (mount != null) {
                 player.mountEntity(null);
             }
             EntityCommanderBody body = new EntityCommanderBody(player.worldObj, player);
             player.worldObj.spawnEntityInWorld(body);
+            if (mount != null && mount.isEntityAlive() && mount.riddenByEntity == null) {
+                body.mountEntity(mount);
+            }
             bodies.put(player.getUniqueID(), body);
             tellCommanders();
             applyCommanding(player);
@@ -320,12 +326,21 @@ public final class Commanders {
         player.sendPlayerAbilities();
         player.setInvisible(player.isPotionActive(Potion.invisibility));
         if (body != null && body.worldObj == player.worldObj && player.playerNetServerHandler != null) {
-            // Back into the body, wherever it was pushed.
-            player.playerNetServerHandler
-                .setPlayerLocation(body.posX, body.posY, body.posZ, body.rotationYaw, body.rotationPitch);
+            // Back into the body, wherever it was pushed, and back into the saddle if it sat on a horse.
+            Entity mount = body.ridingEntity;
+            double x = body.posX;
+            double y = body.posY;
+            double z = body.posZ;
+            if (mount != null) {
+                body.mountEntity(null);
+            }
+            player.playerNetServerHandler.setPlayerLocation(x, y, z, body.rotationYaw, body.rotationPitch);
             player.fallDistance = body.fallDistance;
             if (body.isBurning()) {
                 player.setFire(1);
+            }
+            if (mount != null && mount.isEntityAlive() && mount.riddenByEntity == null) {
+                player.mountEntity(mount);
             }
         } else if (player.dimension == saved.getInteger("dimension") && player.playerNetServerHandler != null) {
             player.playerNetServerHandler.setPlayerLocation(

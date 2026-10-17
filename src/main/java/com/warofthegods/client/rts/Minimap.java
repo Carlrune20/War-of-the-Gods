@@ -39,6 +39,10 @@ final class Minimap {
     private int maxX;
     private int maxZ;
     private World world;
+    /** The fog of war over the map, and the fog's version it shows. */
+    private DynamicTexture fogTexture;
+    private ResourceLocation fogLocation;
+    private int fogVersion = -1;
 
     /** Samples a slice of the map; call once a frame. */
     void update(RtsState.GameInfo game) {
@@ -152,9 +156,16 @@ final class Minimap {
         tessellator.addVertexWithUV(left + size, top, 0, 1, 0);
         tessellator.addVertexWithUV(left, top, 0, 0, 0);
         tessellator.draw();
+        FogOfWar fog = client.fog;
+        if (fog.isOn()) {
+            drawFog(fog, left, top, size);
+        }
 
         RtsState state = client.state;
         for (RtsState.BuildingInfo b : state.buildings.values()) {
+            if (state.isEnemyTeam(b.team) && !fog.isExplored(b.x, b.z, b.sizeX, b.sizeZ)) {
+                continue;
+            }
             RtsState.TeamInfo team = state.teamsById.get(b.team);
             int color = team == null ? 0xFFFFFF : team.color;
             int x0 = (int) Math.floor(toX(b.x, left, size));
@@ -165,11 +176,14 @@ final class Minimap {
             Gui.drawRect(x0, y0, x1, y1, (b.complete ? 0xFF000000 : 0x90000000) | color);
         }
         for (RtsState.MobInfo mob : state.mobs.values()) {
-            if (mob.hostile) {
+            if (mob.hostile && fog.isVisible(mob.x, mob.z)) {
                 dot(mob.x, mob.z, left, top, size, 0xFF8A1010);
             }
         }
         for (RtsState.UnitInfo unit : state.units.values()) {
+            if (!fog.isVisible(unit.x, unit.z)) {
+                continue;
+            }
             RtsState.TeamInfo team = state.teamsById.get(unit.team);
             int color = team == null ? 0xFFFFFF : team.color;
             dot(unit.x, unit.z, left, top, size, client.selected.contains(unit.id) ? 0xFFFFFFFF : 0xFF000000 | color);
@@ -189,6 +203,39 @@ final class Minimap {
             GL11.glDisable(GL11.GL_SCISSOR_TEST);
             GL11.glEnable(GL11.GL_TEXTURE_2D);
         }
+    }
+
+    /** Black over what the viewer's team has not seen, dark over what it does not see now. */
+    private void drawFog(FogOfWar fog, int left, int top, int size) {
+        if (fogTexture == null) {
+            fogTexture = new DynamicTexture(PIXELS, PIXELS);
+            fogLocation = mc.getTextureManager()
+                .getDynamicTextureLocation("warofthegods_minimap_fog", fogTexture);
+        }
+        if (fogVersion != fog.version()) {
+            fogVersion = fog.version();
+            int[] pixels = fogTexture.getTextureData();
+            for (int j = 0; j < PIXELS; j++) {
+                double z = minZ + (j + 0.5) * (maxZ - minZ + 1) / PIXELS;
+                for (int i = 0; i < PIXELS; i++) {
+                    double x = minX + (i + 0.5) * (maxX - minX + 1) / PIXELS;
+                    pixels[j * PIXELS + i] = !fog.isExplored(x, z) ? 0xFF0A0B0E : fog.isVisible(x, z) ? 0 : 0x80000000;
+                }
+            }
+            fogTexture.updateDynamicTexture();
+        }
+        mc.getTextureManager()
+            .bindTexture(fogLocation);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glColor4f(1, 1, 1, 1);
+        Tessellator tessellator = Tessellator.instance;
+        tessellator.startDrawingQuads();
+        tessellator.addVertexWithUV(left, top + size, 0, 0, 1);
+        tessellator.addVertexWithUV(left + size, top + size, 0, 1, 1);
+        tessellator.addVertexWithUV(left + size, top, 0, 1, 0);
+        tessellator.addVertexWithUV(left, top, 0, 0, 0);
+        tessellator.draw();
     }
 
     private void dot(double x, double z, int left, int top, int size, int color) {

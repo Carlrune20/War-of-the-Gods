@@ -65,7 +65,12 @@ public enum BuildingType {
      * A ring of standing stones raised by dark wizards, not workers. Four dark wizards standing at it summon a lesser
      * demon. Zamorak's teams only.
      */
-    STONE_CIRCLE("stone_circle", "Stone circle", "stoneCircle", 1, true, false, UnitKind.LESSER_DEMON);
+    STONE_CIRCLE("stone_circle", "Stone circle", "stoneCircle", 1, true, false, UnitKind.LESSER_DEMON),
+    /**
+     * A piece of a wooden bridge, a block long and three wide, laid out with others in a line across water by
+     * {@link BridgeLine}: a plank deck with rails, on posts down to the bottom. Anyone can walk over it.
+     */
+    BRIDGE("bridge", "Bridge", "bridge", 1, true, false);
 
     public final String id;
     public final String displayName;
@@ -92,7 +97,9 @@ public enum BuildingType {
             return 3;
         }
         // Everything else but houses, storehouses and towers waits for Age II, as do the gods' own buildings.
-        return this == HOUSE || this == STOREHOUSE || this == TOWER || this == TOWN_HALL || isWall() ? 1 : 2;
+        return this == HOUSE || this == STOREHOUSE || this == TOWER || this == TOWN_HALL || this == BRIDGE || isWall()
+            ? 1
+            : 2;
     }
 
     /** Whether it is one of the knights' fortresses. */
@@ -150,6 +157,11 @@ public enum BuildingType {
      */
     public boolean isWall() {
         return this == WALL || this == WALL_POST || this == GATE;
+    }
+
+    /** Whether it is laid out in a line from one point to another, piece by piece: a wall or a bridge. */
+    public boolean isLine() {
+        return isWall() || this == BRIDGE;
     }
 
     /** Whether workers can work here, gathering resources. */

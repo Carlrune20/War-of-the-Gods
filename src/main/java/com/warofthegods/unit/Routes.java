@@ -1,6 +1,7 @@
 package com.warofthegods.unit;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +17,8 @@ import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.Team;
+import com.warofthegods.world.GameWorld;
+import com.warofthegods.world.Misthalin;
 
 /**
  * Long-range paths across the map. Minecraft's own pathfinder only looks a few dozen blocks ahead, so a unit sent
@@ -23,6 +26,10 @@ import com.warofthegods.game.Team;
  * steep to climb, tree trunks and buildings. It then walks the route as a few waypoints, with the vanilla
  * pathfinder doing each short stretch. Chunks nobody has loaded are taken as open ground, and the route is planned
  * again once the unit gets there.
+ *
+ * <p>
+ * Units would rather not swim: a way that goes through water is given up for one over a bridge, the river's own
+ * bridges or those workers built, as long as going round by the bridge is not too far out of the way.
  */
 public final class Routes {
 
@@ -34,6 +41,12 @@ public final class Routes {
     private static final int WAYPOINT_SPACING = 16;
     /** Blocks around the straight line from start to goal a search may stray into. */
     private static final int MARGIN = 48;
+    /** What a step through water costs, against 1 for a step on level ground. */
+    private static final double WATER_COST = 6;
+    /** Blocks further a unit will walk to cross by a bridge, for each block of water it would otherwise swim. */
+    private static final double DETOUR_PER_WATER = 25;
+    /** Fewest blocks of water on a way before a bridge is looked for. */
+    private static final int MIN_WATER = 2;
 
     private static final int BLOCKED = Integer.MIN_VALUE;
     private static final int UNKNOWN = Integer.MIN_VALUE + 1;
@@ -67,7 +80,168 @@ public final class Routes {
         if (++searches > SEARCHES_PER_TICK) {
             return null;
         }
-        return new Search(world, game, team, floor(fromX), floor(fromZ), floor(toX), floor(toZ)).run();
+        Path direct = new Search(world, game, team, floor(fromX), floor(fromZ), floor(toX), floor(toZ)).run();
+        if (direct == null) {
+            return null;
+        }
+        if (direct.water >= MIN_WATER) {
+            List<double[]> over = overBridge(world, game, team, fromX, fromZ, toX, toZ, direct);
+            if (over != null) {
+                return over;
+            }
+        }
+        return direct.waypoints;
+    }
+
+    /** One way across water on a bridge: where it is stepped onto, where off, and how far it is between. */
+    private static final class Crossing {
+
+        final double x1;
+        final double z1;
+        final double x2;
+        final double z2;
+
+        Crossing(double x1, double z1, double x2, double z2) {
+            this.x1 = x1;
+            this.z1 = z1;
+            this.x2 = x2;
+            this.z2 = z2;
+        }
+
+        double length() {
+            return Math.hypot(x2 - x1, z2 - z1);
+        }
+    }
+
+    /**
+     * The way over the bridge that saves the most swimming, if going round by it is worth it: waypoints to the near
+     * end, across, and on to the goal. Null when no bridge is near enough or no way to one is found.
+     */
+    private static List<double[]> overBridge(World world, Game game, String team, double fromX, double fromZ,
+        double toX, double toZ, Path direct) {
+        double allowed = direct.length + direct.water * DETOUR_PER_WATER;
+        Crossing best = null;
+        boolean bestReversed = false;
+        double bestEstimate = allowed;
+        for (Crossing crossing : crossings(game)) {
+            for (int way = 0; way < 2; way++) {
+                boolean reversed = way == 1;
+                double onX = reversed ? crossing.x2 : crossing.x1;
+                double onZ = reversed ? crossing.z2 : crossing.z1;
+                double offX = reversed ? crossing.x1 : crossing.x2;
+                double offZ = reversed ? crossing.z1 : crossing.z2;
+                double estimate = Math.hypot(onX - fromX, onZ - fromZ) + crossing.length()
+                    + Math.hypot(toX - offX, toZ - offZ);
+                if (estimate < bestEstimate) {
+                    best = crossing;
+                    bestReversed = reversed;
+                    bestEstimate = estimate;
+                }
+            }
+        }
+        if (best == null) {
+            return null;
+        }
+        double onX = bestReversed ? best.x2 : best.x1;
+        double onZ = bestReversed ? best.z2 : best.z1;
+        double offX = bestReversed ? best.x1 : best.x2;
+        double offZ = bestReversed ? best.z1 : best.z2;
+        Path to = new Search(world, game, team, floor(fromX), floor(fromZ), floor(onX), floor(onZ)).run();
+        if (to == null || to.length + best.length() > allowed) {
+            return null;
+        }
+        Path from = new Search(world, game, team, floor(offX), floor(offZ), floor(toX), floor(toZ)).run();
+        if (from == null || to.length + best.length() + from.length > allowed
+            || to.water + from.water >= direct.water) {
+            return null;
+        }
+        List<double[]> points = new ArrayList<>(to.waypoints);
+        // Straight across the deck, from one end to the other.
+        points.add(new double[] { offX, offZ });
+        points.addAll(from.waypoints);
+        return points;
+    }
+
+    /**
+     * Every way across the river's bridges and the bridges workers built, each end a step off the deck on the middle
+     * line.
+     */
+    private static List<Crossing> crossings(Game game) {
+        List<Crossing> crossings = new ArrayList<>();
+        Misthalin layout = GameWorld.layout(game);
+        if (layout != null) {
+            for (Misthalin.Bridge bridge : layout.getBridges()) {
+                crossings.add(across(bridge.minX, bridge.minZ, bridge.sizeX, bridge.sizeZ));
+            }
+        }
+        // Built pieces of bridge in a row make one bridge.
+        List<Building> pieces = new ArrayList<>();
+        for (Building building : game.getBuildings()) {
+            if (building.type == BuildingType.BRIDGE && building.isComplete()) {
+                pieces.add(building);
+            }
+        }
+        pieces.sort(
+            Comparator.comparingInt((Building piece) -> piece.rotation & 1)
+                .thenComparingInt(piece -> (piece.rotation & 1) == 0 ? piece.minZ : piece.minX)
+                .thenComparingInt(piece -> (piece.rotation & 1) == 0 ? piece.minX : piece.minZ));
+        Building first = null;
+        Building last = null;
+        for (Building piece : pieces) {
+            boolean joins = last != null && (last.rotation & 1) == (piece.rotation & 1)
+                && ((piece.rotation & 1) == 0 ? last.minZ == piece.minZ && last.minX + 1 == piece.minX
+                    : last.minX == piece.minX && last.minZ + 1 == piece.minZ);
+            if (!joins) {
+                if (first != null) {
+                    crossings.add(run(first, last));
+                }
+                first = piece;
+            }
+            last = piece;
+        }
+        if (first != null) {
+            crossings.add(run(first, last));
+        }
+        return crossings;
+    }
+
+    /** The way along a footprint's longer side, from a step off one end to a step off the other. */
+    private static Crossing across(int minX, int minZ, int sizeX, int sizeZ) {
+        double centerX = minX + sizeX / 2.0;
+        double centerZ = minZ + sizeZ / 2.0;
+        if (sizeX >= sizeZ) {
+            return new Crossing(minX - 0.5, centerZ, minX + sizeX + 0.5, centerZ);
+        }
+        return new Crossing(centerX, minZ - 0.5, centerX, minZ + sizeZ + 0.5);
+    }
+
+    /** The way along a row of bridge pieces, from first to last. */
+    private static Crossing run(Building first, Building last) {
+        int minX = Math.min(first.minX, last.minX);
+        int minZ = Math.min(first.minZ, last.minZ);
+        int maxX = Math.max(first.getMaxX(), last.getMaxX());
+        int maxZ = Math.max(first.getMaxZ(), last.getMaxZ());
+        // A single piece runs across its width, the way its deck goes.
+        if ((first.rotation & 1) == 0) {
+            double centerZ = minZ + (maxZ - minZ + 1) / 2.0;
+            return new Crossing(minX - 0.5, centerZ, maxX + 1.5, centerZ);
+        }
+        double centerX = minX + (maxX - minX + 1) / 2.0;
+        return new Crossing(centerX, minZ - 0.5, centerX, maxZ + 1.5);
+    }
+
+    /** A way found: its waypoints, how long it is, and how many of its blocks are water. */
+    private static final class Path {
+
+        final List<double[]> waypoints;
+        final double length;
+        final int water;
+
+        Path(List<double[]> waypoints, double length, int water) {
+            this.waypoints = waypoints;
+            this.length = length;
+            this.water = water;
+        }
     }
 
     private static int floor(double value) {
@@ -125,7 +299,10 @@ public final class Routes {
             Team own = team == null ? null : game.getTeam(team);
             for (Building building : game.getBuildings()) {
                 // A unit sent onto a building's footprint, such as into a farm, may go in. A gate of its own team or
-                // an ally lets it through its opening.
+                // an ally lets it through its opening, and anyone walks over a bridge.
+                if (building.type == BuildingType.BRIDGE) {
+                    continue;
+                }
                 Team owner = game.getTeam(building.team);
                 if (building.type == BuildingType.GATE && own != null
                     && owner != null
@@ -143,7 +320,7 @@ public final class Routes {
             return ((long) x << 32) ^ (z & 0xFFFFFFFFL);
         }
 
-        List<double[]> run() {
+        Path run() {
             PriorityQueue<Node> open = new PriorityQueue<>();
             open.add(new Node(startX, startZ, 0, estimate(startX, startZ)));
             best.put(key(startX, startZ), 0.0);
@@ -156,7 +333,7 @@ public final class Routes {
                 }
                 visited++;
                 if (node.x == goalX && node.z == goalZ) {
-                    return waypoints(nodeKey);
+                    return path(nodeKey);
                 }
                 int height = height(node.x, node.z);
                 for (int[] step : STEPS) {
@@ -215,7 +392,7 @@ public final class Routes {
                 return -1;
             }
             boolean water = (height & 0x10000) != 0;
-            return water ? 4 : climb != 0 ? 1.5 : 1;
+            return water ? WATER_COST : climb != 0 ? 1.5 : 1;
         }
 
         /**
@@ -268,14 +445,36 @@ public final class Routes {
             return BLOCKED;
         }
 
-        /** The route back from the goal, thinned out to waypoints the unit can walk between in a straight line. */
-        List<double[]> waypoints(long goalKey) {
+        /**
+         * The route back from the goal, thinned out to waypoints the unit can walk between in a straight line, with
+         * how long it is and how much of it is water.
+         */
+        Path path(long goalKey) {
             List<long[]> path = new ArrayList<>();
             Long at = goalKey;
             while (at != null) {
                 path.add(0, new long[] { at >> 32, (int) (long) at });
                 at = cameFrom.get(at);
             }
+            double length = 0;
+            int water = 0;
+            for (int i = 0; i < path.size(); i++) {
+                if (i > 0) {
+                    length += distance(path.get(i - 1), path.get(i));
+                }
+                if (isWater((int) path.get(i)[0], (int) path.get(i)[1])) {
+                    water++;
+                }
+            }
+            return new Path(waypoints(path), length, water);
+        }
+
+        boolean isWater(int x, int z) {
+            int height = height(x, z);
+            return height != BLOCKED && height != UNKNOWN && (height & 0x10000) != 0;
+        }
+
+        List<double[]> waypoints(List<long[]> path) {
             List<double[]> points = new ArrayList<>();
             int anchor = 0;
             while (anchor < path.size() - 1) {
@@ -297,8 +496,12 @@ public final class Routes {
             return Math.hypot(a[0] - b[0], a[1] - b[1]);
         }
 
-        /** Whether a unit can walk straight from a to b: every block on the line between can be stepped onto. */
+        /**
+         * Whether a unit can walk straight from a to b: every block on the line between can be stepped onto, and it
+         * goes into no water unless a or b is in water, so a short cut never leaves dry land for a swim.
+         */
         boolean straight(long[] a, long[] b) {
+            boolean wet = isWater((int) a[0], (int) a[1]) || isWater((int) b[0], (int) b[1]);
             double dx = b[0] - a[0];
             double dz = b[1] - a[1];
             int steps = (int) Math.ceil(Math.max(Math.abs(dx), Math.abs(dz)) * 2);
@@ -310,7 +513,7 @@ public final class Routes {
                 if (x == lastX && z == lastZ) {
                     continue;
                 }
-                if (stepCost(height(lastX, lastZ), lastX, lastZ, x, z) < 0) {
+                if (stepCost(height(lastX, lastZ), lastX, lastZ, x, z) < 0 || !wet && isWater(x, z)) {
                     return false;
                 }
                 lastX = x;

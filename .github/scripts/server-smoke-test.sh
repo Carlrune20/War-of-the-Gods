@@ -268,7 +268,10 @@ wait_for_log "Destroyed Blue storehouse #13" 30
 echo "ok: the storehouse lost health and was destroyed at 0"
 
 # New buildings, levels and upgrades: a house and a tower go up, the town center goes up a level, and an upgrade
-# is given.
+# is given. The storehouse's builder went on to the nearest tree or gold mine, so a new worker builds them.
+echo "rts units spawn blue 1 worker" >&3
+wait_for_log "Spawned 1 units for Blue" 30
+sleep 1
 echo "rts build blue house" >&3
 wait_for_log "Laid out Blue house #14" 30
 wait_for_log "Built Blue house #14" 120
@@ -489,7 +492,7 @@ cat "$WEB_LOG"
 if grep -qE 'This crash report has been saved|Encountered an unexpected exception' "$WEB_LOG"; then
     fail "boot-4-units: server crashed"
 fi
-expect "$WEB_LOG" "Units: Red 3, Blue 9"
+expect "$WEB_LOG" "Units: Red 3, Blue 10"
 expect "$WEB_LOG" "Team Red has 3 units, room for 10"
 expect "$WEB_LOG" "Red warrior 1 at "
 grep -q "Red warrior 1 at .*, hold" "$WEB_LOG" || fail "boot-4-units: Red warrior 1 lost its stance"
