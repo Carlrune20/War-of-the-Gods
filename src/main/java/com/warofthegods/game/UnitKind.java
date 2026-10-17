@@ -14,13 +14,13 @@ public enum UnitKind {
     WORKER("worker", "Worker", "worker", 1, 0, 0, 0, 1, false, false),
     /** Shoots arrows from a distance; trained at a barracks. */
     ARCHER("archer", "Archer", "archer", 1, 0, 0, 0, 1, true, false),
-    /** A Saradomin knight in white plate, stronger than a warrior; trained at the White Knights' fortress. */
+    /** A Saradomin knight in white plate, stronger than a warrior; trained at the White Knights' castle. */
     WHITE_KNIGHT("white_knight", "White Knight", "whiteKnight", 2, 3, 0, 0, 2, false, false),
-    /** A Zamorak knight in black plate, stronger than a warrior; trained at the Black Knights' fortress. */
+    /** A Zamorak knight in black plate, stronger than a warrior; trained at the Kinshra fortress. */
     BLACK_KNIGHT("black_knight", "Black Knight", "blackKnight", 2, 3, 0, 0, 2, false, false),
-    /** A ranger hero, the boss of Daemonheim; one at a time, trained at the Black Knights' fortress. */
+    /** A ranger hero, the boss of Daemonheim; one at a time, trained at the Kinshra fortress. */
     SAGITTARE("sagittare", "Sagittare", "sagittare", 6, 0, 6, 14, 4, true, true),
-    /** A justiciar hero fighting up close; one at a time, trained at the White Knights' fortress. */
+    /** A justiciar hero fighting up close; one at a time, trained at the White Knights' castle. */
     TRADIGEE("tradigee", "Sir Tradigee", "tradigee", 8, 6, 0, 0, 4, false, true),
     /**
      * A rider on horseback with a sword, faster than a warrior and stronger; trained at the stables. Hard to hit with

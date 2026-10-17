@@ -11,6 +11,7 @@ import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.biome.BiomeGenBase;
 import net.minecraftforge.common.util.ForgeDirection;
 
+import com.warofthegods.block.ModBlocks;
 import com.warofthegods.building.Schematic;
 
 /**
@@ -63,7 +64,7 @@ final class GhostBlocks implements IBlockAccess {
     @Override
     public Block getBlock(int x, int y, int z) {
         Integer value = blocks.get(key(x, y, z));
-        return value == null ? Blocks.air : Block.getBlockById(value >> 4);
+        return value == null ? Blocks.air : ModBlocks.fromStored(value >> 4);
     }
 
     @Override

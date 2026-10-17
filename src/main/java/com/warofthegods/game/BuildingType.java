@@ -18,17 +18,17 @@ public enum BuildingType {
      */
     TOWN_HALL("town_hall", "Town center", "townHall", 3, true, true, UnitKind.WORKER),
     /** Workers working at it gather food. */
-    FARM("farm", "Farm", "farm", 2, true, false),
+    FARM("farm", "Farm", "farm", 3, true, false),
     /** Trains warriors. */
-    BARRACKS("barracks", "Barracks", "barracks", 2, true, false, UnitKind.SOLDIER),
+    BARRACKS("barracks", "Barracks", "barracks", 3, true, false, UnitKind.SOLDIER),
     /** Takes in what workers carry, so they need not walk all the way home; researches economic upgrades. */
-    STOREHOUSE("storehouse", "Storehouse", "storehouse", 2, true, true),
+    STOREHOUSE("storehouse", "Storehouse", "storehouse", 3, true, true),
     /** Houses more units. */
-    HOUSE("house", "House", "house", 2, true, false),
+    HOUSE("house", "House", "house", 3, true, false),
     /** Researches military upgrades. */
-    ARMORY("armory", "Armory", "armory", 2, true, false),
+    ARMORY("armory", "Armory", "armory", 3, true, false),
     /** Watches over the land round it; shoots arrows at enemies once its team has watch towers. */
-    TOWER("tower", "Tower", "tower", 2, true, false),
+    TOWER("tower", "Tower", "tower", 3, true, false),
     /** A straight piece of wall, laid out with others in a line by {@link WallLine}. */
     WALL("wall", "Wall", "wall", 3, true, false),
     /** Where a wall turns or ends; comes with walls. */
@@ -36,31 +36,33 @@ public enum BuildingType {
     /** A wall segment made into a gate, which opens for the team and its allies. */
     GATE("gate", "Gate", "gate", 3, false, false),
     /**
-     * Saradomin's stronghold in Age III: a white stone keep with much health that shoots many arrows, training White
-     * Knights and Sir Tradigee.
+     * Saradomin's stronghold in Age III, the White Knights' castle: a white stone keep with much health that shoots
+     * many
+     * arrows, training White Knights and Sir Tradigee. Its id is from when it was called a fortress.
      */
-    WHITE_KNIGHTS_FORTRESS("white_knights_fortress", "White Knights' fortress", "whiteKnightsFortress", 1, true, false,
+    WHITE_KNIGHTS_FORTRESS("white_knights_fortress", "White Knights' castle", "whiteKnightsFortress", 1, true, false,
         UnitKind.WHITE_KNIGHT, UnitKind.TRADIGEE),
     /**
-     * Zamorak's stronghold in Age III: a black stone keep with much health that shoots many arrows, training Black
-     * Knights and Sagittare.
+     * Zamorak's stronghold in Age III, the Kinshra fortress where the Black Knights muster: a keep of graystone with
+     * much health that shoots many arrows, training Black Knights and Sagittare. Its id is from before it was named
+     * for the Kinshra.
      */
-    BLACK_KNIGHTS_FORTRESS("black_knights_fortress", "Black Knights' fortress", "blackKnightsFortress", 1, true, false,
+    BLACK_KNIGHTS_FORTRESS("black_knights_fortress", "Kinshra fortress", "blackKnightsFortress", 1, true, false,
         UnitKind.BLACK_KNIGHT, UnitKind.SAGITTARE),
     /** Trains archers: a shooting shed with lanes of targets in front. */
-    ARCHERY_RANGE("archery_range", "Archery range", "archeryRange", 2, true, false, UnitKind.ARCHER),
+    ARCHERY_RANGE("archery_range", "Archery range", "archeryRange", 3, true, false, UnitKind.ARCHER),
     /** Trains cavalry, and tame horses for players to ride: stalls at the back, a paddock in front. */
-    STABLES("stables", "Stables", "stables", 2, true, false, UnitKind.CAVALRY, UnitKind.HORSE),
+    STABLES("stables", "Stables", "stables", 3, true, false, UnitKind.CAVALRY, UnitKind.HORSE),
     /**
      * Zamorak's temple: trains chaos priests, who pray here for favor, and dark wizards and Zamorak mages. Zamorak's
      * teams only.
      */
-    CHAOS_TEMPLE("chaos_temple", "Chaos temple", "chaosTemple", 2, true, false, UnitKind.CHAOS_PRIEST,
+    CHAOS_TEMPLE("chaos_temple", "Chaos temple", "chaosTemple", 3, true, false, UnitKind.CHAOS_PRIEST,
         UnitKind.DARK_WIZARD, UnitKind.ZAMORAK_MAGE),
     /** Saradomin's monastery: trains monks, who earn favor just by living. Saradomin's teams only. */
-    MONASTERY("monastery", "Monastery", "monastery", 2, true, false, UnitKind.MONK),
+    MONASTERY("monastery", "Monastery", "monastery", 3, true, false, UnitKind.MONK),
     /** Saradomin's wizards' tower: trains blue wizards. Saradomin's teams only. */
-    WIZARDS_TOWER("wizards_tower", "Wizards' tower", "wizardsTower", 2, true, false, UnitKind.BLUE_WIZARD),
+    WIZARDS_TOWER("wizards_tower", "Wizards' tower", "wizardsTower", 3, true, false, UnitKind.BLUE_WIZARD),
     /**
      * A ring of standing stones raised by dark wizards, not workers. Four dark wizards standing at it summon a lesser
      * demon. Zamorak's teams only.
@@ -279,6 +281,12 @@ public enum BuildingType {
     public static BuildingType byId(String id) {
         if ("town_center".equalsIgnoreCase(id) || "towncenter".equalsIgnoreCase(id)) {
             return TOWN_HALL;
+        }
+        if ("kinshra_fortress".equalsIgnoreCase(id)) {
+            return BLACK_KNIGHTS_FORTRESS;
+        }
+        if ("white_knights_castle".equalsIgnoreCase(id)) {
+            return WHITE_KNIGHTS_FORTRESS;
         }
         for (BuildingType type : values()) {
             if (type.id.equalsIgnoreCase(id) || type.name()

@@ -41,8 +41,8 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts units stop <team>` | (op) Make a team's units stop and guard where they stand. |
 | `/rts units kill <team\|all>` | (op) Remove units. |
 | `/rts buildings [team]` | List buildings and building sites with their health, how far each site is built and how many workers work each farm. |
-| `/rts build <team> <type> [x z] [rotation]` | (op) Lay out a building site for free (farm, house, barracks, archery_range, stables, storehouse, armory, tower, town center, or for their own god's teams white_knights_fortress, monastery and wizards_tower or black_knights_fortress, chaos_temple and stone_circle), near the town center unless x z is given (a town center goes on the nearest settlement nobody holds), and send the team's idle workers to build it, or for a stone circle its dark wizards. |
-| `/rts train <team> <worker\|warrior\|archer\|cavalry\|horse\|white_knight\|black_knight\|tradigee\|sagittare\|chaos_priest\|dark_wizard\|zamorak_mage\|lesser_demon\|monk\|blue_wizard> [count]` | (op) Queue units for free at the team's town center, barracks, archery range, stables, knights' fortress, chaos temple, stone circle, monastery or wizards' tower; only one of a hero. A lesser demon is only summoned with four dark wizards at the stone circle. |
+| `/rts build <team> <type> [x z] [rotation]` | (op) Lay out a building site for free (farm, house, barracks, archery_range, stables, storehouse, armory, tower, town center, or for their own god's teams white_knights_castle, monastery and wizards_tower or kinshra_fortress, chaos_temple and stone_circle), near the town center unless x z is given (a town center goes on the nearest settlement nobody holds), and send the team's idle workers to build it, or for a stone circle its dark wizards. |
+| `/rts train <team> <worker\|warrior\|archer\|cavalry\|horse\|white_knight\|black_knight\|tradigee\|sagittare\|chaos_priest\|dark_wizard\|zamorak_mage\|lesser_demon\|monk\|blue_wizard> [count]` | (op) Queue units for free at the team's town center, barracks, archery range, stables, White Knights' castle, Kinshra fortress, chaos temple, stone circle, monastery or wizards' tower; only one of a hero. A lesser demon is only summoned with four dark wizards at the stone circle. |
 | `/rts upgrade <building id>` | (op) Take a town center, and with it its whole town, into the next age at once, for free. |
 | `/rts research <team> <upgrade>` | (op) Give a team an upgrade at once, such as `forged_blades` or `fortified_walls`. |
 | `/rts wall <team> <x1> <z1> <x2> <z2>` | (op) Lay out a wall from one point to another for free, running up to the team's towers at either end, and send the team's idle workers to build it. |
@@ -126,18 +126,23 @@ at a time; it lasts until an op starts a new one.
 
 Every team follows a god: ops pick it for each team in the lobby, `/rts quickgame` shares the gods out evenly, a
 team made with `/rts team create` follows Zamorak if red or dark and Saradomin otherwise, and an op can change it
-with `/rts team faction`. Saradomin's people build plain, human stone and
-timber with blue banners; Zamorak's build in nether brick, obsidian and blackened wood, with red banners, spikes and
-skulls. Units wear their god's colors too: Saradomin's warriors bright steel and a blue tabard, Zamorak's black iron
+with `/rts team faction`. Each god's buildings change with the ages. Saradomin's towns grow like Falador: oak in
+Age I, white plaster in an oak frame over stone brick and cobble in Age II and white quartz in Age III, the houses
+under red brick roofs from Age II. Zamorak, god of chaos and strength, has his people build hard and plain: spruce in
+Age I, spruce over stone brick and cobble in Age II, and in Age III graystone, like Varrock's walls, for the town
+center, the temple and the military buildings, under dark oak roofs. Each god's banners hang on its buildings:
+Saradomin's star in white on blue or blue on white, Zamorak's mark in red on black or black on red. Zamorak's
+buildings have plain wooden doors anyone can open, so players can walk into the armory to shop. Units wear their god's colors too: Saradomin's warriors bright steel and a blue tabard, Zamorak's black iron
 and red. Each unit has a band of its team's color round its arms and waist, and its name above it in that color.
 
 Each team gets a town center when a game starts, spread around the middle of the map and facing it. A town center is
-a camp in a fenced ring round a campfire, with a longhouse, a lodge and a granary: log cabins with thatch in Age I
-(black and red tents for Zamorak), timber and plaster in Age II and on a stone plinth under a flag in Age III. It trains
+a camp in a fenced ring round a campfire, with a longhouse, a lodge and a granary: log cabins with thatch in Age I,
+framed houses over stone in Age II and stone halls, quartz or graystone, behind a low wall in Age III. It trains
 workers and takes in what they gather.
 
-Town centers stand on settlements. A settlement nobody holds is an abandoned camp: the shacks of an Age I town
-center, roofless and falling in, round a cold hearth, with a white flag at the gate. Once every team's first town
+Town centers stand on settlements. A settlement nobody holds is an abandoned camp laid out like a town center: three
+plank huts with rotted walls and sagging roofs, one half fallen in, round a cold fireplace in a ring of mossy stones,
+with a white flag at the gate. Once every team's first town
 center is up, the rest of the settlements and the gold mines are laid out (see the map above). Workers can raise a
 town center (300 Wood, 200 Gold) only on a settlement nobody holds, and a town center that is destroyed leaves an
 abandoned settlement again. Settlements and gold mines cannot be built on or broken. Trees are cleared from a
@@ -164,8 +169,8 @@ is built, and the finished building stands once the site is done; more workers b
 | Tower | Watches over the land round it; with watch towers (Age II) shoots arrows at enemies within 16 blocks, and with guard towers (Age III) within 24; researches both | 50 Wood, 100 Gold | 900 | 25 s |
 | Wall | Keeps enemies out; laid out from one point to another, a 5 by 5 piece at a time | 10 Gold a piece | 600 a segment, 800 a post | 10 s a piece |
 | Gate | A wall segment your own units and allies walk through; it opens as they come near | 40 Gold | 600 | at once |
-| White Knights' fortress | Saradomin's teams only, Age III: a white stone keep that trains White Knights and Sir Tradigee, and shoots a volley of 4 arrows a second at the nearest enemies within 20 blocks | 300 Wood, 400 Gold | 4000 | 90 s |
-| Black Knights' fortress | Zamorak's teams only, Age III: a black stone keep that trains Black Knights and Sagittare, and shoots a volley of 4 arrows a second at the nearest enemies within 20 blocks | 300 Wood, 400 Gold | 4000 | 90 s |
+| White Knights' castle | Saradomin's teams only, Age III: a white stone castle that trains White Knights and Sir Tradigee, and shoots a volley of 4 arrows a second at the nearest enemies within 20 blocks | 300 Wood, 400 Gold | 4000 | 90 s |
+| Kinshra fortress | Zamorak's teams only, Age III: the Black Knights' graystone keep that trains Black Knights and Sagittare, and shoots a volley of 4 arrows a second at the nearest enemies within 20 blocks | 300 Wood, 400 Gold | 4000 | 90 s |
 
 | Unit | Costs (default) | |
 |---|---|---|
@@ -180,17 +185,17 @@ is built, and the finished building stands once the site is done; more workers b
 | Zamorak mage | 80 Food, 120 Gold | Twice a dark wizard's health, carries a Zamorak staff and casts only fire strikes, 4 harder, from 2 blocks farther; trained at the chaos temple |
 | Blue wizard | 60 Food, 50 Gold | Saradomin's wizard, casting the same spells as a dark wizard; trained at the wizards' tower |
 | Lesser demon | 300 Food, 300 Gold, 7 Favor | Huge, horned and tailed: ten times a warrior's health, hits 8 harder, and nothing knocks it back; between its blows it hurls a fireball (10, and burns all enemies round where it bursts) every 10 to 15 s at an enemy within 16 blocks; summoned at a stone circle while four of its team's dark wizards stand in it |
-| White Knight | 60 Food, 75 Gold | Saradomin's knight in white plate: twice a warrior's health, hits 3 harder; trained at the White Knights' fortress |
-| Black Knight | 60 Food, 75 Gold | Zamorak's knight in black plate: twice a warrior's health, hits 3 harder; trained at the Black Knights' fortress |
-| Sir Tradigee | 200 Food, 350 Gold | A justiciar hero who fights up close with a diamond sword: eight times a warrior's health, hits 6 harder; trained at the White Knights' fortress |
-| Sagittare | 200 Food, 350 Gold | A ranger hero, the boss of Daemonheim: six times a warrior's health, arrows 6 harder and 14 blocks farther than an archer's (28 blocks to their 14); trained at the Black Knights' fortress |
+| White Knight | 60 Food, 75 Gold | Saradomin's knight in white plate: twice a warrior's health, hits 3 harder; trained at the White Knights' castle |
+| Black Knight | 60 Food, 75 Gold | Zamorak's knight in black plate: twice a warrior's health, hits 3 harder; trained at the Kinshra fortress |
+| Sir Tradigee | 200 Food, 350 Gold | A justiciar hero who fights up close with a diamond sword: eight times a warrior's health, hits 6 harder; trained at the White Knights' castle |
+| Sagittare | 200 Food, 350 Gold | A ranger hero, the boss of Daemonheim: six times a warrior's health, arrows 6 harder and 14 blocks farther than an archer's (28 blocks to their 14); trained at the Kinshra fortress |
 
 A team has at most one of each hero, alive or in training; once he falls it can train him again. Heroes stand a head
 taller than other units and go by their own names. Knights take twice as long as a warrior to train and heroes four
 times as long. Knights and heroes keep their own look: the armor upgrades make them stronger but do not change what
-they wear. Knights wear full plate, with a plume on the helm in their team's color; their fortress's own upgrade makes
-Black Knights elite and White Knights justiciars. Each knights' fortress belongs to its god: only Saradomin's teams can build the White Knights' fortress and
-only Zamorak's the Black Knights'.
+they wear. Knights wear full plate, with a plume on the helm in their team's color; their stronghold's own upgrade makes
+Black Knights elite and White Knights justiciars. Each knights' stronghold belongs to its god: only Saradomin's teams can build the White Knights' castle and
+only Zamorak's the Kinshra fortress.
 
 Cavalry ride into battle: once a rider has been on the move for over a second, every other arrow misses it and flies
 on past, until it stops. Arrows that do hit do three quarters of their damage, and warriors' and players' blows up
@@ -278,8 +283,8 @@ between two towers always joins them. A gate has an opening three wide and three
 be made one. Every piece costs gold, and workers build the pieces one after another along the line. Select
 a finished segment and click Make gate to turn it into a gate at once, with no worker, for gold. Gates open for the
 team's own units and its allies' and stay shut to enemies, who have to break them down. Walls start as wood; stone
-walls at the town center in Age II rebuild every wall of the team in cobblestone (plain stone for Zamorak), and
-citadel walls in Age III in stone brick (nether brick for Zamorak), with two and three times the health.
+walls at the town center in Age II rebuild every wall of the team in cobblestone, and
+citadel walls in Age III in stone brick (graystone for Zamorak), with two and three times the health.
 
 An upgrade that needs another one first only shows up once the team has that one.
 
@@ -301,9 +306,9 @@ An upgrade that needs another one first only shows up once the team has that one
 | Watch towers | Tower, Age II, for 100 Wood and 100 Gold | Towers shoot arrows at enemies |
 | Guard towers | Tower, Age III, after watch towers, for 150 Wood and 200 Gold | Towers see and shoot 8 farther |
 | Stone walls | Town center, Age II, for 100 Wood and 150 Gold | Walls and gates are rebuilt in stone, with twice the health |
-| Citadel walls | Town center, Age III, after stone walls, for 150 Wood and 300 Gold | Walls and gates are rebuilt in stone brick, or nether brick, with three times the health |
-| Elite Black Knights | Black Knights' fortress, for 400 Food and 600 Gold | Black Knights have 20 more health and hit 3 harder, and wear gold-trimmed black plate and a red cape with Zamorak's sign |
-| Justiciars | White Knights' fortress, for 400 Food and 600 Gold | White Knights become justiciars, with 20 more health and hitting 3 harder, in gold-trimmed silver plate with a crowned helm and a blue tabard |
+| Citadel walls | Town center, Age III, after stone walls, for 150 Wood and 300 Gold | Walls and gates are rebuilt in stone brick, or graystone, with three times the health |
+| Elite Black Knights | Kinshra fortress, for 400 Food and 600 Gold | Black Knights have 20 more health and hit 3 harder, and wear gold-trimmed black plate and a red cape with Zamorak's sign |
+| Justiciars | White Knights' castle, for 400 Food and 600 Gold | White Knights become justiciars, with 20 more health and hitting 3 harder, in gold-trimmed silver plate with a crowned helm and a blue tabard |
 
 Buildings have health. A building site starts with a tenth of it and gains the rest as it is built. As a building
 loses health it looks it: at three quarters, half and a quarter it shows holes, cracks, cobwebs and rubble. Enemy
@@ -312,7 +317,9 @@ is near where they guard. Players cannot break a building's blocks: when an enem
 the building loses 5 health, except for blocks that break in a moment, such as torches, glass, beds, ladders and
 wool, which do it no harm. Explosions, such as creepers going off, break nothing within 2 blocks of a building or
 building site; the building loses up to 120 health instead, the more the closer they go off. Below half health a
-building smokes, and below a quarter it burns, though the fire spreads nowhere. Players in creative mode break blocks as usual. At 0 health a building falls to a ruin,
+building smokes and fires break out on it, and below a quarter it is ablaze; the fire is only for show, spreads nowhere,
+burns nothing away and does no more damage. The fires of hearths, braziers and the chaos temple's altar are the same.
+A building that falls goes down with explosions, which hurt no one. Players in creative mode break blocks as usual. At 0 health a building falls to a ruin,
 and units training there are lost.
 
 ## Shops, caves and selling ores

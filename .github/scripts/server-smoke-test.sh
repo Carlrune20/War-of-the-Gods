@@ -536,12 +536,12 @@ wait_for_log "Upgraded Red town center (level 2) #$red_hall" 30
 echo "rts upgrade $red_hall" >&3
 wait_for_log "Upgraded Red town center (level 3) #$red_hall" 30
 echo "rts build red white_knights_fortress" >&3
-wait_for_log "Only Saradomin's teams can build a White Knights' fortress" 30
+wait_for_log "Only Saradomin's teams can build a White Knights' castle" 30
 echo "rts build red black_knights_fortress" >&3
-wait_for_log "Laid out Red black knights' fortress #" 30
+wait_for_log "Laid out Red kinshra fortress #" 30
 echo "rts finish red" >&3
-wait_for_log "Built Red black knights' fortress #" 60
-echo "ok: Red raised the Black Knights' fortress"
+wait_for_log "Built Red kinshra fortress #" 60
+echo "ok: Red raised the Kinshra fortress"
 echo "rts train red black_knight 1" >&3
 wait_for_log "trained Red black knight " 60
 echo "rts train red sagittare 3" >&3

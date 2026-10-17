@@ -13,6 +13,7 @@ import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.gen.ChunkProviderServer;
 
 import com.warofthegods.Config;
+import com.warofthegods.block.ModBlocks;
 import com.warofthegods.game.Game;
 import com.warofthegods.world.MapArea;
 
@@ -195,7 +196,7 @@ final class MapRenderer {
             int x = index & 15;
             int z = index >> 4;
             for (int y = bases[index]; y < bases[index] + counts[index]; y++) {
-                int id = Block.getIdFromBlock(chunk.getBlock(x, y, z)) & 0xFFF;
+                int id = ModBlocks.storedId(chunk.getBlock(x, y, z)) & 0xFFF;
                 int value = id << 4 | (chunk.getBlockMetadata(x, y, z) & 15);
                 data[pos++] = (byte) (value >> 8);
                 data[pos++] = (byte) value;
