@@ -80,8 +80,8 @@ public enum Upgrade {
     public Map<Resource, Long> cost() {
         Map<Resource, Long> result = new LinkedHashMap<>();
         for (Resource resource : Resource.values()) {
-            if (cost[resource.ordinal()] > 0) {
-                result.put(resource, cost[resource.ordinal()]);
+            if (Resource.amount(cost, resource) > 0) {
+                result.put(resource, Resource.amount(cost, resource));
             }
         }
         return result;

@@ -48,6 +48,7 @@ FENCE_GATE, BRICK_STAIRS, STONE_BRICK_STAIRS, NETHER_BRICK, NETHER_FENCE, NETHER
 CAULDRON, WOOD_SLAB, SPRUCE_STAIRS, COBBLE_WALL, FLOWER_POT, CARROTS, POTATOES = 118, 126, 134, 139, 140, 141, 142
 SKULL, ANVIL, REDSTONE_BLOCK, QUARTZ, CLAY, PANE_STAINED, LOG2 = 144, 145, 152, 155, 159, 160, 162
 DARK_OAK_STAIRS, HAY, CARPET, COAL_BLOCK, COBWEB, FIRE, TALL_GRASS = 164, 170, 171, 173, 30, 51, 31
+LEAVES = 18
 
 # Wool and stained clay colours.
 WHITE, ORANGE, LIGHT_GRAY, GRAY, BLUE, BROWN, RED, BLACK = 0, 1, 8, 7, 11, 12, 14, 15
@@ -1113,6 +1114,178 @@ def tower(p, level):
     return s
 
 
+def chaos_temple(p, level):
+    """Zamorak's temple, where chaos priests pray for his favor and dark wizards and his mages are trained: a dark
+    nave under a steep roof, red light through its windows, an altar of redstone at the far end and a spire."""
+    s = Struct(11, 13, 22, 1)
+    foundation(s, p, 0, 0, 10, 12)
+    s.fill(0, 0, 0, 10, 0, 1, p.plaza)
+    top = 5 if level == 1 else 6
+    s.fill(1, 0, 2, 9, 0, 12, p.floor)
+    s.walls(1, 2, 9, 12, 1, top, p.found)
+    s.pillars(1, 2, 9, 12, 1, top + 1, p.base)
+    for z in (5, 9):
+        s.fill(1, 1, z, 1, top, z, p.base)
+        s.fill(9, 1, z, 9, top, z, p.base)
+    door(s, p, 5, 1, 2)
+    s.set(4, 3, 2, p.window2)
+    s.set(6, 3, 2, p.window2)
+    for z in (4, 7, 10):
+        s.fill(1, 2, z, 1, 3, z, p.window2)
+        s.fill(9, 2, z, 9, 3, z, p.window2)
+    # The altar: a block of redstone between two braziers, under the god's banner.
+    s.set(5, 1, 11, p.emblem)
+    s.set(5, 2, 11, (NETHER_FENCE, 0))
+    skull(s, 5, 3, 11)
+    for x in (3, 7):
+        s.set(x, 1, 11, (NETHERRACK, 0))
+        s.set(x, 2, 11, (FIRE, 0))
+    s.fill(4, 3, 12, 6, top - 1, 12, p.banner)
+    s.fill(3, 1, 4, 3, 1, 9, (NETHER_STAIRS, UP_WEST))
+    s.fill(7, 1, 4, 7, 1, 9, (NETHER_STAIRS, UP_EAST))
+    s.fill(5, 0, 3, 5, 0, 10, (CARPET, RED))
+    ridge = gable_z(s, 2, 12, 1, 9, top + 1, p.roof, p.roof_full, end=p.found)
+    # The spire over the door, with spikes at the corners.
+    spire = 4 if level == 1 else 6
+    s.fill(4, ridge, 2, 6, ridge + spire, 4, p.found)
+    s.fill(5, ridge + spire + 1, 3, 5, ridge + spire + 2, 3, p.base)
+    s.set(5, ridge + spire + 3, 3, (NETHER_FENCE, 0))
+    s.set(5, ridge + spire - 1, 2, p.emblem)
+    spikes(s, p, [(1, top + 2, 2), (9, top + 2, 2), (1, top + 2, 12), (9, top + 2, 12)])
+    if level == 2:
+        # Fire pits flank the steps.
+        for x in (0, 10):
+            s.set(x, 0, 0, (NETHERRACK, 0))
+            s.set(x, 1, 0, (FIRE, 0))
+    return s
+
+
+def monastery(p, level):
+    """Saradomin's monastery, home of the monks: a stone chapel with a bell tower at one corner and a little cloister
+    garden in front."""
+    s = Struct(13, 11, 16, 1)
+    foundation(s, p, 0, 0, 12, 10)
+    s.fill(0, 0, 0, 12, 0, 3, (GRASS, 0))
+    top = 4 if level == 1 else 5
+    s.fill(1, 0, 4, 8, 0, 10, p.floor)
+    s.walls(0, 4, 8, 10, 1, top, p.found)
+    s.walls(0, 4, 8, 10, 1, 1, p.base)
+    door(s, p, 4, 1, 4)
+    for x in (2, 6):
+        s.fill(x, 2, 4, x, 3, 4, p.window2)
+    for z in (6, 8):
+        s.fill(0, 2, z, 0, 3, z, p.window2)
+    # Pews, a lectern and an altar of gold.
+    for z in (6, 8):
+        s.fill(2, 1, z, 3, 1, z, stairs(OAK_STAIRS, UP_NORTH))
+        s.fill(5, 1, z, 6, 1, z, stairs(OAK_STAIRS, UP_NORTH))
+    s.set(4, 1, 9, p.emblem)
+    s.set(2, 1, 9, (BOOKSHELF, 0))
+    s.set(6, 1, 9, (BOOKSHELF, 0))
+    torch(s, p, 1, 3, 9, "north")
+    torch(s, p, 7, 3, 9, "north")
+    gable_x(s, 0, 8, 4, 10, top + 1, p.roof, p.roof_full, end=p.found)
+    # The bell tower.
+    bell = 9 if level == 1 else 11
+    s.walls(9, 6, 12, 10, 1, bell, p.found)
+    s.pillars(9, 6, 12, 10, 1, bell + 1, p.base)
+    s.fill(10, 0, 7, 11, 0, 9, p.floor)
+    s.set(9, 1, 8, None)
+    s.set(9, 2, 8, None)
+    for y in (bell - 2, bell - 1):
+        s.set(10, y, 6, None)
+        s.set(11, y, 6, None)
+        s.set(12, y, 8, None)
+    s.set(10, bell - 1, 8, (ANVIL, 0))
+    s.fill(9, bell + 1, 6, 12, bell + 1, 10, p.found)
+    hip(s, 9, 6, 12, 10, bell + 2, p.roof, p.roof_full)
+    s.set(10, bell, 6, p.banner)
+    # The cloister garden: a low hedge, a well and flowers.
+    for x in range(0, 9):
+        if x != 4:
+            s.set(x, 1, 0, (LEAVES, 4))
+    s.set(2, 1, 2, (CAULDRON, 3))
+    s.set(6, 1, 2, (FLOWER_POT, 0))
+    s.fill(4, 0, 0, 4, 0, 3, p.path)
+    if level == 2:
+        # A second bell and lamps by the door.
+        s.set(11, bell - 1, 8, (ANVIL, 0))
+        for x in (3, 5):
+            s.set(x, 1, 3, p.base)
+            s.set(x, 2, 3, p.lamp)
+    return s
+
+
+def wizards_tower(p, level):
+    """Saradomin's wizards' tower, where blue wizards are trained: a tall round tower of stone under a pointed blue
+    roof, its windows of blue glass."""
+    s = Struct(9, 9, 30, 1)
+    foundation(s, p, 0, 0, 8, 8)
+    top = 12 if level == 1 else 16
+    ring = [(x, z) for x in range(9) for z in range(9)
+            if 9 <= (x - 4) ** 2 + (z - 4) ** 2 <= 17]
+    inside = [(x, z) for x in range(9) for z in range(9) if (x - 4) ** 2 + (z - 4) ** 2 < 9]
+    for x, z in ring:
+        s.fill(x, 1, z, x, top, z, p.found)
+        s.set(x, 1, z, p.base)
+    for x, z in inside:
+        s.set(x, 0, z, p.floor)
+    # Floors every few blocks, with a ladder up.
+    for y in range(5, top, 4):
+        for x, z in inside:
+            s.set(x, y, z, p.planks)
+    for y in range(1, top):
+        s.set(4, y, 6, (LADDER, 2))
+    door(s, p, 4, 1, 0)
+    for y in range(3, top - 1, 4):
+        for x, z in ((4, 8), (0, 4), (8, 4)):
+            s.set(x, y, z, p.window2)
+            s.set(x, y + 1, z, p.window2)
+    # A ring of blue round the top, then the pointed roof.
+    for x, z in ring:
+        s.set(x, top, z, p.trim)
+    y = top + 1
+    for r2 in (17, 12, 8, 4, 2, 0):
+        for x in range(9):
+            for z in range(9):
+                if (x - 4) ** 2 + (z - 4) ** 2 <= r2:
+                    s.set(x, y, z, (WOOL, BLUE))
+        y += 1 if r2 > 4 else 2
+        if r2 <= 2:
+            s.fill(4, y - 2, 4, 4, y, 4, (WOOL, BLUE))
+    s.set(4, y + 1, 4, p.emblem)
+    s.set(4, 2, 4, (BOOKSHELF, 0))
+    s.set(3, 2, 4, (CAULDRON, 0))
+    torch(s, p, 4, 3, 1, "south")
+    if level == 2:
+        # Lamps over the door and on the far side.
+        s.set(4, top - 3, 0, p.lamp)
+        s.set(4, top - 3, 8, p.lamp)
+    return s
+
+
+def stone_circle(p, level):
+    """A circle of standing stones raised by dark wizards. When four of them gather inside it they can summon a
+    lesser demon. Its middle is open ground, so the wizards can stand there."""
+    s = Struct(9, 9, 6, 1)
+    s.fill(0, -1, 0, 8, -1, 8, (STONE, 0))
+    s.fill(0, 0, 0, 8, 0, 8, (GRASS, 0))
+    for x in range(2, 7):
+        for z in range(2, 7):
+            if (x - 4) ** 2 + (z - 4) ** 2 <= 5:
+                s.set(x, 0, z, (NETHERRACK, 0) if (x + z) % 2 else (SOUL_SAND, 0))
+    s.set(4, 0, 4, p.emblem)
+    stones = [(4, 0), (8, 4), (4, 8), (0, 4), (1, 1), (7, 1), (1, 7), (7, 7)]
+    for i, (x, z) in enumerate(stones):
+        height = 3 if i < 4 else 2
+        s.fill(x, 1, z, x, height, z, (OBSIDIAN, 0) if i < 4 else (STONE, 0))
+        if i < 4:
+            s.set(x, height + 1, z, (NETHERRACK, 0))
+            s.set(x, height + 2, z, (FIRE, 0))
+    skull(s, 4, 1, 5)
+    return s
+
+
 # ---------------------------------------------------------------- walls
 #
 # Walls are 3 by 3 pieces laid along a line: straight segments, posts where the line turns or ends, and gates made
@@ -1334,6 +1507,10 @@ def fortress(black):
 FIXED_STYLE_BUILDINGS = {
     "white_knights_fortress": lambda p, level: fortress(False),
     "black_knights_fortress": lambda p, level: fortress(True),
+    "chaos_temple": lambda p, level: chaos_temple(ZAMORAK, level),
+    "stone_circle": lambda p, level: stone_circle(ZAMORAK, level),
+    "monastery": lambda p, level: monastery(SARADOMIN, level),
+    "wizards_tower": lambda p, level: wizards_tower(SARADOMIN, level),
 }
 
 
@@ -1352,10 +1529,15 @@ BUILDINGS = {
     "stables": (stables, 2),
     "white_knights_fortress": (FIXED_STYLE_BUILDINGS["white_knights_fortress"], 1),
     "black_knights_fortress": (FIXED_STYLE_BUILDINGS["black_knights_fortress"], 1),
+    "chaos_temple": (FIXED_STYLE_BUILDINGS["chaos_temple"], 2),
+    "monastery": (FIXED_STYLE_BUILDINGS["monastery"], 2),
+    "wizards_tower": (FIXED_STYLE_BUILDINGS["wizards_tower"], 2),
+    "stone_circle": (FIXED_STYLE_BUILDINGS["stone_circle"], 1),
 }
 
 # The palette each fortress's building site and ruin are drawn in, whichever folder it is written into.
-FIXED_PALETTE = {"white_knights_fortress": "saradomin", "black_knights_fortress": "zamorak"}
+FIXED_PALETTE = {"white_knights_fortress": "saradomin", "black_knights_fortress": "zamorak", "chaos_temple": "zamorak",
+                 "stone_circle": "zamorak", "monastery": "saradomin", "wizards_tower": "saradomin"}
 
 # ---------------------------------------------------------------- building sites, damage and ruins
 

@@ -746,7 +746,8 @@ public class CommandRts extends CommandBase {
                 }
                 List<EntityUnit> workers = new ArrayList<>();
                 for (EntityUnit unit : requireUnits(team)) {
-                    if (unit.isWorker() && unit.getOrder() == EntityUnit.Order.IDLE) {
+                    if (unit.canRaise(building.type)
+                        && (building.type.raisedByWizards() || unit.getOrder() == EntityUnit.Order.IDLE)) {
                         workers.add(unit);
                     }
                 }
@@ -975,13 +976,17 @@ public class CommandRts extends CommandBase {
         List<EntityUnit> idle = new ArrayList<>();
         for (EntityUnit unit : Units.get()
             .getUnits(team)) {
-            if (unit.isWorker() && unit.getOrder() == EntityUnit.Order.IDLE) {
+            // Dark wizards stand guard rather than idle, and any of them may go raise a stone circle.
+            if (unit.canRaise(type) && (type.raisedByWizards() || unit.getOrder() == EntityUnit.Order.IDLE)) {
                 idle.add(unit);
             }
         }
         int sent = Units.get()
             .orderBuild(idle, site);
-        send(sender, "Laid out " + site.describe(game) + ", " + sent + " workers on the way");
+        send(
+            sender,
+            "Laid out " + site.describe(
+                game) + ", " + sent + (type.raisedByWizards() ? " dark wizards" : " workers") + " on the way");
     }
 
     private static String unitActivity(EntityUnit unit) {

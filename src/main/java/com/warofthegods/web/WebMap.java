@@ -245,6 +245,9 @@ public final class WebMap {
             if (type.storesResources) {
                 typeJson.addProperty("stores", true);
             }
+            if (type.raisedByWizards()) {
+                typeJson.addProperty("wizards", true);
+            }
             if (type.isWorkplace()) {
                 typeJson.addProperty("workers", type.maxWorkers());
                 long[] yield = type.yield(1);

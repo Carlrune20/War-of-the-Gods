@@ -398,7 +398,7 @@
 
     // ---------------------------------------------------------------- side panel
 
-    const RESOURCES = [["food", "Food"], ["wood", "Wood"], ["gold", "Gold"]];
+    const RESOURCES = [["food", "Food"], ["wood", "Wood"], ["gold", "Gold"], ["favor", "Favor"]];
 
     function el(tag, className, text) {
         const node = document.createElement(tag);
@@ -714,6 +714,16 @@
         });
     }
 
+    // Who builds what is placed: the selected workers, or with none, the selected dark wizards, who raise stone
+    // circles and nothing else.
+    function selectedBuilders() {
+        const workers = selectedWorkers();
+        return workers.length ? workers : [...state.selected].filter((id) => {
+            const u = state.units.get(id);
+            return u && u.kind === "dark_wizard";
+        });
+    }
+
     // Units the team has, plus the ones waiting in training queues.
     function teamUnitCount(team) {
         let queued = 0;
@@ -739,7 +749,9 @@
     const SPRITES = ["town_hall", "house", "barracks", "storehouse", "quarry", "farm", "armory", "tower", "worker",
         "soldier", "archer", "tree", "upgrade", "level", "food", "wood", "gold", "sword", "axe", "pickaxe", "hoe", "wall",
         "gate", "white_knights_fortress", "black_knights_fortress", "white_knight", "black_knight", "tragidee",
-        "sagittare", "archery_range", "stables", "cavalry", "horse"];
+        "sagittare", "archery_range", "stables", "cavalry", "horse", "favor", "chaos_temple", "monastery",
+        "wizards_tower", "stone_circle", "chaos_priest", "monk", "dark_wizard", "zamorak_mage", "blue_wizard",
+        "lesser_demon"];
 
     function sprite(name) {
         const span = el("span", "sprite");
@@ -847,10 +859,11 @@
             actions.append(button("Cancel", "Esc or right-click", () => stopLighting()));
         } else if (building) {
             renderBuildingActions(actions, team, building);
-        } else if (selectedWorkers().length) {
+        } else if (selectedBuilders().length) {
+            const wizards = !selectedWorkers().length;
             for (const [id, type] of Object.entries(state.game.buildingTypes || {})) {
-                // Each knights' fortress belongs to its own god's teams.
-                if (!type.buildable || (type.faction && type.faction !== team.faction)) {
+                // Each god's buildings belong to its own teams; dark wizards raise stone circles, workers the rest.
+                if (!type.buildable || (type.faction && type.faction !== team.faction) || Boolean(type.wizards) !== wizards) {
                     continue;
                 }
                 const aged = (team.age || 1) >= (type.age || 1);
@@ -862,8 +875,10 @@
                 b.disabled = !aged || !canAfford(team, type.cost);
                 actions.append(b);
             }
-            actions.append(squareButton("torches", "wood", "Torches\nLight up an area so no mobs spawn there: click"
-                + " two corners. Each torch costs wood", () => startLighting()));
+            if (!wizards) {
+                actions.append(squareButton("torches", "wood", "Torches\nLight up an area so no mobs spawn there: click"
+                    + " two corners. Each torch costs wood", () => startLighting()));
+            }
         } else {
             const hall = townHallOf(team.id);
             if (hall) {
@@ -1560,7 +1575,7 @@
                 : "It does not fit there", true);
             return;
         }
-        const workers = selectedWorkers();
+        const workers = selectedBuilders();
         if (!workers.length) {
             showToast("Select a worker to build with", true);
             stopPlacing();
@@ -1646,7 +1661,7 @@
         if (state.selected.size) {
             setBuildingSelection([]);
         }
-        if (placing && !selectedWorkers().length) {
+        if (placing && !selectedBuilders().length) {
             placing = null;
         }
         if (lighting && !selectedWorkers().length) {
@@ -2373,7 +2388,7 @@
         animal: "\uD83D\uDC04",
     };
 
-    const RESOURCE_ORDER = ["food", "wood", "gold"];
+    const RESOURCE_ORDER = ["food", "wood", "gold", "favor"];
 
     function amountsText(amounts) {
         return RESOURCE_ORDER.filter((id) => amounts[id]).map((id) => amounts[id] + " " + id).join(", ");

@@ -14,12 +14,14 @@ import com.warofthegods.command.Lobby;
 import com.warofthegods.command.TeamCommands;
 import com.warofthegods.game.PlayerEvents;
 import com.warofthegods.game.WinConditions;
+import com.warofthegods.item.ItemZamorakStaff;
 import com.warofthegods.rts.Commanders;
 import com.warofthegods.rts.EntityCommanderBody;
 import com.warofthegods.rts.RtsNetwork;
 import com.warofthegods.shop.Shop;
 import com.warofthegods.unit.Combat;
 import com.warofthegods.unit.EntityCarcass;
+import com.warofthegods.unit.EntitySpell;
 import com.warofthegods.unit.EntityTeamArrow;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Hunting;
@@ -42,6 +44,7 @@ import cpw.mods.fml.common.event.FMLServerStartedEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import cpw.mods.fml.common.event.FMLServerStoppingEvent;
 import cpw.mods.fml.common.registry.EntityRegistry;
+import cpw.mods.fml.common.registry.GameRegistry;
 
 @Mod(
     modid = WarOfTheGods.MODID,
@@ -57,6 +60,9 @@ public class WarOfTheGods {
     @Mod.Instance(MODID)
     public static WarOfTheGods instance;
 
+    /** The staff Zamorak mages carry, which players can cast fire strikes with too. */
+    public static ItemZamorakStaff zamorakStaff;
+
     @SidedProxy(clientSide = "com.warofthegods.client.ClientProxy", serverSide = "com.warofthegods.CommonProxy")
     public static CommonProxy proxy;
 
@@ -69,6 +75,9 @@ public class WarOfTheGods {
         EntityRegistry.registerModEntity(EntityCommanderBody.class, "CommanderBody", 1, this, 160, 3, true);
         EntityRegistry.registerModEntity(EntityTeamArrow.class, "TeamArrow", 2, this, 64, 20, true);
         EntityRegistry.registerModEntity(EntityCarcass.class, "Carcass", 3, this, 80, 40, false);
+        EntityRegistry.registerModEntity(EntitySpell.class, "Spell", 4, this, 64, 10, true);
+        zamorakStaff = new ItemZamorakStaff();
+        GameRegistry.registerItem(zamorakStaff, "zamorak_staff");
         RtsNetwork.register();
     }
 

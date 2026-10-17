@@ -6,6 +6,7 @@ import com.warofthegods.CommonProxy;
 import com.warofthegods.client.rts.RtsClient;
 import com.warofthegods.rts.EntityCommanderBody;
 import com.warofthegods.unit.EntityCarcass;
+import com.warofthegods.unit.EntitySpell;
 import com.warofthegods.unit.EntityTeamArrow;
 import com.warofthegods.unit.EntityUnit;
 
@@ -20,6 +21,7 @@ public class ClientProxy extends CommonProxy {
         RenderingRegistry.registerEntityRenderingHandler(EntityCommanderBody.class, new RenderCommanderBody());
         RenderingRegistry.registerEntityRenderingHandler(EntityTeamArrow.class, new RenderArrow());
         RenderingRegistry.registerEntityRenderingHandler(EntityCarcass.class, new RenderCarcass());
+        RenderingRegistry.registerEntityRenderingHandler(EntitySpell.class, new RenderSpell());
         RtsClient.init();
     }
 

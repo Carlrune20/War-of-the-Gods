@@ -5,7 +5,8 @@
 # centers, a worker building a farm, working it and carrying the harvest home, a barracks training warriors and
 # archers, a storehouse and building health down to 0, a house, a tower, levels, upgrades, chopping a tree, mining gold, an explosion and torches. The fourth checks that units and buildings come back after a restart, then that a team losing its
 # town center gets a countdown and a team with neither town center nor workers is defeated, leaving a winner. The
-# fifth has the computer play a team.
+# fifth has the computer play a team, and checks the knights' fortresses, the archery range and stables, and the
+# gods' temples, favor, the stone circle and the lesser demon.
 set -uo pipefail
 
 TIMEOUT="${SERVER_TIMEOUT:-600}"
@@ -87,9 +88,9 @@ expect boot-2-reload.log "Game #1"
 expect boot-2-reload.log "Map: 1000x1000 from -500,-500 to 499,499"
 expect boot-2-reload.log "World: dimension 77, seed 12345"
 expect boot-2-reload.log "$spawn1"
-expect boot-2-reload.log "Team Red [Food 200, Wood 250, Gold 100] members: none"
-expect boot-2-reload.log "Team Blue [Food 175, Wood 200, Gold 100] members: none"
-expect boot-2-reload.log "Team Green [Food 200, Wood 200, Gold 7] members: none"
+expect boot-2-reload.log "Team Red [Food 200, Wood 250, Gold 100, Favor 0] members: none"
+expect boot-2-reload.log "Team Blue [Food 175, Wood 200, Gold 100, Favor 0] members: none"
+expect boot-2-reload.log "Team Green [Food 200, Wood 200, Gold 7, Favor 0] members: none"
 expect boot-2-reload.log "Alliance: Blue + Red"
 reject boot-2-reload.log "Team Zombies"
 # A new game replaces it and keeps counting.
@@ -563,6 +564,48 @@ wait_for_log "trained a horse" 60
 echo "rts units spawn red 1 horse" >&3
 wait_for_log "A horse is no unit; train one at the stables" 30
 echo "ok: the archery range trained an archer, the stables a cavalryman and a horse"
+# Zamorak's chaos temple: a chaos priest praying there earns favor, and it trains dark wizards and Zamorak mages.
+# Saradomin's monastery is not Red's to build.
+echo "rts build red monastery" >&3
+wait_for_log "Only Saradomin's teams can build a Monastery" 30
+echo "rts build red chaos_temple" >&3
+wait_for_log "Laid out Red chaos temple #" 30
+echo "rts finish red" >&3
+wait_for_log "Built Red chaos temple #" 60
+echo "rts train red chaos_priest 1" >&3
+wait_for_log "trained Red chaos priest " 60
+favored=""
+for _ in $(seq 20); do
+    echo "rts resources red" >&3
+    sleep 3
+    if grep -qE "Favor [1-9]" "$WEB_LOG"; then
+        favored=yes
+        break
+    fi
+done
+[ -n "$favored" ] || web_fail "boot-5-ai: the chaos priest earned no favor"
+echo "ok: $(grep -oE 'Favor [0-9]+' "$WEB_LOG" | tail -1) from a praying chaos priest"
+echo "rts train red dark_wizard 1" >&3
+wait_for_log "trained Red dark wizard " 60
+echo "rts train red zamorak_mage 1" >&3
+wait_for_log "trained Red Zamorak mage " 60
+echo "ok: the chaos temple trained a dark wizard and a Zamorak mage"
+# Dark wizards raise a stone circle, and four of them standing at it summon a lesser demon; with fewer it waits.
+echo "rts train red lesser_demon 1" >&3
+wait_for_log "Team Red has no building that trains lesser demons" 30
+echo "rts units kill red" >&3
+sleep 2
+echo "rts units spawn red 4 dark_wizard" >&3
+wait_for_log "Spawned 4 units for" 30
+echo "rts build red stone_circle" >&3
+wait_for_log "Laid out Red stone circle #" 30
+wait_for_log "4 dark wizards on the way" 30
+wait_for_log "Built Red stone circle #" 120
+echo "ok: dark wizards raised a stone circle"
+echo "rts train red lesser_demon 1" >&3
+wait_for_log "Queued 1 lesser demons at Red stone circle #" 30
+wait_for_log "trained Red lesser demon " 120
+echo "ok: four dark wizards at the stone circle summoned a lesser demon"
 echo "rts resources blue" >&3
 echo "rts buildings blue" >&3
 echo "rts units blue" >&3

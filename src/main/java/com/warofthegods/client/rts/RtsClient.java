@@ -382,7 +382,7 @@ public final class RtsClient {
         if (kept.size() != selectedBuildings.size()) {
             selectBuildings(kept, selectedBuilding);
         }
-        if (placing != null && selectedWorkers().isEmpty()) {
+        if (placing != null && selectedBuilders().isEmpty()) {
             placing = null;
         }
         if (lighting && selectedWorkers().isEmpty()) {
@@ -414,6 +414,20 @@ public final class RtsClient {
             }
         }
         return workers;
+    }
+
+    /** The selected workers, or with none of them, the selected dark wizards, who raise stone circles. */
+    public Set<String> selectedBuilders() {
+        Set<String> builders = selectedWorkers();
+        if (builders.isEmpty()) {
+            for (String id : selected) {
+                RtsState.UnitInfo unit = state.units.get(id);
+                if (unit != null && unit.isDarkWizard()) {
+                    builders.add(id);
+                }
+            }
+        }
+        return builders;
     }
 
     /** Workers wait for the corners of an area to put torches in. */
@@ -823,7 +837,7 @@ public final class RtsClient {
         if (!selected.isEmpty()) {
             selectBuildings(Collections.emptyList(), 0);
         }
-        if (placing != null && selectedWorkers().isEmpty()) {
+        if (placing != null && selectedBuilders().isEmpty()) {
             placing = null;
         }
     }
