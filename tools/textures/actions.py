@@ -27,6 +27,7 @@ import nbt  # noqa: E402
 ROOT = os.path.join(HERE, "..", "..", "src", "main", "resources", "assets", "warofthegods")
 STRUCTURES = os.path.join(ROOT, "structures")
 SKINS = os.path.join(ROOT, "textures", "entity", "unit")
+MOD_BLOCKS = os.path.join(ROOT, "textures", "blocks")
 OUT = os.path.join(ROOT, "textures", "gui", "actions.png")
 OUT_NAMES = os.path.join(ROOT, "textures", "gui", "actions.json")
 MINECRAFT_JAR = os.path.expanduser("~/.gradle/caches/retro_futura_gradle/mc-vanilla/1.7.10/client.jar")
@@ -168,19 +169,33 @@ def block_faces(kind, meta):
         return "quartz_block_top", "quartz_block_side"
     if kind == 170:
         return "hay_block_top", "hay_block_side"
+    if kind == 164:
+        return "planks_big_oak", "planks_big_oak"
     if kind == 50:
         return "torch_on", "torch_on"
-    if kind == 51:
+    if kind in (51, 209):
         return "fire_layer_0", "fire_layer_0"
+    # The mod's own blocks, by the ids ModBlocks.java gives them in schematics; "mod:" names its own textures.
+    if kind in (200, 201, 202, 203):
+        return "mod:graystone_bricks", "mod:graystone_bricks"
+    if kind == 204:
+        return "planks_big_oak", ("mod:wood_door_upper" if meta & 8 else "mod:wood_door_lower")
+    if kind in BANNERS:
+        name = "mod:banner_" + BANNER_KINDS[kind - 205] + "_" + ("top", "emblem", "bottom", "pennant")[meta >> 2 & 3]
+        return name, name
     return None
+
+
+BANNERS = {205, 206, 207, 208}
+BANNER_KINDS = ("saradomin", "saradomin_inverted", "zamorak", "zamorak_inverted")
 
 
 # Block shapes: posts are thin, slabs and crops low, torches small; everything else is a whole cube, stairs too.
 POSTS = {85, 113, 101, 102, 160, 139, 107}
-LOW = {44, 126, 59, 141, 142, 115, 60}
-TINY = {50, 51, 76}
+LOW = {44, 126, 59, 141, 142, 115, 60, 201}
+TINY = {50, 51, 76, 209}
 # Blocks that hide what is behind them.
-SEE_THROUGH = POSTS | LOW | TINY | {0, 20, 95, 50, 64, 71, 65, 32, 31, 37, 38}
+SEE_THROUGH = POSTS | LOW | TINY | BANNERS | {0, 20, 95, 50, 64, 71, 65, 32, 31, 37, 38, 204}
 
 
 class Faces:
@@ -193,7 +208,11 @@ class Faces:
     def get(self, spec):
         key = spec if isinstance(spec, str) else spec[0]
         if spec not in self.cache:
-            image = texture(self.jar, "blocks/" + key + ".png")
+            if key.startswith("mod:"):
+                image = Image.open(os.path.join(MOD_BLOCKS, key[4:] + ".png")).convert("RGBA")
+                image = image.crop((0, 0, image.width, image.width))
+            else:
+                image = texture(self.jar, "blocks/" + key + ".png")
             if not isinstance(spec, str):
                 image = tint(image, spec[1])
             self.cache[spec] = image
@@ -272,6 +291,12 @@ def building(faces, path):
             x, z, sx, sz = bx + 0.35, bz + 0.35, 0.3, 0.3
         elif block[0] in LOW:
             sy = 0.5
+        elif block[0] in BANNERS:
+            # A cloth hanging flat against the block behind it, thin across the way it faces.
+            if block[1] & 1:
+                x, sx = bx + 0.45, 0.1
+            else:
+                z, sz = bz + 0.45, 0.1
         elif block[0] in TINY:
             x, z, sx, sz, sy = bx + 0.4, bz + 0.4, 0.2, 0.2, 0.6
         full = sx == 1 and sz == 1
