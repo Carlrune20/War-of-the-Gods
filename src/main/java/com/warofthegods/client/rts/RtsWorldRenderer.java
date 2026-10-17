@@ -277,7 +277,8 @@ public final class RtsWorldRenderer {
 
     /**
      * The fog of war near the camera: solid black over all the ground the viewer's team does not see now. It lies on
-     * top of every column the client has, sides down cliffs included, and is kept in a display list, made again when what is seen changes or the camera moves on.
+     * top of every column the client has, sides down cliffs included, and is kept in a display list, made again when
+     * what is seen changes or the camera moves on.
      */
     private void fog() {
         FogOfWar fog = client.fog;
