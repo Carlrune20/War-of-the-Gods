@@ -458,8 +458,10 @@ public final class AiPlayers {
     // ---------------------------------------------------------------- gods
 
     /**
-     * Playing Zamorak with dark wizards enough, raises a stone circle by its town center, keeps that many of them
-     * standing at it, and summons a lesser demon there whenever it has room, favor and food and gold to spare.
+     * Playing Zamorak, keeps back each dark wizard it trains until it has enough to summon with, raises a stone
+     * circle by its town center once it has the first, keeps them standing at it, and summons a lesser demon there
+     * whenever it has room, favor and food and gold to spare. Held back as they come, rather than waited for idle all
+     * at once, so its attacks do not keep taking them off before there are enough.
      */
     private static void summon(Game game, WorldServer world, Team team, State state, Building hall,
         List<EntityUnit> fighters) {
@@ -477,13 +479,19 @@ public final class AiPlayers {
         for (EntityUnit fighter : fighters) {
             if (fighter.getKind() == UnitKind.DARK_WIZARD && !state.summoners.contains(fighter)
                 && fighter.getOrder() == EntityUnit.Order.IDLE
-                && !state.march.contains(fighter)) {
+                && !state.march.contains(fighter)
+                && !state.scouts.containsKey(fighter)) {
                 wizards.add(fighter);
             }
         }
+        while (state.summoners.size() < Buildings.SUMMONERS && !wizards.isEmpty()) {
+            state.summoners.add(wizards.remove(0));
+        }
+        if (state.summoners.isEmpty()) {
+            return;
+        }
         if (circle == null) {
-            if (state.summoners.size() + wizards.size() < Buildings.SUMMONERS
-                || !affords(team, BuildingType.STONE_CIRCLE.cost(), RESEARCH_MARGIN)) {
+            if (!affords(team, BuildingType.STONE_CIRCLE.cost(), RESEARCH_MARGIN)) {
                 return;
             }
             Buildings.Plan plan = Buildings.get()
@@ -494,9 +502,6 @@ public final class AiPlayers {
             circle = Buildings.get()
                 .startSite(game, team, plan);
             WarOfTheGods.LOG.info("AI {} raised {}", team.getName(), circle.describe(game));
-        }
-        while (state.summoners.size() < Buildings.SUMMONERS && !wizards.isEmpty()) {
-            state.summoners.add(wizards.remove(0));
         }
         // Back to the circle, those that wandered off it to fight.
         List<EntityUnit> astray = new ArrayList<>();
