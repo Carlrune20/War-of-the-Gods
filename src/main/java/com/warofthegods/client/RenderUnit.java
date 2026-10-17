@@ -25,8 +25,9 @@ import com.warofthegods.unit.Prayer;
 /**
  * Draws a unit with the player model in the skin of its kind and its team's faction, with bands round its arms and
  * waist in its team's color, and any armor its team's upgrades give it. The name above its head is in its team's
- * color too. Archers raise their bow as they draw it, and heroes stand taller than the rest, a lesser demon, horned and
- * tailed, tallest of all. A hero's protection
+ * color too. Archers raise their bow as they draw it, and heroes stand taller than the rest. A lesser demon has a
+ * model of its own (see {@link ModelDemon}) and stands tallest of all, its belt and arm bands in its team's color. A
+ * hero's protection
  * prayer shows above his name while it is up. Cavalry sit on a horse, white for Saradomin and black for Zamorak, drawn
  * with the horse's own model; it is part of the unit, not a horse of its own.
  */
@@ -35,6 +36,13 @@ public class RenderUnit extends RenderBiped {
     private static final ResourceLocation OVERLAY = new ResourceLocation(
         WarOfTheGods.MODID,
         "textures/entity/unit/team_overlay.png");
+    /** A lesser demon's own texture, and where on it its team's color goes. */
+    private static final ResourceLocation DEMON = new ResourceLocation(
+        WarOfTheGods.MODID,
+        "textures/models/lesser_demon.png");
+    private static final ResourceLocation DEMON_TEAM = new ResourceLocation(
+        WarOfTheGods.MODID,
+        "textures/models/lesser_demon_team.png");
     private static final Map<String, ResourceLocation> SKINS = new HashMap<>();
 
     static {
@@ -70,7 +78,7 @@ public class RenderUnit extends RenderBiped {
 
     private final ModelBiped overlayModel = new ModelBiped(0.08F);
     private final ModelBiped manModel;
-    private final ModelBiped demonModel = new ModelDemon();
+    private final ModelDemon demonModel = new ModelDemon();
     /** The horse drawn under each rider, kept only to be drawn; it is in no world's entity list. */
     private final Map<EntityUnit, EntityHorse> horses = new WeakHashMap<>();
 
@@ -87,7 +95,7 @@ public class RenderUnit extends RenderBiped {
         field_82423_g.aimedBow = aiming;
         field_82425_h.aimedBow = aiming;
         EntityUnit unit = (EntityUnit) entity;
-        // A lesser demon has horns and a tail.
+        // A lesser demon has a model of its own.
         modelBipedMain = unit.getWatchedKind() == UnitKind.LESSER_DEMON ? demonModel : manModel;
         mainModel = modelBipedMain;
         modelBipedMain.aimedBow = aiming;
@@ -96,6 +104,14 @@ public class RenderUnit extends RenderBiped {
             renderHorse(unit, x, y, z, yaw, partialTicks);
         }
         super.doRender(entity, x, y, z, yaw, partialTicks);
+    }
+
+    /** Arrows that stick in a unit are drawn in its arms and body; a demon's parts are its own, so none show on it. */
+    @Override
+    protected void renderArrowsStuckInEntity(EntityLivingBase entity, float partialTicks) {
+        if (((EntityUnit) entity).getWatchedKind() != UnitKind.LESSER_DEMON) {
+            super.renderArrowsStuckInEntity(entity, partialTicks);
+        }
     }
 
     /** Draws a rider's horse where the rider is, walking as it walks and flashing red when it is hurt. */
@@ -195,6 +211,9 @@ public class RenderUnit extends RenderBiped {
     @Override
     protected ResourceLocation getEntityTexture(EntityLiving entity) {
         EntityUnit unit = (EntityUnit) entity;
+        if (unit.getWatchedKind() == UnitKind.LESSER_DEMON) {
+            return DEMON;
+        }
         return SKINS.get(unit.getWatchedFaction().id + "_" + unit.getWatchedKind().id);
     }
 
@@ -210,6 +229,16 @@ public class RenderUnit extends RenderBiped {
             return;
         }
         int color = ((EntityUnit) entity).getTeamColor();
+        if (mainModel == demonModel) {
+            // Its belt, loincloth and arm bands, drawn again over themselves in the team's color.
+            bindTexture(DEMON_TEAM);
+            GL11.glColor3f((color >> 16 & 255) / 255F, (color >> 8 & 255) / 255F, (color & 255) / 255F);
+            GL11.glDepthFunc(GL11.GL_EQUAL);
+            demonModel.renderAgain(scale);
+            GL11.glDepthFunc(GL11.GL_LEQUAL);
+            GL11.glColor4f(1, 1, 1, 1);
+            return;
+        }
         bindTexture(OVERLAY);
         overlayModel.onGround = mainModel.onGround;
         overlayModel.isRiding = mainModel.isRiding;

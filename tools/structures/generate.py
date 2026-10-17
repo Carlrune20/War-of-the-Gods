@@ -702,7 +702,55 @@ def bridge():
     return s
 
 
+def silverlight_shrine():
+    """The shrine where Silverlight lies, one on each map: an old, open shrine of weathered stone brick on a raised
+    floor, four carved pillars holding up a stepped stone roof, steps up at the front, and in the middle an altar with
+    the chest that holds the sword. Its front, with the steps and the chest's lid, faces north at rotation 0."""
+    s = Struct(7, 7, 7, 1)
+    brick, mossy, cracked, carved = (STONE_BRICK, 0), (STONE_BRICK, 1), (STONE_BRICK, 2), (STONE_BRICK, 3)
+    rng = random.Random(1990)
+    s.fill(0, -1, 0, 6, -1, 6, (STONE, 0))
+    # The raised floor, old and patched, with steps up at the front.
+    for x in range(7):
+        for z in range(7):
+            s.set(x, 0, z, rng.choice([brick, brick, mossy, cracked]))
+            if 1 <= z and 0 < x < 6 or z >= 1 and x in (0, 6):
+                s.set(x, 1, z, (SLAB, 5))
+    for x in (2, 3, 4):
+        s.set(x, 1, 0, (STONE_BRICK_STAIRS, UP_SOUTH))
+    # Pillars at the corners, carved at foot and head.
+    for x, z in ((0, 1), (6, 1), (0, 6), (6, 6)):
+        s.set(x, 1, z, carved)
+        s.fill(x, 2, z, x, 4, z, rng.choice([brick, mossy]))
+        s.set(x, 5, z, carved)
+    # The roof: a stone brick rim, stepped up to a slab cap over the altar.
+    for x in range(7):
+        for z in range(1, 7):
+            if x in (0, 6) or z in (1, 6):
+                s.set(x, 6, z, brick if (x + z) % 3 else mossy)
+            elif x in (1, 5) or z in (2, 5):
+                s.set(x, 6, z, (SLAB, 5))
+            else:
+                s.set(x, 6, z, brick)
+                s.set(x, 7, z, (SLAB, 5))
+    for x in range(1, 6):
+        s.set(x, 6, 0, (STONE_BRICK_STAIRS, UP_SOUTH))
+    # The altar, and on it the chest that holds Silverlight, opening to the front.
+    s.set(3, 2, 4, carved)
+    s.set(2, 2, 4, (STONE_BRICK_STAIRS, UP_WEST))
+    s.set(4, 2, 4, (STONE_BRICK_STAIRS, UP_EAST))
+    s.set(3, 3, 4, (CHEST, 2))
+    # Torches on the inner faces of the front pillars, lighting the way in.
+    s.set(1, 3, 1, (TORCH, 1))
+    s.set(5, 3, 1, (TORCH, 2))
+    # Ivy of long grass and moss round the foot.
+    for x, z in ((0, 0), (6, 0), (1, 0), (5, 0)):
+        s.set(x, 1, z, (TALL_GRASS, 1))
+    return s
+
+
 NEUTRAL = {
+    "silverlight_shrine": silverlight_shrine,
     "bridge": bridge,
     "settlement": settlement,
     "gold_mine": lambda: gold_mine(False),
@@ -1265,24 +1313,46 @@ def wizards_tower(p, level):
 
 
 def stone_circle(p, level):
-    """A circle of standing stones raised by dark wizards. When four of them gather inside it they can summon a
-    lesser demon. Its middle is open ground, so the wizards can stand there."""
-    s = Struct(9, 9, 6, 1)
-    s.fill(0, -1, 0, 8, -1, 8, (STONE, 0))
-    s.fill(0, 0, 0, 8, 0, 8, (GRASS, 0))
-    for x in range(2, 7):
-        for z in range(2, 7):
-            if (x - 4) ** 2 + (z - 4) ** 2 <= 5:
-                s.set(x, 0, z, (NETHERRACK, 0) if (x + z) % 2 else (SOUL_SAND, 0))
-    s.set(4, 0, 4, p.emblem)
-    stones = [(4, 0), (8, 4), (4, 8), (0, 4), (1, 1), (7, 1), (1, 7), (7, 7)]
-    for i, (x, z) in enumerate(stones):
-        height = 3 if i < 4 else 2
-        s.fill(x, 1, z, x, height, z, (OBSIDIAN, 0) if i < 4 else (STONE, 0))
-        if i < 4:
-            s.set(x, height + 1, z, (NETHERRACK, 0))
-            s.set(x, height + 2, z, (FIRE, 0))
-    skull(s, 4, 1, 5)
+    """A ring of old grey standing stones on the open grass, like the one south of Varrock where Delrith was summoned:
+    tall rough stones of differing heights, weathered and mossy at the foot, one fallen. Dark wizards raise it, and
+    when four of them gather inside it they can summon a lesser demon. Its middle is open ground, worn bare where
+    they stand."""
+    s = Struct(11, 11, 6, 1)
+    s.fill(0, -1, 0, 10, -1, 10, (DIRT, 0))
+    s.fill(0, 0, 0, 10, 0, 10, (GRASS, 0))
+    # Worn ground inside the ring, where the wizards tread.
+    for x in range(11):
+        for z in range(11):
+            d = (x - 5) ** 2 + (z - 5) ** 2
+            if 4 <= d <= 9 and (x * 3 + z * 7) % 4 != 0:
+                s.set(x, 0, z, (DIRT, 1))
+            elif d < 4 and (x + z) % 3 == 0:
+                s.set(x, 0, z, (GRAVEL, 0))
+    # The stones round the ring: where each stands, how tall, and whether it is two blocks wide.
+    stones = [
+        ((5, 0), 4, (1, 0)), ((8, 1), 3, None), ((10, 4), 4, (0, 1)), ((9, 8), 3, None),
+        ((5, 10), 4, (1, 0)), ((1, 9), 2, None), ((0, 5), 3, (0, 1)), ((1, 1), 3, None),
+    ]
+    for i, ((x, z), height, wide) in enumerate(stones):
+        spots = [(x, z)] + ([(x + wide[0], z + wide[1])] if wide else [])
+        for j, (sx, sz) in enumerate(spots):
+            top = height - (1 if j and i % 2 else 0)
+            for y in range(1, top + 1):
+                # Mossy and rough at the foot, smoother stone above.
+                block = (MOSSY, 0) if y == 1 and (i + j) % 2 == 0 else (COBBLE, 0) if y == 1 or (y + i) % 3 == 0 \
+                    else (STONE, 0)
+                s.set(sx, y, sz, block)
+            s.set(sx, 0, sz, (STONE, 0))
+        # Some stones are capped with a weathered slab.
+        if i % 3 == 0:
+            s.set(x, height + 1, z, (SLAB, 3))
+    # A stone that fell long ago, lying in the grass where its place in the ring was.
+    s.fill(8, 1, 9, 9, 1, 9, (COBBLE, 0))
+    s.set(9, 1, 10, (MOSSY, 0))
+    # Tufts of long grass round the foot of the stones.
+    for x, z in ((3, 0), (10, 2), (7, 10), (0, 7), (2, 3), (9, 6)):
+        if s.get(x, 1, z) == AIR:
+            s.set(x, 1, z, (TALL_GRASS, 1))
     return s
 
 

@@ -240,7 +240,7 @@ public final class WebMap {
             }
             typeJson.addProperty("health", type.maxHealth());
             if (type.buildable) {
-                typeJson.addProperty("buildSeconds", type.buildTicks() / 20.0);
+                typeJson.addProperty("buildSeconds", type.buildsInstantly() ? 0 : type.buildTicks() / 20.0);
             }
             if (type.storesResources) {
                 typeJson.addProperty("stores", true);
