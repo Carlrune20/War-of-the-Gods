@@ -7,8 +7,9 @@ import java.util.Set;
 /**
  * What the viewer's team has seen of the map, for the fog of war in the RTS view. The map is cut into cells of
  * {@link #CELL} blocks. A cell is visible while one of the team's or its allies' units, players or buildings is near
- * it; everything else is black. Once seen a cell stays explored, so enemy buildings found there are still marked.
- * Walking the map on foot, out of the RTS view, explores it too.
+ * it; once seen it stays explored, so its ground and the enemy buildings found there show after they move on, while
+ * what moves there is hidden. Cells nobody has been near are black. Walking the map on foot, out of the RTS view,
+ * explores it too.
  * Without a team, as an observer, and once the game is over, there is no fog.
  */
 final class FogOfWar {

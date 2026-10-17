@@ -205,7 +205,7 @@ final class Minimap {
         }
     }
 
-    /** Black over what the viewer's team does not see now. */
+    /** Black over what the viewer's team has not explored. */
     private void drawFog(FogOfWar fog, int left, int top, int size) {
         if (fogTexture == null) {
             fogTexture = new DynamicTexture(PIXELS, PIXELS);
@@ -219,7 +219,7 @@ final class Minimap {
                 double z = minZ + (j + 0.5) * (maxZ - minZ + 1) / PIXELS;
                 for (int i = 0; i < PIXELS; i++) {
                     double x = minX + (i + 0.5) * (maxX - minX + 1) / PIXELS;
-                    pixels[j * PIXELS + i] = fog.isVisible(x, z) ? 0 : 0xFF000000;
+                    pixels[j * PIXELS + i] = fog.isExplored(x, z) ? 0 : 0xFF000000;
                 }
             }
             fogTexture.updateDynamicTexture();

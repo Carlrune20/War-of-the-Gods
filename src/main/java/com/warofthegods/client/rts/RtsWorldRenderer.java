@@ -276,7 +276,7 @@ public final class RtsWorldRenderer {
     }
 
     /**
-     * The fog of war near the camera: solid black over all the ground the viewer's team does not see now. It lies on
+     * The fog of war near the camera: solid black over all the ground the viewer's team has not explored. It lies on
      * top of every column the client has, sides down cliffs included, and is kept in a display list, made again when
      * what is seen changes or the camera moves on.
      */
@@ -323,7 +323,7 @@ public final class RtsWorldRenderer {
         tessellator.setColorRGBA_F(0, 0, 0, 1);
         for (int z = z0; z <= z1; z++) {
             for (int x = x0; x <= x1; x++) {
-                if (fog.isVisible(x + 0.5, z + 0.5)) {
+                if (fog.isExplored(x + 0.5, z + 0.5)) {
                     continue;
                 }
                 double y = heights[(z - z0) * width + x - x0] + 0.02;
