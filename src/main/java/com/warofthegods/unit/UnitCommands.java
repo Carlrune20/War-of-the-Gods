@@ -42,7 +42,7 @@ import com.warofthegods.world.GameWorld;
  *   {type: "units.gather", units: [id...], x, y, z}  workers chop the tree at or near that block, or mine the gold
  *                                                    mine there
  *   {type: "units.light", units: [id...], x1, z1, x2, z2}  workers put torches in the dark parts of that area
- *   {type: "units.prayer", units: [id...], prayer}  melee, missiles or none: Sir Tradigee's protection prayer
+ *   {type: "units.prayer", units: [id...], prayer}  melee, missiles, magic or none: Sir Tradigee's protection prayer
  *   {type: "units.stop", units: [id...]}        stop and guard where they stand
  *   {type: "units.follow", units: [id...], target: uuid, formation?}  follow a player of their team in formation
  *   {type: "units.kill", units: [id...]}        kill the team's own units
@@ -458,7 +458,8 @@ public final class UnitCommands {
             .orderPrayer(units, prayer);
         if (praying == 0) {
             request.replyError(
-                prayer == Prayer.MELEE ? "Only Sir Tradigee can protect from melee"
+                prayer == Prayer.MELEE || prayer == Prayer.MAGIC
+                    ? "Only Sir Tradigee can protect from " + prayer.id
                     : "Only Sir Tradigee can switch prayers");
             return;
         }

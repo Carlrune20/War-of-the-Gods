@@ -116,6 +116,11 @@ public enum UnitKind {
         return isCaster() ? Spell.WIZARD_SPELLS : new Spell[0];
     }
 
+    /** Whether it is a myth unit, summoned by a god's favor rather than trained: heroes hit it twice as hard. */
+    public boolean isMyth() {
+        return this == LESSER_DEMON;
+    }
+
     /** How much bigger than a man it is drawn and stands. */
     public float scale() {
         return this == LESSER_DEMON ? 1.5F : hero ? 1.15F : 1;
