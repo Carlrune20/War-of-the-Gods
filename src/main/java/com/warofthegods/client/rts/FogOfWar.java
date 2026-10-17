@@ -35,6 +35,8 @@ final class FogOfWar {
     private int ticks;
     /** Bumped whenever what is explored or visible changes, so the fog's look is only made again then. */
     private int version;
+    /** Bumped only when what is explored changes, for the fog drawn over unexplored ground. */
+    private int exploredVersion;
     /** Cells, counted from 0, 0, the viewer walked near on foot before the map was known here. */
     private final Set<Long> walked = new HashSet<>();
 
@@ -45,6 +47,10 @@ final class FogOfWar {
 
     int version() {
         return version;
+    }
+
+    int exploredVersion() {
+        return exploredVersion;
     }
 
     /** Works out what the viewer's team sees now; call every client tick. */
@@ -65,6 +71,7 @@ final class FogOfWar {
             explored = new boolean[columns * rows];
             visible = new boolean[columns * rows];
             version++;
+            exploredVersion++;
             ticks = 0;
         }
         if (!walked.isEmpty()) {
@@ -73,6 +80,7 @@ final class FogOfWar {
             }
             walked.clear();
             version++;
+            exploredVersion++;
         }
         if (!on || ticks++ % INTERVAL != 0) {
             return;
@@ -103,15 +111,19 @@ final class FogOfWar {
             }
         }
         boolean changed = !Arrays.equals(now, visible);
+        boolean found = false;
         for (int i = 0; i < now.length; i++) {
             if (now[i] && !explored[i]) {
                 explored[i] = true;
-                changed = true;
+                found = true;
             }
         }
         visible = now;
-        if (changed) {
+        if (changed || found) {
             version++;
+        }
+        if (found) {
+            exploredVersion++;
         }
     }
 
@@ -127,6 +139,7 @@ final class FogOfWar {
         if (info != null && info.number == game && explored.length > 0) {
             if (see(explored, x, z, PLAYER_SIGHT)) {
                 version++;
+                exploredVersion++;
             }
         } else {
             long cx = (long) Math.floor(x / CELL);

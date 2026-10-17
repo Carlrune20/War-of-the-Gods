@@ -212,8 +212,8 @@ final class Minimap {
             fogLocation = mc.getTextureManager()
                 .getDynamicTextureLocation("warofthegods_minimap_fog", fogTexture);
         }
-        if (fogVersion != fog.version()) {
-            fogVersion = fog.version();
+        if (fogVersion != fog.exploredVersion()) {
+            fogVersion = fog.exploredVersion();
             int[] pixels = fogTexture.getTextureData();
             for (int j = 0; j < PIXELS; j++) {
                 double z = minZ + (j + 0.5) * (maxZ - minZ + 1) / PIXELS;
