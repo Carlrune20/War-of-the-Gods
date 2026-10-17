@@ -7,7 +7,7 @@ import com.warofthegods.game.UnitKind;
 
 /**
  * A protection prayer a hero keeps up: against the attack style it protects from, hits do a quarter of their damage
- * and never knock him back. Sir Tragidee switches between them freely; Sagittare always protects from missiles and
+ * and never knock him back. Sir Tradigee switches between them freely; Sagittare always protects from missiles and
  * cannot protect from melee.
  */
 public enum Prayer {
@@ -44,7 +44,7 @@ public enum Prayer {
     /** Whether a unit of the kind may have this prayer up. */
     public boolean allowedFor(UnitKind kind) {
         switch (kind) {
-            case TRAGIDEE:
+            case TRADIGEE:
                 return true;
             case SAGITTARE:
                 return this == MISSILES;

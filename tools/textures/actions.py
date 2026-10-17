@@ -37,10 +37,11 @@ FACTIONS = ("saradomin", "zamorak")
 BUILDINGS = ("town_hall", "house", "farm", "barracks", "storehouse", "armory", "tower", "wall", "gate",
              "white_knights_fortress", "black_knights_fortress", "archery_range", "stables", "chaos_temple",
              "monastery", "wizards_tower", "stone_circle")
-UNITS = ("worker", "soldier", "archer", "white_knight", "black_knight", "tragidee", "sagittare", "cavalry",
+UNITS = ("worker", "soldier", "archer", "white_knight", "black_knight", "tradigee", "sagittare", "cavalry",
          "chaos_priest", "monk", "dark_wizard", "zamorak_mage", "blue_wizard", "lesser_demon")
 
-# Upgrades and other actions: an item picture, or ("block", top, side) for a block drawn as the inventory draws it.
+# Upgrades and other actions: an item picture, ("block", top, side) for a block drawn as the inventory draws it, or
+# ("face", skin) for the face of a skin, such as the knights the knights' upgrades make.
 ITEMS = {
     "upgrade/forged_blades": "items/iron_sword.png",
     "upgrade/tempered_steel": "items/diamond_sword.png",
@@ -61,6 +62,8 @@ ITEMS = {
     "upgrade/guard_tower": "items/ender_eye.png",
     "upgrade/stone_walls": ("block", "blocks/cobblestone.png", "blocks/cobblestone.png"),
     "upgrade/citadel_walls": ("block", "blocks/obsidian.png", "blocks/obsidian.png"),
+    "upgrade/elite_black_knights": ("face", "zamorak_black_knight_elite"),
+    "upgrade/justiciars": ("face", "saradomin_white_knight_elite"),
     # Taking a building up a level, or the town into the next age.
     "level": "items/experience_bottle.png",
     "gate": "items/door_wood.png",
@@ -297,7 +300,11 @@ def framed(image, background, margin):
 
 def face_icon(faction, kind):
     """A unit's face: the front of its head with its hat layer over it, as large as the icon."""
-    skin = Image.open(os.path.join(SKINS, "%s_%s.png" % (faction, kind))).convert("RGBA")
+    return skin_face("%s_%s" % (faction, kind))
+
+
+def skin_face(name):
+    skin = Image.open(os.path.join(SKINS, name + ".png")).convert("RGBA")
     head = skin.crop((8, 8, 16, 16))
     head.alpha_composite(skin.crop((40, 8, 48, 16)))
     return head.resize((SIZE, SIZE), Image.NEAREST)
@@ -315,6 +322,8 @@ def block_icon(top, side):
 
 
 def item_icon(jar, spec):
+    if isinstance(spec, tuple) and spec[0] == "face":
+        return skin_face(spec[1])
     if isinstance(spec, tuple) and spec[0] == "block":
         return block_icon(texture(jar, spec[1]), texture(jar, spec[2]))
     if isinstance(spec, tuple) and spec[0] == "tint":

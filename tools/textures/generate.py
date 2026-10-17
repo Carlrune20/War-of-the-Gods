@@ -437,81 +437,257 @@ def lesser_demon(faction):
                       (TAIL, lambda face, x, y, w, h: claw if y >= 7 else hide)]}
 
 
-def knight(faction):
-    """A White Knight (Saradomin) or Black Knight (Zamorak): full plate from head to foot with a closed full helm,
-    the same whichever team trains them; their own look, not the armor upgrades."""
-    if faction == "saradomin":
-        plate, plate_dark, plate_light = (222, 224, 228), (156, 160, 170), (246, 246, 248)
-        trim, slit = (196, 162, 64), (36, 40, 52)
-    else:
-        plate, plate_dark, plate_light = (40, 38, 44), (20, 18, 22), (74, 70, 80)
-        trim, slit = (110, 108, 118), (150, 22, 20)
+# The knights' extra parts, in the lower half of their 64x64 skin, as ModelKnight draws them.
+VISOR = (0, 32, 7, 4, 1)
+PLUME = (16, 32, 2, 3, 3)
+SPIKE = (28, 32, 1, 4, 1)
+PAULDRON = (0, 37, 6, 4, 6)
+PAULDRON_CAP = (20, 56, 5, 1, 5)
+CUFF = (0, 56, 5, 3, 5)
+KNEE = (24, 43, 5, 3, 2)
+BOOT = (0, 47, 5, 3, 6)
+SKIRT = (22, 48, 8, 7, 1)
+CAPE = (42, 37, 10, 20, 1)
+
+# Zamorak's sign, as on his cape: a pair of horns curving up from a joined base, on an 8x6 grid.
+ZAMORAK_SIGN = [
+    "#......#",
+    "##....##",
+    "##....##",
+    ".##..##.",
+    ".######.",
+    "..####..",
+]
+
+KNIGHTS = {
+    # Blackened plate, near black on the legs, as the Black Knights of Falador wear it.
+    "black": dict(plate=(46, 46, 52), dark=(24, 24, 28), light=(78, 78, 88), trim=(62, 62, 70), slit=(8, 8, 10),
+                  legs=(30, 30, 34), boots=(22, 22, 24), strap=None),
+    # The same, trimmed in gold, with black boots.
+    "black_elite": dict(plate=(40, 40, 46), dark=(20, 20, 24), light=(70, 70, 80), trim=(232, 178, 36),
+                        slit=(8, 8, 10), legs=(28, 28, 32), boots=(22, 22, 24), strap=None),
+    # Bright white plate, the scabbard's strap across the chest.
+    "white": dict(plate=(228, 228, 232), dark=(176, 178, 186), light=(250, 250, 252), trim=(204, 204, 212),
+                  slit=(26, 26, 30), legs=(220, 220, 226), boots=(196, 196, 204), strap=(46, 40, 36)),
+    # A justiciar: pale silver plate with gold edges over a blue tabard, olive boots.
+    "justiciar": dict(plate=(206, 202, 218), dark=(150, 146, 168), light=(234, 232, 242), trim=(224, 184, 86),
+                      slit=(30, 26, 34), legs=(58, 54, 58), boots=(98, 96, 40), strap=None, cloth=(96, 102, 172),
+                      cloth_dark=(70, 74, 136)),
+}
+
+
+def knight(style):
+    """A knight in full plate as ModelKnight draws it: a closed helm with a visor, broad pauldrons, gauntlet cuffs,
+    knee guards and sabatons. The plume is painted white, for the renderer to tint in the team's color. Knights look
+    the same whichever team trains them; an elite style is what their fortress's upgrade turns them into."""
+    c = KNIGHTS[style]
+    plate, dark, light, trim, slit = c["plate"], c["dark"], c["light"], c["trim"], c["slit"]
+    justiciar = style == "justiciar"
+    elite = style == "black_elite"
+    gilded = elite or justiciar
 
     def body(face, x, y, w, h):
         if face in ("top", "bottom"):
             return plate
+        if justiciar:
+            if face == "front":
+                # A gold star of Saradomin on the breastplate, the blue tabard showing at the collar and below the
+                # belt.
+                if y == 0:
+                    return c["cloth"]
+                if y == 8:
+                    return trim
+                if y > 8:
+                    return c["cloth"] if 2 <= x <= 5 else plate
+                if (x in (3, 4) and 1 <= y <= 6) or (y in (3, 4) and 1 <= x <= 6) or (x in (2, 5) and y in (2, 5)):
+                    return trim if not (x in (3, 4) and y in (3, 4)) else (250, 226, 140)
+                return light if x in (3, 4) else plate
+            if face == "back":
+                return c["cloth"] if y >= 8 or y == 0 else plate
+            return c["cloth"] if y >= 8 else plate
         if face == "front":
-            # A breastplate with a ridge down the middle and a belt of plate.
+            if c["strap"] and x == 7 - (y * 7) // 11:
+                return c["strap"]
+            # A breastplate with a ridge down the middle, edged below, and plate faulds under the belt.
             if y == 7:
-                return plate_dark
-            if x in (3, 4) and y < 7:
-                return plate_light
-            if y == 0 and x in (2, 5):
+                return trim if gilded else dark
+            if gilded and (y == 0 or x in (0, 7)) and y < 7:
                 return trim
-        if face == "back" and y < 7 and x in (3, 4):
-            return plate_dark
-        return plate if y < 8 else (plate_dark if y % 2 else plate)
+            if x in (3, 4) and y < 7:
+                return light
+            if y >= 8:
+                return dark if y % 2 else plate
+            return plate
+        if face == "back":
+            if c["strap"] and x == (y * 7) // 11:
+                return c["strap"]
+            if y < 7 and x in (3, 4):
+                return dark
+            return dark if y >= 8 and y % 2 else plate
+        return plate if y < 8 else (dark if y % 2 else plate)
 
     def arm(face, x, y, w, h):
         if face == "top":
-            return plate_light
-        if y < 4:
-            # Round pauldrons, edged.
-            return trim if y == 3 else plate_light if y == 0 else plate
-        if y == 8:
-            return plate_dark
-        if y >= 10:
-            return plate_dark
-        return plate
+            return light
+        if face == "bottom":
+            return dark
+        if justiciar and y >= 6:
+            # Grey gauntlets and bare hands showing below the cuffs.
+            return SKIN if y >= 10 else (120, 120, 132)
+        if y in (5, 6):
+            # The elbow cop.
+            return light if face == "front" else plate
+        return plate if y < 10 else dark
 
     def leg(face, x, y, w, h):
-        if face == "bottom" or y >= 10:
-            return plate_dark
-        if y in (4, 5) and face == "front":
-            return plate_light
-        return plate
+        if face == "bottom":
+            return c["boots"]
+        if justiciar:
+            return c["legs"] if y < 6 else plate if y < 9 else c["boots"]
+        if y >= 9:
+            return c["boots"]
+        return c["legs"] if face in ("back", "left", "right") or y < 4 else plate
 
     def hat(face, x, y, w, h):
         if face == "bottom":
             return None
         if face == "top":
-            return plate_light if x in (3, 4) else plate
+            if justiciar:
+                return trim if x in (3, 4) or y in (3, 4) else plate
+            return (trim if gilded else light) if x in (3, 4) else plate
         if face == "front":
-            # A full helm: a narrow eye slit and breathing holes.
-            if y == 3 and 1 <= x <= 6:
-                return slit
-            if y in (5, 6) and x in (2, 5):
-                return slit
+            if justiciar:
+                # A pointed great helm: eye slits either side of a gold nasal, gold at the brow.
+                if y == 3 and x in (1, 2, 5, 6):
+                    return slit
+                if x in (3, 4) and y >= 1:
+                    return trim
+                if y == 0:
+                    return trim
+                return light if y == 1 else plate
+            if gilded and y == 0:
+                return trim
             if x in (3, 4):
-                return plate_light
+                return trim if gilded else light
             return plate
         if face == "back":
-            return plate_dark if y == 7 else plate
-        return plate if y != 7 else plate_dark
+            return dark if y == 7 else (trim if gilded and x in (3, 4) else plate)
+        if justiciar and y == 2:
+            return trim
+        return plate if y != 7 else dark
 
-    return {"head": face_fn((60, 44, 30)), "hat": hat, "body": body, "arm": arm, "leg": leg}
+    def visor(face, x, y, w, h):
+        # The visor: a grille of slits for the eyes, as on the Falador knights' helms.
+        if face == "front":
+            if justiciar:
+                return trim if y in (0, 3) else plate
+            if gilded and (y == 0 or x in (0, 6)):
+                return trim
+            if y in (1, 2) and x in (1, 3, 5):
+                return slit
+            return light if y == 0 else plate
+        return dark if face == "bottom" else plate
+
+    def plume(face, x, y, w, h):
+        # White, for the team's color to tint; lighter on top so the curl shows.
+        if face == "top":
+            return (255, 255, 255)
+        return (236, 236, 236) if (x + y) % 2 else (212, 212, 212)
+
+    def spike(face, x, y, w, h):
+        return (250, 226, 140) if y == 0 or face == "top" else trim
+
+    def pauldron(face, x, y, w, h):
+        if face == "top":
+            return light if 1 <= x <= 4 and 1 <= y <= 4 else plate
+        if face == "bottom":
+            return dark
+        if y == h - 1:
+            return trim if gilded else dark
+        if gilded and justiciar and x in (0, w - 1):
+            return trim
+        return light if y == 0 else plate
+
+    def cap(face, x, y, w, h):
+        if face == "top":
+            return trim if gilded and (x in (0, w - 1) or y in (0, h - 1)) else light
+        return trim if gilded else light
+
+    def cuff(face, x, y, w, h):
+        if face in ("top", "bottom"):
+            return dark
+        if gilded and y in (0, h - 1):
+            return trim
+        return light if y == 0 else plate
+
+    def knee(face, x, y, w, h):
+        if gilded:
+            return (250, 226, 140) if face == "front" and y == 1 and x == 2 else trim
+        return light if face == "front" and y == 1 else plate
+
+    def boot(face, x, y, w, h):
+        if face == "top":
+            return c["boots"]
+        if justiciar and y == 0:
+            return trim
+        return c["boots"] if y > 0 else plate
+
+    def skirt(face, x, y, w, h):
+        # Plates either side of a blue panel, edged in gold.
+        if face in ("front", "back"):
+            if 2 <= x <= 5:
+                return c["cloth"] if y < h - 1 else c["cloth_dark"]
+            if y == h - 1 or x in (1, 6):
+                return trim
+            return light if y % 3 == 0 else plate
+        return plate
+
+    def cape(face, x, y, w, h):
+        red, red_dark, black = (164, 22, 20), (118, 14, 14), (14, 12, 12)
+        if face == "back":
+            # The outside, seen from behind: Zamorak's sign in black and a ragged black hem.
+            if 1 <= x <= 8 and 4 <= y <= 9 and ZAMORAK_SIGN[y - 4][x - 1] == "#":
+                return black
+            if y == h - 1:
+                return black if x % 3 else None
+            if y == h - 2 and x % 3 == 0:
+                return black
+            return red if (x + y) % 5 else red_dark
+        if face == "front":
+            # The lining, against his back.
+            return red_dark
+        return black if face in ("left", "right") else red
+
+    parts = {"head": face_fn((60, 44, 30)), "hat": hat, "body": body, "arm": arm, "leg": leg, "height": 64,
+             "extra": [(VISOR, visor), (PLUME, plume), (PAULDRON, pauldron), (PAULDRON_CAP, cap), (CUFF, cuff),
+                       (KNEE, knee), (BOOT, boot)]}
+    if justiciar:
+        parts["extra"] += [(SPIKE, spike), (SKIRT, skirt)]
+    if elite:
+        parts["extra"].append((CAPE, cape))
+    return parts
 
 
 def white_knight(faction):
-    return knight("saradomin")
+    return knight("white")
 
 
 def black_knight(faction):
-    return knight("zamorak")
+    return knight("black")
 
 
-def tragidee(faction):
-    """Sir Tragidee, a justiciar: white and gold plate, a gold faceguard with a cross of light, and a white cloak."""
+def justiciar(faction):
+    """What the Justiciars upgrade turns White Knights into."""
+    return knight("justiciar")
+
+
+def elite_black_knight(faction):
+    """What the Elite Black Knights upgrade turns Black Knights into."""
+    return knight("black_elite")
+
+
+def tradigee(faction):
+    """Sir Tradigee, a justiciar: white and gold plate, a gold faceguard with a cross of light, and a white cloak."""
     white, white_dark = (236, 234, 226), (186, 182, 168)
     gold, gold_dark, gold_light = (214, 172, 58), (156, 116, 30), (250, 222, 120)
     visor = (40, 34, 26)
@@ -647,9 +823,9 @@ def overlay():
 
 
 def skin(kind, faction):
-    image = Image.new("RGBA", (64, 32), (0, 0, 0, 0))
-    rng = random.Random(sum(map(ord, kind.__name__ + faction)))
     parts = kind(faction)
+    image = Image.new("RGBA", (64, parts.get("height", 32)), (0, 0, 0, 0))
+    rng = random.Random(sum(map(ord, kind.__name__ + faction)))
     paint(image, HEAD, parts["head"], rng, noise=4)
     paint(image, HAT, parts["hat"], rng, noise=5)
     paint(image, BODY, parts["body"], rng)
@@ -675,7 +851,7 @@ PALETTE = {
 ICON_ORDER = ["town_hall", "house", "barracks", "storehouse", "quarry", "farm", "armory", "tower",
               "worker", "soldier", "archer", "tree", "upgrade", "level",
               "food", "wood", "gold", "sword", "axe", "pickaxe", "hoe", "wall", "gate",
-              "white_knights_fortress", "black_knights_fortress", "white_knight", "black_knight", "tragidee",
+              "white_knights_fortress", "black_knights_fortress", "white_knight", "black_knight", "tradigee",
               "sagittare", "archery_range", "stables", "cavalry", "horse", "favor", "chaos_temple", "monastery",
               "wizards_tower", "stone_circle", "chaos_priest", "monk", "dark_wizard", "zamorak_mage", "blue_wizard",
               "lesser_demon"]
@@ -1030,7 +1206,7 @@ ICON_ART = {
         ...knk..knk.....
         ...kNk..kNk.....
         ...kkk..kkk.....""",
-    "tragidee": """
+    "tradigee": """
         ..k........k....
         .kvk.kkkk.kvk...
         .kvkkyyyykkvk.k.
@@ -1407,10 +1583,11 @@ def main():
     for faction in ("saradomin", "zamorak"):
         # Knights and heroes look the same whichever team trains them; both factions get a copy.
         for kind, name in ((worker, "worker"), (warrior, "soldier"), (archer, "archer"),
-                           (white_knight, "white_knight"), (black_knight, "black_knight"), (tragidee, "tragidee"),
+                           (white_knight, "white_knight"), (black_knight, "black_knight"), (tradigee, "tradigee"),
                            (sagittare, "sagittare"), (cavalry, "cavalry"), (chaos_priest, "chaos_priest"),
                            (monk, "monk"), (dark_wizard, "dark_wizard"), (zamorak_mage, "zamorak_mage"),
-                           (blue_wizard, "blue_wizard"), (lesser_demon, "lesser_demon")):
+                           (blue_wizard, "blue_wizard"), (lesser_demon, "lesser_demon"),
+                           (elite_black_knight, "black_knight_elite"), (justiciar, "white_knight_elite")):
             path = os.path.join(SKINS, "%s_%s.png" % (faction, name))
             skin(kind, faction).save(path)
             written.append(path)

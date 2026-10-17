@@ -21,7 +21,7 @@ public enum UnitKind {
     /** A ranger hero, the boss of Daemonheim; one at a time, trained at the Black Knights' fortress. */
     SAGITTARE("sagittare", "Sagittare", "sagittare", 6, 0, 6, 14, 4, true, true),
     /** A justiciar hero fighting up close; one at a time, trained at the White Knights' fortress. */
-    TRAGIDEE("tragidee", "Sir Tragidee", "tragidee", 8, 6, 0, 0, 4, false, true),
+    TRADIGEE("tradigee", "Sir Tradigee", "tradigee", 8, 6, 0, 0, 4, false, true),
     /**
      * A rider on horseback with a sword, faster than a warrior and stronger; trained at the stables. Hard to hit with
      * arrows on the move, but warriors' blows land harder on it.
@@ -142,6 +142,19 @@ public enum UnitKind {
         return this == SOLDIER || this == ARCHER;
     }
 
+    /**
+     * The upgrade at its fortress that makes it elite, with its own look and name and more strength: Elite Black
+     * Knights for Black Knights, Justiciars for White Knights; null for the rest.
+     */
+    public Upgrade eliteUpgrade() {
+        return this == BLACK_KNIGHT ? Upgrade.ELITE_BLACK_KNIGHTS : this == WHITE_KNIGHT ? Upgrade.JUSTICIARS : null;
+    }
+
+    /** Its name once its team has made it elite, such as Justiciar; its own name for kinds that never are. */
+    public String eliteName() {
+        return this == BLACK_KNIGHT ? "Elite Black Knight" : this == WHITE_KNIGHT ? "Justiciar" : displayName;
+    }
+
     /** How several are named, such as archers; a hero by his own name, as a team has only one. */
     public String plural() {
         return hero ? displayName : this == CAVALRY ? id : lowerName() + "s";
@@ -157,13 +170,17 @@ public enum UnitKind {
         return Math.max(1, Config.trainSeconds * 20 * trainFactor);
     }
 
-    /** warrior is accepted for soldier, the name players see. */
+    /**
+     * warrior is accepted for soldier, the name players see, and tragidee for Sir Tradigee, as he was misspelled in
+     * games saved before.
+     */
     public static UnitKind byId(String id) {
         if ("warrior".equalsIgnoreCase(id) || "warriors".equalsIgnoreCase(id)) {
             return SOLDIER;
         }
-        if ("sir_tragidee".equalsIgnoreCase(id)) {
-            return TRAGIDEE;
+        if ("sir_tradigee".equalsIgnoreCase(id) || "tragidee".equalsIgnoreCase(id)
+            || "sir_tragidee".equalsIgnoreCase(id)) {
+            return TRADIGEE;
         }
         for (UnitKind kind : values()) {
             if (kind.id.equalsIgnoreCase(id) || kind.name()

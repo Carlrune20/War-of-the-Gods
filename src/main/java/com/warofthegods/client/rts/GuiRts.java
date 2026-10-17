@@ -84,7 +84,7 @@ public final class GuiRts extends GuiScreen {
         "black_knights_fortress",
         "white_knight",
         "black_knight",
-        "tragidee",
+        "tradigee",
         "sagittare",
         "archery_range",
         "stables",
@@ -2246,8 +2246,8 @@ public final class GuiRts extends GuiScreen {
         { "missiles", "Protect from Missiles", "arrows and other missiles" } };
 
     /**
-     * With Sir Tragidee or Sagittare of one's own selected: their protection prayers, which take three quarters of the
-     * damage and all the knockback of the attack style they protect from. Sir Tragidee switches between them at a
+     * With Sir Tradigee or Sagittare of one's own selected: their protection prayers, which take three quarters of the
+     * damage and all the knockback of the attack style they protect from. Sir Tradigee switches between them at a
      * click, and clicking the one that is up puts it down; Sagittare always protects from missiles.
      */
     private void prayerActions(List<Widget> actions) {
@@ -2261,7 +2261,7 @@ public final class GuiRts extends GuiScreen {
             if (unit == null || !state.isMine(unit)) {
                 continue;
             }
-            if ("tragidee".equals(unit.kind)) {
+            if ("tradigee".equals(unit.kind)) {
                 praying.add(id);
                 if (common == null) {
                     common = unit.prayer;

@@ -5,7 +5,8 @@ import java.util.Map;
 
 /**
  * Team-wide improvements researched at a building: military ones at the armory, economic ones at the storehouse,
- * fortified, stone and citadel walls at the town center, and watch and guard towers at a tower. Some need another
+ * fortified, stone and citadel walls at the town center, watch and guard towers at a tower, and the knights' own at
+ * their fortress. Some need another
  * first: diamond tools
  * and swords their iron ones, plate armor padded armor, fire arrows fletching and guard towers watch towers. Each is
  * researched once and lasts the game. Ids are stored in save data, so only add new values.
@@ -51,7 +52,13 @@ public enum Upgrade {
         BuildingType.TOWN_HALL, 2, null, 0, 100, 150, 40),
     CITADEL_WALLS("citadel_walls", "Citadel walls",
         "Walls are rebuilt in stone brick, or nether brick for Zamorak, and have three times the health",
-        BuildingType.TOWN_HALL, 3, "stone_walls", 0, 150, 300, 50);
+        BuildingType.TOWN_HALL, 3, "stone_walls", 0, 150, 300, 50),
+    ELITE_BLACK_KNIGHTS("elite_black_knights", "Elite Black Knights",
+        "Black Knights become elite: gold-trimmed plate and a red cape of Zamorak, 20 more health and hit 3 harder",
+        BuildingType.BLACK_KNIGHTS_FORTRESS, 3, null, 400, 0, 600, 90),
+    JUSTICIARS("justiciars", "Justiciars",
+        "White Knights become justiciars: gold-trimmed plate and a crowned helm, 20 more health and hit 3 harder",
+        BuildingType.WHITE_KNIGHTS_FORTRESS, 3, null, 400, 0, 600, 90);
 
     public final String id;
     public final String displayName;
