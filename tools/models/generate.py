@@ -351,8 +351,7 @@ DEMON_POSES = {
 #
 # Drawn at twice the detail of a block's pixels: one unit is half a pixel. The staff runs along y, its top up (-y),
 # held where y = 0. A shaft of blackened wood bound in a spiral of gold, a leather grip and gold bands, ending below
-# in an iron spike; above, a gold collar and Zamorak's sign: a blood-red crescent with three barbed prongs, round an
-# ember of a gem that glows.
+# in an iron spike; above, a gold collar and Zamorak's sign: two thick blood-red horns sweeping out and up.
 
 BLACKWOOD = (44, 30, 30)
 BLACKWOOD_LIGHT = (66, 46, 42)
@@ -366,8 +365,6 @@ IRON_DARK = (70, 70, 78)
 BLOOD = (170, 20, 22)
 BLOOD_LIGHT = (214, 52, 44)
 BLOOD_DARK = (96, 10, 14)
-EMBER = (255, 120, 30)
-EMBER_CORE = (255, 236, 150)
 
 
 def blackwood(face, x, y, w, h):
@@ -415,18 +412,26 @@ def blood(face, x, y, w, h):
     return BLOOD_DARK if face in ("left", "right") else BLOOD
 
 
-def barb(face, x, y, w, h):
-    return mix(BLOOD, (30, 6, 8), y / max(1, h - 1) * 0.0 + (1 - y / max(1, h - 1)) * 0.6)
+def blood_dark(face, x, y, w, h):
+    return BLOOD_DARK
 
 
-def ember(face, x, y, w, h):
-    if 0 < x < w - 1 and 0 < y < h - 1:
-        return EMBER_CORE
-    return EMBER
+def horn_red(t0, t1):
+    """A stretch of Zamorak's horn, t0 to t1 of the way from its root to its tip: red, darkening to the point."""
+
+    def paint(face, x, y, w, h):
+        t = t0 + (t1 - t0) * (1 - y / max(1, h - 1))
+        if face in ("top", "bottom"):
+            return mix(BLOOD, (40, 4, 6), t * 0.6)
+        edge = face in ("left", "right") or (w > 2 and x in (0, w - 1))
+        base = BLOOD_DARK if edge else (BLOOD_LIGHT if y % 4 == 0 and t < 0.7 else BLOOD)
+        return mix(base, (40, 4, 6), max(0, t - 0.75) * 1.6)
+
+    return paint
 
 
 def zamorak_staff():
-    m = Model("zamorak_staff", 64, 64, seed=11)
+    m = Model("zamorak_staff", 128, 64, seed=11)
     staff = m.part("staff")
     # Below the hand: the shaft, a gold band and an iron spike.
     staff.box(-1, 0, -1, 2, 18, 2, blackwood)
@@ -445,25 +450,24 @@ def zamorak_staff():
     staff.box(-1.5, -42, -1.5, 3, 2, 3, gold_engraved, inflate=0.1)
     staff.box(-2, -44, -2, 4, 2, 4, gold, inflate=0.1)
     staff.box(-2.5, -45, -2.5, 5, 1, 5, gold_engraved)
-    # Zamorak's sign: a crescent of red open at the top, its arms curling in, round the ember, with a barbed prong
-    # down its middle and two outward.
-    head = staff.child("head", pivot=(0, -50, 0))
-    arc = 9
-    for i in range(arc):
-        # From the upper right, round the bottom, to the upper left; 0 is straight up.
-        angle = math.pi * (0.32 + 1.36 * i / (arc - 1))
-        head.child("crescent%d" % i, pivot=(math.sin(angle) * 6, -math.cos(angle) * 6, 0),
-                   rotation=(0, 0, angle)).box(-1, -1.5, -1, 2, 3, 2, blood, inflate=0.35)
+    # Zamorak's sign on top: two thick red horns from a common root, sweeping out to either side and curving up into
+    # points that flare outward at their tips.
+    head = staff.child("head", pivot=(0, -45, 0))
+    head.box(-3, -3, -2, 6, 3, 4, blood, inflate=0.3)
+    head.box(-1.5, -1, -1.5, 3, 1, 3, blood_dark, inflate=0.2)
+    # Each link: length, thickness and how much thicker or thinner it is drawn, and its turn from the one before
+    # (outward first, then back round to upward, flaring out again at the point).
+    links = ((3, 4, 0.0, 1.35), (3, 4, -0.3, -0.15), (3, 3, 0.0, -0.35), (3, 3, -0.3, -0.45), (3, 2, 0.1, -0.4),
+             (3, 2, -0.2, -0.15), (2, 1, 0.2, 0.2), (2, 1, -0.1, 0.35))
     for side in (-1, 1):
-        # The ends of the crescent turn up into barbed points.
-        end = head.child("barb_%d" % side, pivot=(side * 4.3, -5.0, 0), rotation=(0, 0, side * 0.35))
-        end.box(-0.5, -4, -0.5, 1, 4, 1, barb, inflate=0.2)
-        out = head.child("prong_%d" % side, pivot=(side * 6.6, 1.0, 0), rotation=(0, 0, side * 1.25))
-        out.box(-0.5, -4, -0.5, 1, 4, 1, barb, inflate=0.1)
-    down = head.child("prong_mid", pivot=(0, 6.5, 0), rotation=(math.pi, 0, 0))
-    down.box(-0.5, -3, -0.5, 1, 3, 1, barb, inflate=0.1)
-    head.child("ember", pivot=(0, 0, 0), rotation=(0, 0.6, 0.78), glow=True).box(-1.5, -1.5, -1.5, 3, 3, 3, ember,
-                                                                                    inflate=0.4)
+        link = head.child("horn_%d" % side, pivot=(side * 1.6, -1.6, 0), rotation=(0, 0, side * links[0][3]))
+        for i, (length, thick, swell, turn) in enumerate(links):
+            if i:
+                link = link.child("horn_%d_%d" % (side, i), pivot=(0, -prev, 0), rotation=(0, 0, side * turn))
+            # Each overlaps the one before a little, so the horn bends without a gap.
+            link.box(-thick / 2, -length, -thick / 2, thick, length + 1, thick,
+                     horn_red(i / len(links), (i + 1) / len(links)), inflate=swell)
+            prev = length
     return m
 
 
