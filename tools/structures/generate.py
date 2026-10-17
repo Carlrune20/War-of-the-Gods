@@ -3,18 +3,25 @@
 
     python3 tools/structures/generate.py [--preview DIR]
 
-Every building comes in two styles: Saradomin, plain and human (stone, timber, white plaster, blue cloth), and
-Zamorak, sinister (nether brick, obsidian, black clay, red cloth, iron bars, skulls and spikes). For each style it
-writes into src/main/resources/assets/warofthegods/structures/<faction>/:
+Every building comes in two styles that grow with the ages. Saradomin's towns are like Falador: oak in Age I, white
+plaster in an oak frame over stone brick and cobble in Age II, white quartz in Age III, the houses under red brick
+roofs. Zamorak's are hard and plain, for a god of chaos and strength: spruce in Age I, spruce over stone brick and
+cobble in Age II, and graystone like Varrock's walls for the military buildings, the temple and the town center in
+Age III. Each god's banners hang on its buildings. For each style it writes into
+src/main/resources/assets/warofthegods/structures/<faction>/:
 
-    <type>_l<level>.schematic       the finished building at each level (the town center has three, the rest two)
-    <type>_l<level>_d<n>.schematic  the same, damaged: n = 1, 2, 3 as its health falls below 75%, 50% and 25%
+    <type>_l<level>.schematic       the finished building at each level, one per age
+    <type>_l<level>_d<n>.schematic  the same, damaged: n = 1, 2, 3 as its health falls below 75%, 50% and 25%; it
+                                    burns, for show, from 2
     <type>_stage<n>.schematic       a building site, n = 1, 2, 3 as it goes from a foundation and a wooden frame to
                                     nearly finished walls in scaffolding
     <type>_ruin.schematic           what is left when it is destroyed
 
 All files of one building share the same width, length, height and ground layer, so any of them can be pasted over
 any other. At rotation 0 a building's front, its z = 0 side, faces north; doors and gates are on that side.
+
+The mod's own blocks (graystone, the wooden door, the banners and fire that does not spread) are written with the
+fixed ids of ModBlocks.java, above Minecraft's own, which the mod turns back into its blocks when it loads a file.
 
 The structures are written from code rather than drawn, so they stay consistent across levels, damage and styles;
 open the files in the beta map editor or MCEdit to look at them, or pass --preview to get isometric pictures.
@@ -49,6 +56,17 @@ CAULDRON, WOOD_SLAB, SPRUCE_STAIRS, COBBLE_WALL, FLOWER_POT, CARROTS, POTATOES =
 SKULL, ANVIL, REDSTONE_BLOCK, QUARTZ, CLAY, PANE_STAINED, LOG2 = 144, 145, 152, 155, 159, 160, 162
 DARK_OAK_STAIRS, HAY, CARPET, COAL_BLOCK, COBWEB, FIRE, TALL_GRASS = 164, 170, 171, 173, 30, 51, 31
 LEAVES = 18
+QUARTZ_STAIRS = 156
+
+# The mod's own blocks, by the ids ModBlocks.java gives them in schematics. FIRE is its fire that burns for show
+# and never spreads, in place of Minecraft's.
+GRAYSTONE, GRAYSTONE_SLAB, GRAYSTONE_DOUBLE_SLAB, GRAYSTONE_STAIRS, WOOD_DOOR = 200, 201, 202, 203, 204
+BANNER_SARADOMIN, BANNER_ZAMORAK = 205, 207    # each followed by its inverted kind
+BANNERS = {205, 206, 207, 208}
+FIRE = 209
+# Banner metadata: the way its face looks in the low two bits, its piece in the high two.
+BANNER_NORTH, BANNER_EAST, BANNER_SOUTH, BANNER_WEST = 0, 1, 2, 3
+BANNER_TOP, BANNER_EMBLEM, BANNER_BOTTOM, BANNER_PENNANT = 0, 1, 2, 3
 
 # Wool and stained clay colours.
 WHITE, ORANGE, LIGHT_GRAY, GRAY, BLUE, BROWN, RED, BLACK = 0, 1, 8, 7, 11, 12, 14, 15
@@ -60,88 +78,142 @@ UPSIDE_DOWN = 4
 # Blocks that hang on others, are thin, or are furniture: never left floating in damage and ruins.
 DECOR = {TORCH, REDSTONE_TORCH, PANE, PANE_STAINED, IRON_BARS, FLOWER_POT, SKULL, CHEST, WORKBENCH, FURNACE,
          CAULDRON, ANVIL, LADDER, WHEAT, CARROTS, POTATOES, NETHER_WART, DEAD_BUSH, RAIL, CARPET, TRAPDOOR,
-         FENCE_GATE, BOOKSHELF, HAY, JACK, PUMPKIN, FIRE, TALL_GRASS}
-DOORS = {DOOR, IRON_DOOR}
+         FENCE_GATE, BOOKSHELF, HAY, JACK, PUMPKIN, FIRE, TALL_GRASS} | BANNERS
+DOORS = {DOOR, IRON_DOOR, WOOD_DOOR}
 
 
 class Palette:
-    def __init__(self, name, **blocks):
+    def __init__(self, name, level, **blocks):
         self.name = name
+        self.level = level
+        self.lower = None
+        self.stone = False
         for key, value in blocks.items():
             setattr(self, key, value)
 
 
-SARADOMIN = Palette(
-    "saradomin",
-    found=(STONE_BRICK, 0),          # foundations and stone walls
-    base=(COBBLE, 0),                # plinths, chimneys, tower corners
-    wall=(CLAY, WHITE),              # white plaster
-    frame=(LOG, 0),                  # oak timber frame, upright
-    frame_x=(LOG, 4),
-    frame_z=(LOG, 8),
-    planks=(PLANKS, 0),
-    floor=(PLANKS, 0),
-    plaza=(STONE_BRICK, 0),
-    path=(GRAVEL, 0),
-    roof=SPRUCE_STAIRS,
-    roof_full=(PLANKS, 1),
-    roof_slab=(WOOD_SLAB, 1),
-    trim=(WOOL, BLUE),
-    banner=(WOOL, BLUE),
-    banner2=(WOOL, WHITE),
-    emblem=(GOLD_BLOCK, 0),
-    window=(PANE, 0),
-    window2=(PANE_STAINED, BLUE),
-    fence=(FENCE, 0),
-    low_wall=(COBBLE_WALL, 0),
-    light=TORCH,
-    lamp=(GLOWSTONE, 0),
-    door=DOOR,
-    stairs=STONE_BRICK_STAIRS,
-    tent=(WOOL, WHITE),
-    tent2=(WOOL, BLUE),
-    quarry_stone=(STONE, 0),
-    topper=(FENCE, 0),
-)
+def saradomin(level):
+    """Saradomin's towns grow like Falador: oak cabins in Age I, white plaster in an oak frame over stone brick and
+    cobble in Age II, and white quartz on stone brick in Age III, the houses under red brick roofs from Age II."""
+    common = dict(
+        window=(PANE, 0),
+        window2=(PANE_STAINED, BLUE),
+        fence=(FENCE, 0),
+        low_wall=(COBBLE_WALL, 0),
+        light=TORCH,
+        lamp=(GLOWSTONE, 0),
+        door=DOOR,
+        trim=(WOOL, BLUE),
+        shutter=(WOOL, BLUE),
+        tent=(WOOL, WHITE),
+        tent2=(WOOL, BLUE),
+        quarry_stone=(STONE, 0),
+        topper=(FENCE, 0),
+        emblem=(GOLD_BLOCK, 0),
+        banner=BANNER_SARADOMIN,
+        banner_inv=BANNER_SARADOMIN + 1,
+        cloth=(WOOL, BLUE),
+        cloth2=(WOOL, WHITE),
+    )
+    if level == 1:
+        return Palette(
+            "saradomin", 1,
+            found=(COBBLE, 0), base=(COBBLE, 0),
+            wall=(PLANKS, 0), frame=(LOG, 0), frame_x=(LOG, 4), frame_z=(LOG, 8),
+            planks=(PLANKS, 0), floor=(PLANKS, 0), plaza=(COBBLE, 0), path=(GRAVEL, 0),
+            roof=SPRUCE_STAIRS, roof_full=(PLANKS, 1), roof_slab=(WOOD_SLAB, 1),
+            house_roof=SPRUCE_STAIRS, house_roof_full=(PLANKS, 1),
+            stairs=COBBLE_STAIRS, **common)
+    if level == 2:
+        return Palette(
+            "saradomin", 2,
+            found=(STONE_BRICK, 0), base=(COBBLE, 0), lower=(STONE_BRICK, 0),
+            wall=(WOOL, WHITE), frame=(LOG, 0), frame_x=(LOG, 4), frame_z=(LOG, 8),
+            planks=(PLANKS, 0), floor=(PLANKS, 0), plaza=(STONE_BRICK, 0), path=(GRAVEL, 0),
+            roof=SPRUCE_STAIRS, roof_full=(PLANKS, 1), roof_slab=(WOOD_SLAB, 1),
+            house_roof=BRICK_STAIRS, house_roof_full=(BRICK, 0),
+            stairs=STONE_BRICK_STAIRS, **common)
+    return Palette(
+        "saradomin", 3,
+        found=(STONE_BRICK, 0), base=(STONE_BRICK, 0), lower=(STONE_BRICK, 0), stone=True,
+        wall=(QUARTZ, 0), frame=(QUARTZ, 2), frame_x=(QUARTZ, 1), frame_z=(QUARTZ, 1),
+        planks=(PLANKS, 0), floor=(PLANKS, 0), plaza=(STONE_BRICK, 0), path=(GRAVEL, 0),
+        roof=STONE_BRICK_STAIRS, roof_full=(STONE_BRICK, 0), roof_slab=(SLAB, 5),
+        house_roof=BRICK_STAIRS, house_roof_full=(BRICK, 0),
+        stairs=QUARTZ_STAIRS, **common)
 
-ZAMORAK = Palette(
-    "zamorak",
-    found=(NETHER_BRICK, 0),
-    base=(OBSIDIAN, 0),
-    wall=(CLAY, BLACK),
-    frame=(LOG2, 1),                 # dark oak
-    frame_x=(LOG2, 5),
-    frame_z=(LOG2, 9),
-    planks=(PLANKS, 5),
-    floor=(PLANKS, 5),
-    plaza=(NETHER_BRICK, 0),
-    path=(SOUL_SAND, 0),
-    roof=NETHER_STAIRS,
-    roof_full=(NETHER_BRICK, 0),
-    roof_slab=(SLAB, 6),
-    trim=(WOOL, RED),
-    banner=(WOOL, RED),
-    banner2=(WOOL, BLACK),
-    emblem=(REDSTONE_BLOCK, 0),
-    window=(IRON_BARS, 0),
-    window2=(PANE_STAINED, RED),
-    fence=(NETHER_FENCE, 0),
-    low_wall=(NETHER_FENCE, 0),
-    light=REDSTONE_TORCH,
-    lamp=(GLOWSTONE, 0),
-    door=IRON_DOOR,
-    stairs=NETHER_STAIRS,
-    tent=(WOOL, BLACK),
-    tent2=(WOOL, RED),
-    quarry_stone=(STONE, 0),
-    topper=(NETHER_FENCE, 0),
-)
 
-FACTIONS = [SARADOMIN, ZAMORAK]
+def zamorak(level, stone_age=True):
+    """Zamorak is the god of chaos and strength, and his people build hard and plain: spruce in Age I, spruce over
+    stone brick and cobble in Age II, and in Age III graystone like Varrock's walls and the Kinshra's keep for their
+    military buildings, temple and town center, all under dark oak roofs. Black and red banners show whose they are.
+    stone_age False keeps an Age III building in the Age II look, as houses, storehouses and farms stay."""
+    common = dict(
+        window2=(PANE_STAINED, RED),
+        fence=(FENCE, 0),
+        low_wall=(COBBLE_WALL, 0),
+        light=TORCH,
+        lamp=(GLOWSTONE, 0),
+        door=WOOD_DOOR,
+        trim=(WOOL, RED),
+        shutter=(PLANKS, 5),
+        tent=(WOOL, BLACK),
+        tent2=(WOOL, RED),
+        quarry_stone=(STONE, 0),
+        topper=(FENCE, 0),
+        emblem=(REDSTONE_BLOCK, 0),
+        banner=BANNER_ZAMORAK,
+        banner_inv=BANNER_ZAMORAK + 1,
+        cloth=(WOOL, RED),
+        cloth2=(WOOL, BLACK),
+        roof=DARK_OAK_STAIRS, roof_full=(PLANKS, 5), roof_slab=(WOOD_SLAB, 5),
+        house_roof=DARK_OAK_STAIRS, house_roof_full=(PLANKS, 5),
+    )
+    if level == 1:
+        return Palette(
+            "zamorak", 1,
+            found=(COBBLE, 0), base=(COBBLE, 0),
+            wall=(PLANKS, 1), frame=(LOG, 1), frame_x=(LOG, 5), frame_z=(LOG, 9),
+            planks=(PLANKS, 1), floor=(PLANKS, 1), plaza=(COBBLE, 0), path=(DIRT, 1),
+            window=(PANE, 0), stairs=COBBLE_STAIRS, **common)
+    if level == 2 or not stone_age:
+        p = Palette(
+            "zamorak", 2,
+            found=(STONE_BRICK, 0), base=(COBBLE, 0), lower=(STONE_BRICK, 0),
+            wall=(PLANKS, 1), frame=(LOG, 1), frame_x=(LOG, 5), frame_z=(LOG, 9),
+            planks=(PLANKS, 1), floor=(PLANKS, 1), plaza=(STONE_BRICK, 0), path=(GRAVEL, 0),
+            window=(PANE, 0), stairs=STONE_BRICK_STAIRS, **common)
+        if level == 3:
+            p.level = 3
+            p.found = (GRAYSTONE, 0)
+            p.lower = (GRAYSTONE, 0)
+        return p
+    return Palette(
+        "zamorak", 3,
+        found=(GRAYSTONE, 0), base=(GRAYSTONE, 0), lower=(GRAYSTONE, 0), stone=True,
+        wall=(GRAYSTONE, 0), frame=(STONE_BRICK, 0), frame_x=(LOG, 5), frame_z=(LOG, 9),
+        planks=(PLANKS, 1), floor=(PLANKS, 1), plaza=(GRAYSTONE, 0), path=(GRAVEL, 0),
+        window=(IRON_BARS, 0), stairs=GRAYSTONE_STAIRS, **common)
+
+
+# Buildings that go up in graystone in Zamorak's Age III; the rest keep their Age II look.
+ZAMORAK_STONE = {"town_hall", "barracks", "archery_range", "stables", "armory", "tower", "chaos_temple", "wall",
+                 "wall_post", "gate"}
+
+
+def palette(faction, level, type_id=None):
+    if faction == "saradomin":
+        return saradomin(level)
+    return zamorak(level, type_id is None or type_id in ZAMORAK_STONE)
+
+
+SARADOMIN = saradomin(1)
+ZAMORAK = zamorak(1)
+FACTIONS = ["saradomin", "zamorak"]
 
 
 def zam(p):
-    return p is ZAMORAK
+    return p.name == "zamorak"
 
 
 class Struct:
@@ -296,16 +368,29 @@ def door(s, p, x, y, z):
 
 
 def torch(s, p, x, y, z, facing):
-    """A torch (Saradomin) or redstone torch (Zamorak): facing 'up', or away from the wall it hangs on."""
+    """A torch: facing 'up', or away from the wall it hangs on."""
     meta = {"east": 1, "west": 2, "south": 3, "north": 4, "up": 5}[facing]
     s.set(x, y, z, (p.light, meta))
 
 
-def spikes(s, p, points):
-    """Fence posts sticking up as spikes, Zamorak only."""
-    if zam(p):
-        for x, y, z in points:
-            s.set(x, y, z, (NETHER_FENCE, 0))
+def hang(s, p, x, y, z, against, tall=3, inverted=False):
+    """The god's banner with its top at y, flat against the block on the side named by against (north, east, south or
+    west) or hanging from whatever is over it: three blocks tall, or a pennant of one. Inverted swaps its colors."""
+    face = {"north": BANNER_SOUTH, "south": BANNER_NORTH, "east": BANNER_WEST, "west": BANNER_EAST}[against]
+    block = p.banner_inv if inverted else p.banner
+    if tall == 1:
+        s.set(x, y, z, (block, BANNER_PENNANT << 2 | face))
+        return
+    for i, piece in enumerate((BANNER_TOP, BANNER_EMBLEM, BANNER_BOTTOM)):
+        s.set(x, y - i, z, (block, piece << 2 | face))
+
+
+def flag(s, p, x, y0, y1, z, side, tall=1, inverted=False):
+    """A pole of fence from y0 to y1 with the god's banner on the given side of its top."""
+    s.fill(x, y0, z, x, y1, z, p.fence)
+    dx, dz, against = {"north": (0, -1, "south"), "south": (0, 1, "north"), "east": (1, 0, "west"),
+                       "west": (-1, 0, "east")}[side]
+    hang(s, p, x + dx, y1, z + dz, against, tall, inverted)
 
 
 def skull(s, x, y, z):
@@ -313,17 +398,20 @@ def skull(s, x, y, z):
 
 
 def timber_walls(s, p, x0, z0, x1, z1, y0, y1, plinth=True):
-    """Walls of plaster in a timber frame: posts at the corners, a beam along the top and a stone plinth."""
+    """Walls in a frame: posts at the corners and a beam along the top on a plinth of stone. In Age I they are planks,
+    in Age II plaster or planks over a course of stone, in Age III dressed stone with quoins at the corners."""
     s.walls(x0, z0, x1, z1, y0, y1, p.wall)
     if plinth:
-        s.walls(x0, z0, x1, z1, y0, y0, p.base if not zam(p) else (CLAY, RED))
+        s.walls(x0, z0, x1, z1, y0, y0, p.base)
+        if p.lower is not None and y1 - y0 >= 3:
+            s.walls(x0, z0, x1, z1, y0 + 1, y0 + 1, p.lower)
     for x in range(x0, x1 + 1):
         s.set(x, y1, z0, p.frame_x)
         s.set(x, y1, z1, p.frame_x)
     for z in range(z0, z1 + 1):
         s.set(x0, y1, z, p.frame_z)
         s.set(x1, y1, z, p.frame_z)
-    s.pillars(x0, z0, x1, z1, y0, y1, p.frame if not zam(p) else p.base)
+    s.pillars(x0, z0, x1, z1, y0, y1, p.frame)
 
 
 def foundation(s, p, x0, z0, x1, z1, top=0):
@@ -334,12 +422,18 @@ def foundation(s, p, x0, z0, x1, z1, top=0):
 
 
 def house(p, level):
+    """A family's house: one storey of planks in Age I, two in Age II and III. Saradomin's have red brick roofs from
+    Age II, as in Falador; Zamorak's dark oak. A pennant of the god flies from the gable."""
     s = Struct(7, 7, 12, 1)
     foundation(s, p, 0, 0, 6, 6)
     s.fill(1, 0, 1, 5, 0, 5, p.floor)
     top = 3 if level == 1 else 6
     timber_walls(s, p, 0, 0, 6, 6, 1, top)
-    if level == 2:
+    if level > 1 and p.lower is not None:
+        # The ground floor of stone, the upper of the age's walls.
+        s.walls(0, 0, 6, 6, 2, 2, p.lower)
+        s.pillars(0, 0, 6, 6, 1, 2, p.lower)
+    if level > 1:
         # A floor between the storeys, its beam showing outside.
         for x in range(1, 6):
             s.set(x, 3, 0, p.frame_x)
@@ -357,32 +451,28 @@ def house(p, level):
         for z in (2, 4):
             s.set(0, y, z, p.window)
             s.set(6, y, z, p.window)
-    ridge = gable_x(s, 0, 6, 0, 6, top + 1, p.roof, p.roof_full, end=p.wall if not zam(p) else p.planks)
+    ridge = gable_x(s, 0, 6, 0, 6, top + 1, p.house_roof, p.house_roof_full, end=p.wall if not p.stone else p.wall)
     # An attic window in each gable.
     s.set(0, top + 2, 3, p.window)
     s.set(6, top + 2, 3, p.window)
     # A chimney at the back.
-    s.fill(1, 1, 5, 1, ridge + 1, 5, p.base)
-    if zam(p):
-        s.set(1, ridge + 2, 5, (NETHER_FENCE, 0))
-        spikes(s, p, [(0, ridge + 1, 3), (6, ridge + 1, 3)])
-        # Red cloth over the door.
-        s.set(2, 3 if level == 1 else 6, 0, p.trim)
-        s.set(4, 3 if level == 1 else 6, 0, p.trim)
-    else:
-        # Blue shutters beside the front windows.
-        s.set(2, 2, 0, p.trim)
-        s.set(4, 2, 0, p.trim)
-        if level == 2:
-            s.set(2, 5, 0, p.trim)
-            s.set(4, 5, 0, p.trim)
+    s.fill(1, 1, 5, 1, ridge + 1, 5, p.base if p.base != p.wall else (COBBLE, 0))
+    # Shutters beside the front windows.
+    for y in rows:
+        s.set(2, y, 0, p.shutter)
+        s.set(4, y, 0, p.shutter)
+    # The god's pennant on a pole at the end of the ridge.
+    flag(s, p, 6, ridge + 1, ridge + 2, 3, "north")
     # Inside: a bench, a chest and a light.
     s.set(5, 1, 5, (WORKBENCH, 0))
     s.set(4, 1, 5, (CHEST, 2))
     torch(s, p, 3, 2, 5, "north")
-    if level == 2:
+    if level > 1:
         torch(s, p, 3, 5, 5, "north")
         s.set(1, 4, 1, (BOOKSHELF, 0))
+    if level == 3:
+        s.set(5, 4, 1, (BOOKSHELF, 0))
+        s.set(1, 1, 1, (FLOWER_POT, 0))
     return s
 
 
@@ -407,38 +497,28 @@ def thatch_x(s, x0, x1, z0, z1, y, block, end):
 
 
 def hut(p, level, x0, z0, x1, z1, door_x, door_z):
-    """One hut of the town center's camp: a log cabin with a thatched roof in Age I (a tent of cloth for Zamorak), a
-    timber and plaster house under a timber roof in Age II, and a taller house on a stone plinth in Age III. Its ridge
-    runs along x; door_x, door_z is its door in the south or north wall."""
+    """One hut of the town center's camp: a log cabin with a thatched roof in Age I, a framed house over stone in
+    Age II, and a taller hall of stone, quartz for Saradomin and graystone for Zamorak, in Age III. Its ridge runs along
+    x; door_x, door_z is its door in the south or north wall."""
     s = p._s
     top = {1: 3, 2: 4, 3: 5}[level]
     s.fill(x0 + 1, 0, z0 + 1, x1 - 1, 0, z1 - 1, p.floor)
     if level == 1:
-        if zam(p):
-            # A war tent: black cloth over dark posts.
-            s.walls(x0, z0, x1, z1, 1, top - 1, p.tent)
-            s.pillars(x0, z0, x1, z1, 1, top, p.frame)
-            ridge = thatch_x(s, x0, x1, z0, z1, top, p.tent, p.tent)
-            s.fill(x0, ridge, (z0 + z1) // 2, x1, ridge, (z0 + z1) // 2, p.tent2)
-        else:
-            # A log cabin under thatch.
-            s.walls(x0, z0, x1, z1, 1, top, p.planks)
-            s.pillars(x0, z0, x1, z1, 1, top, p.frame)
-            for x in range(x0, x1 + 1):
-                s.set(x, top, z0, p.frame_x)
-                s.set(x, top, z1, p.frame_x)
-            ridge = thatch_x(s, x0, x1, z0, z1, top + 1, (HAY, 0), p.planks)
+        # A log cabin under thatch.
+        s.walls(x0, z0, x1, z1, 1, top, p.planks)
+        s.pillars(x0, z0, x1, z1, 1, top, p.frame)
+        for x in range(x0, x1 + 1):
+            s.set(x, top, z0, p.frame_x)
+            s.set(x, top, z1, p.frame_x)
+        ridge = thatch_x(s, x0, x1, z0, z1, top + 1, (HAY, 0), p.planks)
     else:
         timber_walls(s, p, x0, z0, x1, z1, 1, top, plinth=True)
-        if level == 3:
-            s.walls(x0, z0, x1, z1, 1, 1, p.found)
-            s.walls(x0, z0, x1, z1, 2, 2, p.found if zam(p) else p.base)
-        ridge = gable_x(s, x0, x1, z0, z1, top + 1, p.roof, p.roof_full, end=p.planks)
+        ridge = gable_x(s, x0, x1, z0, z1, top + 1, p.roof, p.roof_full, end=p.wall if p.stone else p.planks)
     # Windows along the long walls.
     for x in range(x0 + 2, x1 - 1, 2):
         for z in (z0, z1):
             if (x, z) != (door_x, door_z) and abs(x - door_x) > 1:
-                s.set(x, 2, z, p.window if level > 1 or not zam(p) else p.tent2)
+                s.set(x, 2, z, p.window)
                 if level == 3:
                     s.set(x, 4, z, p.window)
     s.set(door_x, 1, door_z, AIR)
@@ -478,12 +558,13 @@ def granary(p, level, cx, cz):
         ring(2, 1, p.found)
     wall_top = base + 3
     for y in range(base, wall_top + 1):
-        ring(2, y, p.planks if not zam(p) else (PLANKS, 5))
+        ring(2, y, p.planks)
     s.fill(cx - 1, 1, cz - 1, cx + 1, 1, cz + 1, (HAY, 0))
     ring(2, wall_top + 1, p.roof_slab, fill=True)
     ring(1, wall_top + 2, p.roof_full, fill=True)
     s.set(cx, wall_top + 3, cz, p.topper)
-    s.set(cx, wall_top + 4, cz, p.banner if level == 3 else p.topper)
+    s.set(cx, wall_top + 4, cz, p.topper)
+    hang(s, p, cx - 1, wall_top + 4, cz, "east", tall=1)
     # A hatch facing the fire.
     s.set(cx - 2, base + 1, cz, AIR)
     s.set(cx - 2, base, cz, AIR)
@@ -491,8 +572,8 @@ def granary(p, level, cx, cz):
 
 def town_center(p, level):
     """The town center as a camp: a fenced yard round a campfire, with a longhouse, a lodge, a granary and a woodpile.
-    It grows with the ages, from log cabins under thatch to timber and plaster houses behind a palisade, and to stone
-    footed halls behind a low wall."""
+    It grows with the ages, from log cabins under thatch to framed houses behind a palisade, and to stone halls behind
+    a low wall, quartz for Saradomin and graystone for Zamorak. The god's banners hang at the gate."""
     s = Struct(17, 17, 16, 2)
     p._s = s
     s.fill(0, -2, 0, 16, -1, 16, (DIRT, 0))
@@ -501,7 +582,7 @@ def town_center(p, level):
     for x in range(4, 13):
         for z in range(4, 13):
             if (x - 8) ** 2 + (z - 8) ** 2 <= 12:
-                s.set(x, 0, z, p.path if level > 1 or zam(p) else (DIRT, 0))
+                s.set(x, 0, z, p.path if level > 1 else (DIRT, 1))
     s.fill(7, 0, 0, 9, 0, 5, p.path)
 
     # The fence round the yard, open at the gate in front and at a gap in each side.
@@ -517,33 +598,31 @@ def town_center(p, level):
                 s.set(x, 1, z, p.fence)
                 if level == 2:
                     s.set(x, 2, z, p.fence)
-    # Posts by the gaps, lit; at the gate taller, with the god's colors.
+    # Posts by the gaps, lit; at the gate taller, with the god's banners.
     posts = [(6, 0), (10, 0), (6, 16), (10, 16), (0, 6), (0, 10), (16, 6), (16, 10)]
     if level > 1:
         posts += [(0, 0), (16, 0), (0, 16), (16, 16)]
+    height = 3 if level == 1 else 4
     for x, z in posts:
-        height = 3 if level == 1 else 4
         s.fill(x, 1, z, x, height, z, p.frame if level < 3 else p.base)
-        if zam(p):
-            skull(s, x, height + 1, z)
-        else:
-            s.set(x, height + 1, z, (p.light, 5))
+        s.set(x, height + 1, z, (p.light, 5))
     for x in (6, 10):
-        s.set(x, 3 if level == 1 else 4, 1, p.banner)
-        if level > 1:
-            s.set(x, 2, 1, p.banner)
+        if level == 1:
+            hang(s, p, x, height, 1, "north", tall=1)
+        else:
+            hang(s, p, x, height, 1, "north", inverted=(x == 10))
 
     # The campfire in the middle, in a ring of stones, with a spit across it.
-    s.fill(7, 0, 7, 9, 0, 9, (COBBLE, 0) if not zam(p) else (NETHER_BRICK, 0))
-    s.set(8, 0, 8, (NETHERRACK, 0))
+    s.fill(7, 0, 7, 9, 0, 9, (COBBLE, 0))
+    s.set(8, 0, 8, (LOG, 0))
     s.set(8, 1, 8, (FIRE, 0))
     for x in (6, 10):
-        s.set(x, 1, 8, p.low_wall if not zam(p) else (NETHER_FENCE, 0))
-        s.set(x, 2, 8, p.low_wall if not zam(p) else (NETHER_FENCE, 0))
+        s.set(x, 1, 8, p.low_wall)
+        s.set(x, 2, 8, p.fence)
     for x in (7, 8, 9):
-        s.set(x, 3, 8, (IRON_BARS, 0))
+        s.set(x, 3, 8, (FENCE, 0))
     for x, z in ((6, 6), (10, 6), (6, 10), (10, 10)):
-        s.set(x, 1, z, (SLAB, 3) if not zam(p) else (SLAB, 6))
+        s.set(x, 1, z, (SLAB, 3))
 
     # The longhouse at the back, its door facing the fire.
     hut(p, level, 1, 11, 9, 15, 5, 11)
@@ -553,11 +632,12 @@ def town_center(p, level):
     granary(p, level, 13, 13)
 
     # The woodpile and stores at the front right.
+    log = (LOG, 4) if not zam(p) else (LOG, 5)
     for x in range(11, 15):
-        s.set(x, 1, 2, (LOG, 4) if not zam(p) else (LOG2, 5))
-        s.set(x, 1, 3, (LOG, 4) if not zam(p) else (LOG2, 5))
+        s.set(x, 1, 2, log)
+        s.set(x, 1, 3, log)
         if x < 14:
-            s.set(x, 2, 2, (LOG, 4) if not zam(p) else (LOG2, 5))
+            s.set(x, 2, 2, log)
     s.set(14, 1, 5, (CHEST, 2))
     s.set(13, 1, 5, (WORKBENCH, 0))
     if level > 1:
@@ -568,21 +648,12 @@ def town_center(p, level):
         s.set(12, 1, 5, (CAULDRON, 3))
     if level == 3:
         s.set(11, 1, 5, (ANVIL, 0))
-        # A flag over the gate.
-        s.fill(8, 1, 14, 8, 1, 14, p.found)
-        s.fill(15, 1, 8, 15, 7, 8, p.fence if not zam(p) else (NETHER_FENCE, 0))
-        s.fill(14, 6, 8, 14, 7, 8, p.banner)
-        s.set(14, 5, 8, p.banner2 if not zam(p) else p.emblem)
-    if zam(p):
-        # Skulls on stakes round the fire.
-        for x, z in ((5, 5), (11, 5), (5, 11), (11, 11)):
-            if s.get(x, 1, z) == AIR:
-                s.set(x, 1, z, (NETHER_FENCE, 0))
-                skull(s, x, 2, z)
-    else:
-        # A barrel and a cart by the lodge.
-        s.set(6, 1, 3, (CAULDRON, 0))
-        s.set(2, 1, 8, (HAY, 0))
+        # A tall flag by the side gap.
+        s.set(15, 1, 8, p.found)
+        flag(s, p, 15, 2, 8, 8, "west", tall=3)
+    # A barrel and a cart by the lodge.
+    s.set(6, 1, 3, (CAULDRON, 0))
+    s.set(2, 1, 8, (HAY, 0))
     del p._s
     return s
 
@@ -590,38 +661,103 @@ def town_center(p, level):
 # ---------------------------------------------------------------- neutral map features
 
 
-def settlement():
-    """A settlement no team holds: the town center's camp of Age I left to rot, where a town center can go. Its shacks
-    stand roofless and holed, the fence has fallen in places, the fire is long cold and the stores are gone, and a
-    white flag on a post marks free land. It has the town center's size, so either can be pasted over the other."""
-    rng = random.Random(77)
-    s = damaged(town_center(SARADOMIN, 1), 3, 7701)
-    for (x, y, z), block in list(s.blocks.items()):
-        if y <= 0:
+def abandoned_hut(s, rng, x0, z0, x1, z1, door, wood, fallen):
+    """An abandoned plank hut like those found in the wilds: walls three high with holes rotted through, a doorway,
+    and a sagging roof of planks and slabs with gaps in it, half fallen in when fallen. Its ridge runs along x when it
+    is longer that way, else along z; door is (x, z) in one of its walls."""
+    posts = (LOG, 1 if wood == 1 else 0)
+    along_x = x1 - x0 >= z1 - z0
+    for x in range(x0, x1 + 1):
+        for z in range(z0, z1 + 1):
+            wall = x in (x0, x1) or z in (z0, z1)
+            corner = x in (x0, x1) and z in (z0, z1)
+            if not wall:
+                if rng.random() < 0.7:
+                    s.set(x, 0, z, (PLANKS, wood))
+                continue
+            low_side = (x == x1) if along_x else (z == z1)
+            height = 1 + rng.randrange(2) if fallen and low_side else 3
+            for y in range(1, height + 1):
+                if not corner and y >= 2 and rng.random() < 0.17:
+                    continue
+                s.set(x, y, z, posts if corner else (PLANKS, wood))
+    dx, dz = door
+    s.set(dx, 1, dz, None)
+    s.set(dx, 2, dz, None)
+    # The roof: sloping down to either side of the ridge, with gaps, missing over the fallen side.
+    if along_x:
+        mid = (z0 + z1) // 2
+        cells = [(x, z, abs(z - mid), z > mid) for x in range(x0, x1 + 1) for z in range(z0, z1 + 1)]
+    else:
+        mid = (x0 + x1) // 2
+        cells = [(x, z, abs(x - mid), x > mid) for x in range(x0, x1 + 1) for z in range(z0, z1 + 1)]
+    for x, z, out, far in cells:
+        if (fallen and far) or rng.random() < 0.15:
             continue
-        if block[0] in (FIRE, WOOL, CHEST, WORKBENCH, TORCH, CAULDRON, IRON_BARS):
-            s.set(x, y, z, None)
-        elif block[0] == FENCE and rng.random() < 0.45:
-            s.set(x, y, z, None)
-        elif block[0] == HAY and rng.random() < 0.6:
-            s.set(x, y, z, None)
-        elif block[0] == PLANKS and rng.random() < 0.12:
-            s.set(x, y, z, (LOG, 0))
-    # Grass grows back over the trodden ground, and the hearth is cold ash and stone.
-    for x in range(17):
-        for z in range(17):
-            if s.get(x, 0, z) == (DIRT, 0) and rng.random() < 0.5:
-                s.set(x, 0, z, (GRASS, 0))
+        if out >= 2:
+            s.set(x, 4, z, (WOOD_SLAB, wood))
+        elif out == 1:
+            s.set(x, 4, z, (PLANKS, wood))
+            s.set(x, 5, z, (WOOD_SLAB, wood))
+        else:
+            s.set(x, 4, z, (PLANKS, wood))
+            s.set(x, 5, z, (PLANKS, wood))
+    if fallen:
+        # What fell in lies on the floor.
+        for i in range(4):
+            x = rng.randrange(x0 + 1, x1)
+            z = rng.randrange(z0 + 1, z1)
+            if s.get(x, 1, z) == AIR:
+                s.set(x, 1, z, (WOOD_SLAB, wood))
+
+
+def settlement():
+    """A settlement no team holds, where a town center can go: the camp of a town center, long abandoned. Three plank
+    huts with rotted walls and sagging roofs stand where the longhouse, the lodge and the granary would, round a cold
+    fireplace in a ring of mossy stones; a few posts are left of the fence, and a white flag on a post at the gate marks
+    free land. It has the town center's size, so either can be pasted over the other."""
+    rng = random.Random(77)
+    s = Struct(17, 17, 16, 2)
+    s.fill(0, -2, 0, 16, -1, 16, (DIRT, 0))
+    s.fill(0, 0, 0, 16, 0, 16, (GRASS, 0))
+    # Old trodden ground, half grown over, round the fire and in from the gate.
+    for x in range(4, 13):
+        for z in range(4, 13):
+            if (x - 8) ** 2 + (z - 8) ** 2 <= 12 and rng.random() < 0.55:
+                s.set(x, 0, z, (DIRT, 1) if rng.random() < 0.6 else (GRAVEL, 0))
+    for z in range(0, 6):
+        for x in (7, 8, 9):
+            if rng.random() < 0.5:
+                s.set(x, 0, z, (DIRT, 1))
+    # Three huts round the fire, their doors toward it.
+    abandoned_hut(s, rng, 1, 11, 9, 15, (5, 11), 0, fallen=False)
+    abandoned_hut(s, rng, 1, 2, 5, 6, (3, 6), 1, fallen=False)
+    abandoned_hut(s, rng, 11, 10, 15, 15, (11, 12), 0, fallen=True)
+    # The cold fireplace: a ring of stones round ash, a charred log and a leaning spit post.
+    for x, z in ((7, 7), (8, 7), (9, 7), (7, 8), (9, 8), (7, 9), (8, 9), (9, 9)):
+        s.set(x, 1 if rng.random() < 0.5 else 0, z, (COBBLE, 0) if rng.random() < 0.4 else (MOSSY, 0))
+        if s.get(x, 0, z) == (GRASS, 0) or s.get(x, 1, z) != AIR:
+            s.set(x, 0, z, (GRAVEL, 0))
     s.set(8, 0, 8, (GRAVEL, 0))
-    s.set(8, 1, 8, None)
-    for (x, y, z), block in list(s.blocks.items()):
-        if block[0] == COBBLE and rng.random() < 0.4:
-            s.set(x, y, z, (MOSSY, 0))
-    # Weeds and tall grass in the yard.
-    for _ in range(40):
+    s.set(8, 1, 8, (LOG2, 5))
+    s.set(6, 1, 8, (FENCE, 0))
+    # A woodpile gone grey at the front right, and a broken cart.
+    for x in (12, 13, 14):
+        s.set(x, 1, 3, (LOG, 4) if rng.random() < 0.7 else (MOSSY, 0))
+    s.set(12, 2, 3, (LOG, 4))
+    s.set(13, 1, 5, (WOOD_SLAB, 0))
+    s.set(14, 1, 5, (FENCE, 0))
+    # A few posts and rails left of the fence.
+    for i in range(17):
+        for x, z in ((i, 0), (i, 16), (0, i), (16, i)):
+            gap = (z in (0, 16) and 6 <= x <= 10) or (x in (0, 16) and 6 <= z <= 10)
+            if not gap and s.get(x, 1, z) == AIR and rng.random() < (0.5 if i % 4 == 0 else 0.15):
+                s.set(x, 1, z, (FENCE, 0))
+    # Weeds, tall grass and ferns in the yard.
+    for _ in range(55):
         x, z = rng.randrange(1, 16), rng.randrange(1, 16)
         if s.get(x, 1, z) == AIR and s.get(x, 0, z) == (GRASS, 0):
-            s.set(x, 1, z, (TALL_GRASS, 1))
+            s.set(x, 1, z, (TALL_GRASS, 1 if rng.random() < 0.75 else 2))
     # A marker post with a white flag at the gate: free land.
     s.fill(8, 1, 1, 8, 5, 1, (FENCE, 0))
     s.set(9, 5, 1, (WOOL, WHITE))
@@ -711,6 +847,8 @@ NEUTRAL = {
 
 
 def barracks(p, level):
+    """Trains warriors: a hall at the back, two storeys from Age II, and a fenced training yard in front with dummies
+    and a target. The god's banners hang either side of the door."""
     s = Struct(13, 11, 12, 1)
     foundation(s, p, 0, 0, 12, 10)
     s.fill(0, 0, 0, 12, 0, 4, p.path)
@@ -719,7 +857,7 @@ def barracks(p, level):
     s.fill(0, 0, 5, 12, 0, 10, p.floor)
     timber_walls(s, p, 0, 5, 12, 10, 1, top)
     for x in (4, 8):
-        s.fill(x, 1, 5, x, top, 5, p.frame if not zam(p) else p.base)
+        s.fill(x, 1, 5, x, top, 5, p.frame)
     door(s, p, 6, 1, 5)
     for x in (2, 10):
         s.fill(x, 2, 5, x, 3, 5, p.window)
@@ -728,21 +866,24 @@ def barracks(p, level):
         s.set(12, 2, z, p.window)
     for x in (2, 6, 10):
         s.set(x, 2, 10, p.window)
-    if level == 2:
+    if level > 1:
         for x in (2, 6, 10):
             s.set(x, 5, 5, p.window)
             s.set(x, 5, 10, p.window)
         s.fill(1, 4, 6, 11, 4, 9, p.floor)
         s.clear(10, 4, 8, 11, 4, 9)
-    ridge = gable_x(s, 0, 12, 5, 10, top + 1, p.roof, p.roof_full, end=p.planks)
+    ridge = gable_x(s, 0, 12, 5, 10, top + 1, p.roof, p.roof_full, end=p.wall if p.stone else p.planks)
     for x in range(0, 13):
         s.set(x, ridge, 7, p.roof_full)
         s.set(x, ridge, 8, p.roof_full)
-    if zam(p):
-        spikes(s, p, [(x, ridge + 1, 7) for x in (0, 4, 8, 12)])
-    # Banners on the front.
-    s.set(5, top - 1, 5, p.banner)
-    s.set(7, top - 1, 5, p.banner)
+    if level == 3:
+        # A stone hall gets battlements along its eaves at the front.
+        for x in range(0, 13, 2):
+            s.set(x, top + 1, 4, p.wall)
+        s.fill(0, top, 4, 12, top, 4, (GRAYSTONE_SLAB, 8) if zam(p) else (SLAB, 15))
+    # The god's banners either side of the door.
+    hang(s, p, 5, top - 1, 4, "south")
+    hang(s, p, 7, top - 1, 4, "south", inverted=True)
     # Inside: weapon racks and beds of straw.
     for x in (1, 11):
         s.set(x, 1, 9, (HAY, 0))
@@ -766,21 +907,14 @@ def barracks(p, level):
     for x in (2, 4):
         s.set(x, 1, 2, p.fence)
         s.set(x, 2, 2, (HAY, 0))
-        if zam(p):
-            skull(s, x, 3, 2)
-        else:
-            s.set(x, 3, 2, (PUMPKIN, 2))
+        s.set(x, 3, 2, (PUMPKIN, 2))
     # A target to shoot at.
     s.fill(9, 1, 3, 11, 3, 3, (WOOL, WHITE) if not zam(p) else (WOOL, BLACK))
-    s.set(10, 2, 3, (WOOL, RED))
+    s.set(10, 2, 3, (WOOL, RED) if not zam(p) else (WOOL, WHITE))
     s.set(10, 1, 3, p.planks)
-    if zam(p):
-        s.set(0, 2, 0, (SKULL, 1))
-        s.set(12, 2, 0, (SKULL, 1))
-    if level == 2:
+    if level > 1:
         # A flag over the yard.
-        s.fill(12, 2, 4, 12, 7, 4, p.fence)
-        s.fill(11, 6, 4, 11, 7, 4, p.banner)
+        flag(s, p, 12, 2, 7, 4, "west", tall=3)
         s.set(11, 1, 1, (HAY, 0))
         s.set(1, 1, 1, (CHEST, 3))
     return s
@@ -797,9 +931,11 @@ def archery_range(p, level):
     s.fill(0, 1, 10, 12, top, 10, p.wall)
     s.fill(0, 1, 7, 0, top, 10, p.wall)
     s.fill(12, 1, 7, 12, top, 10, p.wall)
+    if p.lower is not None:
+        s.fill(0, 1, 10, 12, 1, 10, p.lower)
     for x in (0, 4, 8, 12):
-        s.fill(x, 1, 7, x, top, 7, p.frame if not zam(p) else p.base)
-        s.fill(x, 1, 10, x, top, 10, p.frame if not zam(p) else p.base)
+        s.fill(x, 1, 7, x, top, 7, p.frame)
+        s.fill(x, 1, 10, x, top, 10, p.frame)
     for x in range(0, 13):
         s.set(x, top + 1, 7, stairs(p.roof, UP_SOUTH))
         s.set(x, top + 1, 8, p.roof_full)
@@ -823,15 +959,11 @@ def archery_range(p, level):
     for x in (2, 6, 10):
         s.set(x, 1, 1, (HAY, 0))
         s.set(x, 2, 1, face)
-        s.set(x, 3, 1, (WOOL, RED) if level == 2 else face)
-        if zam(p):
-            skull(s, x, 4, 1)
-    # Banners on the corner posts.
-    s.set(0, top, 7, p.banner)
-    s.set(12, top, 7, p.banner)
-    if zam(p):
-        spikes(s, p, [(0, top + 2, 7), (12, top + 2, 7)])
-    if level == 2:
+        s.set(x, 3, 1, (WOOL, RED) if level > 1 else face)
+    # The god's banners hang from the front of the roof at the corners.
+    hang(s, p, 0, top, 6, "south")
+    hang(s, p, 12, top, 6, "south", inverted=True)
+    if level > 1:
         # More targets, and lamps along the lanes.
         for x in (4, 8):
             s.set(x, 1, 2, (HAY, 0))
@@ -840,6 +972,8 @@ def archery_range(p, level):
             s.set(x, 1, 3, p.base)
             s.set(x, 2, 3, p.fence)
             s.set(x, 3, 3, p.lamp)
+    if level == 3:
+        flag(s, p, 6, top + 3, top + 4, 10, "north")
     return s
 
 
@@ -847,7 +981,7 @@ def stables(p, level):
     """Trains cavalry and horses: a long stable of stalls at the back, a fenced paddock in front."""
     s = Struct(13, 11, 10, 1)
     foundation(s, p, 0, 0, 12, 10)
-    s.fill(0, 0, 0, 12, 0, 4, (GRASS, 0) if not zam(p) else (SOUL_SAND, 0))
+    s.fill(0, 0, 0, 12, 0, 4, (GRASS, 0))
     top = 4 if level == 1 else 5
     s.fill(0, 0, 5, 12, 0, 10, p.floor)
     timber_walls(s, p, 0, 5, 12, 10, 1, top)
@@ -867,7 +1001,7 @@ def stables(p, level):
     for z in (7, 8):
         s.set(0, 2, z, p.window)
         s.set(12, 2, z, p.window)
-    ridge = gable_x(s, 0, 12, 5, 10, top + 1, p.roof, p.roof_full, end=p.planks)
+    ridge = gable_x(s, 0, 12, 5, 10, top + 1, p.roof, p.roof_full, end=p.wall if p.stone else p.planks)
     for x in range(0, 13):
         s.set(x, ridge, 7, p.roof_full)
         s.set(x, ridge, 8, p.roof_full)
@@ -885,15 +1019,11 @@ def stables(p, level):
     s.set(6, 1, 0, (FENCE_GATE, 0))
     s.set(2, 1, 2, (CAULDRON, 3))
     s.set(10, 1, 3, (HAY, 0))
-    if zam(p):
-        spikes(s, p, [(x, ridge + 1, 7) for x in (0, 6, 12)])
-        s.set(0, 2, 0, (SKULL, 1))
-        s.set(12, 2, 0, (SKULL, 1))
-    else:
-        s.set(6, ridge + 1, 7, p.topper)
-    s.set(5, top - 1, 5, p.banner)
-    s.set(7, top - 1, 5, p.banner)
-    if level == 2:
+    s.set(6, ridge + 1, 7, p.topper)
+    # The god's banners on the posts between the stalls.
+    hang(s, p, 4, top, 4, "south")
+    hang(s, p, 8, top, 4, "south", inverted=True)
+    if level > 1:
         # A weathervane and lamps at the paddock gate.
         s.fill(0, ridge - 1, 7, 0, ridge + 1, 7, p.fence)
         for x in (5, 7):
@@ -906,13 +1036,14 @@ def stables(p, level):
 
 
 def storehouse(p, level):
-    s = Struct(9, 9, 11, 1)
+    """Takes in what workers carry: a barn with a wide door, a loft and its goods stacked inside."""
+    s = Struct(9, 9, 13, 1)
     foundation(s, p, 0, 0, 8, 8)
     s.fill(1, 0, 1, 7, 0, 7, p.floor)
     top = 4 if level == 1 else 5
     timber_walls(s, p, 0, 0, 8, 8, 1, top)
     for z in (0, 8):
-        s.fill(4, 1, z, 4, top, z, p.frame if not zam(p) else p.base)
+        s.fill(4, 1, z, 4, top, z, p.frame)
     # A barn door three wide.
     s.clear(3, 1, 0, 5, 3, 0)
     s.fill(3, 4, 0, 5, 4, 0, p.frame_x)
@@ -922,23 +1053,19 @@ def storehouse(p, level):
         s.set(0, 2, z, p.window)
         s.set(8, 2, z, p.window)
     ridge = gable_z(s, 0, 8, 0, 8, top + 1, p.roof, p.roof_full, end=p.planks)
-    # A loft hatch over the door, with hay inside.
+    # A loft hatch over the door, with hay inside, and the god's pennant over it.
     s.set(4, top + 2, 0, AIR)
     s.set(4, top + 2, 1, (HAY, 0))
-    s.set(4, top + 3, 0, p.trim)
-    if zam(p):
-        spikes(s, p, [(4, ridge + 1, 0), (4, ridge + 1, 8)])
-    else:
-        s.set(4, ridge + 1, 0, (FENCE, 0))
+    flag(s, p, 4, ridge + 1, ridge + 2, 0, "east")
     # Goods: chests, stacked logs and hay.
     for x in (1, 2, 3):
         s.set(x, 1, 7, (CHEST, 2))
     for x in (5, 6, 7):
-        s.fill(x, 1, 6, x, 2, 7, (LOG, 4) if not zam(p) else (LOG2, 5))
+        s.fill(x, 1, 6, x, 2, 7, (LOG, 4) if not zam(p) else (LOG, 5))
     s.fill(1, 1, 1, 1, 2, 2, (HAY, 0))
     s.set(7, 1, 1, (CAULDRON, 0))
     torch(s, p, 4, 3, 7, "north")
-    if level == 2:
+    if level > 1:
         for x in (1, 2, 3):
             s.set(x, 2, 7, (CHEST, 2))
         s.fill(1, 3, 6, 7, 3, 7, p.planks)
@@ -951,28 +1078,18 @@ def storehouse(p, level):
 
 
 def farm(p, level):
+    """Workers working at it gather food: fields of wheat, carrots and potatoes round a ditch, fenced, with a
+    scarecrow; from Age II lamp posts at the corners."""
     s = Struct(11, 11, 4, 1)
-    s.fill(0, -1, 0, 10, -1, 10, (DIRT, 0) if not zam(p) else (SOUL_SAND, 0))
-    s.walls(0, 0, 10, 10, 0, 0, p.path if not zam(p) else (NETHER_BRICK, 0))
-    if zam(p):
-        # Soul sand rows of nether wart, with paths of nether brick between and dead bushes about.
-        s.fill(1, 0, 1, 9, 0, 9, (SOUL_SAND, 0))
-        for z in range(1, 10):
-            s.set(5, 0, z, (NETHER_BRICK, 0))
-            for x in list(range(1, 5)) + list(range(6, 10)):
-                if z % 4 != 0 or level == 2:
-                    s.set(x, 1, z, (NETHER_WART, 3 if level == 2 or (x + z) % 3 else 2))
-                else:
-                    s.set(x, 0, z, (NETHER_BRICK, 0))
-        for x, z in ((1, 4), (9, 8)):
-            s.set(x, 1, z, (DEAD_BUSH, 0))
-    else:
-        s.fill(1, 0, 1, 9, 0, 9, (FARMLAND, 7))
-        for z in range(1, 10):
-            s.set(5, 0, z, (WATER, 0))
-            for x in list(range(1, 5)) + list(range(6, 10)):
-                crop = WHEAT if z <= 3 else CARROTS if z <= 6 else POTATOES
-                s.set(x, 1, z, (crop, 7 if level == 2 or (x + z) % 4 else 5))
+    s.fill(0, -1, 0, 10, -1, 10, (DIRT, 0))
+    s.walls(0, 0, 10, 10, 0, 0, p.path)
+    s.fill(1, 0, 1, 9, 0, 9, (FARMLAND, 7))
+    crops = (WHEAT, CARROTS, POTATOES) if not zam(p) else (POTATOES, WHEAT, CARROTS)
+    for z in range(1, 10):
+        s.set(5, 0, z, (WATER, 0))
+        for x in list(range(1, 5)) + list(range(6, 10)):
+            crop = crops[0] if z <= 3 else crops[1] if z <= 6 else crops[2]
+            s.set(x, 1, z, (crop, 7 if level > 1 or (x + z) % 4 else 5))
     # A fence round it, with a gate in front.
     for x in range(11):
         s.set(x, 1, 0, p.fence)
@@ -982,57 +1099,51 @@ def farm(p, level):
         s.set(10, 1, z, p.fence)
     s.set(5, 1, 0, (FENCE_GATE, 0))
     s.set(5, 0, 0, p.planks)
-    # A scarecrow in the corner.
+    # A scarecrow in the corner, in the god's colors.
     s.set(9, 1, 9, p.fence)
-    s.set(9, 2, 9, (HAY, 0) if not zam(p) else (WOOL, BLACK))
-    if zam(p):
-        skull(s, 9, 3, 9)
-    else:
-        s.set(9, 3, 9, (JACK, 2))
-    if level == 2:
+    s.set(9, 2, 9, p.cloth)
+    s.set(9, 3, 9, (JACK, 2))
+    if level > 1:
         # Lamp posts at the corners and a second scarecrow.
         for x, z in ((0, 0), (10, 0), (0, 10), (10, 10)):
             s.set(x, 1, z, p.base)
             s.set(x, 2, z, p.fence)
             s.set(x, 3, z, p.lamp)
         s.set(1, 1, 9, p.fence)
-        s.set(1, 2, 9, (HAY, 0) if not zam(p) else (WOOL, RED))
-        if zam(p):
-            skull(s, 1, 3, 9)
-        else:
-            s.set(1, 3, 9, (PUMPKIN, 2))
+        s.set(1, 2, 9, p.cloth2)
+        s.set(1, 3, 9, (PUMPKIN, 2))
     return s
 
 
 def armory(p, level):
+    """Researches military upgrades and sells arms: a stone workshop at the back with a door anyone can open, a forge
+    under a porch in front, and the god's banners hanging from the porch roof."""
     s = Struct(9, 9, 10, 1)
     foundation(s, p, 0, 0, 8, 8)
     top = 4 if level == 1 else 5
     # The workshop at the back.
-    if zam(p):
-        s.walls(0, 4, 8, 8, 1, top, p.found)
-        s.pillars(0, 4, 8, 8, 1, top, p.base)
-    else:
-        s.walls(0, 4, 8, 8, 1, top, p.found)
-        s.walls(0, 4, 8, 8, 1, 1, p.base)
-        s.pillars(0, 4, 8, 8, 1, top, p.frame)
+    stone = p.found if level < 3 else p.wall
+    s.walls(0, 4, 8, 8, 1, top, stone)
+    s.walls(0, 4, 8, 8, 1, 1, p.base)
+    s.pillars(0, 4, 8, 8, 1, top, p.frame)
     door(s, p, 4, 1, 4)
     for x in (2, 6):
         s.set(x, 2, 4, p.window)
         s.set(x, 2, 8, p.window)
     s.set(0, 2, 6, p.window)
     s.set(8, 2, 6, p.window)
-    ridge = gable_x(s, 0, 8, 4, 8, top + 1, p.roof, p.roof_full, end=p.found)
+    ridge = gable_x(s, 0, 8, 4, 8, top + 1, p.roof, p.roof_full, end=stone)
     # The forge porch in front, roofed on posts.
     for x in (0, 8):
-        s.fill(x, 1, 0, x, top, 0, p.frame if not zam(p) else p.base)
+        s.fill(x, 1, 0, x, top, 0, p.frame)
     for x in range(0, 9):
         s.set(x, top + 1, 0, stairs(p.roof, UP_SOUTH))
         s.fill(x, top + 1, 1, x, top + 1, 3, p.roof_slab)
     # Hearth, furnaces, anvil and quench.
     s.fill(1, 1, 3, 2, 1, 3, (FURNACE, 2))
     s.set(1, 1, 2, p.base)
-    s.set(2, 1, 2, p.lamp if zam(p) else (NETHERRACK, 0))
+    s.set(2, 1, 2, (COBBLE, 0))
+    s.set(2, 2, 2, (FIRE, 0))
     s.set(1, 2, 2, p.base)
     s.set(4, 1, 1, (ANVIL, 0))
     s.set(6, 1, 1, (CAULDRON, 3))
@@ -1044,16 +1155,12 @@ def armory(p, level):
         s.set(x, 1, 7, p.fence)
     s.set(7, 1, 7, (CHEST, 2))
     torch(s, p, 4, 3, 7, "north")
-    if zam(p):
-        skull(s, 0, top + 2, 0)
-        skull(s, 8, top + 2, 0)
-        spikes(s, p, [(4, ridge + 1, 6)])
-    else:
-        s.set(0, top - 1, 1, p.trim)
-        s.set(8, top - 1, 1, p.trim)
-    if level == 2:
+    # Banners under the porch roof.
+    hang(s, p, 1, top, 0, "south", tall=1)
+    hang(s, p, 7, top, 0, "south", tall=1, inverted=True)
+    if level > 1:
         s.set(3, 1, 1, (ANVIL, 1))
-        s.set(7, 1, 1, (IRON_BLOCK, 0) if not zam(p) else (REDSTONE_BLOCK, 0))
+        s.set(7, 1, 1, (IRON_BLOCK, 0))
         s.fill(7, 1, 4, 7, ridge + 1, 4, p.base)
         s.set(2, 1, 6, (FURNACE, 3))
         for x in (2, 6):
@@ -1062,16 +1169,15 @@ def armory(p, level):
 
 
 def tower(p, level):
+    """Watches over the land round it and shoots from its deck: a square stone tower with arrow slits, a ladder up
+    the inside and battlements, roofed from Age II, with the god's flag on top."""
     s = Struct(5, 5, 20, 1)
     foundation(s, p, 0, 0, 4, 4)
     deck = 10 if level == 1 else 13
-    if zam(p):
-        s.walls(0, 0, 4, 4, 1, deck, p.found)
-        s.pillars(0, 0, 4, 4, 1, deck + 1, p.base)
-    else:
-        s.walls(0, 0, 4, 4, 1, deck, p.found)
-        s.walls(0, 0, 4, 4, 1, 1, p.base)
-        s.pillars(0, 0, 4, 4, 1, deck, p.base)
+    stone = p.found if not p.stone else p.wall
+    s.walls(0, 0, 4, 4, 1, deck, stone)
+    s.walls(0, 0, 4, 4, 1, 1, p.base)
+    s.pillars(0, 0, 4, 4, 1, deck, p.base if not p.stone else p.frame)
     s.fill(1, 0, 1, 3, 0, 3, p.floor)
     door(s, p, 2, 1, 0)
     # Arrow slits.
@@ -1084,79 +1190,79 @@ def tower(p, level):
     # Ladder up the inside, and the deck at the top.
     for y in range(1, deck):
         s.set(2, y, 3, (LADDER, 2))
-    s.fill(0, deck, 0, 4, deck, 4, p.found)
+    s.fill(0, deck, 0, 4, deck, 4, stone)
     s.set(2, deck, 3, (LADDER, 2))
     s.set(2, deck, 2, p.lamp)
     # Battlements.
     for x, z in ((0, 0), (2, 0), (4, 0), (0, 2), (4, 2), (0, 4), (2, 4), (4, 4)):
-        s.set(x, deck + 1, z, p.found if (x, z) != (2, 0) or not zam(p) else p.base)
-    if zam(p):
-        spikes(s, p, [(0, deck + 2, 0), (4, deck + 2, 0), (0, deck + 2, 4), (4, deck + 2, 4)])
-        skull(s, 2, deck + 2, 0)
-        s.set(1, deck - 2, 0, p.trim)
-        s.set(3, deck - 2, 0, p.trim)
+        s.set(x, deck + 1, z, stone)
+    if level == 1:
+        # The god's flag on a pole at the back corner.
+        flag(s, p, 4, deck + 2, deck + 4, 4, "west", tall=1)
     else:
-        # A banner down the front and a flag on top.
-        s.fill(1, deck - 3, 0, 1, deck - 1, 0, p.banner)
-        s.fill(3, deck - 3, 0, 3, deck - 1, 0, p.banner)
-        s.fill(4, deck + 2, 4, 4, deck + 3, 4, p.fence)
-        s.set(3, deck + 3, 4, p.banner)
-    if level == 2:
-        # A roof over the deck on the corner posts.
+        # A roof over the deck on the corner posts, the flag on its peak.
         for x, z in ((0, 0), (4, 0), (0, 4), (4, 4)):
-            s.set(x, deck + 2, z, p.found if not zam(p) else p.base)
+            s.set(x, deck + 2, z, stone)
         cap = hip(s, 0, 0, 4, 4, deck + 3, p.roof, p.roof_full)
-        s.set(2, cap + 1, 2, p.emblem if not zam(p) else (NETHER_FENCE, 0))
-        if not zam(p):
-            s.clear(4, deck + 2, 4, 4, deck + 3, 4)
-            s.set(3, deck + 3, 4, None)
-            s.set(4, deck + 2, 4, p.found)
+        flag(s, p, 2, cap + 1, cap + 2, 2, "east", tall=1)
     return s
 
 
 def chaos_temple(p, level):
-    """Zamorak's temple, where chaos priests pray for his favor and dark wizards and his mages are trained: a dark
-    nave under a steep roof, red light through its windows, an altar of redstone at the far end and a spire."""
+    """Zamorak's temple, where chaos priests pray for his favor and dark wizards and his mages are trained, like the
+    Chaos Temple in the wilds: a stone nave under a steep roof, red light through its windows, an altar at the far end
+    under the god's banner between two braziers, and a square tower over the door. Its fires burn on stone and spread
+    nowhere. Stone brick and cobble in Age II, graystone in Age III."""
     s = Struct(11, 13, 22, 1)
     foundation(s, p, 0, 0, 10, 12)
     s.fill(0, 0, 0, 10, 0, 1, p.plaza)
     top = 5 if level == 1 else 6
-    s.fill(1, 0, 2, 9, 0, 12, p.floor)
-    s.walls(1, 2, 9, 12, 1, top, p.found)
-    s.pillars(1, 2, 9, 12, 1, top + 1, p.base)
+    stone = p.wall if p.stone else p.found
+    s.fill(1, 0, 2, 9, 0, 12, (STONE_BRICK, 0) if not p.stone else (GRAYSTONE, 0))
+    s.walls(1, 2, 9, 12, 1, top, stone)
+    s.walls(1, 2, 9, 12, 1, 1, p.base)
+    s.pillars(1, 2, 9, 12, 1, top + 1, p.frame if p.stone else (COBBLE, 0))
     for z in (5, 9):
-        s.fill(1, 1, z, 1, top, z, p.base)
-        s.fill(9, 1, z, 9, top, z, p.base)
+        s.fill(1, 1, z, 1, top, z, p.frame if p.stone else (COBBLE, 0))
+        s.fill(9, 1, z, 9, top, z, p.frame if p.stone else (COBBLE, 0))
     door(s, p, 5, 1, 2)
     s.set(4, 3, 2, p.window2)
     s.set(6, 3, 2, p.window2)
     for z in (4, 7, 10):
         s.fill(1, 2, z, 1, 3, z, p.window2)
         s.fill(9, 2, z, 9, 3, z, p.window2)
-    # The altar: a block of redstone between two braziers, under the god's banner.
-    s.set(5, 1, 11, p.emblem)
-    s.set(5, 2, 11, (NETHER_FENCE, 0))
-    skull(s, 5, 3, 11)
+    # The altar of dark stone between two braziers, under the god's banner.
+    s.set(4, 1, 11, (GRAYSTONE_STAIRS, UP_EAST))
+    s.set(5, 1, 11, (GRAYSTONE, 0))
+    s.set(6, 1, 11, (GRAYSTONE_STAIRS, UP_WEST))
+    s.set(5, 2, 11, (CARPET, RED))
     for x in (3, 7):
-        s.set(x, 1, 11, (NETHERRACK, 0))
+        s.set(x, 1, 11, (STONE_BRICK, 3))
         s.set(x, 2, 11, (FIRE, 0))
-    s.fill(4, 3, 12, 6, top - 1, 12, p.banner)
-    s.fill(3, 1, 4, 3, 1, 9, (NETHER_STAIRS, UP_WEST))
-    s.fill(7, 1, 4, 7, 1, 9, (NETHER_STAIRS, UP_EAST))
-    s.fill(5, 0, 3, 5, 0, 10, (CARPET, RED))
-    ridge = gable_z(s, 2, 12, 1, 9, top + 1, p.roof, p.roof_full, end=p.found)
-    # The spire over the door, with spikes at the corners.
+    hang(s, p, 5, top, 11, "south")
+    hang(s, p, 3, top, 11, "south", tall=1, inverted=True)
+    hang(s, p, 7, top, 11, "south", tall=1, inverted=True)
+    # Pews of stone, and a red carpet up the aisle.
+    s.fill(3, 1, 4, 3, 1, 9, (p.stairs, UP_WEST))
+    s.fill(7, 1, 4, 7, 1, 9, (p.stairs, UP_EAST))
+    s.fill(5, 1, 3, 5, 1, 10, (CARPET, RED))
+    torch(s, p, 2, 3, 6, "east")
+    torch(s, p, 8, 3, 6, "west")
+    ridge = gable_z(s, 2, 12, 1, 9, top + 1, p.roof, p.roof_full, end=stone)
+    # The tower over the door, with a banner on its face and the god's flag on top.
     spire = 4 if level == 1 else 6
-    s.fill(4, ridge, 2, 6, ridge + spire, 4, p.found)
-    s.fill(5, ridge + spire + 1, 3, 5, ridge + spire + 2, 3, p.base)
-    s.set(5, ridge + spire + 3, 3, (NETHER_FENCE, 0))
-    s.set(5, ridge + spire - 1, 2, p.emblem)
-    spikes(s, p, [(1, top + 2, 2), (9, top + 2, 2), (1, top + 2, 12), (9, top + 2, 12)])
-    if level == 2:
-        # Fire pits flank the steps.
+    s.fill(4, ridge, 2, 6, ridge + spire, 4, stone)
+    for x, z in ((4, 2), (6, 2), (4, 4), (6, 4)):
+        s.set(x, ridge + spire + 1, z, stone)
+    s.set(5, ridge + spire - 2, 2, p.window2)
+    s.set(5, ridge + spire - 3, 2, p.window2)
+    flag(s, p, 5, ridge + spire + 1, ridge + spire + 3, 3, "east", tall=1)
+    hang(s, p, 5, ridge + spire, 1, "south")
+    if level > 1:
+        # Braziers flank the steps.
         for x in (0, 10):
-            s.set(x, 0, 0, (NETHERRACK, 0))
-            s.set(x, 1, 0, (FIRE, 0))
+            s.set(x, 1, 0, (STONE_BRICK, 3) if not p.stone else (GRAYSTONE, 0))
+            s.set(x, 2, 0, (FIRE, 0))
     return s
 
 
@@ -1167,8 +1273,9 @@ def monastery(p, level):
     foundation(s, p, 0, 0, 12, 10)
     s.fill(0, 0, 0, 12, 0, 3, (GRASS, 0))
     top = 4 if level == 1 else 5
+    stone = p.wall if p.stone else p.found
     s.fill(1, 0, 4, 8, 0, 10, p.floor)
-    s.walls(0, 4, 8, 10, 1, top, p.found)
+    s.walls(0, 4, 8, 10, 1, top, stone)
     s.walls(0, 4, 8, 10, 1, 1, p.base)
     door(s, p, 4, 1, 4)
     for x in (2, 6):
@@ -1184,11 +1291,11 @@ def monastery(p, level):
     s.set(6, 1, 9, (BOOKSHELF, 0))
     torch(s, p, 1, 3, 9, "north")
     torch(s, p, 7, 3, 9, "north")
-    gable_x(s, 0, 8, 4, 10, top + 1, p.roof, p.roof_full, end=p.found)
+    gable_x(s, 0, 8, 4, 10, top + 1, p.roof, p.roof_full, end=stone)
     # The bell tower.
     bell = 9 if level == 1 else 11
-    s.walls(9, 6, 12, 10, 1, bell, p.found)
-    s.pillars(9, 6, 12, 10, 1, bell + 1, p.base)
+    s.walls(9, 6, 12, 10, 1, bell, stone)
+    s.pillars(9, 6, 12, 10, 1, bell + 1, p.frame if p.stone else p.base)
     s.fill(10, 0, 7, 11, 0, 9, p.floor)
     s.set(9, 1, 8, None)
     s.set(9, 2, 8, None)
@@ -1197,9 +1304,9 @@ def monastery(p, level):
         s.set(11, y, 6, None)
         s.set(12, y, 8, None)
     s.set(10, bell - 1, 8, (ANVIL, 0))
-    s.fill(9, bell + 1, 6, 12, bell + 1, 10, p.found)
+    s.fill(9, bell + 1, 6, 12, bell + 1, 10, stone)
     hip(s, 9, 6, 12, 10, bell + 2, p.roof, p.roof_full)
-    s.set(10, bell, 6, p.banner)
+    hang(s, p, 10, bell, 5, "south")
     # The cloister garden: a low hedge, a well and flowers.
     for x in range(0, 9):
         if x != 4:
@@ -1207,7 +1314,7 @@ def monastery(p, level):
     s.set(2, 1, 2, (CAULDRON, 3))
     s.set(6, 1, 2, (FLOWER_POT, 0))
     s.fill(4, 0, 0, 4, 0, 3, p.path)
-    if level == 2:
+    if level > 1:
         # A second bell and lamps by the door.
         s.set(11, bell - 1, 8, (ANVIL, 0))
         for x in (3, 5):
@@ -1226,7 +1333,7 @@ def wizards_tower(p, level):
             if 9 <= (x - 4) ** 2 + (z - 4) ** 2 <= 17]
     inside = [(x, z) for x in range(9) for z in range(9) if (x - 4) ** 2 + (z - 4) ** 2 < 9]
     for x, z in ring:
-        s.fill(x, 1, z, x, top, z, p.found)
+        s.fill(x, 1, z, x, top, z, p.wall if p.stone else p.found)
         s.set(x, 1, z, p.base)
     for x, z in inside:
         s.set(x, 0, z, p.floor)
@@ -1257,7 +1364,7 @@ def wizards_tower(p, level):
     s.set(4, 2, 4, (BOOKSHELF, 0))
     s.set(3, 2, 4, (CAULDRON, 0))
     torch(s, p, 4, 3, 1, "south")
-    if level == 2:
+    if level > 1:
         # Lamps over the door and on the far side.
         s.set(4, top - 3, 0, p.lamp)
         s.set(4, top - 3, 8, p.lamp)
@@ -1296,9 +1403,9 @@ def stone_circle(p, level):
 def wall_style(p, level):
     """The body, foot and top of a wall at a level, and how tall its body stands."""
     if zam(p):
-        return [((LOG2, 1), (NETHERRACK, 0), (NETHER_FENCE, 0), 5),
-                ((STONE, 0), (COBBLE, 0), (SLAB, 0), 6),
-                ((NETHER_BRICK, 0), (NETHER_BRICK, 0), (NETHER_FENCE, 0), 7)][level - 1]
+        return [((LOG, 1), (COBBLE, 0), (FENCE, 0), 5),
+                ((COBBLE, 0), (STONE_BRICK, 0), (SLAB, 3), 6),
+                ((GRAYSTONE, 0), (GRAYSTONE, 0), (GRAYSTONE_SLAB, 0), 7)][level - 1]
     return [((LOG, 0), (COBBLE, 0), (FENCE, 0), 5),
             ((COBBLE, 0), (COBBLE, 0), (COBBLE_WALL, 0), 6),
             ((STONE_BRICK, 0), (STONE_BRICK, 0), (SLAB, 5), 7)][level - 1]
@@ -1334,7 +1441,8 @@ def battlements(s, p, level, x0, x1, z0, z1, y):
 
 def wall(p, level, gate=False):
     """A stretch of wall five blocks long and three thick, along x. A gate has an opening three wide and three high
-    through it, closed by fence gates that open for the team's own people and its allies."""
+    through it, closed by fence gates that open for the team's own people and its allies, with the god's banners over
+    it on both faces."""
     body, foot, top, height = wall_style(p, level)
     s = Struct(WALL, WALL, WALL_TOP, 1)
     wall_ground(s)
@@ -1349,14 +1457,12 @@ def wall(p, level, gate=False):
         s.clear(1, 1, 1, 3, 3, 3)
         s.fill(1, 0, 1, 3, 0, 3, p.path if level > 1 else foot)
         s.fill(1, 1, 2, 3, 3, 2, (FENCE_GATE, 0))
-        # Posts either side, lit, and the team's colors over the opening.
+        # Posts either side, lit, and the god's banners over the opening.
         for x in (0, 4):
-            s.set(x, height + 1, 1, (p.light, 5) if level > 1 or not zam(p) else top)
-            s.set(x, height + 1, 3, (p.light, 5) if level > 1 or not zam(p) else top)
-        for z in (0, 4):
-            s.set(2, 4, z, p.banner)
-            if height > 5:
-                s.set(2, 5, z, p.banner)
+            s.set(x, height + 1, 1, (p.light, 5))
+            s.set(x, height + 1, 3, (p.light, 5))
+        hang(s, p, 2, height, 0, "south", tall=1 if height < 6 else 3)
+        hang(s, p, 2, height, 4, "north", tall=1 if height < 6 else 3, inverted=True)
     return s
 
 
@@ -1379,30 +1485,32 @@ def wall_post(p, level):
 
 # ---------------------------------------------------------------- the knights' fortresses
 #
-# Each god's knights have their own fortress, built in Age III by that god's teams only: the White Knights' in white
-# quartz with blue banners and gold, the Black Knights' in black stone with red banners, spikes and skulls. Either
-# fortress looks the same whichever folder it is written into. Four corner towers and curtain walls with battlements
+# Each god's knights have their own stronghold, built in Age III by that god's teams only: the White Knights' castle in
+# white quartz and the Kinshra fortress in graystone, each hung with its god's banners. Either looks the same
+# whichever folder it is written into. Four corner towers and curtain walls with battlements
 # round a courtyard, a gate in the middle of the front and a tall keep at the back.
 
 FORTRESS = 15
 FORTRESS_TOP = 18
-QUARTZ_STAIRS = 156
 
 
 def fortress_style(black):
     if black:
-        return dict(wall=(CLAY, BLACK), pillar=(OBSIDIAN, 0), base=(NETHER_BRICK, 0), floor=(NETHER_BRICK, 0),
-                    accent=(COAL_BLOCK, 0), banner=(WOOL, RED), banner2=(WOOL, BLACK), emblem=(REDSTONE_BLOCK, 0),
-                    slit=(IRON_BARS, 0), light=REDSTONE_TORCH, lamp=(GLOWSTONE, 0), door=IRON_DOOR,
-                    stairs=NETHER_STAIRS, slab=(SLAB, 6), fence=(NETHER_FENCE, 0))
+        return dict(wall=(GRAYSTONE, 0), pillar=(STONE_BRICK, 3), base=(GRAYSTONE, 0), floor=(COBBLE, 0),
+                    accent=(COAL_BLOCK, 0), palette=zamorak(3), slit=(IRON_BARS, 0), light=TORCH,
+                    lamp=(GLOWSTONE, 0), door=WOOD_DOOR, stairs=GRAYSTONE_STAIRS, slab=(GRAYSTONE_SLAB, 0),
+                    fence=(FENCE, 0))
     return dict(wall=(QUARTZ, 0), pillar=(QUARTZ, 2), base=(STONE_BRICK, 0), floor=(STONE_BRICK, 0),
-                accent=(QUARTZ, 1), banner=(WOOL, BLUE), banner2=(WOOL, WHITE), emblem=(GOLD_BLOCK, 0),
-                slit=(PANE, 0), light=TORCH, lamp=(GLOWSTONE, 0), door=DOOR, stairs=QUARTZ_STAIRS,
-                slab=(SLAB, 7), fence=(FENCE, 0))
+                accent=(QUARTZ, 1), palette=saradomin(3), slit=(PANE, 0), light=TORCH, lamp=(GLOWSTONE, 0),
+                door=DOOR, stairs=QUARTZ_STAIRS, slab=(SLAB, 7), fence=(FENCE, 0))
 
 
 def fortress(black):
+    """The knights' strongholds: the White Knights' castle in white quartz, and the Kinshra fortress, where the Black
+    Knights muster, in dark graystone. Four corner towers and curtain walls with battlements round a courtyard, a gate
+    in the middle of the front and a tall keep at the back, hung with the god's banners."""
     f = fortress_style(black)
+    p = f["palette"]
     s = Struct(FORTRESS, FORTRESS, FORTRESS_TOP, 1)
     last = FORTRESS - 1
     s.fill(0, -1, 0, last, 0, last, f["base"])
@@ -1435,20 +1543,17 @@ def fortress(black):
                     s.set(x, y, z, f["slit"])
         for x, z in ((x0, z0), (x1, z0), (x0, z1), (x1, z1)):
             s.set(x, tower_top + 1, z, f["pillar"])
-            if black:
-                s.set(x, tower_top + 2, z, f["fence"])
         s.set(x0 + 1, tower_top + 1, z0 + 1, f["lamp"])
 
-    # The gate: an arch three wide through the front wall, with the god's emblem above it and banners either side.
+    # The gate: an arch three wide through the front wall, with the god's banners hanging inside it and either side.
     gate = FORTRESS // 2
     s.clear(gate - 1, 1, 0, gate + 1, 3, 1)
     s.set(gate - 1, 4, 0, stairs(f["stairs"], UP_EAST, upside_down=True))
     s.set(gate + 1, 4, 0, stairs(f["stairs"], UP_WEST, upside_down=True))
     s.set(gate, 4, 0, f["accent"])
-    s.set(gate, 6, 0, f["emblem"])
+    s.set(gate, 5, 0, f["accent"])
     for x in (gate - 3, gate + 3):
-        s.fill(x, 3, 0, x, 6, 0, f["banner"])
-        s.set(x, 3, 0, f["banner2"])
+        hang(s, p, x, wall_top - 2, 2, "north", inverted=(x > gate))
 
     # The keep at the back of the courtyard: taller than the towers, with a door, windows and a flag on top.
     kx0, kx1, kz0, kz1 = gate - 3, gate + 3, 7, last - 2
@@ -1467,7 +1572,6 @@ def fortress(black):
             s.set(x, y, kz0, f["slit"])
     s.set(kx0, 9, kz0 + 3, f["slit"])
     s.set(kx1, 9, kz0 + 3, f["slit"])
-    s.set(gate, 5, kz0, f["emblem"])
     for x in range(kx0, kx1 + 1, 2):
         s.set(x, keep_top + 1, kz0, f["wall"])
         s.set(x, keep_top + 1, kz1, f["wall"])
@@ -1475,42 +1579,32 @@ def fortress(black):
         s.set(kx0, keep_top + 1, z, f["wall"])
         s.set(kx1, keep_top + 1, z, f["wall"])
     # The flag over the keep.
-    s.fill(gate, keep_top + 1, kz0 + 3, gate, FORTRESS_TOP, kz0 + 3, f["fence"])
-    s.fill(gate + 1, FORTRESS_TOP - 2, kz0 + 3, gate + 2, FORTRESS_TOP - 1, kz0 + 3, f["banner"])
-    s.set(gate + 1, FORTRESS_TOP - 1, kz0 + 3, f["banner2"])
-    # Banners hanging down the front of the keep.
+    flag(s, p, gate, keep_top + 1, FORTRESS_TOP, kz0 + 3, "east", tall=3)
+    # Banners down the front of the keep, and over its door.
     for x in (gate - 1, gate + 1):
-        s.fill(x, 8, kz0, x, 11, kz0, f["banner"])
+        hang(s, p, x, 11, kz0 - 1, "south", inverted=(x > gate))
+    hang(s, p, gate, 5, kz0 - 1, "south", tall=1)
 
     # The courtyard: weapon racks, training dummies, lights.
     for x in (3, last - 3):
         s.set(x, 1, 5, f["fence"])
         s.set(x, 2, 5, (HAY, 0))
-        if black:
-            skull(s, x, 3, 5)
-        else:
-            s.set(x, 3, 5, (PUMPKIN, 2))
+        s.set(x, 3, 5, (PUMPKIN, 2))
     s.set(3, 1, 3, (ANVIL, 0))
     s.set(last - 3, 1, 3, (CHEST, 3))
     for x in (gate - 2, gate + 2):
         s.set(x, 1, 3, f["fence"])
         s.set(x, 2, 3, f["lamp"])
-    if black:
-        # Skulls along the walls and spikes on the keep.
-        for x in range(4, last - 3, 2):
-            skull(s, x, wall_top + 2, 0)
-        for x, z in ((kx0, kz0), (kx1, kz0), (kx0, kz1), (kx1, kz1)):
-            s.set(x, keep_top + 2, z, f["fence"])
     return s
 
 
 FIXED_STYLE_BUILDINGS = {
     "white_knights_fortress": lambda p, level: fortress(False),
     "black_knights_fortress": lambda p, level: fortress(True),
-    "chaos_temple": lambda p, level: chaos_temple(ZAMORAK, level),
+    "chaos_temple": lambda p, level: chaos_temple(palette("zamorak", level, "chaos_temple"), level),
     "stone_circle": lambda p, level: stone_circle(ZAMORAK, level),
-    "monastery": lambda p, level: monastery(SARADOMIN, level),
-    "wizards_tower": lambda p, level: wizards_tower(SARADOMIN, level),
+    "monastery": lambda p, level: monastery(saradomin(level), level),
+    "wizards_tower": lambda p, level: wizards_tower(saradomin(level), level),
 }
 
 
@@ -1519,19 +1613,19 @@ BUILDINGS = {
     "wall_post": (wall_post, 3),
     "gate": (lambda p, level: wall(p, level, gate=True), 3),
     "town_hall": (town_center, 3),
-    "house": (house, 2),
-    "barracks": (barracks, 2),
-    "storehouse": (storehouse, 2),
-    "farm": (farm, 2),
-    "armory": (armory, 2),
-    "tower": (tower, 2),
-    "archery_range": (archery_range, 2),
-    "stables": (stables, 2),
+    "house": (house, 3),
+    "barracks": (barracks, 3),
+    "storehouse": (storehouse, 3),
+    "farm": (farm, 3),
+    "armory": (armory, 3),
+    "tower": (tower, 3),
+    "archery_range": (archery_range, 3),
+    "stables": (stables, 3),
     "white_knights_fortress": (FIXED_STYLE_BUILDINGS["white_knights_fortress"], 1),
     "black_knights_fortress": (FIXED_STYLE_BUILDINGS["black_knights_fortress"], 1),
-    "chaos_temple": (FIXED_STYLE_BUILDINGS["chaos_temple"], 2),
-    "monastery": (FIXED_STYLE_BUILDINGS["monastery"], 2),
-    "wizards_tower": (FIXED_STYLE_BUILDINGS["wizards_tower"], 2),
+    "chaos_temple": (FIXED_STYLE_BUILDINGS["chaos_temple"], 3),
+    "monastery": (FIXED_STYLE_BUILDINGS["monastery"], 3),
+    "wizards_tower": (FIXED_STYLE_BUILDINGS["wizards_tower"], 3),
     "stone_circle": (FIXED_STYLE_BUILDINGS["stone_circle"], 1),
 }
 
@@ -1552,6 +1646,13 @@ def is_decor(block):
 def supported(s, x, y, z, block):
     """Whether something that hangs on a block still has it."""
     kind, meta = block
+    if kind in BANNERS:
+        # On the block behind its face, or hanging from what is over it.
+        behind = {BANNER_NORTH: (0, 0, 1), BANNER_SOUTH: (0, 0, -1), BANNER_EAST: (-1, 0, 0),
+                  BANNER_WEST: (1, 0, 0)}[meta & 3]
+        back = s.get(x + behind[0], y, z + behind[2])
+        above = s.get(x, y + 1, z)
+        return (back != AIR and back[0] not in BANNERS and back[0] != FIRE) or above != AIR
     if kind in (TORCH, REDSTONE_TORCH):
         offset = {1: (-1, 0, 0), 2: (1, 0, 0), 3: (0, 0, -1), 4: (0, 0, 1)}.get(meta, (0, -1, 0))
     elif kind == LADDER:
@@ -1574,7 +1675,8 @@ def tidy(s):
                     s.set(x, y, z, None)
                     changed = True
             elif block[0] in (TORCH, REDSTONE_TORCH, LADDER, SKULL, FLOWER_POT, WHEAT, CARROTS, POTATOES,
-                              NETHER_WART, DEAD_BUSH, RAIL, CARPET, FIRE) and not supported(s, x, y, z, block):
+                              NETHER_WART, DEAD_BUSH, RAIL, CARPET, FIRE) + tuple(BANNERS) \
+                    and not supported(s, x, y, z, block):
                 s.set(x, y, z, None)
                 changed = True
 
@@ -1627,16 +1729,27 @@ CRACKED = {
     (COBBLE, 0): [(MOSSY, 0)],
     (CLAY, WHITE): [(CLAY, LIGHT_GRAY)],
     (CLAY, BLACK): [(CLAY, GRAY)],
+    (WOOL, WHITE): [(WOOL, LIGHT_GRAY)],
     (NETHER_BRICK, 0): [(NETHERRACK, 0)],
     (PLANKS, 0): [(WOOD_SLAB, 0)],
+    (PLANKS, 1): [(WOOD_SLAB, 1)],
     (PLANKS, 5): [(WOOD_SLAB, 5)],
     (OBSIDIAN, 0): [(OBSIDIAN, 0)],
+    (GRAYSTONE, 0): [(GRAYSTONE, 2), (GRAYSTONE, 1)],
+    (QUARTZ, 0): [(QUARTZ, 0), (STONE_BRICK, 2)],
 }
+
+# Full blocks a fire can burn on top of, so it shows.
+
+
+FIRE_BASE = {COBBLE, PLANKS, LOG, LOG2, WOOL, STONE_BRICK, CLAY, HAY, GRAYSTONE, QUARTZ, BRICK, MOSSY, STONE,
+             BOOKSHELF, NETHER_BRICK}
 
 
 def damaged(finished, level, seed):
-    """The building with holes in its walls and roof, cracked and mossy stone, and cobwebs inside; more of it
-    gone at each level of damage, the roof first."""
+    """The building with holes in its walls and roof, cracked and mossy stone, and cobwebs inside; more of it gone at
+    each level of damage, the roof first. Below half its health it starts to burn and below a quarter it is ablaze:
+    fires that burn on it for show, never spreading or burning anything away."""
     rng = random.Random(seed)
     s = finished.copy()
     height = max(1, finished.height_above_ground())
@@ -1663,6 +1776,14 @@ def damaged(finished, level, seed):
         for (x, y, z) in [key for key, block in finished.blocks.items() if key[1] > 1]:
             if s.get(x, y - 1, z) == AIR and rng.random() < 0.02 * level:
                 s.set(x, y - 1, z, (COBWEB, 0))
+        # Fires on the roof, the wall tops and the floor inside.
+        spots = [(x, y + 1, z) for (x, y, z), block in s.blocks.items()
+                 if y >= 0 and block[0] in FIRE_BASE and y + 1 <= s.top and s.get(x, y + 1, z) == AIR]
+        rng.shuffle(spots)
+        wanted = max(2, len(spots) // (40 if level == 2 else 14))
+        spots.sort(key=lambda at: -at[1] + rng.random() * height * 0.8)
+        for at in spots[:wanted]:
+            s.set(at[0], at[1], at[2], (FIRE, 0))
     tidy(s)
     return s
 
@@ -1679,7 +1800,7 @@ def ruin(finished, p, seed):
     for x in range(s.w):
         for z in range(s.l):
             if s.get(x, 1, z) == AIR and s.get(x, 0, z) != AIR and rng.random() < 0.18:
-                s.set(x, 1, z, (GRAVEL, 0) if rng.random() < 0.4 else (COBBLE, 0) if not zam(p) else (NETHERRACK, 0))
+                s.set(x, 1, z, (GRAVEL, 0) if rng.random() < 0.4 else (COBBLE, 0))
     # Farmland dries out under a ruin.
     for (x, y, z), block in list(s.blocks.items()):
         if block[0] == FARMLAND:
@@ -1701,34 +1822,34 @@ def check_same_size(name, structures):
 
 def generate(preview_dir=None):
     written = 0
-    for p in FACTIONS:
-        folder = os.path.join(OUT, p.name)
+    for faction in FACTIONS:
+        folder = os.path.join(OUT, faction)
         os.makedirs(folder, exist_ok=True)
         for type_id, (build, levels) in BUILDINGS.items():
-            # A fortress is drawn in its own god's style, whichever faction's folder it goes into.
-            style = {"saradomin": SARADOMIN, "zamorak": ZAMORAK}[FIXED_PALETTE[type_id]] \
-                if type_id in FIXED_PALETTE else p
-            seed = sum(map(ord, style.name + type_id))
+            # A god's own building is drawn in its god's style, whichever faction's folder it goes into.
+            style = FIXED_PALETTE.get(type_id, faction)
+            seed = sum(map(ord, style + type_id))
             variants = {}
             for level in range(1, levels + 1):
-                finished = build(style, level)
+                finished = build(palette(style, level, type_id), level)
                 tidy(finished)
                 variants["%s_l%d" % (type_id, level)] = finished
                 for d in (1, 2, 3):
                     variants["%s_l%d_d%d" % (type_id, level, d)] = damaged(finished, d, seed + 10 * level + d)
             first = variants["%s_l1" % type_id]
             for stage in (1, 2, 3):
-                variants["%s_stage%d" % (type_id, stage)] = building_site(first, style, stage, seed + stage)
-            variants["%s_ruin" % type_id] = ruin(first, style, seed + 99)
+                variants["%s_stage%d" % (type_id, stage)] = building_site(first, palette(style, 1), stage,
+                                                                          seed + stage)
+            variants["%s_ruin" % type_id] = ruin(first, palette(style, 1), seed + 99)
             check_same_size(type_id, variants.values())
             for name, s in variants.items():
-                s.save(os.path.join(folder, name + ".schematic"), "%s %s" % (p.name, name))
+                s.save(os.path.join(folder, name + ".schematic"), "%s %s" % (faction, name))
                 written += 1
             if preview_dir:
                 import preview
                 os.makedirs(preview_dir, exist_ok=True)
                 for name, s in variants.items():
-                    preview.render(s, os.path.join(preview_dir, "%s_%s.png" % (p.name, name)))
+                    preview.render(s, os.path.join(preview_dir, "%s_%s.png" % (faction, name)))
     folder = os.path.join(OUT, "neutral")
     os.makedirs(folder, exist_ok=True)
     for name, build in NEUTRAL.items():

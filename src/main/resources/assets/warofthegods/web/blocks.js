@@ -18,7 +18,7 @@
     const FULL = new Set([
         1, 2, 3, 4, 5, 7, 12, 13, 14, 15, 16, 17, 19, 21, 22, 23, 24, 25, 29, 33, 35, 41, 42, 43, 45, 46, 47, 48, 49,
         52, 56, 57, 58, 61, 62, 73, 74, 80, 82, 84, 86, 87, 88, 89, 91, 97, 98, 99, 100, 103, 110, 112, 121, 123, 124,
-        125, 129, 133, 137, 152, 153, 155, 158, 159, 162, 170, 172, 173, 174, UNKNOWN,
+        125, 129, 133, 137, 152, 153, 155, 158, 159, 162, 170, 172, 173, 174, 200, 202, UNKNOWN,
     ]);
     // Drawn see-through, after everything else.
     const TRANSLUCENT = new Set([8, 9, 20, 30, 79, 90, 95, 102, 160]);
@@ -188,6 +188,16 @@
             case 172: return same(0x965C42);
             case 173: return same(0x121212);
             case 174: return same(0xA0B8E8);
+            // The mod's own blocks, by the ids ModBlocks.java gives them: graystone, its slab, double slab and stairs,
+            // the wooden door, the four banners and fire that burns for show.
+            case 200: return same([0x4E4E52, 0x4E5A44, 0x48484C][d & 3] || 0x4E4E52);
+            case 201: case 202: case 203: return same(0x4E4E52);
+            case 204: return same(0x68462A);
+            case 205: return same(0x2A42A8);
+            case 206: return same(0xE6E6E0);
+            case 207: return same(0x1C181A);
+            case 208: return same(0xA81C1A);
+            case 209: return same(0xE0661A);
             case 175: return same([0xE6D820, 0xB060D0, 0x5E9A3A, 0x4E8A3A, 0xC21414, 0xE090C0][d & 7] || 0x5E9A3A);
             default: return same(0x8A8A8A);
         }
@@ -216,7 +226,7 @@
             case 32: return [box([3, 0, 3], [13, 9, 13])];
             case 37: case 38: return [box([5, 0, 5], [11, 10, 11])];
             case 39: case 40: return [box([5, 0, 5], [11, 6, 11])];
-            case 44: case 126: return [(d & 8) ? box([0, 8, 0], [16, 16, 16]) : box([0, 0, 0], [16, 8, 16])];
+            case 44: case 126: case 201: return [(d & 8) ? box([0, 8, 0], [16, 16, 16]) : box([0, 0, 0], [16, 8, 16])];
             case 50: case 75: case 76: switch (d) {
                 case 1: return [box([0, 3, 7], [3, 13, 9])];
                 case 2: return [box([13, 3, 7], [16, 13, 9])];
@@ -226,7 +236,7 @@
             }
             case 51: return [box([1, 0, 1], [15, 12, 15])];
             case 53: case 67: case 108: case 109: case 114: case 128: case 134: case 135: case 136: case 156:
-            case 163: case 164: {
+            case 163: case 164: case 203: {
                 const upside = (d & 4) !== 0;
                 const [y0, y1] = upside ? [0, 8] : [8, 16];
                 const step = [
@@ -242,7 +252,9 @@
             case 104: case 105: return [box([6, 0, 6], [10, (Math.min(d, 7) + 1) * 2, 10])];
             case 60: return [box([0, 0, 0], [16, 15, 16])];
             case 63: return [box([7, 0, 7], [9, 9, 9]), box([0, 9, 7], [16, 16, 9])];
-            case 64: case 71: {
+            case 205: case 206: case 207: case 208: return [wall([3, 0, 1, 2][d & 3], 1, 0, 16)];
+            case 209: return [box([1, 0, 1], [15, 12, 15])];
+            case 64: case 71: case 204: {
                 if (d & 8) {
                     return [full];
                 }

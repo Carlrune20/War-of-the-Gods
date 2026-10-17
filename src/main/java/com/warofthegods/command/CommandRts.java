@@ -251,8 +251,8 @@ public class CommandRts extends CommandBase {
         send(
             sender,
             "/rts build <team> <farm|house|barracks|archery_range|stables|storehouse|armory|tower|town_center"
-                + "|white_knights_fortress"
-                + "|black_knights_fortress> [x z] [rotation] - lay out a site for the team's workers (op)");
+                + "|white_knights_castle"
+                + "|kinshra_fortress> [x z] [rotation] - lay out a site for the team's workers (op)");
         send(
             sender,
             "/rts train <team> <worker|warrior|archer|cavalry|horse|white_knight|black_knight|tragidee|sagittare>"
@@ -943,7 +943,7 @@ public class CommandRts extends CommandBase {
         if (type == null || !type.buildable) {
             throw new CommandException(
                 "Workers can build a farm, house, barracks, archery range, stables, storehouse, armory, tower, town center"
-                    + " or knights' fortress");
+                    + ", White Knights' castle or Kinshra fortress");
         }
         if (!type.buildableBy(team.getFaction())) {
             throw new CommandException("Only %s's teams can build a %s", type.faction().displayName, type.displayName);

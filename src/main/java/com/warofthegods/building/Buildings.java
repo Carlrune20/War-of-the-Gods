@@ -32,6 +32,7 @@ import net.minecraftforge.event.world.ExplosionEvent;
 
 import com.warofthegods.Config;
 import com.warofthegods.WarOfTheGods;
+import com.warofthegods.block.BlockBanner;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Faction;
@@ -1480,12 +1481,39 @@ public final class Buildings {
         }
         WorldServer world = DimensionManager.getWorld(GameWorld.dimensionId());
         if (world != null) {
+            if (building.isComplete()) {
+                collapse(world, building);
+            }
             tearDown(world, game, building);
         }
         game.removeBuilding(building);
         harvestTicks.remove(building.id);
         shotTicks.remove(building.id);
         WarOfTheGods.LOG.info("Destroyed {} ({})", building.describe(game), cause);
+    }
+
+    /**
+     * A building coming down goes with a roar: explosions sound across it and dust and flame burst out of it. Only for
+     * show; nothing round it is hurt or broken.
+     */
+    private static void collapse(WorldServer world, Building building) {
+        Schematic schematic = Buildings.get()
+            .schematic(building.type);
+        double height = schematic.height - schematic.ground;
+        double x = building.minX + building.sizeX / 2.0;
+        double z = building.minZ + building.sizeZ / 2.0;
+        double y = building.groundY + 1 + height / 3;
+        int blasts = Math.max(2, Math.min(6, (building.sizeX * building.sizeZ) / 40));
+        for (int i = 0; i < blasts; i++) {
+            double bx = building.minX + world.rand.nextDouble() * building.sizeX;
+            double bz = building.minZ + world.rand.nextDouble() * building.sizeZ;
+            double by = building.groundY + 1 + world.rand.nextDouble() * height / 2;
+            world.playSoundEffect(bx, by, bz, "random.explode", 4.0F, 0.6F + world.rand.nextFloat() * 0.3F);
+            world.func_147487_a("largeexplode", bx, by, bz, 2, 1.0, 1.0, 1.0, 0);
+        }
+        world.func_147487_a("hugeexplosion", x, y, z, 1, 0, 0, 0, 0);
+        world.func_147487_a("largesmoke", x, y, z, 60, building.sizeX / 3.0, height / 3, building.sizeZ / 3.0, 0.05);
+        world.func_147487_a("flame", x, y, z, 30, building.sizeX / 3.0, height / 4, building.sizeZ / 3.0, 0.05);
     }
 
     /**
@@ -1625,7 +1653,8 @@ public final class Buildings {
             || block == Blocks.bed
             || block == Blocks.ladder
             || block == Blocks.wool
-            || block == Blocks.carpet;
+            || block == Blocks.carpet
+            || block instanceof BlockBanner;
     }
 
     /**

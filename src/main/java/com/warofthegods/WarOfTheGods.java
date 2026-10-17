@@ -7,6 +7,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.warofthegods.ai.AiPlayers;
+import com.warofthegods.block.ModBlocks;
 import com.warofthegods.building.BuildingCommands;
 import com.warofthegods.building.Buildings;
 import com.warofthegods.command.CommandRts;
@@ -78,6 +79,7 @@ public class WarOfTheGods {
         EntityRegistry.registerModEntity(EntitySpell.class, "Spell", 4, this, 64, 10, true);
         zamorakStaff = new ItemZamorakStaff();
         GameRegistry.registerItem(zamorakStaff, "zamorak_staff");
+        ModBlocks.register();
         RtsNetwork.register();
     }
 

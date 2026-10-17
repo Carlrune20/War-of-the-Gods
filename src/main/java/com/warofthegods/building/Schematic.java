@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.minecraft.block.Block;
+import net.minecraft.block.BlockDoor;
+import net.minecraft.block.BlockStairs;
 import net.minecraft.block.material.Material;
 import net.minecraft.init.Blocks;
 import net.minecraft.nbt.CompressedStreamTools;
@@ -14,6 +16,9 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntitySign;
 import net.minecraft.world.World;
+
+import com.warofthegods.block.BlockBanner;
+import com.warofthegods.block.ModBlocks;
 
 /**
  * A structure from an MCEdit .schematic file, as the beta map editor saves them: blocks and metadata in y, z, x
@@ -110,6 +115,11 @@ public final class Schematic {
         return blocks[index(x, y, z)] & 0xFF;
     }
 
+    /** The block at x, y, z, the mod's own blocks among them; see {@link ModBlocks#fromStored}. */
+    public Block block(int x, int y, int z) {
+        return ModBlocks.fromStored(blockId(x, y, z));
+    }
+
     public int meta(int x, int y, int z) {
         return data[index(x, y, z)] & 0xF;
     }
@@ -149,7 +159,7 @@ public final class Schematic {
 
     /** The metadata of the block at x, y, z as it is placed turned rotation quarter turns. */
     public int turnedMeta(int x, int y, int z, int rotation) {
-        return rotateMeta(Block.getBlockById(blockId(x, y, z)), meta(x, y, z), rotation);
+        return rotateMeta(block(x, y, z), meta(x, y, z), rotation);
     }
 
     /** Where a structure cell lands, as x, z offsets from the footprint's north-west corner. */
@@ -183,7 +193,7 @@ public final class Schematic {
                 }
                 for (int z = 0; z < length; z++) {
                     for (int x = 0; x < width; x++) {
-                        Block block = Block.getBlockById(blockId(x, y, z));
+                        Block block = block(x, y, z);
                         boolean attached = block != Blocks.air && !block.isOpaqueCube()
                             && !block.getMaterial()
                                 .isLiquid();
@@ -231,7 +241,7 @@ public final class Schematic {
                     }
                 }
                 if (lowest >= 0 && lowest <= ground) {
-                    Block bottom = Block.getBlockById(blockId(x, lowest, z));
+                    Block bottom = block(x, lowest, z);
                     Block fill = bottom == Blocks.grass || !bottom.isOpaqueCube() ? Blocks.dirt : bottom;
                     int fillMeta = fill == bottom ? meta(x, lowest, z) : 0;
                     for (int wy = baseY + lowest - 1, depth = 0; wy > 0 && depth < 24; wy--, depth++) {
@@ -273,6 +283,15 @@ public final class Schematic {
     private static final int[] TRAPDOOR_CW = { 3, 2, 0, 1 }; // 0 S -> 3 W -> 1 N -> 2 E -> 0 S
 
     private static int rotateOnce(Block block, int meta) {
+        if (block instanceof BlockBanner) {
+            return BlockBanner.turned(meta);
+        }
+        if (block instanceof BlockStairs) {
+            return (meta & 12) | STAIRS_CW[meta & 3];
+        }
+        if (block instanceof BlockDoor) {
+            return (meta & 8) != 0 ? 8 : (meta & 12) | ((meta + 1) & 3);
+        }
         int id = Block.getIdFromBlock(block);
         switch (id) {
             case 53: // stairs
