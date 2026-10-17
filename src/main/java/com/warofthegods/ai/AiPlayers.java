@@ -52,7 +52,8 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  *
  * <p>
  * It plays by the fog of war: it attacks only enemy buildings its units or buildings have come near, and while it
- * knows of none it sends a scout, a cavalryman if it has one, from one unexplored part of the map to the next. Its
+ * knows of none it sends scouts, cavalry first, to where the enemy teams' bases are, which every player knows from the
+ * team list, and on from one unexplored part of the map to the next until they find the enemy. Its
  * Sir Tradigee keeps up the protection prayer against what most of the enemies around him fight with. Playing
  * Zamorak, it raises a stone circle once it has dark wizards, keeps four of them standing at it and summons lesser
  * demons there when it has the favor; playing Saradomin, its monks earn favor and its wizards' tower trains blue
@@ -140,6 +141,10 @@ public final class AiPlayers {
     private static final double UNIT_SIGHT = 36;
     private static final double BUILDING_SIGHT = 40;
     private static final double LOOKOUT_SIGHT = 60;
+    /** Most scouts it has out at once: one for each enemy base it has not looked at yet, up to this many. */
+    private static final int MAX_SCOUTS = 2;
+    /** Times a scout that stopped short of a spot is sent again before the spot is given up on. */
+    private static final int SCOUT_TRIES = 3;
     /** Blocks short of an unexplored cell's middle a scout counts as there, as it sees it from further off anyway. */
     private static final double SCOUTED = 16;
     /** Blocks round Sir Tradigee it looks at the enemies of to pick his prayer, and towers shoot about this far. */
@@ -177,9 +182,10 @@ public final class AiPlayers {
         int rows;
         /** Enemy buildings it has seen, by id: the only ones it attacks. */
         final Set<Integer> knownBuildings = new HashSet<>();
-        /** The unit out finding the enemy while it knows of no enemy building, and the cell middle it is headed for. */
-        EntityUnit scout;
-        double[] scoutGoal;
+        /** The units out finding the enemy while it knows of no enemy building, and the spot each is headed for. */
+        final Map<EntityUnit, double[]> scouts = new HashMap<>();
+        /** Times scouts stopped short of each spot, by its cell. */
+        final Map<Integer, Integer> scoutTries = new HashMap<>();
         /** Dark wizards it keeps at its stone circle to summon lesser demons. */
         final List<EntityUnit> summoners = new ArrayList<>();
     }
@@ -346,50 +352,106 @@ public final class AiPlayers {
     }
 
     /**
-     * While it knows of no enemy building, sends one fighter, a cavalryman if it has one as they are fastest, from one
-     * unexplored part of the map to the next until it finds one.
+     * While it knows of no enemy building, sends scouts, cavalry first as they are fastest: one to each enemy base it
+     * has not looked at yet, as that is where the enemy most likely is, then on from one unexplored part of the map to
+     * the next. A scout that stops short of a spot, as at water it found no way across, is sent again a few times
+     * before the spot is given up on. Once it has found an enemy building, the scouts are fighters again and its
+     * attacks go there.
      */
     private static void scout(Game game, Team team, Building hall, List<EntityUnit> fighters, State state) {
-        if (state.scout != null && (!state.scout.isEntityAlive() || !fighters.contains(state.scout))) {
-            state.scout = null;
-        }
+        state.scouts.keySet()
+            .removeIf(scout -> !scout.isEntityAlive() || !fighters.contains(scout));
         if (nearestEnemyBuilding(game, team, state, hall.getCenterX(), hall.getCenterZ()) != null) {
-            state.scout = null;
+            state.scouts.clear();
             return;
         }
-        if (state.scout == null) {
+        List<double[]> bases = new ArrayList<>();
+        for (Team other : game.getTeams()) {
+            int[] base = other.getBase();
+            if (base != null && !other.isDefeated()
+                && game.areEnemies(team, other)
+                && !explored(state, base[0] + 0.5, base[1] + 0.5)) {
+                bases.add(new double[] { base[0] + 0.5, base[1] + 0.5 });
+            }
+        }
+        int wanted = Math.min(MAX_SCOUTS, Math.max(1, bases.size()));
+        while (state.scouts.size() < wanted) {
+            EntityUnit pick = null;
             for (EntityUnit fighter : fighters) {
                 if (fighter.getOrder() == EntityUnit.Order.IDLE && !state.march.contains(fighter)
-                    && (state.scout == null || fighter.getKind() == UnitKind.CAVALRY)) {
-                    state.scout = fighter;
+                    && !state.scouts.containsKey(fighter)
+                    && fighter.getKind() != UnitKind.LESSER_DEMON
+                    && (pick == null || fighter.getKind() == UnitKind.CAVALRY)) {
+                    pick = fighter;
                 }
             }
-            if (state.scout == null) {
-                return;
+            if (pick == null) {
+                break;
             }
-            state.scoutGoal = null;
+            state.scouts.put(pick, null);
             WarOfTheGods.LOG.info(
                 "AI {} sent {} to scout",
                 team.getName(),
-                state.scout.getCommandSenderName()
+                pick.getCommandSenderName()
                     .replaceAll("\u00a7.", ""));
         }
-        EntityUnit scout = state.scout;
-        boolean there = state.scoutGoal == null || distance(scout, state.scoutGoal[0], state.scoutGoal[1]) <= SCOUTED
-            || explored(state, state.scoutGoal[0], state.scoutGoal[1]);
-        if (!there && scout.getOrder() != EntityUnit.Order.IDLE) {
-            return;
+        for (Map.Entry<EntityUnit, double[]> entry : state.scouts.entrySet()) {
+            EntityUnit scout = entry.getKey();
+            double[] goal = entry.getValue();
+            boolean there = goal == null || distance(scout, goal[0], goal[1]) <= SCOUTED
+                || explored(state, goal[0], goal[1]);
+            if (!there && scout.getOrder() != EntityUnit.Order.IDLE) {
+                continue;
+            }
+            if (!there && state.scoutTries.merge(cellOf(state, goal[0], goal[1]), 1, Integer::sum) >= SCOUT_TRIES) {
+                // Stopped short again and again: no way there, so that spot is given up on.
+                markExplored(state, goal[0], goal[1]);
+            }
+            if (!there && !explored(state, goal[0], goal[1])) {
+                go(scout, goal);
+                continue;
+            }
+            // The nearest enemy base no other scout is headed for, else the nearest unexplored spot.
+            double[] next = null;
+            for (double[] base : bases) {
+                boolean taken = false;
+                for (double[] other : state.scouts.values()) {
+                    taken |= other != null && other[0] == base[0] && other[1] == base[1];
+                }
+                if (!taken && !explored(state, base[0], base[1])
+                    && (next == null || distance(scout, base[0], base[1]) < distance(scout, next[0], next[1]))) {
+                    next = base;
+                }
+            }
+            if (next == null) {
+                next = nearestUnexplored(state, scout.posX, scout.posZ);
+            }
+            entry.setValue(next);
+            if (next != null) {
+                go(scout, next);
+            }
         }
-        double[] goal = nearestUnexplored(state, scout.posX, scout.posZ);
-        if (goal == null) {
-            state.scout = null;
-            return;
-        }
-        state.scoutGoal = goal;
+    }
+
+    private static void go(EntityUnit unit, double[] spot) {
         List<EntityUnit> one = new ArrayList<>();
-        one.add(scout);
+        one.add(unit);
         Units.get()
-            .orderMove(one, goal[0], goal[1]);
+            .orderMove(one, spot[0], spot[1]);
+    }
+
+    private static int cellOf(State state, double x, double z) {
+        int c = (int) Math.floor((x - state.minX) / FOG_CELL);
+        int r = (int) Math.floor((z - state.minZ) / FOG_CELL);
+        return r * state.columns + c;
+    }
+
+    private static void markExplored(State state, double x, double z) {
+        int c = (int) Math.floor((x - state.minX) / FOG_CELL);
+        int r = (int) Math.floor((z - state.minZ) / FOG_CELL);
+        if (c >= 0 && r >= 0 && c < state.columns && r < state.rows) {
+            state.explored[r * state.columns + c] = true;
+        }
     }
 
     // ---------------------------------------------------------------- gods
