@@ -32,6 +32,7 @@ import net.minecraftforge.event.world.ExplosionEvent;
 
 import com.warofthegods.Config;
 import com.warofthegods.WarOfTheGods;
+import com.warofthegods.game.BridgeLine;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Faction;
@@ -100,8 +101,12 @@ public final class Buildings {
     public Buildings() {
         instance = this;
         for (BuildingType type : BuildingType.values()) {
-            // Every faction's look of a type has the same size; the first level stands for them all.
-            schematics.put(type, variant(Faction.SARADOMIN, type.id + "_l1"));
+            // Every faction's look of a type has the same size; the first level stands for them all. A piece of
+            // bridge is laid by Bridges, and its structure only gives its size.
+            schematics.put(
+                type,
+                type == BuildingType.BRIDGE ? Schematic.load("neutral/bridge_piece")
+                    : variant(Faction.SARADOMIN, type.id + "_l1"));
         }
     }
 
@@ -598,6 +603,11 @@ public final class Buildings {
      */
     public boolean show(WorldServer world, Game game, Building building) {
         String look = lookOf(building);
+        if (building.type == BuildingType.BRIDGE) {
+            building.setShown(look);
+            Bridges.show(world, game, building);
+            return true;
+        }
         Schematic schematic = fitted(variant(factionOf(game, building), look), building);
         building.setShown(look);
         if (schematic.sizeX(building.rotation) != building.sizeX
@@ -671,7 +681,32 @@ public final class Buildings {
         return game.getPopulationCap(team) - game.countUnits(team) - game.countQueued(team);
     }
 
+    /**
+     * Buildings set to train a kind over and over queue one more of it whenever their queue runs empty, paying for it
+     * as a click would; one whose team cannot pay or has no room waits until it can.
+     */
+    private static void autoTrain(Game game) {
+        for (Building building : game.getBuildings()) {
+            UnitKind kind = building.getAutoTrain();
+            if (kind == null || !building.isComplete()
+                || !building.getQueue()
+                    .isEmpty()) {
+                continue;
+            }
+            Team team = game.getTeam(building.team);
+            if (team == null || team.isDefeated()
+                || !kind.isAnimal() && room(game, team) <= 0
+                || game.heroRoom(team, kind) <= 0) {
+                continue;
+            }
+            if (team.spend(kind.cost())) {
+                building.enqueue(kind);
+            }
+        }
+    }
+
     private void train(Game game) {
+        autoTrain(game);
         for (Building building : new ArrayList<>(game.getBuildings())) {
             if (!building.isComplete() || building.getQueue()
                 .isEmpty()) {
@@ -1168,6 +1203,120 @@ public final class Buildings {
         return sites;
     }
 
+    // ---------------------------------------------------------------- bridges
+
+    /** A bridge laid out from one point to another: a plan for each of its pieces, or why it cannot go there. */
+    public static final class BridgePlan {
+
+        public final List<Plan> pieces;
+        public final String problem;
+
+        BridgePlan(List<Plan> pieces, String problem) {
+            this.pieces = pieces;
+            this.problem = problem;
+        }
+    }
+
+    /**
+     * Lays a bridge out from x1, z1 to x2, z2 (see {@link BridgeLine}). Its deck lies a block over the water, level
+     * with the banks, and in the ground on land. Pieces where the team already has bridge are left out, so a bridge can
+     * be carried on from where one ends; it has to cross some water.
+     */
+    public BridgePlan planBridge(Game game, WorldServer world, Team team, int x1, int z1, int x2, int z2) {
+        List<Plan> plans = new ArrayList<>();
+        boolean water = false;
+        for (BridgeLine.Piece piece : BridgeLine.pieces(x1, z1, x2, z2)) {
+            boolean built = false;
+            for (Building building : game.getBuildings(team)) {
+                built |= building.type == BuildingType.BRIDGE
+                    && building.overlaps(piece.minX, piece.minZ, piece.sizeX, piece.sizeZ, 0);
+            }
+            if (built) {
+                continue;
+            }
+            String problem = bridgePieceProblem(game, piece);
+            if (problem != null) {
+                return new BridgePlan(plans, problem);
+            }
+            // The middle of the piece decides: a block over water, or in the ground's top block.
+            int x = (int) Math.floor(piece.centerX());
+            int z = (int) Math.floor(piece.centerZ());
+            int top = world.getTopSolidOrLiquidBlock(x, z) - 1;
+            boolean wet = world.getBlock(x, top, z)
+                .getMaterial()
+                .isLiquid();
+            water |= wet;
+            int groundY = wet ? top + 1 : top;
+            if (groundY < 2 || groundY > 250) {
+                return new BridgePlan(plans, "The bridge would be too high or too low");
+            }
+            plans.add(
+                new Plan(
+                    BuildingType.BRIDGE,
+                    piece.minX,
+                    piece.minZ,
+                    piece.sizeX,
+                    piece.sizeZ,
+                    piece.rotation,
+                    groundY,
+                    null));
+        }
+        if (plans.isEmpty()) {
+            return new BridgePlan(plans, "There is bridge there already");
+        }
+        if (!water) {
+            return new BridgePlan(plans, "A bridge has to cross water");
+        }
+        return new BridgePlan(plans, null);
+    }
+
+    /** Why a piece of bridge cannot go where it is, or null. */
+    private static String bridgePieceProblem(Game game, BridgeLine.Piece piece) {
+        if (piece.minX < game.getMinX() || piece.minZ < game.getMinZ()
+            || piece.minX + piece.sizeX - 1 > game.getMaxX()
+            || piece.minZ + piece.sizeZ - 1 > game.getMaxZ()) {
+            return "The bridge would run off the map";
+        }
+        for (Building other : game.getBuildings()) {
+            if (other.overlaps(piece.minX, piece.minZ, piece.sizeX, piece.sizeZ, 0)) {
+                return "The bridge would run into a " + other.type.displayName.toLowerCase();
+            }
+        }
+        for (Settlement settlement : game.getSettlements()) {
+            if (settlement.overlaps(piece.minX, piece.minZ, piece.sizeX, piece.sizeZ, 0)) {
+                return "The bridge would run over a settlement";
+            }
+        }
+        for (GoldMine mine : game.getMines()) {
+            if (mine.overlaps(piece.minX, piece.minZ, piece.sizeX, piece.sizeZ, 0)) {
+                return "The bridge would run into a gold mine";
+            }
+        }
+        if (MapFeatures.bridgeNear(game, piece.minX, piece.minZ, piece.sizeX, piece.sizeZ, 0)) {
+            return "There is a bridge there already";
+        }
+        return null;
+    }
+
+    /** What a bridge so many blocks long costs: a piece's cost for each block. */
+    public static Map<Resource, Long> bridgeCost(int pieces) {
+        Map<Resource, Long> cost = new LinkedHashMap<>();
+        for (Map.Entry<Resource, Long> entry : BuildingType.BRIDGE.cost()
+            .entrySet()) {
+            cost.put(entry.getKey(), entry.getValue() * pieces);
+        }
+        return cost;
+    }
+
+    /** Lays out the building sites of a planned bridge, in order along it; returns them. */
+    public List<Building> startBridge(Game game, Team team, BridgePlan plan) {
+        List<Building> sites = new ArrayList<>();
+        for (Plan piece : plan.pieces) {
+            sites.add(startSite(game, team, piece));
+        }
+        return sites;
+    }
+
     /** Why a building cannot be made a gate, or null. */
     public static String gateProblem(Building building) {
         if (building.type != BuildingType.WALL) {
@@ -1242,7 +1391,7 @@ public final class Buildings {
             }
             EntityAnimal animal = (EntityAnimal) object;
             Building building = game.getBuildingAt(animal.posX, animal.posZ);
-            if (building == null) {
+            if (building == null || building.type == BuildingType.BRIDGE) {
                 continue;
             }
             // Out over the nearest side, a block clear of it.
@@ -1493,6 +1642,10 @@ public final class Buildings {
      * leaves its settlement, free for anyone to build on again.
      */
     private void tearDown(WorldServer world, Game game, Building building) {
+        if (building.type == BuildingType.BRIDGE) {
+            Bridges.tearDown(world, building);
+            return;
+        }
         Settlement settlement = building.type == BuildingType.TOWN_HALL ? game.settlementOf(building) : null;
         if (settlement != null) {
             Schematic stones = features.schematic("settlement");

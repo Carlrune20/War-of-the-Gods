@@ -29,6 +29,7 @@ import net.minecraftforge.common.ForgeChunkManager;
 
 import com.warofthegods.Config;
 import com.warofthegods.game.Building;
+import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
@@ -624,7 +625,7 @@ public final class Units {
         if (game != null && takesWorkers(building)) {
             return orderWork(game, units, building);
         }
-        // Sent to a piece of wall, they build the rest of that wall after it.
+        // Sent to a piece of wall or bridge, they build the rest of it after it.
         List<Building> rest = game == null ? new ArrayList<>() : wallAfter(game, building);
         int sent = 0;
         for (EntityUnit unit : units) {
@@ -738,18 +739,20 @@ public final class Units {
     private static final int MAX_WALL = 256;
 
     /**
-     * The unbuilt pieces of the wall the site is a piece of, in the order to build them after it: along the wall one
-     * way to its end, then the other way. Pieces join where they touch side to side; built pieces carry the wall on.
-     * Empty for anything but an unbuilt piece of wall.
+     * The unbuilt pieces of the wall or bridge the site is a piece of, in the order to build them after it: along it
+     * one way to its end, then the other way. Pieces join where they touch side to side; built pieces carry it on.
+     * Empty for anything but an unbuilt piece of wall or bridge.
      */
     static List<Building> wallAfter(Game game, Building site) {
         List<Building> rest = new ArrayList<>();
-        if (!site.type.isWall() || site.isComplete()) {
+        if (!site.type.isLine() || site.isComplete()) {
             return rest;
         }
+        boolean bridge = site.type == BuildingType.BRIDGE;
         List<Building> pieces = new ArrayList<>();
         for (Building building : game.getBuildings()) {
-            if (building.type.isWall() && building.team.equals(site.team)) {
+            if (building.type.isLine() && (building.type == BuildingType.BRIDGE) == bridge
+                && building.team.equals(site.team)) {
                 pieces.add(building);
             }
         }

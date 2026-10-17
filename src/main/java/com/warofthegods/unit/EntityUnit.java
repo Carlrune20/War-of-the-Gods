@@ -182,6 +182,8 @@ public class EntityUnit extends EntityCreature {
     private static final double MINE_REACH = 2.5;
     /** How far a worker looks for the next gold mine once one is mined out. */
     private static final int NEXT_MINE_RANGE = 64;
+    /** How far round a storehouse it has just put up a worker looks for a tree or gold mine to work. */
+    private static final int STORE_GATHER_RANGE = 32;
     /** How far a worker looks for the next tree once one falls. */
     private static final int NEXT_TREE_RANGE = 14;
 
@@ -836,6 +838,31 @@ public class EntityUnit extends EntityCreature {
         return false;
     }
 
+    /**
+     * Sends a worker that has just put up a storehouse to the tree or gold mine nearest it, as that is what it was put
+     * up for; false when there is neither near it.
+     */
+    private boolean gatherNear(Game game, Building store) {
+        if (game == null || !isWorker()) {
+            return false;
+        }
+        double x = store.getCenterX();
+        double z = store.getCenterZ();
+        GoldMine mine = Units.nearestMine(game, x, z, STORE_GATHER_RANGE);
+        int[] tree = Trees.nearest(worldObj, game, x, z, STORE_GATHER_RANGE);
+        double mineDistance = mine == null ? Double.MAX_VALUE : mine.distanceTo(x, z);
+        double treeDistance = tree == null ? Double.MAX_VALUE : Math.hypot(tree[0] + 0.5 - x, tree[2] + 0.5 - z);
+        if (mine != null && mineDistance <= treeDistance) {
+            orderMine(mine);
+            return true;
+        }
+        if (tree != null) {
+            orderChop(tree[0], tree[1], tree[2]);
+            return true;
+        }
+        return false;
+    }
+
     /** Sends a worker to chop the tree with its trunk's foot at x, y, z. */
     void orderChop(int x, int y, int z) {
         order = Order.CHOP;
@@ -1348,7 +1375,7 @@ public class EntityUnit extends EntityCreature {
                 : Units.workplaceFor(game, this, site);
             if (workplace != null) {
                 orderBuild(workplace);
-            } else {
+            } else if (site.type != BuildingType.STOREHOUSE || !gatherNear(game, site)) {
                 getNavigator().clearPathEntity();
                 guardHere();
             }
@@ -2182,7 +2209,8 @@ public class EntityUnit extends EntityCreature {
 
     /**
      * The emergency way out for a stuck unit: puts it on the nearest open ground two or more blocks away, with room
-     * to stand, out of water and off every building's footprint. Returns false if there is none within 8 blocks.
+     * to stand, out of water and off every building's footprint but a bridge's. Returns false if there is none within 8
+     * blocks.
      */
     public boolean rescue() {
         int x0 = MathHelper.floor_double(posX);
@@ -2197,7 +2225,8 @@ public class EntityUnit extends EntityCreature {
                     }
                     int x = x0 + dx;
                     int z = z0 + dz;
-                    if (game != null && game.getBuildingAt(x + 0.5, z + 0.5) != null) {
+                    Building building = game == null ? null : game.getBuildingAt(x + 0.5, z + 0.5);
+                    if (building != null && building.type != BuildingType.BRIDGE) {
                         continue;
                     }
                     for (int dy = 3; dy >= -12; dy--) {
