@@ -157,7 +157,7 @@ is built, and the finished building stands once the site is done; more workers b
 | Archery range | Trains archers; needs Age II | 150 Wood | 700 | 25 s |
 | Stables | Trains cavalry, and tame horses for players to ride; needs Age II | 175 Wood, 50 Gold | 800 | 30 s |
 | Chaos temple | Zamorak's teams only, Age II: trains chaos priests, who pray there for favor, dark wizards and Zamorak mages | 150 Wood, 100 Gold | 900 | 30 s |
-| Stone circle | Zamorak's teams only, Age II: raised by dark wizards, not workers; four dark wizards standing in it summon a lesser demon | 100 Gold | 600 | 20 s |
+| Stone circle | Zamorak's teams only, Age II: an old ring of grey standing stones, raised by dark wizards, not workers; four dark wizards standing in it summon a lesser demon | 100 Gold | 600 | at once |
 | Monastery | Saradomin's teams only, Age II: trains monks, who earn favor just by living | 150 Wood, 75 Gold | 800 | 30 s |
 | Wizards' tower | Saradomin's teams only, Age II: trains blue wizards | 100 Wood, 150 Gold | 900 | 30 s |
 | Armory | Researches military upgrades; needs Age II | 120 Wood, 60 Gold | 700 | 25 s |
@@ -174,12 +174,12 @@ is built, and the finished building stands once the site is done; more workers b
 | Archer | 40 Food, 40 Wood | Shoots arrows from up to 14 blocks; trained at the archery range |
 | Cavalryman | 80 Food, 60 Gold | Rides a horse with a sword: half again as fast as a warrior, twice a warrior's health, hits 2 harder; trained at the stables (see below) |
 | Horse | 60 Food, 20 Gold | Not a unit: a tame, saddled horse that comes out of the stables for anyone to ride, white for Saradomin and black for Zamorak; it takes no room |
-| Chaos priest | 50 Food, 30 Gold | Never fights; prays at its team's chaos temple while idle there, 1 favor every 4 s, up to 5 priests a temple |
-| Monk | 60 Food, 20 Gold | Never fights; earns 1 favor every 8 s wherever it is |
-| Dark wizard | 60 Food, 50 Gold | Casts air (4), water (5), earth (6) and fire (7, and sets alight) strikes from archer range, and now and then weakens or confuses an enemy instead; raises stone circles; trained at the chaos temple |
+| Chaos priest | 50 Food, 30 Gold | Never fights; prays at its team's chaos temple while idle there, 1 favor every 45 s, up to 5 priests a temple |
+| Monk | 60 Food, 20 Gold | Never fights; earns 1 favor every 90 s wherever it is |
+| Dark wizard | 60 Food, 50 Gold | Casts from bare hands, without a staff: air (4), water (5), earth (6) and fire (7, and sets alight) strikes from archer range, and now and then weakens or confuses an enemy instead; raises stone circles; trained at the chaos temple |
 | Zamorak mage | 80 Food, 120 Gold | Twice a dark wizard's health, carries a Zamorak staff and casts only fire strikes, 4 harder, from 2 blocks farther; trained at the chaos temple |
 | Blue wizard | 60 Food, 50 Gold | Saradomin's wizard, casting the same spells as a dark wizard; trained at the wizards' tower |
-| Lesser demon | 300 Food, 200 Wood, 300 Gold, 150 Favor | Huge, horned and tailed: ten times a warrior's health, hits 8 harder; summoned at a stone circle while four of its team's dark wizards stand in it |
+| Lesser demon | 300 Food, 300 Gold, 7 Favor | Huge, horned and tailed: ten times a warrior's health, hits 8 harder, and nothing knocks it back; between its blows it hurls a fireball (10, and burns all enemies round where it bursts) every 10 to 15 s at an enemy within 16 blocks; summoned at a stone circle while four of its team's dark wizards stand in it |
 | White Knight | 60 Food, 75 Gold | Saradomin's knight in white plate: twice a warrior's health, hits 3 harder; trained at the White Knights' fortress |
 | Black Knight | 60 Food, 75 Gold | Zamorak's knight in black plate: twice a warrior's health, hits 3 harder; trained at the Black Knights' fortress |
 | Sir Tradigee | 200 Food, 350 Gold | A justiciar hero who fights up close with a diamond sword: eight times a warrior's health, hits 6 harder; trained at the White Knights' fortress |
@@ -199,9 +199,10 @@ close do a quarter more. The horse is part of the rider, so hitting the horse hu
 ### Favor and magic
 
 Favor is the fourth resource, shown with a nether star. It is not gathered but given by the gods for worship: Zamorak
-grants it for chaos priests praying at a chaos temple, one favor every 4 seconds for each priest standing idle by the
-temple (up to five a temple), and Saradomin for monks, one favor every 8 seconds for each monk alive, wherever it is.
-Favor pays for the lesser demon; more of Saradomin's favor units are still to come.
+grants it for chaos priests praying at a chaos temple, one favor every 45 seconds for each priest standing idle by the
+temple (up to five a temple), and Saradomin for monks, one favor every 90 seconds for each monk alive, wherever it is.
+Favor is scarce, and a team holds at most 100; what the gods grant beyond that is lost. Favor pays for the lesser
+demon; more of Saradomin's favor units are still to come.
 
 Wizards and mages fight from a distance with spells: bolts of air, water, earth or fire that fly straight and trail
 their element's particles. Fire sets what it hits alight. One time in three, against an enemy not already under it, a
@@ -210,10 +211,16 @@ gives it nausea for 6 seconds. Like arrows, spells fly on past friends. Zamorak 
 only fire. A player can buy a Zamorak staff at the armory in Age III (50 Wood, 150 Gold): right-click to cast a fire
 strike, once a second.
 
-Dark wizards raise stone circles: select dark wizards (and no workers), and the build menu offers the stone circle.
-Once it stands, gather four dark wizards inside it and train a lesser demon there: the wizards summon it in a swirl of
-portal sparks, and it rises amid lava and smoke with a wither's roar. Training waits while fewer than four stand in
-the circle.
+Dark wizards raise stone circles: select dark wizards (and no workers), and the build menu offers the stone circle. It
+stands the moment it is placed, and the dark wizards that raised it walk into it. Gather four dark wizards inside it
+and train a lesser demon there: the wizards summon it in a swirl of portal sparks, and it rises amid lava and smoke
+with a wither's roar. Training waits while fewer than four stand in the circle.
+
+### Silverlight
+
+Each game's map has one shrine, an open stone shrine somewhere about the middle of the map, and in the chest on its
+altar lies Silverlight, the sword that slew Delrith. It strikes like a diamond sword, and a lesser demon, or any
+creature of the Nether, it strikes six times as hard. There is only the one: whoever takes it first has it.
 
 Units walk as fast as a player. Warriors carry stone swords until the armory researches iron and then diamond ones,
 and warriors and archers wear the armor upgrades from helmet to boots: chainmail with padded armor and iron with
@@ -343,7 +350,7 @@ centers.
 A team can have as many units as its town center and houses house, up to 100. Buildings need a spot inside the map,
 two blocks clear of other buildings, on ground that is mostly dry and not too steep; foundations fill in dips and
 anything above the building is cleared. The structures are drawn by `tools/structures/generate.py` into
-`assets/warofthegods/structures/<faction>`, the skins and small icons by `tools/textures/generate.py` (the resource and tool icons are copied from the Minecraft 1.7.10 client jar), and the square icons on the build, train and upgrade buttons by `tools/textures/actions.py`, which draws each building from its level 1 structure with Minecraft's block textures, each unit's face from its skin, and an item or block for each upgrade. Run it again after changing a structure.
+`assets/warofthegods/structures/<faction>`, the skins and small icons by `tools/textures/generate.py` (the resource and tool icons are copied from the Minecraft 1.7.10 client jar), and the square icons on the build, train and upgrade buttons by `tools/textures/actions.py`, which draws each building from its level 1 structure with Minecraft's block textures, each unit's face from its skin, and an item or block for each upgrade. Run it again after changing a structure. The lesser demon, Zamorak's staff and Silverlight are box models made by `tools/models/generate.py`, which writes each model's parts as JSON into `assets/warofthegods/models`, its texture into `textures/models` and an item's icon, drawn from its model; `--preview DIR` draws each one as the game does.
 
 A unit that has no orders guards the spot where it stopped. How it fights depends on its stance, set from the bar
 with warriors or archers selected:

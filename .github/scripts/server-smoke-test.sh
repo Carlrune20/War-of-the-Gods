@@ -6,7 +6,7 @@
 # archers, a storehouse and building health down to 0, a house, a tower, levels, upgrades, chopping a tree, mining gold, an explosion and torches. The fourth checks that units and buildings come back after a restart, then that a team losing its
 # town center gets a countdown and a team with neither town center nor workers is defeated, leaving a winner. The
 # fifth has the computer play a team, and checks the knights' fortresses, the archery range and stables, and the
-# gods' temples, favor, the stone circle and the lesser demon.
+# gods' temples, favor, the stone circle and the lesser demon. Every game also gets the Silverlight shrine.
 set -uo pipefail
 
 TIMEOUT="${SERVER_TIMEOUT:-600}"
@@ -328,6 +328,7 @@ grep -qE "Settlements: [0-9]+, [1-9][0-9]* unclaimed; gold mines: [1-9]" "$WEB_L
 echo "ok: $(grep -oE 'Settlements: .*gold' "$WEB_LOG" | tail -1)"
 expect "$WEB_LOG" "Built 3 bridges over the river"
 expect "$WEB_LOG" "Laid out 4 settlements"
+expect "$WEB_LOG" "Raised the Silverlight shrine at"
 echo "rts units spawn blue 1 worker" >&3
 sleep 2
 echo "rts resources blue" >&3
@@ -577,8 +578,9 @@ echo "rts finish red" >&3
 wait_for_log "Built Red chaos temple #" 60
 echo "rts train red chaos_priest 1" >&3
 wait_for_log "trained Red chaos priest " 60
+# Favor is scarce: a priest earns one every 45 seconds once at the temple.
 favored=""
-for _ in $(seq 20); do
+for _ in $(seq 40); do
     echo "rts resources red" >&3
     sleep 3
     if grep -qE "Favor [1-9]" "$WEB_LOG"; then
@@ -603,8 +605,8 @@ wait_for_log "Spawned 4 units for" 30
 echo "rts build red stone_circle" >&3
 wait_for_log "Laid out Red stone circle #" 30
 wait_for_log "4 dark wizards on the way" 30
-wait_for_log "Built Red stone circle #" 120
-echo "ok: dark wizards raised a stone circle"
+wait_for_log "Built Red stone circle #" 10
+echo "ok: the stone circle stood as soon as it was laid out"
 echo "rts train red lesser_demon 1" >&3
 wait_for_log "Queued 1 lesser demons at Red stone circle #" 30
 wait_for_log "trained Red lesser demon " 120

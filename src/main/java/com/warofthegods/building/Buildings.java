@@ -465,7 +465,7 @@ public final class Buildings {
         return new Plan(type, minX, minZ, sizeX, sizeZ, rotation, site.groundY, problem);
     }
 
-    /** Lays out a building site for a plan without a problem. */
+    /** Lays out a building site for a plan without a problem; a stone circle stands at once. */
     public Building startSite(Game game, Team team, Plan plan) {
         Building site = game.addBuilding(
             plan.type,
@@ -483,7 +483,11 @@ public final class Buildings {
             if (site.type == BuildingType.TOWN_HALL) {
                 clearTrees(game, world, site.minX, site.minZ, site.sizeX, site.sizeZ, site.groundY);
             }
-            show(world, game, site);
+            if (site.type.buildsInstantly()) {
+                raise(world, site);
+            } else {
+                show(world, game, site);
+            }
         }
         return site;
     }

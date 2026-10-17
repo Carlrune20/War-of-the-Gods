@@ -43,8 +43,8 @@ public enum UnitKind {
     /** Saradomin's wizard: casts the same spells as a dark wizard; trained at the wizards' tower. */
     BLUE_WIZARD("blue_wizard", "Blue wizard", "blueWizard", 1, 0, 0, 0, 1, true, false),
     /**
-     * A lesser demon of Zamorak, huge and strong, summoned at a stone circle by four dark wizards for much favor and
-     * many resources.
+     * A lesser demon of Zamorak, huge and strong, summoned at a stone circle by four dark wizards for favor, food and
+     * gold. Nothing knocks it back, and between its blows it hurls a fireball every 10 to 15 seconds.
      */
     LESSER_DEMON("lesser_demon", "Lesser demon", "lesserDemon", 10, 8, 0, 0, 6, false, false);
 
@@ -113,7 +113,7 @@ public enum UnitKind {
         if (this == ZAMORAK_MAGE) {
             return new Spell[] { Spell.FIRE };
         }
-        return isCaster() ? Spell.values() : new Spell[0];
+        return isCaster() ? Spell.WIZARD_SPELLS : new Spell[0];
     }
 
     /** How much bigger than a man it is drawn and stands. */

@@ -150,6 +150,15 @@ public class EntityUnit extends EntityCreature {
     private static final float MOUNTED_MELEE_DAMAGE = 1.25F;
     /** How much harder a Zamorak mage's fire strikes than a dark wizard's. */
     private static final int MAGE_EXTRA_DAMAGE = 4;
+    /**
+     * A lesser demon hurls a fireball between its blows every so often, at least and at most this many ticks apart:
+     * the fireball's damage, how far it throws one and how long it takes to wind up.
+     */
+    private static final int FIREBALL_MIN_TICKS = 200;
+    private static final int FIREBALL_MAX_TICKS = 300;
+    private static final float FIREBALL_DAMAGE = 10;
+    private static final double FIREBALL_RANGE = 16;
+    private static final int FIREBALL_WINDUP = 12;
     /** Ticks an archer waits after a shot before drawing again. */
     private static final int ARCHER_REST = 10;
     /** Damage a worker's hit does to an animal it hunts. */
@@ -281,6 +290,9 @@ public class EntityUnit extends EntityCreature {
     private double anchorZ;
 
     private int attackCooldown;
+    /** Ticks until a lesser demon may hurl its next fireball, and ticks left of the throw it is winding up. */
+    private int fireballTicks = FIREBALL_MIN_TICKS;
+    private int hurlTicks;
     private int planTicks;
     private int scanTicks;
     private int progressTicks;
@@ -414,10 +426,11 @@ public class EntityUnit extends EntityCreature {
      */
     private Item tool() {
         Team team = team();
-        // Wizards hold a staff, Zamorak mages Zamorak's own; priests and monks a holy book; a demon its claws.
+        // Blue wizards hold a staff, Zamorak mages Zamorak's own and dark wizards nothing, casting from bare hands;
+        // priests and monks a holy book; a demon its claws.
         if (kind.isCaster()) {
             return kind == UnitKind.ZAMORAK_MAGE ? WarOfTheGods.zamorakStaff
-                : kind == UnitKind.DARK_WIZARD ? Items.blaze_rod : Items.stick;
+                : kind == UnitKind.DARK_WIZARD ? null : Items.stick;
         }
         if (kind.worships()) {
             return Items.book;
@@ -516,6 +529,8 @@ public class EntityUnit extends EntityCreature {
         if (movement.getBaseValue() != speed) {
             movement.setBaseValue(speed);
         }
+        getEntityAttribute(SharedMonsterAttributes.knockbackResistance)
+            .setBaseValue(kind == UnitKind.LESSER_DEMON ? 1 : 0);
         fitSize(kind);
         wearArmor(team);
         showHeld();
@@ -1251,6 +1266,14 @@ public class EntityUnit extends EntityCreature {
         if (prayerSwitchTicks > 0) {
             prayerSwitchTicks--;
         }
+        if (fireballTicks > 0) {
+            fireballTicks--;
+        }
+        if (hurlTicks > 0 && order != Order.ATTACK) {
+            // Called off before the throw.
+            hurlTicks = 0;
+            setDrawing(false);
+        }
         // Sagittare always protects from missiles; units that cannot pray have none up.
         if (!prayer.allowedFor(kind)) {
             setPrayer(Prayer.always(kind));
@@ -1949,6 +1972,37 @@ public class EntityUnit extends EntityCreature {
         playSound(spell == Spell.FIRE ? "mob.ghast.fireball" : "random.fizz", 0.6F, 1.2F + rand.nextFloat() * 0.3F);
     }
 
+    /**
+     * A lesser demon's fireball, between its blows: when it is due and the target is in sight and in range, the demon
+     * stops and winds up, its arm raised, and then hurls it. Returns whether it is busy throwing this tick.
+     */
+    private boolean hurlFireball(EntityLivingBase victim) {
+        if (hurlTicks > 0) {
+            getNavigator().clearPathEntity();
+            if (--hurlTicks > 0) {
+                return true;
+            }
+            setDrawing(false);
+            fireballTicks = FIREBALL_MIN_TICKS + rand.nextInt(FIREBALL_MAX_TICKS - FIREBALL_MIN_TICKS + 1);
+            EntitySpell ball = new EntitySpell(worldObj, this, teamId, Spell.FIREBALL, FIREBALL_DAMAGE);
+            ball.aim(victim);
+            worldObj.spawnEntityInWorld(ball);
+            swingItem();
+            playSound("mob.ghast.fireball", 1.5F, 0.6F + rand.nextFloat() * 0.2F);
+            return true;
+        }
+        if (fireballTicks > 0 || getDistanceSqToEntity(victim) > FIREBALL_RANGE * FIREBALL_RANGE
+            || !getEntitySenses().canSee(victim)) {
+            return false;
+        }
+        hurlTicks = FIREBALL_WINDUP;
+        setDrawing(true);
+        getNavigator().clearPathEntity();
+        ((WorldServer) worldObj).func_147487_a("flame", posX, posY + height * 0.8, posZ, 15, 0.4, 0.4, 0.4, 0.02);
+        playSound("mob.blaze.breathe", 1.0F, 0.6F);
+        return true;
+    }
+
     /** One of the spells it knows: a curse the victim is not under, one time in three, else a strike at random. */
     private Spell pickSpell(EntityLivingBase victim) {
         List<Spell> strikes = new ArrayList<>();
@@ -1992,6 +2046,10 @@ public class EntityUnit extends EntityCreature {
             return;
         }
         getLookHelper().setLookPositionWithEntity(current, 30, 30);
+        if (kind == UnitKind.LESSER_DEMON && hurlFireball(current)) {
+            progressTicks = 0;
+            return;
+        }
         double distanceSq = getDistanceSq(current.posX, current.boundingBox.minY, current.posZ);
         if (hasSpot) {
             // First into line with the other archers, unless the target has gone elsewhere meanwhile.
@@ -2333,17 +2391,20 @@ public class EntityUnit extends EntityCreature {
         return hurt;
     }
 
-    /** No knockback from a hit a prayer protected against, nor from what the attacker adds to it, as a sprint. */
+    /**
+     * No knockback from a hit a prayer protected against, nor from what the attacker adds to it, as a sprint; and
+     * none at all for a lesser demon, which nothing pushes about.
+     */
     @Override
     public void knockBack(Entity attacker, float amount, double dx, double dz) {
-        if (steadyTick != ticksExisted) {
+        if (steadyTick != ticksExisted && kind != UnitKind.LESSER_DEMON) {
             super.knockBack(attacker, amount, dx, dz);
         }
     }
 
     @Override
     public void addVelocity(double x, double y, double z) {
-        if (steadyTick != ticksExisted) {
+        if (steadyTick != ticksExisted && kind != UnitKind.LESSER_DEMON) {
             super.addVelocity(x, y, z);
         }
     }

@@ -625,6 +625,18 @@ public final class Units {
         if (game != null && takesWorkers(building)) {
             return orderWork(game, units, building);
         }
+        if (building.type.buildsInstantly() && building.isComplete() && !building.isDamaged()) {
+            // Up already, as a stone circle is the moment it is laid out: the dark wizards go and stand in it, ready
+            // to summon.
+            List<EntityUnit> going = new ArrayList<>();
+            for (EntityUnit unit : units) {
+                if (unit.canRaise(building.type)) {
+                    going.add(unit);
+                }
+            }
+            orderMove(going, building.getCenterX(), building.getCenterZ());
+            return going.size();
+        }
         // Sent to a piece of wall or bridge, they build the rest of it after it.
         List<Building> rest = game == null ? new ArrayList<>() : wallAfter(game, building);
         int sent = 0;

@@ -13,6 +13,8 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraft.nbt.NBTTagString;
 import net.minecraft.util.EnumChatFormatting;
 
+import com.warofthegods.Config;
+
 public class Team {
 
     /** Colors a team may use, in the order new teams are given them. */
@@ -202,7 +204,11 @@ public class Team {
         return resources.get(resource);
     }
 
+    /** Sets the team's amount of a resource; favor goes no higher than the most a team can hold. */
     public void setResource(Resource resource, long amount) {
+        if (resource == Resource.FAVOR) {
+            amount = Math.min(amount, Config.maxFavor);
+        }
         resources.put(resource, Math.max(0, amount));
         game.changed();
     }

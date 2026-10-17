@@ -11,6 +11,9 @@ import net.minecraft.entity.passive.EntityChicken;
 import net.minecraft.entity.passive.EntityCow;
 import net.minecraft.entity.passive.EntityPig;
 import net.minecraft.entity.passive.EntitySheep;
+import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.tileentity.TileEntityChest;
 import net.minecraft.world.WorldServer;
 
 import com.warofthegods.Config;
@@ -30,14 +33,17 @@ import com.warofthegods.world.Misthalin;
 
 /**
  * The things on a map that belong to no team: the bridges over the river, settlements, where town centers stand, gold
- * mines, the only source of gold, old ruins and the animals that graze near each town center. Bridges are built as
- * soon as the game world is up. Once every team's first town center is up, the rest is laid out the same way round each
+ * mines, the only source of gold, old ruins, the shrine where Silverlight lies and the animals that graze near each
+ * town center. Bridges are built as soon as the game world is up. Once every team's first town center is up, the rest
+ * is laid out the same way round each
  * team, so no team starts better off.
  */
 public final class MapFeatures {
 
     /** Blocks kept clear around a settlement or gold mine when laying out the next. */
     private static final int SPACING = 6;
+    /** The design the Silverlight shrine is kept under among the ruins. */
+    public static final String SHRINE = "Silverlight shrine";
 
     private final Map<String, Schematic> schematics = new HashMap<>();
 
@@ -114,6 +120,7 @@ public final class MapFeatures {
                 addMine(game, world, spot[0], spot[1], 48, extraKinds[k], extraDesigns[k]);
             }
         }
+        placeShrine(game, world);
         for (Team team : teams) {
             placeHerds(game, world, team);
         }
@@ -178,6 +185,41 @@ public final class MapFeatures {
             showSettlement(world, settlement);
             placed++;
         }
+    }
+
+    /**
+     * Raises the shrine where Silverlight lies, once in a game, somewhere about the middle of the map by its seed, so
+     * no team is nearer it than the rest by much. The sword waits in the chest on its altar. It counts as a ruin, so
+     * nothing else is laid out on it and players can build over it once they have taken the sword.
+     */
+    private void placeShrine(Game game, WorldServer world) {
+        Schematic shrine = schematic("silverlight_shrine");
+        Random random = new Random(game.getSeed() * 31 + 17);
+        int rotation = random.nextInt(4);
+        int[] spot = around(game, random.nextDouble() * 2 * Math.PI, 0.05 + random.nextDouble() * 0.1);
+        int sizeX = shrine.sizeX(rotation);
+        int sizeZ = shrine.sizeZ(rotation);
+        int[] found = findSpot(game, world, spot[0], spot[1], sizeX, sizeZ, 3, Math.max(64, game.getSize() / 3));
+        if (found == null) {
+            WarOfTheGods.LOG.warn("Found no room for the Silverlight shrine");
+            return;
+        }
+        Buildings.clearTrees(game, world, found[0], found[1], sizeX, sizeZ, found[2]);
+        paste(world, shrine, found[0], found[1], sizeX, sizeZ, found[2], rotation);
+        game.addRuin(found[0], found[1], sizeX, sizeZ, found[2], SHRINE, Ruin.QUIET);
+        for (int x = found[0]; x < found[0] + sizeX; x++) {
+            for (int z = found[1]; z < found[1] + sizeZ; z++) {
+                for (int y = found[2]; y < found[2] + 8; y++) {
+                    TileEntity chest = world.getTileEntity(x, y, z);
+                    if (chest instanceof TileEntityChest) {
+                        ((TileEntityChest) chest).setInventorySlotContents(13, new ItemStack(WarOfTheGods.silverlight));
+                        WarOfTheGods.LOG.info("Raised the Silverlight shrine at {} {} {}", x, y, z);
+                        return;
+                    }
+                }
+            }
+        }
+        WarOfTheGods.LOG.warn("The Silverlight shrine has no chest for the sword");
     }
 
     /** Whether x, z is within distance of where any team starts. */

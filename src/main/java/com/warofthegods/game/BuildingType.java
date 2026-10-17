@@ -131,6 +131,14 @@ public enum BuildingType {
         return this == STONE_CIRCLE;
     }
 
+    /**
+     * Whether it stands complete as soon as it is laid out, with no building to do: the stone circle, which dark
+     * wizards raise by magic. Its build time still sets how fast it is repaired.
+     */
+    public boolean buildsInstantly() {
+        return this == STONE_CIRCLE;
+    }
+
     /** Whether a team of the faction can build it. */
     public boolean buildableBy(Faction faction) {
         return buildable && (faction() == null || faction() == faction);

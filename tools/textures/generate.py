@@ -1483,26 +1483,8 @@ ICON_ART = {
 
 # Items of the mod's own, drawn as the icons are and held diagonally the way Minecraft's tools are.
 ITEMS = os.path.join(ROOT, "textures", "items")
-ITEM_ART = {
-    # Zamorak's staff: a dark shaft bound in gold, crowned by his red hook.
-    "zamorak_staff": """
-        ..........kkkk..
-        .........kmmmMk.
-        ........kmMkkmMk
-        ........kmk..kmk
-        .........kk.kmMk
-        ..........kykmk.
-        .........kyYyk..
-        ........kSnyk...
-        .......kSnk.....
-        ......kSnk......
-        .....kyYk.......
-        ....kSnk........
-        ...kSnk.........
-        ..kSnk..........
-        .kyYk...........
-        .kk.............""",
-}
+# Zamorak's staff and Silverlight are models, with icons drawn from them by tools/models/generate.py.
+ITEM_ART = {}
 
 
 def texture(jar, path):
