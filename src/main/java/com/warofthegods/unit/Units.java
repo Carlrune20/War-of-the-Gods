@@ -17,6 +17,7 @@ import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.monster.EntityCreeper;
 import net.minecraft.entity.monster.IMob;
+import net.minecraft.entity.passive.EntityHorse;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.MathHelper;
@@ -28,6 +29,7 @@ import net.minecraftforge.common.ForgeChunkManager;
 
 import com.warofthegods.Config;
 import com.warofthegods.game.Building;
+import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.GoldMine;
@@ -48,6 +50,9 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  */
 public final class Units {
 
+    /** Horse coats: the low byte of a horse's variant. */
+    private static final int HORSE_WHITE = 0;
+    private static final int HORSE_BLACK = 4;
     /** Ticks between looking over all units. */
     private static final int SCAN_INTERVAL = 10;
     /** Scans a unit's chunk may be loaded without the unit in it before the unit counts as gone. */
@@ -307,6 +312,25 @@ public final class Units {
         }
         chunks.update(world, wantedChunks(game));
         return spawned;
+    }
+
+    /**
+     * Brings out a tame, saddled horse near x, z for anyone to ride: white for Saradomin's teams, black for
+     * Zamorak's, named for its team. It is no unit, so it takes no room and nobody commands it.
+     */
+    public EntityHorse spawnHorse(Team team, double x, double z) {
+        WorldServer world = GameWorld.getWorld();
+        Game game = GameManager.getGame();
+        double[] spot = spawnSpot(world, game, MathHelper.floor_double(x), MathHelper.floor_double(z));
+        EntityHorse horse = new EntityHorse(world);
+        horse.setLocationAndAngles(spot[0], spot[1], spot[2], world.rand.nextFloat() * 360, 0);
+        horse.setHorseType(0);
+        horse.setHorseVariant(team.getFaction() == Faction.ZAMORAK ? HORSE_BLACK : HORSE_WHITE);
+        horse.setHorseTamed(true);
+        horse.setHorseSaddled(true);
+        horse.setCustomNameTag(team.getColor() + team.getName() + " horse");
+        world.spawnEntityInWorld(horse);
+        return horse;
     }
 
     /** A spot on dry ground within a few blocks of x, z, off any building, if there is one. */

@@ -32,6 +32,8 @@ public class Config {
         unitCosts.put(UnitKind.BLACK_KNIGHT, new long[] { 60, 0, 75 });
         unitCosts.put(UnitKind.SAGITTARE, new long[] { 200, 0, 350 });
         unitCosts.put(UnitKind.TRAGIDEE, new long[] { 200, 0, 350 });
+        unitCosts.put(UnitKind.CAVALRY, new long[] { 80, 0, 60 });
+        unitCosts.put(UnitKind.HORSE, new long[] { 60, 0, 20 });
     }
 
     public static int unitsPerTeam = 100;
@@ -58,6 +60,8 @@ public class Config {
         defaults(BuildingType.GATE, new long[] { 0, 0, 40 }, 600, 10);
         defaults(BuildingType.WHITE_KNIGHTS_FORTRESS, new long[] { 0, 300, 400 }, 4000, 90);
         defaults(BuildingType.BLACK_KNIGHTS_FORTRESS, new long[] { 0, 300, 400 }, 4000, 90);
+        defaults(BuildingType.ARCHERY_RANGE, new long[] { 0, 150, 0 }, 700, 25);
+        defaults(BuildingType.STABLES, new long[] { 0, 175, 50 }, 800, 30);
     }
 
     /** Food, Wood and Gold the town center costs to go up to level 2, and to level 3. */

@@ -133,6 +133,19 @@ public class EntityUnit extends EntityCreature {
     private static final double MOVEMENT_SPEED = 0.316;
     /** Ticks an archer draws its bow for, as long as a player takes to draw one fully. */
     private static final int DRAW_TICKS = 20;
+    /** How much faster than a warrior a rider goes. */
+    private static final double MOUNTED_SPEED = 1.5;
+    /**
+     * How wide a rider and its horse are. Wider than a man, but not so wide that it needs paths two blocks across;
+     * the height stays a man's, so it fits under what a man does.
+     */
+    private static final float MOUNTED_WIDTH = 0.9F;
+    /** Ticks a rider has to be on the move before arrows start to miss it, and how often they then miss. */
+    private static final int MOUNTED_DODGE_TICKS = 20;
+    private static final float MOUNTED_DODGE_CHANCE = 0.5F;
+    /** What arrows that hit a rider do, and blows up close, as a share of their damage. */
+    private static final float MOUNTED_ARROW_DAMAGE = 0.75F;
+    private static final float MOUNTED_MELEE_DAMAGE = 1.25F;
     /** Ticks an archer waits after a shot before drawing again. */
     private static final int ARCHER_REST = 10;
     /** Damage a worker's hit does to an animal it hunts. */
@@ -197,6 +210,8 @@ public class EntityUnit extends EntityCreature {
     private int prayerSwitchTicks;
     /** The tick a protected hit landed on, during which nothing knocks the unit back. */
     private int steadyTick = -1;
+    /** Ticks in a row it has been on the move; a rider that has been for a while is hard to hit with arrows. */
+    private int movingTicks;
     private double goalX;
     private double goalZ;
     private double postX;
@@ -449,6 +464,13 @@ public class EntityUnit extends EntityCreature {
         if (attack.getBaseValue() != damage) {
             attack.setBaseValue(damage);
         }
+        // Riders go faster than men on foot, and their horses make them wider.
+        double speed = MOVEMENT_SPEED * (kind.isMounted() ? MOUNTED_SPEED : 1);
+        IAttributeInstance movement = getEntityAttribute(SharedMonsterAttributes.movementSpeed);
+        if (movement.getBaseValue() != speed) {
+            movement.setBaseValue(speed);
+        }
+        fitSize(kind);
         wearArmor(team);
         showHeld();
     }
@@ -1099,6 +1121,10 @@ public class EntityUnit extends EntityCreature {
     public void onLivingUpdate() {
         updateArmSwingProgress();
         super.onLivingUpdate();
+        // On the move while it covers ground; standing still, or nearly, starts the count again.
+        double dx = posX - prevPosX;
+        double dz = posZ - prevPosZ;
+        movingTicks = dx * dx + dz * dz > 0.0025 ? movingTicks + 1 : 0;
     }
 
     @Override
@@ -1106,7 +1132,21 @@ public class EntityUnit extends EntityCreature {
         super.onUpdate();
         if (worldObj.isRemote) {
             clientDrawTicks = dataWatcher.getWatchableObjectByte(WATCH_DRAWING) != 0 ? clientDrawTicks + 1 : 0;
+            fitSize(getWatchedKind());
         }
+    }
+
+    /** A rider on its horse is wider than a man on foot. */
+    private void fitSize(UnitKind kind) {
+        float wanted = kind.isMounted() ? MOUNTED_WIDTH : 0.6F;
+        if (width != wanted) {
+            setSize(wanted, 1.8F);
+        }
+    }
+
+    /** Ticks in a row it has been on the move. */
+    public int getMovingTicks() {
+        return movingTicks;
     }
 
     @Override
@@ -2132,6 +2172,20 @@ public class EntityUnit extends EntityCreature {
         if (style != Prayer.NONE && style == prayer) {
             amount *= Prayer.DAMAGE_TAKEN;
             steadyTick = ticksExisted;
+        }
+        // Riders: on the move for over a second, every other arrow misses and flies on past. Those that hit do less,
+        // a blow up close more; a blow at the horse is a blow at its rider.
+        if (kind.isMounted()) {
+            if (source.isProjectile()) {
+                if (movingTicks > MOUNTED_DODGE_TICKS && rand.nextFloat() < MOUNTED_DODGE_CHANCE) {
+                    Combat.flyPast(source, this);
+                    return false;
+                }
+                amount *= MOUNTED_ARROW_DAMAGE;
+            } else if (attacker instanceof EntityLivingBase && source.getSourceOfDamage() == attacker
+                && !source.isMagicDamage()) {
+                    amount *= MOUNTED_MELEE_DAMAGE;
+                }
         }
         boolean hurt = super.attackEntityFrom(source, amount);
         computerPrays(style);

@@ -284,6 +284,29 @@ def archer(faction):
             "body": body, "arm": arm, "leg": leg}
 
 
+def cavalry(faction):
+    """A rider: a warrior's plate and tabard, with a plume on the helm in the god's color and riding boots."""
+    parts = warrior(faction)
+    plume = (44, 72, 164) if faction == "saradomin" else (150, 26, 24)
+    boots, cuff = ((92, 62, 38), (122, 88, 56)) if faction == "saradomin" else ((36, 28, 26), (70, 52, 44))
+    helm, legs = parts["hat"], parts["leg"]
+
+    def hat(face, x, y, w, h):
+        if face == "top" and x in (3, 4):
+            return plume
+        if face in ("front", "back") and y == 0 and x in (3, 4):
+            return plume
+        return helm(face, x, y, w, h)
+
+    def leg(face, x, y, w, h):
+        if face != "top" and y >= 6:
+            return cuff if y == 6 else boots
+        return legs(face, x, y, w, h)
+
+    parts.update(hat=hat, leg=leg)
+    return parts
+
+
 def knight(faction):
     """A White Knight (Saradomin) or Black Knight (Zamorak): full plate from head to foot with a closed full helm,
     the same whichever team trains them; their own look, not the armor upgrades."""
@@ -521,7 +544,7 @@ ICON_ORDER = ["town_hall", "house", "barracks", "storehouse", "quarry", "farm", 
               "worker", "soldier", "archer", "tree", "upgrade", "level",
               "food", "wood", "gold", "sword", "axe", "pickaxe", "hoe", "wall", "gate",
               "white_knights_fortress", "black_knights_fortress", "white_knight", "black_knight", "tragidee",
-              "sagittare"]
+              "sagittare", "archery_range", "stables", "cavalry", "horse"]
 
 # Icons that are Minecraft's own item pictures, taken from the game's jar: the resources and the tools of the actions
 # in tooltips. An oak log is drawn as a little block, the way the inventory shows it.
@@ -889,6 +912,74 @@ ICON_ART = {
         ...kvk..kvk.....
         ...kyk..kyk.....
         ...kkk..kkk.....""",
+    "archery_range": """
+        ................
+        ....kkkkkkkk....
+        ...kllllllllk...
+        ..kllrrrrrrllk..
+        .kllrrllllrrllk.
+        .klrrllrrllrrlk.
+        .klrllrrrrllrlk.
+        .klrlrryyrrlrlk.
+        .klrlrryyrrlrlk.
+        .klrllrrrrllrlk.
+        .klrrllrrllrrlk.
+        .kllrrllllrrllk.
+        ..kllrrrrrrllk..
+        ...kllllllllk...
+        ....kkkkkkkk....
+        ................""",
+    "stables": """
+        ................
+        ....kkkkkkkk....
+        ...kSssssssSk...
+        ..kSskkkkkksSk..
+        ..kskk....kksk..
+        .kSsk......ksSk.
+        .ksk........ksk.
+        .kSk........kSk.
+        .ksk........ksk.
+        .kSk........kSk.
+        .ksk........ksk.
+        .kSkk......kkSk.
+        .kssk......kssk.
+        .kkkk......kkkk.
+        ................
+        ................""",
+    "cavalry": """
+        ................
+        .........kk.....
+        ........kmk.....
+        .......kmmkkk...
+        ......kssssssk..
+        .....kssksssSsk.
+        ....ksssssssSsk.
+        ...kssssssssSmk.
+        ..ksssssskkSmk..
+        .kssssssk..kmk..
+        .kkssssk..kSmk..
+        ..kkkkk...kSmk..
+        ..........kSmk..
+        .........kssmk..
+        .........ksssSk.
+        .........kkkkkk.""",
+    "horse": """
+        ................
+        .........kk.....
+        ........kdk.....
+        .......kddkkk...
+        ......kddddddk..
+        .....kddkdddddk.
+        ....kddddddddek.
+        ...kdddddddddek.
+        ..kddddddkkdek..
+        .kdddddddk.kek..
+        .kkddddddk.kdek.
+        ..kkkkkkk..kdek.
+        ...........kdek.
+        ..........kddek.
+        ..........kdddek
+        ..........kkkkkk""",
     "sagittare": """
         ................
         .....kkkk..kk...
@@ -984,7 +1075,7 @@ def main():
         # Knights and heroes look the same whichever team trains them; both factions get a copy.
         for kind, name in ((worker, "worker"), (warrior, "soldier"), (archer, "archer"),
                            (white_knight, "white_knight"), (black_knight, "black_knight"), (tragidee, "tragidee"),
-                           (sagittare, "sagittare")):
+                           (sagittare, "sagittare"), (cavalry, "cavalry")):
             path = os.path.join(SKINS, "%s_%s.png" % (faction, name))
             skin(kind, faction).save(path)
             written.append(path)

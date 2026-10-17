@@ -686,6 +686,13 @@ public final class Buildings {
                 continue;
             }
             double[] door = building.getDoorstep();
+            if (trained.isAnimal()) {
+                // A horse for players to ride, not a unit: out it comes, saddled, whatever the team's room.
+                Units.get()
+                    .spawnHorse(team, door[0], door[1]);
+                WarOfTheGods.LOG.info("{} trained a horse", building.describe(game));
+                continue;
+            }
             List<EntityUnit> spawned = Units.get()
                 .spawn(game, team, trained, 1, door[0], door[1]);
             if (spawned.isEmpty()) {

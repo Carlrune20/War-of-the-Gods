@@ -85,7 +85,11 @@ public final class GuiRts extends GuiScreen {
         "white_knight",
         "black_knight",
         "tragidee",
-        "sagittare");
+        "sagittare",
+        "archery_range",
+        "stables",
+        "cavalry",
+        "horse");
 
     /** Icons drawn as Minecraft items in the view; icons.png has the same pictures for the web map. */
     private static final Map<String, ItemStack> VANILLA_ICONS = new HashMap<>();
@@ -2340,7 +2344,7 @@ public final class GuiRts extends GuiScreen {
                     },
                     RtsState.canAfford(team, gate.cost)));
         }
-        boolean full = state.teamUnitCount(team) >= team.population;
+        boolean teamFull = state.teamUnitCount(team) >= team.population;
         // Each click queues one more (shift-click five), up to ten waiting; training goes on one at a time. With
         // several buildings selected it is shared out among those that train that kind.
         for (String kindId : type.trains) {
@@ -2359,6 +2363,8 @@ public final class GuiRts extends GuiScreen {
             }
             // A team has one of each hero at a time, and may train him again once he falls.
             boolean heroTaken = kind.hero && state.hasUnitOf(team, kindId);
+            // A horse is no unit, and needs no room.
+            boolean full = !kind.animal && teamFull;
             int waiting = 0;
             for (RtsState.BuildingInfo trainer : trainers) {
                 for (String queued : trainer.queue) {

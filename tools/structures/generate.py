@@ -785,6 +785,125 @@ def barracks(p, level):
     return s
 
 
+def archery_range(p, level):
+    """Trains archers: a shooting shed at the back, open to the front, and lanes of targets to shoot at in front."""
+    s = Struct(13, 11, 9, 1)
+    foundation(s, p, 0, 0, 12, 10)
+    s.fill(0, 0, 0, 12, 0, 10, p.path)
+    top = 3 if level == 1 else 4
+    # The shed: walls at the back and sides, open to the lanes, posts holding up a lean-to roof.
+    s.fill(0, 0, 7, 12, 0, 10, p.floor)
+    s.fill(0, 1, 10, 12, top, 10, p.wall)
+    s.fill(0, 1, 7, 0, top, 10, p.wall)
+    s.fill(12, 1, 7, 12, top, 10, p.wall)
+    for x in (0, 4, 8, 12):
+        s.fill(x, 1, 7, x, top, 7, p.frame if not zam(p) else p.base)
+        s.fill(x, 1, 10, x, top, 10, p.frame if not zam(p) else p.base)
+    for x in range(0, 13):
+        s.set(x, top + 1, 7, stairs(p.roof, UP_SOUTH))
+        s.set(x, top + 1, 8, p.roof_full)
+        s.set(x, top + 2, 9, stairs(p.roof, UP_SOUTH))
+        s.set(x, top + 2, 10, p.roof_full)
+        s.set(x, top + 1, 9, p.planks)
+        s.set(x, top + 1, 10, p.planks)
+    s.set(4, 2, 10, p.window)
+    s.set(8, 2, 10, p.window)
+    # Racks of bows and quivers: chests, hay to sit on, a fletcher's bench.
+    s.set(2, 1, 9, (CHEST, 2))
+    s.set(10, 1, 9, (WORKBENCH, 0))
+    s.set(6, 1, 9, (HAY, 0))
+    torch(s, p, 6, 3, 9, "north")
+    # A low rail the archers stand behind.
+    for x in range(1, 12):
+        if x not in (5, 6, 7):
+            s.set(x, 1, 6, p.fence)
+    # Three lanes of targets: straw butts with painted faces.
+    face = (WOOL, WHITE) if not zam(p) else (WOOL, BLACK)
+    for x in (2, 6, 10):
+        s.set(x, 1, 1, (HAY, 0))
+        s.set(x, 2, 1, face)
+        s.set(x, 3, 1, (WOOL, RED) if level == 2 else face)
+        if zam(p):
+            skull(s, x, 4, 1)
+    # Banners on the corner posts.
+    s.set(0, top, 7, p.banner)
+    s.set(12, top, 7, p.banner)
+    if zam(p):
+        spikes(s, p, [(0, top + 2, 7), (12, top + 2, 7)])
+    if level == 2:
+        # More targets, and lamps along the lanes.
+        for x in (4, 8):
+            s.set(x, 1, 2, (HAY, 0))
+            s.set(x, 2, 2, face)
+        for x in (0, 12):
+            s.set(x, 1, 3, p.base)
+            s.set(x, 2, 3, p.fence)
+            s.set(x, 3, 3, p.lamp)
+    return s
+
+
+def stables(p, level):
+    """Trains cavalry and horses: a long stable of stalls at the back, a fenced paddock in front."""
+    s = Struct(13, 11, 10, 1)
+    foundation(s, p, 0, 0, 12, 10)
+    s.fill(0, 0, 0, 12, 0, 4, (GRASS, 0) if not zam(p) else (SOUL_SAND, 0))
+    top = 4 if level == 1 else 5
+    s.fill(0, 0, 5, 12, 0, 10, p.floor)
+    timber_walls(s, p, 0, 5, 12, 10, 1, top)
+    # Wide stall doors in front, three across, with half doors of fence gates.
+    for x0 in (1, 5, 9):
+        s.clear(x0, 1, 5, x0 + 2, 3, 5)
+        s.set(x0 + 1, 1, 5, (FENCE_GATE, 0))
+        s.set(x0, 1, 5, p.fence)
+        s.set(x0 + 2, 1, 5, p.fence)
+    # Stalls inside: fences between, hay to eat, a trough of water.
+    for x in (4, 8):
+        s.fill(x, 1, 6, x, 2, 9, p.fence)
+    for x in (2, 6, 10):
+        s.set(x, 1, 9, (HAY, 0))
+        s.set(x - 1, 1, 9, (CAULDRON, 3))
+    s.set(11, 1, 9, (CHEST, 2))
+    for z in (7, 8):
+        s.set(0, 2, z, p.window)
+        s.set(12, 2, z, p.window)
+    ridge = gable_x(s, 0, 12, 5, 10, top + 1, p.roof, p.roof_full, end=p.planks)
+    for x in range(0, 13):
+        s.set(x, ridge, 7, p.roof_full)
+        s.set(x, ridge, 8, p.roof_full)
+    # A hayloft door over the middle stall.
+    s.set(6, top, 5, (HAY, 0))
+    torch(s, p, 2, 3, 9, "north")
+    torch(s, p, 10, 3, 9, "north")
+    # The paddock: a fence round it, a gate in the middle, a trough and a hay bale.
+    for z in range(0, 5):
+        s.set(0, 1, z, p.fence)
+        s.set(12, 1, z, p.fence)
+    for x in range(0, 13):
+        if x != 6:
+            s.set(x, 1, 0, p.fence)
+    s.set(6, 1, 0, (FENCE_GATE, 0))
+    s.set(2, 1, 2, (CAULDRON, 3))
+    s.set(10, 1, 3, (HAY, 0))
+    if zam(p):
+        spikes(s, p, [(x, ridge + 1, 7) for x in (0, 6, 12)])
+        s.set(0, 2, 0, (SKULL, 1))
+        s.set(12, 2, 0, (SKULL, 1))
+    else:
+        s.set(6, ridge + 1, 7, p.topper)
+    s.set(5, top - 1, 5, p.banner)
+    s.set(7, top - 1, 5, p.banner)
+    if level == 2:
+        # A weathervane and lamps at the paddock gate.
+        s.fill(0, ridge - 1, 7, 0, ridge + 1, 7, p.fence)
+        for x in (5, 7):
+            s.set(x, 1, 0, p.base)
+            s.set(x, 2, 0, p.fence)
+            s.set(x, 3, 0, p.lamp)
+        for x in (2, 6, 10):
+            s.set(x, 5, 5, p.window)
+    return s
+
+
 def storehouse(p, level):
     s = Struct(9, 9, 11, 1)
     foundation(s, p, 0, 0, 8, 8)
@@ -1229,6 +1348,8 @@ BUILDINGS = {
     "farm": (farm, 2),
     "armory": (armory, 2),
     "tower": (tower, 2),
+    "archery_range": (archery_range, 2),
+    "stables": (stables, 2),
     "white_knights_fortress": (FIXED_STYLE_BUILDINGS["white_knights_fortress"], 1),
     "black_knights_fortress": (FIXED_STYLE_BUILDINGS["black_knights_fortress"], 1),
 }

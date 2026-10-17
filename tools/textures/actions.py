@@ -35,8 +35,8 @@ SIZE = 64
 COLUMNS = 16
 FACTIONS = ("saradomin", "zamorak")
 BUILDINGS = ("town_hall", "house", "farm", "barracks", "storehouse", "armory", "tower", "wall", "gate",
-             "white_knights_fortress", "black_knights_fortress")
-UNITS = ("worker", "soldier", "archer", "white_knight", "black_knight", "tragidee", "sagittare")
+             "white_knights_fortress", "black_knights_fortress", "archery_range", "stables")
+UNITS = ("worker", "soldier", "archer", "white_knight", "black_knight", "tragidee", "sagittare", "cavalry")
 
 # Upgrades and other actions: an item picture, or ("block", top, side) for a block drawn as the inventory draws it.
 ITEMS = {
@@ -63,6 +63,9 @@ ITEMS = {
     "level": "items/experience_bottle.png",
     "gate": "items/door_wood.png",
     "torches": "blocks/torch_on.png",
+    # A horse trained at the stables has no face of its own: its saddle stands for it.
+    "face/saradomin/horse": "items/saddle.png",
+    "face/zamorak/horse": "items/saddle.png",
 }
 
 GRASS = (124, 189, 82)

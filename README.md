@@ -41,8 +41,8 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts units stop <team>` | (op) Make a team's units stop and guard where they stand. |
 | `/rts units kill <team\|all>` | (op) Remove units. |
 | `/rts buildings [team]` | List buildings and building sites with their health, how far each site is built and how many workers work each farm. |
-| `/rts build <team> <type> [x z] [rotation]` | (op) Lay out a building site for free (farm, house, barracks, storehouse, armory, tower, town center, or white_knights_fortress or black_knights_fortress for their own god's teams), near the town center unless x z is given (a town center goes on the nearest settlement nobody holds), and send the team's idle workers to build it. |
-| `/rts train <team> <worker\|warrior\|archer\|white_knight\|black_knight\|tragidee\|sagittare> [count]` | (op) Queue units for free at the team's town center, barracks or knights' fortress; only one of a hero. |
+| `/rts build <team> <type> [x z] [rotation]` | (op) Lay out a building site for free (farm, house, barracks, archery_range, stables, storehouse, armory, tower, town center, or white_knights_fortress or black_knights_fortress for their own god's teams), near the town center unless x z is given (a town center goes on the nearest settlement nobody holds), and send the team's idle workers to build it. |
+| `/rts train <team> <worker\|warrior\|archer\|cavalry\|horse\|white_knight\|black_knight\|tragidee\|sagittare> [count]` | (op) Queue units for free at the team's town center, barracks, archery range, stables or knights' fortress; only one of a hero. |
 | `/rts upgrade <building id>` | (op) Take a town center, and with it its whole town, into the next age at once, for free. |
 | `/rts research <team> <upgrade>` | (op) Give a team an upgrade at once, such as `forged_blades` or `fortified_walls`. |
 | `/rts wall <team> <x1> <z1> <x2> <z2>` | (op) Lay out a wall from one point to another for free, running up to the team's towers at either end, and send the team's idle workers to build it. |
@@ -153,7 +153,9 @@ is built, and the finished building stands once the site is done; more workers b
 | House | Houses 5 more units | 60 Wood | 300 | 12 s |
 | Farm | A worker there gathers food: 5 every 5 s, one worker per farm; needs Age II | 75 Wood | 300 | 15 s |
 | Storehouse | Takes in what workers gather; researches economic upgrades | 100 Wood | 600 | 20 s |
-| Barracks | Trains warriors and archers; needs Age II | 150 Wood, 50 Gold | 800 | 25 s |
+| Barracks | Trains warriors; needs Age II | 150 Wood, 50 Gold | 800 | 25 s |
+| Archery range | Trains archers; needs Age II | 150 Wood | 700 | 25 s |
+| Stables | Trains cavalry, and tame horses for players to ride; needs Age II | 175 Wood, 50 Gold | 800 | 30 s |
 | Armory | Researches military upgrades; needs Age II | 120 Wood, 60 Gold | 700 | 25 s |
 | Tower | Watches over the land round it; with watch towers (Age II) shoots arrows at enemies within 16 blocks, and with guard towers (Age III) within 24; researches both | 50 Wood, 100 Gold | 900 | 25 s |
 | Wall | Keeps enemies out; laid out from one point to another, a 5 by 5 piece at a time | 10 Gold a piece | 600 a segment, 800 a post | 10 s a piece |
@@ -165,7 +167,9 @@ is built, and the finished building stands once the site is done; more workers b
 |---|---|---|
 | Worker | 50 Food | Builds, farms, mines gold, chops trees and hunts; never fights |
 | Warrior | 50 Food, 20 Gold | Fights up close with a sword |
-| Archer | 40 Food, 40 Wood | Shoots arrows from up to 14 blocks |
+| Archer | 40 Food, 40 Wood | Shoots arrows from up to 14 blocks; trained at the archery range |
+| Cavalryman | 80 Food, 60 Gold | Rides a horse with a sword: half again as fast as a warrior, twice a warrior's health, hits 2 harder; trained at the stables (see below) |
+| Horse | 60 Food, 20 Gold | Not a unit: a tame, saddled horse that comes out of the stables for anyone to ride, white for Saradomin and black for Zamorak; it takes no room |
 | White Knight | 60 Food, 75 Gold | Saradomin's knight in white plate: twice a warrior's health, hits 3 harder; trained at the White Knights' fortress |
 | Black Knight | 60 Food, 75 Gold | Zamorak's knight in black plate: twice a warrior's health, hits 3 harder; trained at the Black Knights' fortress |
 | Sir Tragidee | 200 Food, 350 Gold | A justiciar hero who fights up close with a diamond sword: eight times a warrior's health, hits 6 harder; trained at the White Knights' fortress |
@@ -176,6 +180,10 @@ taller than other units and go by their own names. Knights take twice as long as
 times as long. Knights and heroes keep their own look: the armor upgrades make them stronger but do not change what
 they wear. Each knights' fortress belongs to its god: only Saradomin's teams can build the White Knights' fortress and
 only Zamorak's the Black Knights'.
+
+Cavalry ride into battle: once a rider has been on the move for over a second, every other arrow misses it and flies
+on past, until it stops. Arrows that do hit do three quarters of their damage, and warriors' and players' blows up
+close do a quarter more. The horse is part of the rider, so hitting the horse hurts the rider.
 
 Units walk as fast as a player. Warriors carry stone swords until the armory researches iron and then diamond ones,
 and warriors and archers wear the armor upgrades from helmet to boots: chainmail with padded armor and iron with
@@ -217,7 +225,7 @@ A team's town center sets its age: taking it up a level advances the whole town 
 of the team takes on the new age's look with it, at once, and buildings put up later look the age too; nothing else
 about them changes. Age I has no military and no farms: workers build, chop, mine and hunt, and towers stand watch
 but do not shoot. In Age II the town center houses 5 more units and starts shooting, the second row of upgrades opens
-up, and barracks, farms and armories can be built. For more health, research fortified walls at the town center.
+up, and barracks, archery ranges, stables, farms and armories can be built. For more health, research fortified walls at the town center.
 
 Each team starts with four towers, one well off each corner of its town center, so between them they cover the
 ground all round it. Towers can be built from Age I. Researching watch towers at a tower in Age II makes every tower of the
@@ -359,7 +367,7 @@ Commanding units, from the bar at the bottom of the page:
 | Control | What it does |
 |---|---|
 | Town center | Select your town center |
-| Click one of your buildings | Select it and see its health; a site shows how far it is built, a town center or barracks its Train buttons and training progress. Each click queues one more, shift-click 5, up to 10 waiting; they train one at a time. Level takes it up a level (on the town center, Advance takes the town to the next age), and an armory or storehouse shows the upgrades it researches |
+| Click one of your buildings | Select it and see its health; a site shows how far it is built, a town center, barracks, archery range or stables its Train buttons and training progress. Each click queues one more, shift-click 5, up to 10 waiting; they train one at a time. Level takes it up a level (on the town center, Advance takes the town to the next age), and an armory or storehouse shows the upgrades it researches |
 | Farm / House / Barracks / ... | With workers selected: a see-through copy follows the pointer, pale where it fits and red where it does not (in the in-game view it shows the building's own blocks). R or Rotate turns it a quarter round, click places it, right-click or Esc cancels. Shift-click places more, and the workers build them one after another in the order they were placed; shift-right-click a building site to add it to their list |
 | Wall | With workers selected: click where the wall starts, or one of your towers, then where it ends (or another tower). A see-through wall follows the pointer, red where it does not fit, and the bar shows its pieces and cost. Shift-click to go on with the next wall from where this one ended |
 | Make gate | With one of your finished wall segments selected: turn it into a gate at once, for gold |

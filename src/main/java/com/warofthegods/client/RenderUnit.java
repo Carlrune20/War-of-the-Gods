@@ -2,13 +2,16 @@ package com.warofthegods.client;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.WeakHashMap;
 
 import net.minecraft.client.model.ModelBiped;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.entity.RenderBiped;
+import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.passive.EntityHorse;
 import net.minecraft.util.ResourceLocation;
 
 import org.lwjgl.opengl.GL11;
@@ -23,7 +26,8 @@ import com.warofthegods.unit.Prayer;
  * Draws a unit with the player model in the skin of its kind and its team's faction, with bands round its arms and
  * waist in its team's color, and any armor its team's upgrades give it. The name above its head is in its team's
  * color too. Archers raise their bow as they draw it, and heroes stand taller than the rest. A hero's protection
- * prayer shows above his name while it is up.
+ * prayer shows above his name while it is up. Cavalry sit on a horse, white for Saradomin and black for Zamorak, drawn
+ * with the horse's own model; it is part of the unit, not a horse of its own.
  */
 public class RenderUnit extends RenderBiped {
 
@@ -58,7 +62,15 @@ public class RenderUnit extends RenderBiped {
     /** How wide the prayer icon above a hero's head is, in blocks. */
     private static final float OVERHEAD_SIZE = 0.6F;
 
+    /** How far up a rider sits, in blocks, to be in the saddle. */
+    private static final float RIDER_LIFT = 0.7F;
+    /** Horse coats: the low byte of a horse's variant. */
+    private static final int HORSE_WHITE = 0;
+    private static final int HORSE_BLACK = 4;
+
     private final ModelBiped overlayModel = new ModelBiped(0.08F);
+    /** The horse drawn under each rider, kept only to be drawn; it is in no world's entity list. */
+    private final Map<EntityUnit, EntityHorse> horses = new WeakHashMap<>();
 
     public RenderUnit() {
         super(new ModelBiped(), 0.5F);
@@ -71,20 +83,75 @@ public class RenderUnit extends RenderBiped {
         modelBipedMain.aimedBow = aiming;
         field_82423_g.aimedBow = aiming;
         field_82425_h.aimedBow = aiming;
+        EntityUnit unit = (EntityUnit) entity;
+        if (unit.getWatchedKind()
+            .isMounted()) {
+            renderHorse(unit, x, y, z, yaw, partialTicks);
+        }
         super.doRender(entity, x, y, z, yaw, partialTicks);
     }
 
-    /** Heroes stand a head taller than other units. */
+    /** Draws a rider's horse where the rider is, walking as it walks and flashing red when it is hurt. */
+    private void renderHorse(EntityUnit unit, double x, double y, double z, float yaw, float partialTicks) {
+        EntityHorse horse = horses.get(unit);
+        if (horse == null || horse.worldObj != unit.worldObj) {
+            horse = new EntityHorse(unit.worldObj);
+            horse.setHorseType(0);
+            horse.setHorseTamed(true);
+            horse.setHorseSaddled(true);
+            horses.put(unit, horse);
+        }
+        int variant = unit.getWatchedFaction() == Faction.ZAMORAK ? HORSE_BLACK : HORSE_WHITE;
+        if (horse.getHorseVariant() != variant) {
+            horse.setHorseVariant(variant);
+        }
+        horse.posX = unit.posX;
+        horse.posY = unit.posY;
+        horse.posZ = unit.posZ;
+        horse.prevPosX = unit.prevPosX;
+        horse.prevPosY = unit.prevPosY;
+        horse.prevPosZ = unit.prevPosZ;
+        horse.lastTickPosX = unit.lastTickPosX;
+        horse.lastTickPosY = unit.lastTickPosY;
+        horse.lastTickPosZ = unit.lastTickPosZ;
+        horse.rotationYaw = unit.rotationYaw;
+        horse.prevRotationYaw = unit.prevRotationYaw;
+        horse.renderYawOffset = unit.renderYawOffset;
+        horse.prevRenderYawOffset = unit.prevRenderYawOffset;
+        horse.rotationYawHead = unit.rotationYawHead;
+        horse.prevRotationYawHead = unit.prevRotationYawHead;
+        horse.limbSwing = unit.limbSwing;
+        horse.limbSwingAmount = unit.limbSwingAmount;
+        horse.prevLimbSwingAmount = unit.prevLimbSwingAmount;
+        horse.ticksExisted = unit.ticksExisted;
+        horse.hurtTime = unit.hurtTime;
+        horse.deathTime = unit.deathTime;
+        horse.onGround = unit.onGround;
+        RenderManager.instance.renderEntityWithPosYaw(horse, x, y, z, yaw, partialTicks);
+    }
+
+    /** Heroes stand a head taller than other units; riders sit in the saddle with their legs astride. */
     @Override
     protected void preRenderCallback(EntityLivingBase entity, float partialTicks) {
-        if (((EntityUnit) entity).getWatchedKind().hero) {
+        UnitKind kind = ((EntityUnit) entity).getWatchedKind();
+        if (kind.hero) {
             GL11.glScalef(HERO_SCALE, HERO_SCALE, HERO_SCALE);
+        }
+        if (kind.isMounted()) {
+            modelBipedMain.isRiding = true;
+            // Drawn upside down at this point, so up is down.
+            GL11.glTranslatef(0, -RIDER_LIFT, 0);
         }
     }
 
     /** The name above its head, and above that the protection prayer it has up, facing the camera. */
     @Override
     protected void passSpecialRender(EntityLivingBase entity, double x, double y, double z) {
+        // Above a rider's head, not where a man on foot would have it.
+        if (((EntityUnit) entity).getWatchedKind()
+            .isMounted()) {
+            y += RIDER_LIFT;
+        }
         super.passSpecialRender(entity, x, y, z);
         Prayer prayer = ((EntityUnit) entity).getWatchedPrayer();
         if (prayer == Prayer.NONE || entity.isInvisible()) {

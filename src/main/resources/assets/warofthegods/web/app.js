@@ -739,7 +739,7 @@
     const SPRITES = ["town_hall", "house", "barracks", "storehouse", "quarry", "farm", "armory", "tower", "worker",
         "soldier", "archer", "tree", "upgrade", "level", "food", "wood", "gold", "sword", "axe", "pickaxe", "hoe", "wall",
         "gate", "white_knights_fortress", "black_knights_fortress", "white_knight", "black_knight", "tragidee",
-        "sagittare"];
+        "sagittare", "archery_range", "stables", "cavalry", "horse"];
 
     function sprite(name) {
         const span = el("span", "sprite");
@@ -1010,12 +1010,14 @@
         if (type.workers) {
             actions.append(el("span", "note", (building.workers || 0) + " of " + type.workers + " workers"));
         }
-        const full = teamUnitCount(team) >= (team.population || 0);
+        const teamFull = teamUnitCount(team) >= (team.population || 0);
         for (const kindId of type.trains || []) {
             const kind = unitKind(kindId);
             if (!kind) {
                 continue;
             }
+            // A horse is no unit, and needs no room.
+            const full = !kind.animal && teamFull;
             // With several buildings selected, training is shared out among those that train this kind.
             const trainers = selectedBuildingList().filter((b) => b.complete
                 && (buildingType(b.type).trains || []).includes(kindId));

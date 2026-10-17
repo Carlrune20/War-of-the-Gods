@@ -19,8 +19,8 @@ public enum BuildingType {
     TOWN_HALL("town_hall", "Town center", "townHall", 3, true, true, UnitKind.WORKER),
     /** Workers working at it gather food. */
     FARM("farm", "Farm", "farm", 2, true, false),
-    /** Trains warriors and archers. */
-    BARRACKS("barracks", "Barracks", "barracks", 2, true, false, UnitKind.SOLDIER, UnitKind.ARCHER),
+    /** Trains warriors. */
+    BARRACKS("barracks", "Barracks", "barracks", 2, true, false, UnitKind.SOLDIER),
     /** Takes in what workers carry, so they need not walk all the way home; researches economic upgrades. */
     STOREHOUSE("storehouse", "Storehouse", "storehouse", 2, true, true),
     /** Houses more units. */
@@ -46,7 +46,11 @@ public enum BuildingType {
      * Knights and Sagittare.
      */
     BLACK_KNIGHTS_FORTRESS("black_knights_fortress", "Black Knights' fortress", "blackKnightsFortress", 1, true, false,
-        UnitKind.BLACK_KNIGHT, UnitKind.SAGITTARE);
+        UnitKind.BLACK_KNIGHT, UnitKind.SAGITTARE),
+    /** Trains archers: a shooting shed with lanes of targets in front. */
+    ARCHERY_RANGE("archery_range", "Archery range", "archeryRange", 2, true, false, UnitKind.ARCHER),
+    /** Trains cavalry, and tame horses for players to ride: stalls at the back, a paddock in front. */
+    STABLES("stables", "Stables", "stables", 2, true, false, UnitKind.CAVALRY, UnitKind.HORSE);
 
     public final String id;
     public final String displayName;
@@ -72,7 +76,7 @@ public enum BuildingType {
         if (isFortress()) {
             return 3;
         }
-        return this == ARMORY || this == BARRACKS || this == FARM ? 2 : 1;
+        return this == ARMORY || this == BARRACKS || this == ARCHERY_RANGE || this == STABLES || this == FARM ? 2 : 1;
     }
 
     /** Whether it is one of the knights' fortresses. */

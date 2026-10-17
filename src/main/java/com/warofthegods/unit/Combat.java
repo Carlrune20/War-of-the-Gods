@@ -58,6 +58,14 @@ public final class Combat {
         return true;
     }
 
+    /** An arrow that missed what it hit, such as a rider on the move, flies on past it rather than bouncing off. */
+    public static void flyPast(DamageSource source, Entity hit) {
+        Entity arrow = source.getSourceOfDamage();
+        if (arrow instanceof EntityTeamArrow && !hit.worldObj.isRemote) {
+            passThrough((EntityTeamArrow) arrow, hit);
+        }
+    }
+
     /**
      * An arrow that hit a friend would bounce off; instead it goes on from just beyond them, as it was flying. The
      * arrow that hit is removed.
