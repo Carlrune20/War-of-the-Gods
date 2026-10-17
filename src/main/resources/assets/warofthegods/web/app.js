@@ -284,11 +284,226 @@
         }
     }
 
+    // ---------------------------------------------------------------- fog of war
+
+    // As in the game's RTS view: the map is cut into cells FOG_CELL blocks across. A cell is visible while one of
+    // the viewer's team's or its allies' units, players or buildings is near it, and stays explored once seen, so
+    // its ground and the enemy buildings found there show after they move on, while what moves there is hidden.
+    // Cells nobody has been near are black. Observers, and everyone once the game is over or while /rts seeall
+    // lifts it, see everything; /rts reveal marks the whole map explored. What was explored is kept in the browser
+    // for the game, so reloading the page does not forget it.
+    const FOG_CELL = 4;
+    const UNIT_SIGHT = 36;
+    const PLAYER_SIGHT = 48;
+    const BUILDING_SIGHT = 40;
+    const LOOKOUT_SIGHT = 60;
+    const FOG_INTERVAL_MS = 250;
+    const FOG_SAVE_MS = 5000;
+
+    const fog = {
+        key: null, // game number, map corner and team the cells are for
+        on: false,
+        minX: 0,
+        minZ: 0,
+        columns: 0,
+        rows: 0,
+        explored: new Uint8Array(0), // 255 where explored, as the map view takes it
+        visible: new Uint8Array(0),
+        version: 0,
+        time: 0,
+        saved: 0,
+        savedVersion: 0,
+    };
+
+    function fogStorageKey() {
+        return "wotg-fog:" + fog.key;
+    }
+
+    function saveFog() {
+        try {
+            let text = "";
+            for (let i = 0; i < fog.explored.length; i += 8) {
+                let bits = 0;
+                for (let j = 0; j < 8; j++) {
+                    bits |= fog.explored[i + j] ? 1 << j : 0;
+                }
+                text += String.fromCharCode(bits);
+            }
+            window.localStorage.setItem(fogStorageKey(), btoa(text));
+        } catch (error) {
+            // Storage may be full or blocked; the fog is just forgotten on reload then.
+        }
+        fog.savedVersion = fog.version;
+    }
+
+    function loadFog() {
+        try {
+            const saved = window.localStorage.getItem(fogStorageKey());
+            if (!saved) {
+                return;
+            }
+            const text = atob(saved);
+            for (let i = 0; i < fog.explored.length; i++) {
+                if (text.charCodeAt(i >> 3) & (1 << (i & 7))) {
+                    fog.explored[i] = 255;
+                }
+            }
+        } catch (error) {
+            // Nothing saved, or storage is blocked.
+        }
+    }
+
+    // Marks the cells within range of x, z in cells; whether any was not marked yet.
+    function fogSee(cells, x, z, range) {
+        const c0 = Math.max(0, Math.floor((x - range - fog.minX) / FOG_CELL));
+        const c1 = Math.min(fog.columns - 1, Math.floor((x + range - fog.minX) / FOG_CELL));
+        const r0 = Math.max(0, Math.floor((z - range - fog.minZ) / FOG_CELL));
+        const r1 = Math.min(fog.rows - 1, Math.floor((z + range - fog.minZ) / FOG_CELL));
+        const rangeSq = range * range;
+        let changed = false;
+        for (let r = r0; r <= r1; r++) {
+            const dz = fog.minZ + r * FOG_CELL + FOG_CELL / 2 - z;
+            for (let c = c0; c <= c1; c++) {
+                const dx = fog.minX + c * FOG_CELL + FOG_CELL / 2 - x;
+                if (dx * dx + dz * dz <= rangeSq && !cells[r * fog.columns + c]) {
+                    cells[r * fog.columns + c] = 255;
+                    changed = true;
+                }
+            }
+        }
+        return changed;
+    }
+
+    function fogIndex(x, z) {
+        const c = Math.floor((x - fog.minX) / FOG_CELL);
+        const r = Math.floor((z - fog.minZ) / FOG_CELL);
+        return c < 0 || r < 0 || c >= fog.columns || r >= fog.rows ? -1 : r * fog.columns + c;
+    }
+
+    function fogVisible(x, z) {
+        if (!fog.on) {
+            return true;
+        }
+        const i = fogIndex(x, z);
+        return i >= 0 && fog.visible[i] > 0;
+    }
+
+    function fogExplored(x, z) {
+        if (!fog.on) {
+            return true;
+        }
+        const i = fogIndex(x, z);
+        return i >= 0 && fog.explored[i] > 0;
+    }
+
+    function fogExploredArea(x, z, sizeX, sizeZ) {
+        if (!fog.on) {
+            return true;
+        }
+        for (let bx = x; bx < x + sizeX; bx += FOG_CELL) {
+            for (let bz = z; bz < z + sizeZ; bz += FOG_CELL) {
+                if (fogExplored(bx, bz)) {
+                    return true;
+                }
+            }
+        }
+        return fogExplored(x + sizeX - 1, z + sizeZ - 1);
+    }
+
+    // Works out what the viewer's team sees from a state message, before anything is hidden from it.
+    function updateFog(message) {
+        const g = state.game;
+        const team = myTeam();
+        fog.on = !!(g && team && !message.winners && !message.seeAll);
+        if (!fog.on) {
+            view.setFog(null);
+            return;
+        }
+        const key = g.number + ":" + g.minX + ":" + g.minZ + ":" + team.id;
+        if (key !== fog.key) {
+            if (fog.key && fog.version !== fog.savedVersion) {
+                saveFog();
+            }
+            fog.key = key;
+            fog.minX = g.minX;
+            fog.minZ = g.minZ;
+            fog.columns = Math.floor((g.maxX - g.minX) / FOG_CELL) + 1;
+            fog.rows = Math.floor((g.maxZ - g.minZ) / FOG_CELL) + 1;
+            fog.explored = new Uint8Array(fog.columns * fog.rows);
+            fog.visible = new Uint8Array(fog.columns * fog.rows);
+            fog.time = 0;
+            loadFog();
+            fog.version++;
+            fog.savedVersion = fog.version;
+        }
+        if (team.revealed && fog.explored.indexOf(0) >= 0) {
+            fog.explored.fill(255);
+            fog.version++;
+        }
+        const now = performance.now();
+        if (now - fog.time >= FOG_INTERVAL_MS) {
+            fog.time = now;
+            const friends = new Set(team.allies || []);
+            friends.add(team.id);
+            const visible = new Uint8Array(fog.explored.length);
+            for (const u of message.units || []) {
+                if (friends.has(u.team)) {
+                    fogSee(visible, u.x, u.z, UNIT_SIGHT);
+                }
+            }
+            for (const p of message.players || []) {
+                if (friends.has(p.team)) {
+                    fogSee(visible, p.x, p.z, PLAYER_SIGHT);
+                }
+            }
+            for (const b of message.buildings || []) {
+                if (friends.has(b.team)) {
+                    const lookout = b.complete && (b.type === "tower" || b.type === "town_hall" || b.range > 0);
+                    fogSee(visible, b.x + b.sizeX / 2, b.z + b.sizeZ / 2,
+                        (lookout ? LOOKOUT_SIGHT : BUILDING_SIGHT) + Math.max(b.sizeX, b.sizeZ) / 2);
+                }
+            }
+            let changed = false;
+            for (let i = 0; i < visible.length; i++) {
+                if (visible[i] && !fog.explored[i]) {
+                    fog.explored[i] = 255;
+                    changed = true;
+                }
+            }
+            fog.visible = visible;
+            if (changed) {
+                fog.version++;
+            }
+            if (fog.version !== fog.savedVersion && now - fog.saved >= FOG_SAVE_MS) {
+                fog.saved = now;
+                saveFog();
+            }
+        }
+        view.setFog(fog);
+    }
+
+    // Whether the viewer may see a unit, player or building: their own team's and allies' always, the rest only
+    // out of the fog.
+    function friendly(teamId) {
+        const team = myTeam();
+        return !!team && (teamId === team.id || (team.allies || []).includes(teamId));
+    }
+
     function setState(message) {
         state.teams = message.teams;
         state.teamsById = {};
         for (const team of message.teams) {
             state.teamsById[team.id] = team;
+        }
+        updateFog(message);
+        if (fog.on) {
+            message.players = message.players.filter((p) => friendly(p.team) || fogVisible(p.x, p.z));
+            message.units = (message.units || []).filter((u) => friendly(u.team) || fogVisible(u.x, u.z));
+            message.mobs = (message.mobs || []).filter((m) => fogVisible(m.x, m.z));
+            message.buildings = (message.buildings || []).filter((b) => friendly(b.team)
+                || fogExploredArea(b.x, b.z, b.sizeX, b.sizeZ));
+            message.trees = (message.trees || []).filter((t) => fogExplored(t.x, t.z));
+            message.mines = (message.mines || []).filter((m) => fogExploredArea(m.x, m.z, m.sizeX, m.sizeZ));
         }
         const seen = new Set();
         for (const p of message.players) {
@@ -658,7 +873,9 @@
             return;
         }
         orderMark = {x: ground[0], y: ground[1], z: ground[2], color: [1, 0.3, 0.25, 1], time: performance.now()};
-        send("units.move", {units, x: ground[0], z: ground[2], formation, attack: true}).then((reply) => {
+        // Shift adds it as a waypoint after the moves they are on.
+        const body = {units, x: ground[0], z: ground[2], formation, attack: true, queue: Boolean(shift)};
+        send("units.move", body).then((reply) => {
             if (reply) {
                 showToast("Attack move", false);
             }
@@ -1957,7 +2174,8 @@
                 return;
             }
             orderMark = {x: ground[0], y: ground[1], z: ground[2], color: [0.45, 1, 0.5, 1], time: performance.now()};
-            send("units.move", {units, x: ground[0], z: ground[2], formation});
+            // Shift-clicking ground one spot after another lays out waypoints to walk in turn, as for scouting.
+            send("units.move", {units, x: ground[0], z: ground[2], formation, queue: Boolean(shift)});
         }
         view.dirty = true;
     }
@@ -2927,6 +3145,7 @@
     const SELECTED = [0.45, 1, 0.5, 1];
     const ATTACK = [1, 0.3, 0.25, 1];
     const RANGE = [1, 0.85, 0.35, 0.9];
+    const WAYPOINT = [0.45, 1, 0.5, 0.6];
 
     function rect(lines, x0, z0, x1, z1, y, color) {
         lines.push([[x0, y, z0], [x1, y, z0], color], [[x1, y, z0], [x1, y, z1], color],
@@ -2951,6 +3170,17 @@
             } else if (u.order !== "attack" && u.order !== "idle" && u.toX !== undefined) {
                 const y = surfaceY(Math.floor(u.toX), Math.floor(u.toZ));
                 lines.push([[u.drawX, u.drawY + 0.1, u.drawZ], [u.toX, y + 0.1, u.toZ], SELECTED]);
+            }
+            // On from there to each queued waypoint.
+            const waypoints = u.waypoints || [];
+            let fromX = u.toX;
+            let fromZ = u.toZ;
+            for (let i = 0; i + 1 < waypoints.length && fromX !== undefined; i += 2) {
+                const [x, z] = [waypoints[i], waypoints[i + 1]];
+                lines.push([[fromX, surfaceY(Math.floor(fromX), Math.floor(fromZ)) + 0.1, fromZ],
+                    [x, surfaceY(Math.floor(x), Math.floor(z)) + 0.1, z], WAYPOINT]);
+                fromX = x;
+                fromZ = z;
             }
         }
         if (orderMark) {

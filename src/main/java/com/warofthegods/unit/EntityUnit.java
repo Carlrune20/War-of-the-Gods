@@ -250,6 +250,11 @@ public class EntityUnit extends EntityCreature {
     private boolean attackMove;
     private double attackMoveX;
     private double attackMoveZ;
+    /**
+     * Where to walk next, one after another, once at the goal of the move it is on, from shift-clicks: x, z and 1 for
+     * an attack move or 0; not saved.
+     */
+    private final List<double[]> moveQueue = new ArrayList<>();
     /** The building a build, work or attack order is for. */
     private int buildingId;
     /** Building sites a worker builds next, one after another, once done with the one it is on. */
@@ -972,6 +977,62 @@ public class EntityUnit extends EntityCreature {
         }
     }
 
+    /**
+     * Walks to x, z once done with the moves it is on and those queued before, fighting on the way with attack; a
+     * unit doing anything else goes now.
+     */
+    void queueMove(double x, double z, boolean attack) {
+        if (order != Order.MOVE && !attackMove || defending) {
+            orderMove(x, z);
+            if (attack) {
+                makeAttackMove();
+            }
+            return;
+        }
+        moveQueue.add(new double[] { x, z, attack && kind.fights() ? 1 : 0 });
+    }
+
+    /** Where the unit will be once done with the moves it is on and has queued; where it stands if not moving. */
+    double[] lastGoal() {
+        if (!moveQueue.isEmpty()) {
+            double[] last = moveQueue.get(moveQueue.size() - 1);
+            return new double[] { last[0], last[1] };
+        }
+        if (attackMove) {
+            return new double[] { attackMoveX, attackMoveZ };
+        }
+        return order == Order.MOVE ? new double[] { goalX, goalZ } : new double[] { posX, posZ };
+    }
+
+    /** The moves queued after the one it is on, as x, z each. */
+    public List<double[]> getQueuedMoves() {
+        List<double[]> moves = new ArrayList<>();
+        for (double[] move : moveQueue) {
+            moves.add(new double[] { move[0], move[1] });
+        }
+        return moves;
+    }
+
+    /** On to the next queued move, if there is one. */
+    private boolean nextMove() {
+        if (moveQueue.isEmpty()) {
+            return false;
+        }
+        double[] next = moveQueue.remove(0);
+        order = Order.MOVE;
+        goalX = next[0];
+        goalZ = next[1];
+        attackMove = next[2] > 0;
+        attackMoveX = goalX;
+        attackMoveZ = goalZ;
+        target = null;
+        targetId = null;
+        defending = false;
+        hasSpot = false;
+        startOrder();
+        return true;
+    }
+
     /** Whether the unit is on an attack move. */
     public boolean isAttackMoving() {
         return attackMove;
@@ -996,6 +1057,7 @@ public class EntityUnit extends EntityCreature {
     private void dropPlans() {
         attackQueue.clear();
         attackMove = false;
+        moveQueue.clear();
     }
 
     /**
@@ -1356,6 +1418,9 @@ public class EntityUnit extends EntityCreature {
     private void tickMove() {
         if (distanceTo(goalX, goalZ) < ARRIVED) {
             getNavigator().clearPathEntity();
+            if (nextMove()) {
+                return;
+            }
             attackMove = false;
             guardHere();
             return;
@@ -1367,7 +1432,7 @@ public class EntityUnit extends EntityCreature {
             planTicks = 20;
             walkToward(goalX, goalZ);
         }
-        if (!madeProgress()) {
+        if (!madeProgress() && !nextMove()) {
             guardHere();
         }
     }

@@ -28,14 +28,14 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 /**
  * Silverlight, the sword that slew the demon Delrith: a fine sword against anyone, and against demons a terrible one,
  * its blows striking a lesser demon, or any creature of the Nether, many times as hard. There is one in each game,
- * lying in a shrine somewhere on the map.
+ * lying in a shrine somewhere on the map. It never wears out.
  */
 public class ItemSilverlight extends ItemSword {
 
     /** Times as hard as its usual blow it strikes a demon. */
     public static final float DEMON_FACTOR = 6;
 
-    /** As keen as a diamond sword and longer lasting, though no harder a blow against men. */
+    /** As keen as a diamond sword, though no harder a blow against men. */
     private static final ToolMaterial SILVER = EnumHelper.addToolMaterial("SILVERLIGHT", 0, 2500, 8, 3, 22);
 
     public ItemSilverlight() {
@@ -43,6 +43,8 @@ public class ItemSilverlight extends ItemSword {
         setUnlocalizedName(WarOfTheGods.MODID + ".silverlight");
         setTextureName(WarOfTheGods.MODID + ":silverlight");
         setCreativeTab(CreativeTabs.tabCombat);
+        // Unbreakable: an item with no durability is never damaged by use.
+        setMaxDamage(0);
     }
 
     @Override
@@ -54,6 +56,7 @@ public class ItemSilverlight extends ItemSword {
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public void addInformation(ItemStack stack, EntityPlayer player, List lines, boolean advanced) {
         lines.add(EnumChatFormatting.AQUA + "Slays demons");
+        lines.add(EnumChatFormatting.BLUE + "Unbreakable");
     }
 
     /** Whether the entity is a demon: Zamorak's lesser demons, and the creatures of the Nether. */

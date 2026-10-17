@@ -84,6 +84,8 @@ public class CommandRts extends CommandBase {
         "explode",
         "finish",
         "ai",
+        "reveal",
+        "seeall",
         "web");
     private static final List<String> TEAM_SUBCOMMANDS = Arrays
         .asList("list", "create", "remove", "color", "faction", "join", "leave", "auto", "base");
@@ -101,7 +103,7 @@ public class CommandRts extends CommandBase {
     @Override
     public String getCommandUsage(ICommandSender sender) {
         return "/rts <help|info|newgame|quickgame|endgame|spawn|surrender|team|ally|unally|resources|units|buildings|build|wall|bridge|gate|train|damage"
-            + "|upgrade|research|chop|mine|finish|ai|web>";
+            + "|upgrade|research|chop|mine|finish|ai|reveal|seeall|web>";
     }
 
     /** Everyone may run /rts; subcommands that change the game check for op themselves. */
@@ -209,6 +211,12 @@ public class CommandRts extends CommandBase {
             case "ai":
                 ai(sender, rest);
                 break;
+            case "reveal":
+                reveal(sender, rest);
+                break;
+            case "seeall":
+                seeAll(sender, rest);
+                break;
             case "web":
                 web(sender, rest);
                 break;
@@ -286,6 +294,11 @@ public class CommandRts extends CommandBase {
         send(sender, "/rts damage <building id> <amount> - take health off a building; at 0 it is gone (op)");
         send(sender, "/rts ai - list the teams the computer plays");
         send(sender, "/rts ai <team> [on|off] - have the computer play a team, or stop it (op)");
+        send(
+            sender,
+            "/rts reveal [team|all] [off] - show a team the whole map, as though explored, or black it out again"
+                + " (op)");
+        send(sender, "/rts seeall [on|off] - lift the fog of war for everyone, so all of the map shows always (op)");
         send(sender, "/rts web - get a link to the live web map");
         send(sender, "/rts web <player> - send a player a web map link (op)");
         send(sender, "/rts web observer - get a link that views the map without a team (op)");
@@ -1534,6 +1547,48 @@ public class CommandRts extends CommandBase {
                 + (on ? " is now played by the computer" : " is no longer played by the computer"));
     }
 
+    /** For testing: marks the whole map explored for a team, or every team, or takes that back. */
+    private void reveal(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        Game game = requireGame();
+        boolean off = args.length > 0 && "off".equalsIgnoreCase(args[args.length - 1]);
+        int named = off ? args.length - 1 : args.length;
+        if (named > 1) {
+            throw new WrongUsageException("/rts reveal [team|all] [off]");
+        }
+        List<Team> teams = new ArrayList<>();
+        if (named == 0 || "all".equalsIgnoreCase(args[0])) {
+            teams.addAll(game.getTeams());
+        } else {
+            teams.add(requireTeam(game, args[0]));
+        }
+        for (Team team : teams) {
+            team.setRevealed(!off);
+        }
+        String who = named == 0 || "all".equalsIgnoreCase(args[0]) ? "every team"
+            : teams.get(0)
+                .getColoredName() + EnumChatFormatting.GOLD;
+        broadcast(off ? "The map is no longer revealed to " + who : "The whole map is revealed to " + who);
+    }
+
+    /** For testing: lifts the fog of war for everyone, or brings it back. */
+    private void seeAll(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        Game game = requireGame();
+        boolean on;
+        if (args.length == 0) {
+            on = !game.isSeeAll();
+        } else if ("on".equalsIgnoreCase(args[0])) {
+            on = true;
+        } else if ("off".equalsIgnoreCase(args[0])) {
+            on = false;
+        } else {
+            throw new WrongUsageException("/rts seeall [on|off]");
+        }
+        game.setSeeAll(on);
+        broadcast(on ? "The fog of war is lifted: everyone sees everything" : "The fog of war is back");
+    }
+
     private void ally(ICommandSender sender, String[] args, boolean allied) {
         requireOp(sender);
         requireArgs(args, 2, allied ? "/rts ally <team> <team>" : "/rts unally <team> <team>");
@@ -1685,6 +1740,16 @@ public class CommandRts extends CommandBase {
                     return getListOfStringsFromIterableMatchingLastWord(args, teams);
                 }
                 return args.length == 3 ? getListOfStringsMatchingLastWord(args, "on", "off") : null;
+            case "reveal":
+                if (args.length == 2) {
+                    List<String> options = new ArrayList<>(teams);
+                    options.add("all");
+                    options.add("off");
+                    return getListOfStringsFromIterableMatchingLastWord(args, options);
+                }
+                return args.length == 3 ? getListOfStringsMatchingLastWord(args, "off") : null;
+            case "seeall":
+                return args.length == 2 ? getListOfStringsMatchingLastWord(args, "on", "off") : null;
             case "ally":
             case "unally":
                 return args.length <= 3 ? getListOfStringsFromIterableMatchingLastWord(args, teams) : null;

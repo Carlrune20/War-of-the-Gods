@@ -110,6 +110,8 @@ public final class RtsState {
         public boolean defeated;
         /** Seconds left to raise a new town center, or -1 when it has one. */
         public int countdown = -1;
+        /** Whether the whole map has been revealed to the team, for testing. */
+        public boolean revealed;
     }
 
     /** Something with a place in the world: a unit, player or mob. */
@@ -133,6 +135,8 @@ public final class RtsState {
         /** Where it is headed, or NaN. */
         public double toX = Double.NaN;
         public double toZ = Double.NaN;
+        /** Where it walks after that, from shift-clicks: x, z, x, z... */
+        public double[] waypoints = new double[0];
         public int building;
         /** The building that trained it, or 0. */
         public int from;
@@ -257,6 +261,8 @@ public final class RtsState {
     public final List<TeamInfo> teams = new ArrayList<>();
     /** The ids of the teams that won, once the game is over; null while it goes on. */
     public List<String> winners;
+    /** Whether the fog of war is lifted for everyone, for testing. */
+    public boolean seeAll;
     public final Map<String, TeamInfo> teamsById = new HashMap<>();
     public final Map<String, UnitInfo> units = new LinkedHashMap<>();
     public final Map<String, PlayerInfo> players = new LinkedHashMap<>();
@@ -382,6 +388,7 @@ public final class RtsState {
     public void setState(JsonObject json) {
         clearState();
         winners = null;
+        seeAll = bool(json, "seeAll");
         if (json.has("winners")) {
             winners = new ArrayList<>();
             for (JsonElement winner : array(json, "winners")) {
@@ -414,6 +421,7 @@ public final class RtsState {
             }
             info.defeated = team.has("defeated");
             info.countdown = team.has("countdown") ? integer(team, "countdown") : -1;
+            info.revealed = bool(team, "revealed");
             teams.add(info);
             teamsById.put(info.id, info);
         }
@@ -439,6 +447,12 @@ public final class RtsState {
             if (unit.has("toX") && unit.has("toZ")) {
                 info.toX = number(unit, "toX");
                 info.toZ = number(unit, "toZ");
+            }
+            JsonArray waypoints = array(unit, "waypoints");
+            info.waypoints = new double[waypoints.size()];
+            for (int i = 0; i < waypoints.size(); i++) {
+                info.waypoints[i] = waypoints.get(i)
+                    .getAsDouble();
             }
             info.building = integer(unit, "building");
             info.from = integer(unit, "from");

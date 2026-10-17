@@ -10,7 +10,8 @@ import java.util.Set;
  * it; once seen it stays explored, so its ground and the enemy buildings found there show after they move on, while
  * what moves there is hidden. Cells nobody has been near are black. Walking the map on foot, out of the RTS view,
  * explores it too.
- * Without a team, as an observer, and once the game is over, there is no fog.
+ * Without a team, as an observer, and once the game is over, there is no fog, nor while /rts seeall lifts it; /rts
+ * reveal marks the whole map explored for a team.
  */
 final class FogOfWar {
 
@@ -32,6 +33,8 @@ final class FogOfWar {
     private boolean[] visible = new boolean[0];
     private int game = -1;
     private boolean on;
+    /** Whether the whole map has been marked explored, as /rts reveal asked. */
+    private boolean revealed;
     private int ticks;
     /** Bumped whenever what is explored or visible changes, so the fog's look is only made again then. */
     private int version;
@@ -52,7 +55,7 @@ final class FogOfWar {
         RtsState state = client.state;
         RtsState.GameInfo info = state.game;
         RtsState.TeamInfo team = state.myTeam();
-        on = info != null && team != null && state.winners == null;
+        on = info != null && team != null && state.winners == null && !state.seeAll;
         if (info == null) {
             return;
         }
@@ -64,6 +67,7 @@ final class FogOfWar {
             rows = (info.maxZ - info.minZ) / CELL + 1;
             explored = new boolean[columns * rows];
             visible = new boolean[columns * rows];
+            revealed = false;
             version++;
             ticks = 0;
         }
@@ -72,6 +76,11 @@ final class FogOfWar {
                 see(explored, (int) (cell >> 32) * CELL + CELL / 2.0, (int) cell * CELL + CELL / 2.0, PLAYER_SIGHT);
             }
             walked.clear();
+            version++;
+        }
+        if (team != null && team.revealed && !revealed) {
+            Arrays.fill(explored, true);
+            revealed = true;
             version++;
         }
         if (!on || ticks++ % INTERVAL != 0) {

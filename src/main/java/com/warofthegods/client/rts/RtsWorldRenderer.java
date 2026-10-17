@@ -255,6 +255,24 @@ public final class RtsWorldRenderer {
                 double y = client.groundHeight(unit.toX, unit.toZ);
                 line(at[0], at[1] + 0.1, at[2], unit.toX, y + 0.1, unit.toZ, SELECTED, alpha);
             }
+            // On from there to each queued waypoint.
+            double fromX = unit.toX;
+            double fromZ = unit.toZ;
+            for (int i = 0; i + 1 < unit.waypoints.length && !Double.isNaN(fromX); i += 2) {
+                double x = unit.waypoints[i];
+                double z = unit.waypoints[i + 1];
+                line(
+                    fromX,
+                    client.groundHeight(fromX, fromZ) + 0.1,
+                    fromZ,
+                    x,
+                    client.groundHeight(x, z) + 0.1,
+                    z,
+                    SELECTED,
+                    alpha * 0.6F);
+                fromX = x;
+                fromZ = z;
+            }
         }
         double[] mark = client.orderMark;
         if (mark != null) {

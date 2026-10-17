@@ -71,6 +71,12 @@ public final class Commanders {
     private final Queue<Incoming> inbox = new ConcurrentLinkedQueue<>();
     private final Set<UUID> commanding = new HashSet<>();
     private final Map<UUID, EntityCommanderBody> bodies = new HashMap<>();
+    /**
+     * Players back from commanding who get back on the horse their body sat on, with the ticks left before they do.
+     * Put straight back in the saddle, their client would still have the body sitting there as well and, once the
+     * body went, take it off the horse, leaving them riding a horse that does not carry them until they dismount.
+     */
+    private final Map<UUID, Remount> remounts = new HashMap<>();
     private String gameMessage = WebJson.message("game")
         .toString();
     private String stateMessage;
@@ -88,6 +94,19 @@ public final class Commanders {
             this.body = body;
         }
     }
+
+    private static final class Remount {
+
+        final Entity mount;
+        int ticks = REMOUNT_TICKS;
+
+        Remount(Entity mount) {
+            this.mount = mount;
+        }
+    }
+
+    /** Ticks a player back from commanding waits to get back on their horse, once the body is gone for their client. */
+    private static final int REMOUNT_TICKS = 5;
 
     private Commanders() {}
 
@@ -148,6 +167,9 @@ public final class Commanders {
                 run(incoming);
             }
         }
+        if (!remounts.isEmpty()) {
+            remount();
+        }
         if (++ticks % 20 == 0 && any()) {
             for (UUID id : new ArrayList<>(commanding)) {
                 EntityPlayerMP player = find(id);
@@ -171,6 +193,28 @@ public final class Commanders {
                             applyCommanding(player);
                             keepBody(player);
                         }
+            }
+        }
+    }
+
+    /** Puts players back on their horses once they have waited long enough; see {@link #remounts}. */
+    private void remount() {
+        for (UUID id : new ArrayList<>(remounts.keySet())) {
+            Remount remount = remounts.get(id);
+            if (--remount.ticks > 0) {
+                continue;
+            }
+            remounts.remove(id);
+            EntityPlayerMP player = find(id);
+            Entity mount = remount.mount;
+            if (player != null && !commanding.contains(id)
+                && player.ridingEntity == null
+                && player.isEntityAlive()
+                && mount.isEntityAlive()
+                && mount.riddenByEntity == null
+                && mount.worldObj == player.worldObj
+                && mount.getDistanceSqToEntity(player) < 9) {
+                player.mountEntity(mount);
             }
         }
     }
@@ -339,8 +383,8 @@ public final class Commanders {
             if (body.isBurning()) {
                 player.setFire(1);
             }
-            if (mount != null && mount.isEntityAlive() && mount.riddenByEntity == null) {
-                player.mountEntity(mount);
+            if (mount != null && mount.isEntityAlive()) {
+                remounts.put(player.getUniqueID(), new Remount(mount));
             }
         } else if (player.dimension == saved.getInteger("dimension") && player.playerNetServerHandler != null) {
             player.playerNetServerHandler.setPlayerLocation(
@@ -361,6 +405,7 @@ public final class Commanders {
         }
         commanding.clear();
         bodies.clear();
+        remounts.clear();
         inbox.clear();
     }
 

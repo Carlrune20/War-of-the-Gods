@@ -46,6 +46,8 @@ public class Team {
     private int defeatTicks = -1;
     /** Whether the computer plays the team. */
     private boolean ai;
+    /** Whether the whole map has been shown to the team, as though explored, for testing. */
+    private boolean revealed;
 
     Team(Game game, String name, EnumChatFormatting color) {
         this.game = game;
@@ -148,6 +150,16 @@ public class Team {
 
     public void setAi(boolean ai) {
         this.ai = ai;
+        game.changed();
+    }
+
+    /** Whether the team has had the whole map revealed, so none of it is black in the fog of war. */
+    public boolean isRevealed() {
+        return revealed;
+    }
+
+    public void setRevealed(boolean revealed) {
+        this.revealed = revealed;
         game.changed();
     }
 
@@ -332,6 +344,7 @@ public class Team {
         tag.setBoolean("defeated", defeated);
         tag.setInteger("defeatTicks", defeatTicks);
         tag.setBoolean("ai", ai);
+        tag.setBoolean("revealed", revealed);
         return tag;
     }
 
@@ -374,6 +387,7 @@ public class Team {
         team.defeated = tag.getBoolean("defeated");
         team.defeatTicks = tag.hasKey("defeatTicks") ? tag.getInteger("defeatTicks") : -1;
         team.ai = tag.getBoolean("ai");
+        team.revealed = tag.getBoolean("revealed");
         return team;
     }
 }

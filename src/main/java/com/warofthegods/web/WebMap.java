@@ -382,6 +382,9 @@ public final class WebMap {
                     upgrades.add(new JsonPrimitive(upgrade.id));
                 }
                 json.add("upgrades", upgrades);
+                if (team.isRevealed()) {
+                    json.addProperty("revealed", true);
+                }
                 if (team.isDefeated()) {
                     json.addProperty("defeated", true);
                 } else if (team.getDefeatTicks() >= 0) {
@@ -396,6 +399,9 @@ public final class WebMap {
                     winners.add(new JsonPrimitive(team.getId()));
                 }
                 message.add("winners", winners);
+            }
+            if (game.isSeeAll()) {
+                message.addProperty("seeAll", true);
             }
             if (world != null) {
                 for (Object entity : world.playerEntities) {
@@ -587,6 +593,16 @@ public final class WebMap {
             if (heading != null) {
                 json.addProperty("toX", round(heading[0]));
                 json.addProperty("toZ", round(heading[1]));
+            }
+            List<double[]> moves = unit.getQueuedMoves();
+            if (!moves.isEmpty()) {
+                // Where it walks after its goal, from shift-clicks: x, z, x, z...
+                JsonArray waypoints = new JsonArray();
+                for (double[] move : moves) {
+                    waypoints.add(new JsonPrimitive(round(move[0])));
+                    waypoints.add(new JsonPrimitive(round(move[1])));
+                }
+                json.add("waypoints", waypoints);
             }
             if (unit.getBuildingId() != 0) {
                 json.addProperty("building", unit.getBuildingId());
