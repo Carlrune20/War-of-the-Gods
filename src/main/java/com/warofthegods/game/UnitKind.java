@@ -46,7 +46,12 @@ public enum UnitKind {
      * A lesser demon of Zamorak, huge and strong, summoned at a stone circle by four dark wizards for favor, food and
      * gold. Nothing knocks it back, and between its blows it hurls a fireball every 10 to 15 seconds.
      */
-    LESSER_DEMON("lesser_demon", "Lesser demon", "lesserDemon", 10, 8, 0, 0, 6, false, false);
+    LESSER_DEMON("lesser_demon", "Lesser demon", "lesserDemon", 10, 8, 0, 0, 6, false, false),
+    /**
+     * A centaur of Saradomin, man above and horse below, trained at the monastery for food, wood and favor. It shoots
+     * a longbow farther than an archer, harder, and runs as fast as a rider.
+     */
+    CENTAUR("centaur", "Centaur", "centaur", 4, 0, 2, 8, 4, true, false);
 
     public final String id;
     public final String displayName;
@@ -116,9 +121,19 @@ public enum UnitKind {
         return isCaster() ? Spell.WIZARD_SPELLS : new Spell[0];
     }
 
-    /** Whether it is a myth unit, summoned by a god's favor rather than trained: heroes hit it twice as hard. */
+    /** Whether it is a myth unit, a creature of its god's that costs favor: heroes hit it twice as hard. */
     public boolean isMyth() {
-        return this == LESSER_DEMON;
+        return this == LESSER_DEMON || this == CENTAUR;
+    }
+
+    /** Whether it is drawn with a model of its own rather than as a man: a lesser demon and a centaur. */
+    public boolean hasOwnModel() {
+        return this == LESSER_DEMON || this == CENTAUR;
+    }
+
+    /** Whether it runs as fast as a rider: cavalry, and a centaur on its own four legs. */
+    public boolean isFast() {
+        return isMounted() || this == CENTAUR;
     }
 
     /** How much bigger than a man it is drawn and stands. */

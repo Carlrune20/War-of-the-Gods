@@ -101,7 +101,8 @@ public final class GuiRts extends GuiScreen {
         "dark_wizard",
         "zamorak_mage",
         "blue_wizard",
-        "lesser_demon");
+        "lesser_demon",
+        "centaur");
 
     /** Icons drawn as Minecraft items in the view; icons.png has the same pictures for the web map. */
     private static final Map<String, ItemStack> VANILLA_ICONS = new HashMap<>();

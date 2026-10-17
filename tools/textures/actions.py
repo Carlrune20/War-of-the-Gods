@@ -39,7 +39,8 @@ BUILDINGS = ("town_hall", "house", "farm", "barracks", "storehouse", "armory", "
              "white_knights_fortress", "black_knights_fortress", "archery_range", "stables", "chaos_temple",
              "monastery", "wizards_tower", "stone_circle")
 UNITS = ("worker", "soldier", "archer", "white_knight", "black_knight", "tradigee", "sagittare", "cavalry",
-         "chaos_priest", "monk", "dark_wizard", "zamorak_mage", "blue_wizard", "lesser_demon")
+         "chaos_priest", "monk", "dark_wizard", "zamorak_mage", "blue_wizard", "lesser_demon",
+         "centaur")
 
 # Upgrades and other actions: an item picture, ("block", top, side) for a block drawn as the inventory draws it, or
 # ("face", skin) for the face of a skin, such as the knights the knights' upgrades make.

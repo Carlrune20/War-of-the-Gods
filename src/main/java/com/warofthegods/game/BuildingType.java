@@ -59,8 +59,11 @@ public enum BuildingType {
      */
     CHAOS_TEMPLE("chaos_temple", "Chaos temple", "chaosTemple", 3, true, false, UnitKind.CHAOS_PRIEST,
         UnitKind.DARK_WIZARD, UnitKind.ZAMORAK_MAGE),
-    /** Saradomin's monastery: trains monks, who earn favor just by living. Saradomin's teams only. */
-    MONASTERY("monastery", "Monastery", "monastery", 3, true, false, UnitKind.MONK),
+    /**
+     * Saradomin's monastery: trains monks, who earn favor just by living, and centaurs for that favor. Saradomin's
+     * teams only.
+     */
+    MONASTERY("monastery", "Monastery", "monastery", 3, true, false, UnitKind.MONK, UnitKind.CENTAUR),
     /** Saradomin's wizards' tower: trains blue wizards. Saradomin's teams only. */
     WIZARDS_TOWER("wizards_tower", "Wizards' tower", "wizardsTower", 3, true, false, UnitKind.BLUE_WIZARD),
     /**
