@@ -1,5 +1,6 @@
 package com.warofthegods.client.rts;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -10,6 +11,7 @@ import net.minecraft.client.renderer.RenderBlocks;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.client.renderer.texture.TextureMap;
+import net.minecraft.world.World;
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
@@ -40,16 +42,19 @@ public final class RtsWorldRenderer {
     private String ghostKey;
     private final Map<String, Schematic> looks = new HashMap<>();
 
-    /** How far around what the camera looks at the fog of war is drawn, in blocks. */
+    /** How far around what the camera looks at the fog of war is drawn at least, in blocks. */
     private static final int FOG_REACH = 144;
-    /** Milliseconds before the fog is made again anyway, as the ground it lies on comes in. */
+    /** Milliseconds before the fog is made again anyway, as the ground it lies on changes or comes in. */
     private static final long FOG_REFRESH = 2000;
+    private static final long FOG_REFRESH_PARTIAL = 250;
     /** The fog of war as made last, in a display list, and what it was made for. */
     private int fogList = -1;
     private int fogVersion = -1;
     private int fogX;
     private int fogZ;
     private long fogTime;
+    /** Whether the fog was made while some of the ground under it had not come in. */
+    private boolean fogPartial;
 
     RtsWorldRenderer(RtsClient client) {
         this.client = client;
@@ -294,22 +299,23 @@ public final class RtsWorldRenderer {
     }
 
     /**
-     * The fog of war near the camera: solid black over all the ground the viewer's team has not explored. It lies on
-     * top of every column the client has, sides down cliffs included, and is kept in a display list, made again when
-     * what is seen changes or the camera moves on.
+     * The fog of war around the camera: solid black over all the ground the viewer's team has not explored, out as far
+     * as the world is drawn. It lies on top of everything standing on each column, sides down cliffs included, so no
+     * terrain shows through, and is kept in a display list, made again when more is explored or the camera moves on.
      */
     private void fog() {
         FogOfWar fog = client.fog;
         RtsCamera camera = client.getCamera();
-        int cx = fog.cellX(camera.focusX) >> 4;
-        int cz = fog.cellZ(camera.focusZ) >> 4;
+        int cx = fog.cellX(camera.focusX) >> 6;
+        int cz = fog.cellZ(camera.focusZ) >> 6;
         long now = System.currentTimeMillis();
         if (fogList < 0) {
             fogList = GLAllocation.generateDisplayLists(1);
             fogVersion = -1;
         }
-        if (fogVersion != fog.version() || cx != fogX || cz != fogZ || now - fogTime > FOG_REFRESH) {
-            fogVersion = fog.version();
+        long refresh = fogPartial ? FOG_REFRESH_PARTIAL : FOG_REFRESH;
+        if (fogVersion != fog.exploredVersion() || cx != fogX || cz != fogZ || now - fogTime > refresh) {
+            fogVersion = fog.exploredVersion();
             fogX = cx;
             fogZ = cz;
             fogTime = now;
@@ -323,50 +329,97 @@ public final class RtsWorldRenderer {
     private void makeFog(RtsCamera camera) {
         RtsState.GameInfo game = client.state.game;
         FogOfWar fog = client.fog;
-        int x0 = Math.max(game.minX, (int) camera.focusX - FOG_REACH);
-        int x1 = Math.min(game.maxX, (int) camera.focusX + FOG_REACH);
-        int z0 = Math.max(game.minZ, (int) camera.focusZ - FOG_REACH);
-        int z1 = Math.min(game.maxZ, (int) camera.focusZ + FOG_REACH);
+        int reach = Math.max(FOG_REACH, Minecraft.getMinecraft().gameSettings.renderDistanceChunks * 16 + 64);
+        int x0 = Math.max(game.minX, (int) camera.focusX - reach);
+        int x1 = Math.min(game.maxX, (int) camera.focusX + reach);
+        int z0 = Math.max(game.minZ, (int) camera.focusZ - reach);
+        int z1 = Math.min(game.maxZ, (int) camera.focusZ + reach);
+        fogPartial = false;
         if (x0 > x1 || z0 > z1) {
             return;
         }
         int width = x1 - x0 + 1;
-        int[] heights = new int[width * (z1 - z0 + 1)];
+        int depth = z1 - z0 + 1;
+        // Which columns are unexplored, and how high the fog lies on each of those and their neighbours.
+        boolean[] hidden = new boolean[width * depth];
+        int[] heights = new int[width * depth];
+        Arrays.fill(heights, Integer.MIN_VALUE);
         for (int z = z0; z <= z1; z++) {
             for (int x = x0; x <= x1; x++) {
-                heights[(z - z0) * width + x - x0] = (int) client.groundHeight(x, z);
+                hidden[(z - z0) * width + x - x0] = !fog.isExplored(x + 0.5, z + 0.5);
             }
         }
+        World world = Minecraft.getMinecraft().theWorld;
         tessellator.startDrawingQuads();
         tessellator.setColorRGBA_F(0, 0, 0, 1);
         for (int z = z0; z <= z1; z++) {
             for (int x = x0; x <= x1; x++) {
-                if (fog.isExplored(x + 0.5, z + 0.5)) {
+                if (!hidden[(z - z0) * width + x - x0]) {
                     continue;
                 }
-                double y = heights[(z - z0) * width + x - x0] + 0.02;
-                quad(x, y, z, x, y, z + 1, x + 1, y, z + 1, x + 1, y, z);
-                // Down the sides to lower neighbours, so a cliff is covered as well as its top.
-                double west = x > x0 ? heights[(z - z0) * width + x - 1 - x0] : y;
-                double east = x < x1 ? heights[(z - z0) * width + x + 1 - x0] : y;
-                double north = z > z0 ? heights[(z - 1 - z0) * width + x - x0] : y;
-                double south = z < z1 ? heights[(z + 1 - z0) * width + x - x0] : y;
-                if (west < y) {
-                    quad(x, west, z, x, y, z, x, y, z + 1, x, west, z + 1);
+                int top = coverHeight(world, heights, width, x0, z0, x, z);
+                double y = top + 0.02;
+                // One top for the run of hidden columns at this height along x.
+                int end = x;
+                while (end < x1 && hidden[(z - z0) * width + end + 1 - x0]
+                    && coverHeight(world, heights, width, x0, z0, end + 1, z) == top) {
+                    end++;
                 }
-                if (east < y) {
-                    quad(x + 1, east, z, x + 1, east, z + 1, x + 1, y, z + 1, x + 1, y, z);
+                quad(x, y, z, x, y, z + 1, end + 1, y, z + 1, end + 1, y, z);
+                for (int cx = x; cx <= end; cx++) {
+                    // Down the sides to lower neighbours, so a cliff is covered as well as its top.
+                    double west = cx > x0 ? coverHeight(world, heights, width, x0, z0, cx - 1, z) : y;
+                    double east = cx < x1 ? coverHeight(world, heights, width, x0, z0, cx + 1, z) : y;
+                    double north = z > z0 ? coverHeight(world, heights, width, x0, z0, cx, z - 1) : y;
+                    double south = z < z1 ? coverHeight(world, heights, width, x0, z0, cx, z + 1) : y;
+                    if (west < y) {
+                        quad(cx, west, z, cx, y, z, cx, y, z + 1, cx, west, z + 1);
+                    }
+                    if (east < y) {
+                        quad(cx + 1, east, z, cx + 1, east, z + 1, cx + 1, y, z + 1, cx + 1, y, z);
+                    }
+                    if (north < y) {
+                        quad(cx, north, z, cx + 1, north, z, cx + 1, y, z, cx, y, z);
+                    }
+                    if (south < y) {
+                        quad(cx, south, z + 1, cx, y, z + 1, cx + 1, y, z + 1, cx + 1, south, z + 1);
+                    }
                 }
-                if (north < y) {
-                    quad(x, north, z, x + 1, north, z, x + 1, y, z, x, y, z);
-                }
-                if (south < y) {
-                    quad(x, south, z + 1, x, y, z + 1, x + 1, y, z + 1, x + 1, south, z + 1);
-                }
+                x = end;
             }
         }
         tessellator.draw();
         GL11.glDepthMask(true);
+    }
+
+    /**
+     * Where the fog lies on a column: on top of everything standing there, grass, flowers, fences and torches
+     * included, which the height map leaves out, so none of it pokes through. Kept in heights once worked out.
+     */
+    private int coverHeight(World world, int[] heights, int width, int x0, int z0, int x, int z) {
+        int i = (z - z0) * width + x - x0;
+        if (heights[i] != Integer.MIN_VALUE) {
+            return heights[i];
+        }
+        int top;
+        if (world == null || !world.getChunkProvider()
+            .chunkExists(x >> 4, z >> 4)) {
+            // Not here yet: the fog is made again soon, once it is.
+            fogPartial = true;
+            top = (int) client.groundHeight(x, z);
+        } else {
+            top = world.getHeightValue(x, z);
+            for (int y = top, air = 0; y < 256 && air < 4; y++) {
+                if (world.isAirBlock(x, y, z)) {
+                    air++;
+                } else {
+                    air = 0;
+                    top = y + 1;
+                }
+            }
+        }
+        heights[i] = top;
+        return top;
     }
 
     /** The edge of the map near the camera, along the ground. */
