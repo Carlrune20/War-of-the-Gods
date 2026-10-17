@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Builds War of the Gods' own box models: the lesser demon, Zamorak's staff and Silverlight.
+"""Builds War of the Gods' own box models: the lesser demon, the centaur, Zamorak's staff and Silverlight.
 
     python3 tools/models/generate.py [--preview DIR]
 
 For each model it writes its parts as JSON into src/main/resources/assets/warofthegods/models/ and its texture
-(and for the demon, its team mask: where the team's color goes) into textures/models/. Items also get their
+(and for the demon and the centaur, its team mask: where the team's color goes) into textures/models/. Items also get their
 inventory icon, drawn from the model, in textures/items/. With --preview it draws each model the way the game does.
 """
 
@@ -347,6 +347,316 @@ DEMON_POSES = {
                   "left_arm": (0.3, 0, 0)},
 }
 
+# ---------------------------------------------------------------- the centaur
+#
+# Saradomin's centaur, as in RuneScape: a man from the waist up, bearded, with long brown hair held back by a gold
+# circlet, on a chestnut horse's body with white socks, a long dark tail and a blanket over its back. It carries a
+# longbow in its left hand and a quiver of arrows on its back. Its blanket, sash, quiver strap and arm bands are in
+# its team's color.
+
+COAT = (138, 84, 46)
+COAT_DARK = (100, 58, 32)
+COAT_DEEP = (70, 40, 24)
+COAT_LIGHT = (164, 106, 62)
+SOCK = (232, 226, 214)
+HOOF = (58, 50, 46)
+MANE = (52, 34, 24)
+MANE_LIGHT = (78, 52, 34)
+SKIN = (222, 170, 128)
+SKIN_DARK = (190, 136, 98)
+SKIN_LIGHT = (238, 192, 152)
+HAIR = (96, 62, 36)
+HAIR_DARK = (70, 44, 26)
+EYE_WHITE = (240, 240, 236)
+IRIS = (52, 92, 170)
+LEATHER = (110, 72, 40)
+LEATHER_DARK = (74, 46, 26)
+BOWWOOD = (150, 104, 56)
+BOWWOOD_DARK = (104, 70, 36)
+STRING = (236, 232, 220)
+FLETCH = (240, 240, 240)
+TRIM = (226, 186, 70)
+
+
+def coat(dark_back=True):
+    """A chestnut coat: darker along the top and the edges, as if rounded, and deep underneath."""
+
+    def fn(face, x, y, w, h):
+        if face == "bottom":
+            return COAT_DEEP
+        if face == "top":
+            return COAT_DARK if dark_back else COAT
+        base = COAT
+        if face in ("left", "right", "front", "back"):
+            if y == 0 and dark_back:
+                base = COAT_DARK
+            elif y >= h - 2:
+                base = shade(COAT, 0.86)
+            elif 1 <= y <= 2 and face in ("left", "right"):
+                base = COAT_LIGHT
+            edge = min(x, w - 1 - x)
+            if edge == 0 and w > 2:
+                base = shade(base, 0.85)
+        return base
+
+    return fn
+
+
+def horse_chest(face, x, y, w, h):
+    if face == "front":
+        # The breast, split down the middle where the man's waist joins it.
+        if x in (w // 2 - 1, w // 2) and y > 1:
+            return shade(COAT, 0.85)
+        return COAT_LIGHT if y < 3 else COAT
+    return coat()(face, x, y, w, h)
+
+
+def blanket(face, x, y, w, h):
+    if face in ("left", "right", "front", "back") and y == h - 1:
+        return TRIM
+    if face in ("left", "right") and y == h - 2 and x % 2 == 0:
+        return (TEAM, 150)
+    if face == "top" and (x in (0, w - 1) or y in (0, h - 1)):
+        return TRIM
+    return (TEAM, 215)
+
+
+def leg_upper(face, x, y, w, h):
+    if face == "top":
+        return COAT_DARK
+    return coat(dark_back=False)(face, x, y, w, h)
+
+
+def shin(face, x, y, w, h):
+    if face == "top":
+        return COAT
+    # A white sock, ragged at its top.
+    if y >= 1 or (y == 0 and x % 2):
+        return SOCK if y < h - 1 else shade(SOCK, 0.9)
+    return COAT
+
+
+def horse_hoof(face, x, y, w, h):
+    return HOOF if face != "top" else shade(SOCK, 0.9)
+
+
+def tail_hair(i):
+    def fn(face, x, y, w, h):
+        if face in ("top", "bottom"):
+            return MANE
+        # Strands down its length, lighter and darker.
+        return MANE_LIGHT if (x + i) % 3 == 0 else MANE if y < h - 1 else shade(MANE, 0.8)
+
+    return fn
+
+
+def torso(face, x, y, w, h):
+    if face == "front":
+        # Chest and belly: two slabs of muscle over a lean stomach.
+        if y == 4 and 0 < x < w - 1:
+            return SKIN_DARK
+        if x in (w // 2 - 1, w // 2) and 1 < y < h - 1:
+            return shade(SKIN, 0.9)
+        if y in (7, 9) and 1 < x < w - 2:
+            return shade(SKIN, 0.92)
+        if 1 <= y <= 3 and (1 <= x <= 2 or w - 3 <= x <= w - 2):
+            return SKIN_LIGHT
+        return SKIN
+    if face == "back":
+        if x in (w // 2 - 1, w // 2):
+            return SKIN_DARK
+        return shade(SKIN, 0.94)
+    if face in ("left", "right") and (x == 0 or x == w - 1):
+        return shade(SKIN, 0.9)
+    return SKIN
+
+
+def sash(face, x, y, w, h):
+    if face == "front" and abs(x - (w - 1) / 2) < 1.1:
+        return TRIM
+    if face in ("top", "bottom"):
+        return (TEAM, 130)
+    return (TEAM, 200 if y else 160)
+
+
+def strap(face, x, y, w, h):
+    if face in ("front", "back") and y % 4 == 2 and x == 0:
+        return (TEAM, 150)
+    return (TEAM, 205)
+
+
+def face_paint(face, x, y, w, h):
+    if face == "front":
+        if y == 3 and x in (1, 2, 5, 6):
+            return HAIR_DARK
+        if y == 4 and x in (1, 2, 5, 6):
+            return IRIS if x in (2, 5) else EYE_WHITE
+        if y == 5 and x in (3, 4):
+            return SKIN_DARK
+        if y == 6 and 2 <= x <= 5:
+            return shade(SKIN, 0.8)
+        return SKIN
+    if face == "top":
+        return HAIR
+    if face in ("left", "right") and y in (4, 5) and x in (3, 4):
+        return SKIN_DARK
+    return SKIN
+
+
+def hair(face, x, y, w, h):
+    if face == "bottom":
+        return HAIR_DARK
+    if face == "front":
+        # The fringe over the brow is a little lighter.
+        return HAIR if y > 0 or x % 3 else shade(HAIR, 1.12)
+    return HAIR_DARK if (x + y) % 4 == 0 else HAIR
+
+
+def long_hair(face, x, y, w, h):
+    if face == "front":
+        return None
+    if face in ("back", "left", "right"):
+        if y == h - 1 and x % 2:
+            return None
+        return HAIR_DARK if x % 3 == 0 else HAIR
+    return HAIR
+
+
+def beard(face, x, y, w, h):
+    if face == "front" and y == 0 and 1 < x < w - 2:
+        return (120, 50, 40)
+    if face == "front" and y == h - 1 and x in (0, w - 1):
+        return None
+    return HAIR if (x + y) % 3 else HAIR_DARK
+
+
+def circlet(face, x, y, w, h):
+    # A gold band with Saradomin's blue gem at the front.
+    if face == "front" and x in (w // 2 - 1, w // 2):
+        return (70, 130, 230)
+    if face in ("top", "bottom"):
+        return None
+    return TRIM if x % 3 else shade(TRIM, 0.85)
+
+
+def arm(face, x, y, w, h):
+    if face == "bottom":
+        return SKIN_DARK
+    if face in ("left", "right", "front", "back") and (x == 0 or x == w - 1):
+        return shade(SKIN, 0.92)
+    return SKIN
+
+
+def arm_band(face, x, y, w, h):
+    return (TEAM, 215 if y == 0 else 180)
+
+
+def bracer(face, x, y, w, h):
+    if y == 0 or y == h - 1:
+        return LEATHER_DARK
+    return LEATHER
+
+
+def quiver(face, x, y, w, h):
+    if face in ("top",):
+        return LEATHER_DARK
+    if y in (1, h - 2):
+        return TRIM
+    return LEATHER if x % 2 else shade(LEATHER, 0.9)
+
+
+def fletching(face, x, y, w, h):
+    if face == "top":
+        return (40, 30, 24) if (x + y) % 2 else FLETCH
+    return FLETCH if y < h - 1 else (196, 40, 40)
+
+
+def bowwood(face, x, y, w, h):
+    return BOWWOOD if (y + x) % 3 else BOWWOOD_DARK
+
+
+def bow_grip(face, x, y, w, h):
+    return LEATHER_DARK if y % 2 else LEATHER
+
+
+def bowstring(face, x, y, w, h):
+    return STRING
+
+
+def centaur():
+    m = Model("centaur", 128, 128, seed=11)
+    # The horse's body, level, its front toward -z.
+    body = m.part("body", pivot=(0, 9, 1))
+    body.box(-5, -4, -10, 10, 8, 20, coat())
+    body.box(-4.5, -3.5, -12, 9, 7, 3, horse_chest)                   # the breast
+    body.box(-5.5, -4.5, 5, 11, 8, 7, coat())                          # the rump, broader
+    body.box(-5.5, -4.6, -4, 11, 5, 9, blanket, inflate=0.15)
+    tail = body.child("tail", pivot=(0, -3.5, 11.5), rotation=(0.3, 0, 0))
+    tail.box(-1.5, -0.5, -1, 3, 5, 2, tail_hair(0))
+    tail_end = tail.child("tail_end", pivot=(0, 4.5, 0), rotation=(0.1, 0, 0))
+    tail_end.box(-1.5, 0, -1, 3, 9, 3, tail_hair(1))
+
+    # The man, from the waist up, standing out of the front of the horse.
+    man = body.child("torso", pivot=(0, -3, -8))
+    man.box(-4, -12, -2.5, 8, 12, 5, torso)
+    man.box(-4.5, -2, -3, 9, 2, 6, sash, inflate=0.1)
+    man.child("strap", pivot=(0, -6.5, 0), rotation=(0, 0, 0.75)).box(-0.5, -6, -3, 1, 12, 6, strap)
+    quiver_part = man.child("quiver", pivot=(1, -6, 3), rotation=(0.15, 0, -0.55))
+    quiver_part.box(-1.5, -5, 0, 3, 10, 2, quiver)
+    quiver_part.box(-1, -7, 0.5, 2, 2, 1, fletching)
+
+    head = man.child("head", pivot=(0, -12, 0))
+    head.box(-4, -8, -4, 8, 8, 8, face_paint)
+    head.box(-4, -8, -4, 8, 2, 8, hair, inflate=0.3)                  # hair over the crown and brow
+    head.box(-4, -6, 2, 8, 8, 3, long_hair, inflate=0.3)             # long hair down the back of the neck
+    head.box(-3, -2, -5, 6, 3, 1, beard, inflate=0.05)
+    head.box(-4, -6.6, -4, 8, 1, 8, circlet, inflate=0.45)
+
+    for side in (-1, 1):
+        name = "left" if side > 0 else "right"
+        arm_part = man.child("%s_arm" % name, pivot=(side * 5.5, -10.5, 0),
+                             rotation=(-0.35 if side > 0 else -0.12, 0, side * -0.1))
+        arm_part.box(-1.5, -1.5, -1.5, 3, 11, 3, arm, mirror=side > 0)
+        arm_part.box(-1.5, 1, -1.5, 3, 2, 3, arm_band, inflate=0.2)
+        arm_part.box(-1.5, 6, -1.5, 3, 3, 3, bracer, inflate=0.15)
+        if side > 0:
+            # The longbow in the left hand, upright whether the arm hangs or is held out to shoot.
+            bow = arm_part.child("bow", pivot=(0, 8.5, -0.5), rotation=(0.35, 0, 0))
+            bow.box(-0.5, -1.5, -0.5, 1, 3, 1, bow_grip, inflate=0.1)
+            upper = bow.child("bow_upper", pivot=(0, -1.5, 0), rotation=(-0.3, 0, 0))
+            upper.box(-0.5, -6, -0.5, 1, 6, 1, bowwood)
+            upper.child("bow_upper_tip", pivot=(0, -6, 0), rotation=(-0.35, 0, 0)).box(-0.5, -2, -0.5, 1, 2, 1,
+                                                                                         bowwood, inflate=-0.1)
+            lower = bow.child("bow_lower", pivot=(0, 1.5, 0), rotation=(0.3, 0, 0))
+            lower.box(-0.5, 0, -0.5, 1, 6, 1, bowwood)
+            lower.child("bow_lower_tip", pivot=(0, 6, 0), rotation=(0.35, 0, 0)).box(-0.5, 0, -0.5, 1, 2, 1,
+                                                                                       bowwood, inflate=-0.1)
+            bow.box(-0.5, -8.9, 2.6, 1, 18, 1, bowstring, inflate=-0.38)
+
+    # Four legs: the forelegs slim, the hind legs with heavy thighs; white socks and dark hooves.
+    for front in (True, False):
+        for side in (-1, 1):
+            name = "%s_%s_leg" % ("front" if front else "back", "left" if side > 0 else "right")
+            leg = m.part(name, pivot=(side * 3, 12 if front else 11, -8 if front else 8))
+            if front:
+                leg.box(-1.5, -1, -1.5, 3, 7, 3, leg_upper, mirror=side > 0)
+            else:
+                leg.box(-2, -2, -2, 4, 8, 4, leg_upper, mirror=side > 0)
+            low = leg.child(name.replace("_leg", "_shin"), pivot=(0, 6, 0))
+            low.box(-1, 0, -1, 2, 5 if front else 6, 2, shin, mirror=side > 0)
+            low.box(-1.5, 5 if front else 6, -1.5, 3, 1, 3, horse_hoof)
+    return m
+
+
+CENTAUR_POSES = {
+    "front": {},
+    "walking": {"front_left_leg": (-0.6, 0, 0), "back_right_leg": (-0.6, 0, 0), "front_right_leg": (0.6, 0, 0),
+                "back_left_leg": (0.6, 0, 0), "front_left_shin": (0.5, 0, 0), "back_right_shin": (0.3, 0, 0),
+                "tail": (0.2, 0.3, 0)},
+    "shooting": {"left_arm": (-math.pi / 2 + 0.35, 0.15, 0.1), "bow": (math.pi / 2 - 0.35, 0, 0),
+                 "right_arm": (-math.pi / 2 + 0.12, -0.55, -0.1), "head": (0, 0.15, 0)},
+}
+
 # ---------------------------------------------------------------- Zamorak's staff
 #
 # Drawn at twice the detail of a block's pixels: one unit is half a pixel. The staff runs along y, its top up (-y),
@@ -578,7 +888,7 @@ def silverlight():
 
 # ---------------------------------------------------------------- output
 
-MODELS_BUILT = {"lesser_demon": lesser_demon, "zamorak_staff": zamorak_staff, "silverlight": silverlight}
+MODELS_BUILT = {"lesser_demon": lesser_demon, "centaur": centaur, "zamorak_staff": zamorak_staff, "silverlight": silverlight}
 ICONS = {"zamorak_staff", "silverlight"}
 ICON_SIZE = 32
 
@@ -621,8 +931,9 @@ def main():
         if args.preview:
             os.makedirs(args.preview, exist_ok=True)
             background = (54, 62, 74)
-            if name == "lesser_demon":
-                for pose, extra in DEMON_POSES.items():
+            if name in ("lesser_demon", "centaur"):
+                poses = DEMON_POSES if name == "lesser_demon" else CENTAUR_POSES
+                for pose, extra in poses.items():
                     for yaw in (25, 145):
                         image = boxmodel.render(model, texture, size=640, yaw=yaw, pitch=12, pose=extra, mask=mask,
                                                 team=(200, 40, 40) if yaw < 90 else (50, 90, 220),

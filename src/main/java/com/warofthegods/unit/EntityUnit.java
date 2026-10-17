@@ -142,6 +142,8 @@ public class EntityUnit extends EntityCreature {
      * the height stays a man's, so it fits under what a man does.
      */
     private static final float MOUNTED_WIDTH = 0.9F;
+    /** How tall a centaur stands, to the top of its head. */
+    private static final float CENTAUR_HEIGHT = 2.4F;
     /** Ticks a rider has to be on the move before arrows start to miss it, and how often they then miss. */
     private static final int MOUNTED_DODGE_TICKS = 20;
     private static final float MOUNTED_DODGE_CHANCE = 0.5F;
@@ -434,7 +436,7 @@ public class EntityUnit extends EntityCreature {
     private Item tool() {
         Team team = team();
         // Blue wizards hold a staff, Zamorak mages Zamorak's own and dark wizards nothing, casting from bare hands;
-        // priests and monks a holy book; a demon its claws.
+        // priests and monks a holy book; a demon its claws, and a centaur the bow its model has in hand.
         if (kind.isCaster()) {
             return kind == UnitKind.ZAMORAK_MAGE ? WarOfTheGods.zamorakStaff
                 : kind == UnitKind.DARK_WIZARD ? null : Items.stick;
@@ -442,7 +444,7 @@ public class EntityUnit extends EntityCreature {
         if (kind.worships()) {
             return Items.book;
         }
-        if (kind == UnitKind.LESSER_DEMON) {
+        if (kind.hasOwnModel()) {
             return null;
         }
         if (kind.ranged) {
@@ -530,8 +532,8 @@ public class EntityUnit extends EntityCreature {
         if (attack.getBaseValue() != damage) {
             attack.setBaseValue(damage);
         }
-        // Riders go faster than men on foot, and their horses make them wider.
-        double speed = MOVEMENT_SPEED * (kind.isMounted() ? MOUNTED_SPEED : 1);
+        // Riders and centaurs go faster than men on foot, and their horses make them wider.
+        double speed = MOVEMENT_SPEED * (kind.isFast() ? MOUNTED_SPEED : 1);
         IAttributeInstance movement = getEntityAttribute(SharedMonsterAttributes.movementSpeed);
         if (movement.getBaseValue() != speed) {
             movement.setBaseValue(speed);
@@ -1298,10 +1300,11 @@ public class EntityUnit extends EntityCreature {
         }
     }
 
-    /** A rider on its horse is wider than a man on foot, and a demon wider and taller. */
+    /** A rider on its horse is wider than a man on foot, a centaur as wide and taller, and a demon taller still. */
     private void fitSize(UnitKind kind) {
-        float wide = kind.isMounted() || kind == UnitKind.LESSER_DEMON ? MOUNTED_WIDTH : 0.6F;
-        float tall = 1.8F * Math.max(1, kind == UnitKind.LESSER_DEMON ? kind.scale() : 1);
+        float wide = kind.isMounted() || kind.hasOwnModel() ? MOUNTED_WIDTH : 0.6F;
+        float tall = kind == UnitKind.CENTAUR ? CENTAUR_HEIGHT
+            : 1.8F * Math.max(1, kind == UnitKind.LESSER_DEMON ? kind.scale() : 1);
         if (width != wide || height != tall) {
             setSize(wide, tall);
         }

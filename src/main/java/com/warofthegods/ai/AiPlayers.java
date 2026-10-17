@@ -145,6 +145,8 @@ public final class AiPlayers {
     /** Blocks round Sir Tradigee it looks at the enemies of to pick his prayer, and towers shoot about this far. */
     private static final double PRAYER_RANGE = 20;
     private static final double TOWER_REACH = 24;
+    /** Centaurs it keeps at most. */
+    private static final int MAX_CENTAURS = 6;
     /** Lesser demons it keeps at most. */
     private static final int MAX_DEMONS = 2;
     /** Of food and gold, how much more than a lesser demon costs it keeps in hand after summoning one. */
@@ -1261,8 +1263,8 @@ public final class AiPlayers {
 
     /**
      * Trains warriors at its barracks, archers at its archery range, cavalry at its stables, dark wizards and now and
-     * then a Zamorak mage at a chaos temple and blue wizards at a wizards' tower, and at a knights' fortress its hero
-     * when it has none, and knights otherwise.
+     * then a Zamorak mage at a chaos temple, blue wizards at a wizards' tower, centaurs at a monastery whenever its
+     * monks have earned the favor, and at a knights' fortress its hero when it has none, and knights otherwise.
      */
     private static void trainFighters(Game game, Team team, State state, int fighters) {
         int planned = fighters;
@@ -1286,6 +1288,16 @@ public final class AiPlayers {
             if (trains != null) {
                 if (team.spend(trains.cost())) {
                     building.enqueue(trains, true);
+                }
+            } else if (building.type == BuildingType.MONASTERY) {
+                int centaurs = queued(game, team, UnitKind.CENTAUR);
+                for (EntityUnit unit : Units.get()
+                    .getUnits(team)) {
+                    centaurs += unit.getKind() == UnitKind.CENTAUR ? 1 : 0;
+                }
+                if (centaurs < MAX_CENTAURS && team.spend(UnitKind.CENTAUR.cost())) {
+                    building.enqueue(UnitKind.CENTAUR, true);
+                    WarOfTheGods.LOG.info("AI {} is training a centaur", team.getName());
                 }
             } else if (building.type.isFortress()) {
                 // The hero first, whenever it has none.

@@ -40,6 +40,7 @@ public class Config {
         unitCosts.put(UnitKind.ZAMORAK_MAGE, new long[] { 80, 0, 120, 0 });
         unitCosts.put(UnitKind.BLUE_WIZARD, new long[] { 60, 0, 50, 0 });
         unitCosts.put(UnitKind.LESSER_DEMON, new long[] { 300, 0, 300, 7 });
+        unitCosts.put(UnitKind.CENTAUR, new long[] { 150, 150, 0, 3 });
     }
 
     public static int unitsPerTeam = 100;

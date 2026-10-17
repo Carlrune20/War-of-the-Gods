@@ -968,7 +968,7 @@
         "gate", "white_knights_fortress", "black_knights_fortress", "white_knight", "black_knight", "tradigee",
         "sagittare", "archery_range", "stables", "cavalry", "horse", "favor", "chaos_temple", "monastery",
         "wizards_tower", "stone_circle", "chaos_priest", "monk", "dark_wizard", "zamorak_mage", "blue_wizard",
-        "lesser_demon"];
+        "lesser_demon", "centaur"];
 
     function sprite(name) {
         const span = el("span", "sprite");

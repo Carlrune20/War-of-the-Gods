@@ -26,7 +26,8 @@ import com.warofthegods.unit.Prayer;
  * Draws a unit with the player model in the skin of its kind and its team's faction, with bands round its arms and
  * waist in its team's color, and any armor its team's upgrades give it. The name above its head is in its team's
  * color too. Archers raise their bow as they draw it, and heroes stand taller than the rest. A lesser demon has a
- * model of its own (see {@link ModelDemon}) and stands tallest of all, its belt and arm bands in its team's color. A
+ * model of its own (see {@link ModelDemon}) and stands tallest of all, its belt and arm bands in its team's color; so
+ * does a centaur (see {@link ModelCentaur}), its blanket, belt, quiver strap and arm bands in its team's color. A
  * hero's protection
  * prayer shows above his name while it is up. Knights wear full plate with a plume in their team's color, and their
  * elite upgrades change their armor. Cavalry sit on a horse, white for Saradomin and black for Zamorak, drawn
@@ -44,6 +45,13 @@ public class RenderUnit extends RenderBiped {
     private static final ResourceLocation DEMON_TEAM = new ResourceLocation(
         WarOfTheGods.MODID,
         "textures/models/lesser_demon_team.png");
+    /** A centaur's own texture, and where on it its team's color goes. */
+    private static final ResourceLocation CENTAUR = new ResourceLocation(
+        WarOfTheGods.MODID,
+        "textures/models/centaur.png");
+    private static final ResourceLocation CENTAUR_TEAM = new ResourceLocation(
+        WarOfTheGods.MODID,
+        "textures/models/centaur_team.png");
     private static final Map<String, ResourceLocation> SKINS = new HashMap<>();
 
     static {
@@ -97,6 +105,7 @@ public class RenderUnit extends RenderBiped {
     private final ModelBiped overlayModel = new ModelBiped(0.08F);
     private final ModelBiped manModel;
     private final ModelDemon demonModel = new ModelDemon();
+    private final ModelCentaur centaurModel = new ModelCentaur();
     private final ModelKnight knightModel = new ModelKnight();
     /** The horse drawn under each rider, kept only to be drawn; it is in no world's entity list. */
     private final Map<EntityUnit, EntityHorse> horses = new WeakHashMap<>();
@@ -114,10 +123,12 @@ public class RenderUnit extends RenderBiped {
         field_82423_g.aimedBow = aiming;
         field_82425_h.aimedBow = aiming;
         EntityUnit unit = (EntityUnit) entity;
-        // A lesser demon has a model of its own, and knights wear full plate with a plume.
+        // A lesser demon and a centaur have models of their own, and knights wear full plate with a plume.
         UnitKind kind = unit.getWatchedKind();
         if (kind == UnitKind.LESSER_DEMON) {
             modelBipedMain = demonModel;
+        } else if (kind == UnitKind.CENTAUR) {
+            modelBipedMain = centaurModel;
         } else if (kind.eliteUpgrade() != null) {
             boolean elite = unit.isWatchedElite();
             knightModel.setStyle(elite && kind == UnitKind.BLACK_KNIGHT, elite && kind == UnitKind.WHITE_KNIGHT);
@@ -134,10 +145,14 @@ public class RenderUnit extends RenderBiped {
         super.doRender(entity, x, y, z, yaw, partialTicks);
     }
 
-    /** Arrows that stick in a unit are drawn in its arms and body; a demon's parts are its own, so none show on it. */
+    /**
+     * Arrows that stick in a unit are drawn in its arms and body; a demon's and a centaur's parts are their own, so
+     * none show on them.
+     */
     @Override
     protected void renderArrowsStuckInEntity(EntityLivingBase entity, float partialTicks) {
-        if (((EntityUnit) entity).getWatchedKind() != UnitKind.LESSER_DEMON) {
+        if (!((EntityUnit) entity).getWatchedKind()
+            .hasOwnModel()) {
             super.renderArrowsStuckInEntity(entity, partialTicks);
         }
     }
@@ -242,6 +257,9 @@ public class RenderUnit extends RenderBiped {
         if (unit.getWatchedKind() == UnitKind.LESSER_DEMON) {
             return DEMON;
         }
+        if (unit.getWatchedKind() == UnitKind.CENTAUR) {
+            return CENTAUR;
+        }
         String key = unit.getWatchedFaction().id + "_" + unit.getWatchedKind().id;
         return unit.isWatchedElite() && ELITE_SKINS.containsKey(key) ? ELITE_SKINS.get(key) : SKINS.get(key);
     }
@@ -264,6 +282,16 @@ public class RenderUnit extends RenderBiped {
             GL11.glColor3f((color >> 16 & 255) / 255F, (color >> 8 & 255) / 255F, (color & 255) / 255F);
             GL11.glDepthFunc(GL11.GL_EQUAL);
             demonModel.renderAgain(scale);
+            GL11.glDepthFunc(GL11.GL_LEQUAL);
+            GL11.glColor4f(1, 1, 1, 1);
+            return;
+        }
+        if (mainModel == centaurModel) {
+            // Its blanket, belt, quiver strap and arm bands, drawn again over themselves in the team's color.
+            bindTexture(CENTAUR_TEAM);
+            GL11.glColor3f((color >> 16 & 255) / 255F, (color >> 8 & 255) / 255F, (color & 255) / 255F);
+            GL11.glDepthFunc(GL11.GL_EQUAL);
+            centaurModel.renderAgain(scale);
             GL11.glDepthFunc(GL11.GL_LEQUAL);
             GL11.glColor4f(1, 1, 1, 1);
             return;

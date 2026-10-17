@@ -437,6 +437,37 @@ def lesser_demon(faction):
                       (TAIL, lambda face, x, y, w, h: claw if y >= 7 else hide)]}
 
 
+def centaur(faction):
+    """A centaur: only its face is seen, on its buttons; the game draws it with a model of its own. A bearded man with
+    long brown hair under a gold circlet set with a blue gem, bare-chested over a chestnut coat."""
+    skin, hair, coat = (222, 170, 128), (96, 62, 36), (138, 84, 46)
+
+    def head(face, x, y, w, h):
+        if face == "front":
+            if y == 2:
+                return (70, 130, 230) if x in (3, 4) else (226, 186, 70)
+            if y == 3 and x in (1, 2, 5, 6):
+                return (70, 44, 26)
+            if y == 4 and x in (1, 2, 5, 6):
+                return (52, 92, 170) if x in (2, 5) else (240, 240, 236)
+            if y == 5 and x in (3, 4):
+                return (190, 136, 98)
+            if y >= 6 and 1 <= x <= 6:
+                return (120, 50, 40) if y == 6 and 3 <= x <= 4 else hair
+            if y < 2:
+                return hair
+            return skin
+        if face in ("left", "right") and y == 2:
+            return (226, 186, 70)
+        return hair if face in ("top", "back") or y < 2 else skin
+
+    def body(face, x, y, w, h):
+        return skin if y < 10 else coat
+
+    return {"head": head, "hat": lambda face, x, y, w, h: None, "body": body,
+            "arm": lambda face, x, y, w, h: skin, "leg": lambda face, x, y, w, h: coat}
+
+
 # The knights' extra parts, in the lower half of their 64x64 skin, as ModelKnight draws them.
 VISOR = (0, 32, 7, 4, 1)
 PLUME = (16, 32, 2, 3, 3)
@@ -854,7 +885,7 @@ ICON_ORDER = ["town_hall", "house", "barracks", "storehouse", "quarry", "farm", 
               "white_knights_fortress", "black_knights_fortress", "white_knight", "black_knight", "tradigee",
               "sagittare", "archery_range", "stables", "cavalry", "horse", "favor", "chaos_temple", "monastery",
               "wizards_tower", "stone_circle", "chaos_priest", "monk", "dark_wizard", "zamorak_mage", "blue_wizard",
-              "lesser_demon"]
+              "lesser_demon", "centaur"]
 
 # Icons that are Minecraft's own item pictures, taken from the game's jar: the resources and the tools of the actions
 # in tooltips. An oak log is drawn as a little block, the way the inventory shows it.
@@ -1427,6 +1458,23 @@ ICON_ART = {
         ...kbbbbbbbbkk..
         ...kyyyyyyyyk...
         ...kkkkkkkkkk...""",
+    "centaur": """
+        ....kkkk........
+        ...keeeek.......
+        ...kyybyk.......
+        ...kfkfkk.......
+        ...keeeek.......
+        .k..keek........
+        kwkkffffk.......
+        kwfffffffk......
+        kw.kffffkkkkkkk.
+        kw.kffffddddddek
+        kw.kddddddddddek
+        .k.kddddddddddke
+        ...kddkkkkkkddk.
+        ...kdk.....kdk..
+        ...klk.....klk..
+        ...kkk.....kkk..""",
     "lesser_demon": """
         ..kk........kk..
         ..kNk......kNk..
@@ -1568,7 +1616,7 @@ def main():
                            (white_knight, "white_knight"), (black_knight, "black_knight"), (tradigee, "tradigee"),
                            (sagittare, "sagittare"), (cavalry, "cavalry"), (chaos_priest, "chaos_priest"),
                            (monk, "monk"), (dark_wizard, "dark_wizard"), (zamorak_mage, "zamorak_mage"),
-                           (blue_wizard, "blue_wizard"), (lesser_demon, "lesser_demon"),
+                           (blue_wizard, "blue_wizard"), (lesser_demon, "lesser_demon"), (centaur, "centaur"),
                            (elite_black_knight, "black_knight_elite"), (justiciar, "white_knight_elite")):
             path = os.path.join(SKINS, "%s_%s.png" % (faction, name))
             skin(kind, faction).save(path)
