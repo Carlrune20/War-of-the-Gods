@@ -4,12 +4,14 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+import net.minecraft.client.Minecraft;
+
 /**
  * What the viewer's team has seen of the map, for the fog of war in the RTS view. The map is cut into cells of
  * {@link #CELL} blocks. A cell is visible while one of the team's or its allies' units, players or buildings is near
  * it; once seen it stays explored, so its ground and the enemy buildings found there show after they move on, while
- * what moves there is hidden. Cells nobody has been near are black. Walking the map on foot, out of the RTS view,
- * explores it too.
+ * what moves there is hidden. The RTS view draws the world lit by this: visible ground in full light, explored ground
+ * at half and the rest pitch dark. Walking the map on foot, out of the RTS view, explores it too.
  * Without a team, as an observer, and once the game is over, there is no fog, nor while /rts seeall lifts it; /rts
  * reveal marks the whole map explored for a team.
  */
@@ -24,6 +26,9 @@ final class FogOfWar {
     private static final double LOOKOUT_SIGHT = 60;
     /** Client ticks between working out what is visible. */
     private static final int INTERVAL = 5;
+    /** Sky and block light, packed as the lightmap takes them, for ground in sight and ground only explored. */
+    private static final int FULL_LIGHT = 15 << 20 | 15 << 4;
+    private static final int HALF_LIGHT = 12 << 20;
 
     private int minX;
     private int minZ;
@@ -38,10 +43,11 @@ final class FogOfWar {
     private int ticks;
     /** Bumped whenever what is explored or visible changes, so the fog's look is only made again then. */
     private int version;
-    /** Bumped only when what is explored changes, for the fog drawn over unexplored ground. */
-    private int exploredVersion;
     /** Cells, counted from 0, 0, the viewer walked near on foot before the map was known here. */
     private final Set<Long> walked = new HashSet<>();
+    /** Chunk columns, as x << 32 | z, whose light changed since they were last drawn again; or all of them. */
+    private final Set<Long> changedChunks = new HashSet<>();
+    private boolean changedAll;
 
     /** Whether there is fog at all: the viewer is on a team in a game that goes on. */
     boolean isOn() {
@@ -50,10 +56,6 @@ final class FogOfWar {
 
     int version() {
         return version;
-    }
-
-    int exploredVersion() {
-        return exploredVersion;
     }
 
     /** Works out what the viewer's team sees now; call every client tick. */
@@ -75,7 +77,7 @@ final class FogOfWar {
             visible = new boolean[columns * rows];
             revealed = false;
             version++;
-            exploredVersion++;
+            changedAll = true;
             ticks = 0;
         }
         if (!walked.isEmpty()) {
@@ -84,12 +86,13 @@ final class FogOfWar {
             }
             walked.clear();
             version++;
-            exploredVersion++;
+            changedAll = true;
         }
         if (team != null && team.revealed && !revealed) {
             Arrays.fill(explored, true);
             revealed = true;
             version++;
+            changedAll = true;
         }
         if (!on || ticks++ % INTERVAL != 0) {
             return;
@@ -119,20 +122,25 @@ final class FogOfWar {
                     (lookout ? LOOKOUT_SIGHT : BUILDING_SIGHT) + Math.max(building.sizeX, building.sizeZ) / 2.0);
             }
         }
-        boolean changed = !Arrays.equals(now, visible);
-        boolean found = false;
+        boolean changed = false;
         for (int i = 0; i < now.length; i++) {
-            if (now[i] && !explored[i]) {
-                explored[i] = true;
-                found = true;
+            if (now[i] != visible[i]) {
+                if (now[i]) {
+                    explored[i] = true;
+                }
+                changed = true;
+                int x = minX + i % columns * CELL;
+                int z = minZ + i / columns * CELL;
+                for (int cx = x >> 4; cx <= (x + CELL - 1) >> 4; cx++) {
+                    for (int cz = z >> 4; cz <= (z + CELL - 1) >> 4; cz++) {
+                        changedChunks.add((long) cx << 32 | cz & 0xFFFFFFFFL);
+                    }
+                }
             }
         }
         visible = now;
-        if (changed || found) {
+        if (changed) {
             version++;
-        }
-        if (found) {
-            exploredVersion++;
         }
     }
 
@@ -148,13 +156,39 @@ final class FogOfWar {
         if (info != null && info.number == game && explored.length > 0) {
             if (see(explored, x, z, PLAYER_SIGHT)) {
                 version++;
-                exploredVersion++;
             }
         } else {
             long cx = (long) Math.floor(x / CELL);
             long cz = (long) Math.floor(z / CELL);
             walked.add(cx << 32 | cz & 0xFFFFFFFFL);
         }
+    }
+
+    /**
+     * The light the RTS view draws the ground at x, z in, packed as the lightmap takes it: full where the team sees,
+     * half where it has been, none elsewhere.
+     */
+    int light(int x, int z) {
+        int i = index(x + 0.5, z + 0.5);
+        if (i < 0 || !explored[i]) {
+            return 0;
+        }
+        return visible[i] ? FULL_LIGHT : HALF_LIGHT;
+    }
+
+    /** Has the ground whose light changed drawn again. */
+    void redrawChanged(Minecraft mc) {
+        if (changedAll) {
+            mc.renderGlobal.loadRenderers();
+        } else {
+            for (long chunk : changedChunks) {
+                int x = (int) (chunk >> 32) << 4;
+                int z = (int) chunk << 4;
+                mc.theWorld.markBlockRangeForRenderUpdate(x, 0, z, x + 15, 255, z + 15);
+            }
+        }
+        changedChunks.clear();
+        changedAll = false;
     }
 
     /** Forgets where the viewer walked, on leaving the server. */

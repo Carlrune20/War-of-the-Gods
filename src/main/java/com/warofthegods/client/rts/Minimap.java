@@ -205,21 +205,21 @@ final class Minimap {
         }
     }
 
-    /** Black over what the viewer's team has not explored. */
+    /** Black over what the viewer's team has not explored, dark over what it does not see now. */
     private void drawFog(FogOfWar fog, int left, int top, int size) {
         if (fogTexture == null) {
             fogTexture = new DynamicTexture(PIXELS, PIXELS);
             fogLocation = mc.getTextureManager()
                 .getDynamicTextureLocation("warofthegods_minimap_fog", fogTexture);
         }
-        if (fogVersion != fog.exploredVersion()) {
-            fogVersion = fog.exploredVersion();
+        if (fogVersion != fog.version()) {
+            fogVersion = fog.version();
             int[] pixels = fogTexture.getTextureData();
             for (int j = 0; j < PIXELS; j++) {
                 double z = minZ + (j + 0.5) * (maxZ - minZ + 1) / PIXELS;
                 for (int i = 0; i < PIXELS; i++) {
                     double x = minX + (i + 0.5) * (maxX - minX + 1) / PIXELS;
-                    pixels[j * PIXELS + i] = fog.isExplored(x, z) ? 0 : 0xFF000000;
+                    pixels[j * PIXELS + i] = !fog.isExplored(x, z) ? 0xFF000000 : fog.isVisible(x, z) ? 0 : 0x80000000;
                 }
             }
             fogTexture.updateDynamicTexture();
