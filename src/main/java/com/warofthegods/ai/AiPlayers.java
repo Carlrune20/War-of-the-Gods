@@ -2,8 +2,10 @@ package com.warofthegods.ai;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import net.minecraft.entity.EntityLiving;
@@ -27,6 +29,7 @@ import com.warofthegods.game.Upgrade;
 import com.warofthegods.game.WallLine;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Hunting;
+import com.warofthegods.unit.Prayer;
 import com.warofthegods.unit.Trees;
 import com.warofthegods.unit.Units;
 import com.warofthegods.world.GameWorld;
@@ -45,8 +48,16 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  * repair damaged buildings once no enemy is at them, and spends what it has to spare on more barracks, towers and
  * houses. It puts storehouses by the forests and gold mines its workers gather far from home, walls its town between
  * its towers with a gate in each side, takes free settlements with more town centers and puts a barracks and a tower
- * by each, and marches its attacks in box or line formation as often as it lets them run. It pays for everything like
- * a player and gets no bonuses.
+ * by each, and marches its attacks in box or line formation as often as it lets them run.
+ *
+ * <p>
+ * It plays by the fog of war: it attacks only enemy buildings its units or buildings have come near, and while it
+ * knows of none it sends a scout, a cavalryman if it has one, from one unexplored part of the map to the next. Its
+ * Sir Tradigee keeps up the protection prayer against what most of the enemies around him fight with. Playing
+ * Zamorak, it raises a stone circle once it has dark wizards, keeps four of them standing at it and summons lesser
+ * demons there when it has the favor; playing Saradomin, its monks earn favor and its wizards' tower trains blue
+ * wizards. Once it has walls it researches stone and then citadel walls. It pays for everything like a player and gets
+ * no bonuses.
  */
 public final class AiPlayers {
 
@@ -117,12 +128,27 @@ public final class AiPlayers {
     private static final Units.Formation[] WAVE_FORMATIONS = { Units.Formation.BOX, Units.Formation.LINE, null };
     /** Workers it lays a knights' fortress out with; other buildings get two. */
     private static final int FORTRESS_BUILDERS = 3;
-    /** The upgrades it researches, in the order it wants them; wall upgrades are left out, as it builds no walls. */
+    /** The upgrades it researches, in the order it wants them; the wall upgrades only once it has walls. */
     private static final Upgrade[] RESEARCH_ORDER = { Upgrade.BASKETS, Upgrade.SHARP_AXES, Upgrade.PLOUGHS,
         Upgrade.PICKAXES, Upgrade.FORGED_BLADES, Upgrade.PADDED_ARMOR, Upgrade.FLETCHING, Upgrade.WATCH_TOWER,
-        Upgrade.MASONRY, Upgrade.PLATE_ARMOR, Upgrade.FIRE_ARROWS, Upgrade.FORTIFIED_WALLS, Upgrade.DIAMOND_HOES,
-        Upgrade.DIAMOND_AXES, Upgrade.DIAMOND_PICKAXES, Upgrade.TEMPERED_STEEL, Upgrade.GUARD_TOWER,
-        Upgrade.ELITE_BLACK_KNIGHTS, Upgrade.JUSTICIARS };
+        Upgrade.MASONRY, Upgrade.PLATE_ARMOR, Upgrade.FIRE_ARROWS, Upgrade.FORTIFIED_WALLS, Upgrade.STONE_WALLS,
+        Upgrade.DIAMOND_HOES, Upgrade.DIAMOND_AXES, Upgrade.DIAMOND_PICKAXES, Upgrade.TEMPERED_STEEL,
+        Upgrade.GUARD_TOWER, Upgrade.ELITE_BLACK_KNIGHTS, Upgrade.JUSTICIARS, Upgrade.CITADEL_WALLS };
+    /** Blocks across a cell of the map it keeps track of having explored. */
+    private static final int FOG_CELL = 8;
+    /** How far its units and buildings see, in blocks, as in the RTS view's fog of war. */
+    private static final double UNIT_SIGHT = 36;
+    private static final double BUILDING_SIGHT = 40;
+    private static final double LOOKOUT_SIGHT = 60;
+    /** Blocks short of an unexplored cell's middle a scout counts as there, as it sees it from further off anyway. */
+    private static final double SCOUTED = 16;
+    /** Blocks round Sir Tradigee it looks at the enemies of to pick his prayer, and towers shoot about this far. */
+    private static final double PRAYER_RANGE = 20;
+    private static final double TOWER_REACH = 24;
+    /** Lesser demons it keeps at most. */
+    private static final int MAX_DEMONS = 2;
+    /** Of food and gold, how much more than a lesser demon costs it keeps in hand after summoning one. */
+    private static final long DEMON_MARGIN = 100;
 
     /** What the computer remembers about a team between looks; lost on a restart, which does no harm. */
     private static final class State {
@@ -141,6 +167,19 @@ public final class AiPlayers {
         /** The fighters marching on an attack in formation, and the formation. */
         final List<EntityUnit> march = new ArrayList<>();
         Units.Formation marchFormation;
+        /** The map's cells its units and buildings have come near, FOG_CELL blocks across from minX, minZ. */
+        boolean[] explored;
+        int minX;
+        int minZ;
+        int columns;
+        int rows;
+        /** Enemy buildings it has seen, by id: the only ones it attacks. */
+        final Set<Integer> knownBuildings = new HashSet<>();
+        /** The unit out finding the enemy while it knows of no enemy building, and the cell middle it is headed for. */
+        EntityUnit scout;
+        double[] scoutGoal;
+        /** Dark wizards it keeps at its stone circle to summon lesser demons. */
+        final List<EntityUnit> summoners = new ArrayList<>();
     }
 
     private final Map<String, State> states = new HashMap<>();
@@ -179,14 +218,19 @@ public final class AiPlayers {
         // Playing alongside people, it commands only the units it trained; on its own, the whole team's.
         boolean alongsidePlayers = !team.getMembers()
             .isEmpty();
-        for (EntityUnit unit : Units.get()
-            .getUnits(team)) {
+        List<EntityUnit> all = Units.get()
+            .getUnits(team);
+        for (EntityUnit unit : all) {
             // Priests and monks only pray, and are left where they are.
             if ((!alongsidePlayers || unit.isAiControlled()) && (unit.isWorker() || unit.getKind()
                 .fights())) {
                 (unit.isWorker() ? workers : fighters).add(unit);
             }
         }
+        explore(game, team, state, all);
+        summon(game, world, team, state, hall, fighters);
+        fighters.removeAll(state.summoners);
+        pray(game, world, team, fighters);
         trainWorkers(game, team, hall, workers.size());
         boolean saving = advanceAge(game, team, hall, workers.size(), fighters.size());
         // In Age III, with a few fighters to hold the town, it saves up for its knights' fortress before more of them.
@@ -208,6 +252,268 @@ public final class AiPlayers {
             trainWorshippers(game, team);
         }
         fight(game, world, team, hall, fighters, state);
+        scout(game, team, hall, fighters, state);
+    }
+
+    // ---------------------------------------------------------------- fog of war
+
+    /**
+     * Marks the cells its units, its allies' units and their buildings are near as explored, and remembers the enemy
+     * buildings in them.
+     */
+    private static void explore(Game game, Team team, State state, List<EntityUnit> units) {
+        if (state.explored == null || state.minX != game.getMinX() || state.minZ != game.getMinZ()) {
+            state.minX = game.getMinX();
+            state.minZ = game.getMinZ();
+            state.columns = (game.getMaxX() - game.getMinX()) / FOG_CELL + 1;
+            state.rows = (game.getMaxZ() - game.getMinZ()) / FOG_CELL + 1;
+            state.explored = new boolean[state.columns * state.rows];
+            state.knownBuildings.clear();
+        }
+        List<EntityUnit> seeing = new ArrayList<>(units);
+        for (Team ally : game.getAllies(team)) {
+            seeing.addAll(
+                Units.get()
+                    .getUnits(ally));
+        }
+        for (EntityUnit unit : seeing) {
+            see(state, unit.posX, unit.posZ, UNIT_SIGHT);
+        }
+        for (Building building : game.getBuildings()) {
+            Team owner = game.getTeam(building.team);
+            if (owner == team || owner != null && game.getAllies(team)
+                .contains(owner)) {
+                boolean lookout = building.isComplete()
+                    && (building.type == BuildingType.TOWER || building.type == BuildingType.TOWN_HALL);
+                see(
+                    state,
+                    building.getCenterX(),
+                    building.getCenterZ(),
+                    (lookout ? LOOKOUT_SIGHT : BUILDING_SIGHT) + Math.max(building.sizeX, building.sizeZ) / 2.0);
+            }
+        }
+        for (Building building : game.getBuildings()) {
+            if (!state.knownBuildings.contains(building.id)
+                && explored(state, building.getCenterX(), building.getCenterZ())) {
+                state.knownBuildings.add(building.id);
+            }
+        }
+    }
+
+    private static void see(State state, double x, double z, double range) {
+        int c0 = Math.max(0, (int) Math.floor((x - range - state.minX) / FOG_CELL));
+        int c1 = Math.min(state.columns - 1, (int) Math.floor((x + range - state.minX) / FOG_CELL));
+        int r0 = Math.max(0, (int) Math.floor((z - range - state.minZ) / FOG_CELL));
+        int r1 = Math.min(state.rows - 1, (int) Math.floor((z + range - state.minZ) / FOG_CELL));
+        for (int r = r0; r <= r1; r++) {
+            double dz = state.minZ + r * FOG_CELL + FOG_CELL / 2.0 - z;
+            for (int c = c0; c <= c1; c++) {
+                double dx = state.minX + c * FOG_CELL + FOG_CELL / 2.0 - x;
+                if (dx * dx + dz * dz <= range * range) {
+                    state.explored[r * state.columns + c] = true;
+                }
+            }
+        }
+    }
+
+    private static boolean explored(State state, double x, double z) {
+        int c = (int) Math.floor((x - state.minX) / FOG_CELL);
+        int r = (int) Math.floor((z - state.minZ) / FOG_CELL);
+        return c >= 0 && r >= 0 && c < state.columns && r < state.rows && state.explored[r * state.columns + c];
+    }
+
+    /** The middle of the unexplored cell nearest x, z, or null once all the map is explored. */
+    private static double[] nearestUnexplored(State state, double x, double z) {
+        double[] best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (int r = 0; r < state.rows; r++) {
+            for (int c = 0; c < state.columns; c++) {
+                if (state.explored[r * state.columns + c]) {
+                    continue;
+                }
+                double cx = state.minX + c * FOG_CELL + FOG_CELL / 2.0;
+                double cz = state.minZ + r * FOG_CELL + FOG_CELL / 2.0;
+                double distance = (cx - x) * (cx - x) + (cz - z) * (cz - z);
+                if (distance < bestDistance) {
+                    best = new double[] { cx, cz };
+                    bestDistance = distance;
+                }
+            }
+        }
+        return best;
+    }
+
+    /**
+     * While it knows of no enemy building, sends one fighter, a cavalryman if it has one as they are fastest, from one
+     * unexplored part of the map to the next until it finds one.
+     */
+    private static void scout(Game game, Team team, Building hall, List<EntityUnit> fighters, State state) {
+        if (state.scout != null && (!state.scout.isEntityAlive() || !fighters.contains(state.scout))) {
+            state.scout = null;
+        }
+        if (nearestEnemyBuilding(game, team, state, hall.getCenterX(), hall.getCenterZ()) != null) {
+            state.scout = null;
+            return;
+        }
+        if (state.scout == null) {
+            for (EntityUnit fighter : fighters) {
+                if (fighter.getOrder() == EntityUnit.Order.IDLE && !state.march.contains(fighter)
+                    && (state.scout == null || fighter.getKind() == UnitKind.CAVALRY)) {
+                    state.scout = fighter;
+                }
+            }
+            if (state.scout == null) {
+                return;
+            }
+            state.scoutGoal = null;
+            WarOfTheGods.LOG.info(
+                "AI {} sent {} to scout",
+                team.getName(),
+                state.scout.getCommandSenderName()
+                    .replaceAll("\u00a7.", ""));
+        }
+        EntityUnit scout = state.scout;
+        boolean there = state.scoutGoal == null || distance(scout, state.scoutGoal[0], state.scoutGoal[1]) <= SCOUTED
+            || explored(state, state.scoutGoal[0], state.scoutGoal[1]);
+        if (!there && scout.getOrder() != EntityUnit.Order.IDLE) {
+            return;
+        }
+        double[] goal = nearestUnexplored(state, scout.posX, scout.posZ);
+        if (goal == null) {
+            state.scout = null;
+            return;
+        }
+        state.scoutGoal = goal;
+        List<EntityUnit> one = new ArrayList<>();
+        one.add(scout);
+        Units.get()
+            .orderMove(one, goal[0], goal[1]);
+    }
+
+    // ---------------------------------------------------------------- gods
+
+    /**
+     * Playing Zamorak with dark wizards enough, raises a stone circle by its town center, keeps that many of them
+     * standing at it, and summons a lesser demon there whenever it has room, favor and food and gold to spare.
+     */
+    private static void summon(Game game, WorldServer world, Team team, State state, Building hall,
+        List<EntityUnit> fighters) {
+        state.summoners.retainAll(fighters);
+        if (team.getFaction() != Faction.ZAMORAK) {
+            return;
+        }
+        Building circle = null;
+        for (Building building : game.getBuildings(team)) {
+            if (building.type == BuildingType.STONE_CIRCLE) {
+                circle = building;
+            }
+        }
+        List<EntityUnit> wizards = new ArrayList<>();
+        for (EntityUnit fighter : fighters) {
+            if (fighter.getKind() == UnitKind.DARK_WIZARD && !state.summoners.contains(fighter)
+                && fighter.getOrder() == EntityUnit.Order.IDLE
+                && !state.march.contains(fighter)) {
+                wizards.add(fighter);
+            }
+        }
+        if (circle == null) {
+            if (state.summoners.size() + wizards.size() < Buildings.SUMMONERS
+                || !affords(team, BuildingType.STONE_CIRCLE.cost(), RESEARCH_MARGIN)) {
+                return;
+            }
+            Buildings.Plan plan = Buildings.get()
+                .findSpot(game, world, team, BuildingType.STONE_CIRCLE);
+            if (plan == null || !team.spend(BuildingType.STONE_CIRCLE.cost())) {
+                return;
+            }
+            circle = Buildings.get()
+                .startSite(game, team, plan);
+            WarOfTheGods.LOG.info("AI {} raised {}", team.getName(), circle.describe(game));
+        }
+        while (state.summoners.size() < Buildings.SUMMONERS && !wizards.isEmpty()) {
+            state.summoners.add(wizards.remove(0));
+        }
+        // Back to the circle, those that wandered off it to fight.
+        List<EntityUnit> astray = new ArrayList<>();
+        for (EntityUnit summoner : state.summoners) {
+            if (summoner.getOrder() == EntityUnit.Order.IDLE
+                && circle.distanceTo(summoner.posX, summoner.posZ) > Buildings.CIRCLE_REACH) {
+                astray.add(summoner);
+            }
+        }
+        if (!astray.isEmpty() && circle.isComplete()) {
+            Units.get()
+                .orderBuild(astray, circle);
+        }
+        int demons = queued(game, team, UnitKind.LESSER_DEMON);
+        for (EntityUnit fighter : fighters) {
+            demons += fighter.getKind() == UnitKind.LESSER_DEMON ? 1 : 0;
+        }
+        if (circle.isComplete() && circle.getQueue()
+            .isEmpty()
+            && demons < MAX_DEMONS
+            && state.summoners.size() >= Buildings.SUMMONERS
+            && Buildings.room(game, team) > 0
+            && affordsDemon(team)
+            && team.spend(UnitKind.LESSER_DEMON.cost())) {
+            circle.enqueue(UnitKind.LESSER_DEMON, true);
+            WarOfTheGods.LOG.info("AI {} is summoning a lesser demon", team.getName());
+        }
+    }
+
+    /** Whether it has the favor for a lesser demon, and the food and gold with some to spare. */
+    private static boolean affordsDemon(Team team) {
+        for (Map.Entry<Resource, Long> entry : UnitKind.LESSER_DEMON.cost()
+            .entrySet()) {
+            long margin = entry.getKey() == Resource.FAVOR ? 0 : DEMON_MARGIN;
+            if (team.getResource(entry.getKey()) < entry.getValue() + margin) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Has its Sir Tradigee keep up the protection prayer against what most of the enemies near him fight with:
+     * missiles against archers, wizards' spells aside, and towers; melee against the rest.
+     */
+    private static void pray(Game game, WorldServer world, Team team, List<EntityUnit> fighters) {
+        for (EntityUnit hero : fighters) {
+            if (hero.getKind() != UnitKind.TRADIGEE) {
+                continue;
+            }
+            int melee = 0;
+            int missiles = 0;
+            for (EntityLivingBase enemy : Units.get()
+                .findEnemiesNear(world, team, hero.posX, hero.posY, hero.posZ, PRAYER_RANGE, 12)) {
+                UnitKind kind = enemy instanceof EntityUnit ? ((EntityUnit) enemy).getKind() : null;
+                if (kind != null && kind.isCaster()) {
+                    continue;
+                }
+                if (kind != null && kind.ranged) {
+                    missiles++;
+                } else {
+                    melee++;
+                }
+            }
+            for (Building building : game.getBuildings()) {
+                Team owner = game.getTeam(building.team);
+                if (building.type == BuildingType.TOWER && building.isComplete()
+                    && owner != null
+                    && game.areEnemies(team, owner)
+                    && owner.has(Upgrade.WATCH_TOWER)
+                    && building.distanceTo(hero.posX, hero.posZ) <= TOWER_REACH) {
+                    missiles += 2;
+                }
+            }
+            Prayer wanted = missiles > melee ? Prayer.MISSILES : melee > 0 ? Prayer.MELEE : hero.getPrayer();
+            if (wanted != hero.getPrayer()) {
+                List<EntityUnit> one = new ArrayList<>();
+                one.add(hero);
+                Units.get()
+                    .orderPrayer(one, wanted);
+            }
+        }
     }
 
     // ---------------------------------------------------------------- economy
@@ -605,8 +911,10 @@ public final class AiPlayers {
 
     /** Starts researching the first upgrade it wants that one of its buildings can research now and it can pay for. */
     private static void research(Game game, Team team) {
+        boolean walls = count(game, team, BuildingType.WALL, false) > 0;
         for (Upgrade upgrade : RESEARCH_ORDER) {
-            if (team.has(upgrade) || game.getAge(team) < upgrade.level) {
+            if (team.has(upgrade) || game.getAge(team) < upgrade.level
+                || !walls && (upgrade == Upgrade.STONE_WALLS || upgrade == Upgrade.CITADEL_WALLS)) {
                 continue;
             }
             for (Building building : game.getBuildings(team)) {
@@ -1016,7 +1324,7 @@ public final class AiPlayers {
         march(game, team, state);
         home.removeIf(unit -> unit.getOrder() != EntityUnit.Order.IDLE || state.march.contains(unit));
         if (home.size() >= FIRST_WAVE + WAVE_GROWTH * state.waves && ticks - state.lastWave >= WAVE_TICKS) {
-            Building target = nearestEnemyBuilding(game, team, x, z);
+            Building target = nearestEnemyBuilding(game, team, state, x, z);
             if (target != null) {
                 Units.Formation formation = WAVE_FORMATIONS[state.waves % WAVE_FORMATIONS.length];
                 if (formation == null) {
@@ -1044,7 +1352,7 @@ public final class AiPlayers {
             awayX += fighter.posX / away.size();
             awayZ += fighter.posZ / away.size();
         }
-        Building target = nearestEnemyBuilding(game, team, awayX, awayZ);
+        Building target = nearestEnemyBuilding(game, team, state, awayX, awayZ);
         if (target == null) {
             return;
         }
@@ -1072,7 +1380,7 @@ public final class AiPlayers {
             cx += unit.posX / state.march.size();
             cz += unit.posZ / state.march.size();
         }
-        Building target = nearestEnemyBuilding(game, team, cx, cz);
+        Building target = nearestEnemyBuilding(game, team, state, cx, cz);
         if (target == null) {
             state.march.clear();
             return;
@@ -1101,13 +1409,15 @@ public final class AiPlayers {
                 state.marchFormation);
     }
 
-    /** The enemy building nearest x, z, a town center if any is left; or null. */
-    private static Building nearestEnemyBuilding(Game game, Team team, double x, double z) {
+    /** The enemy building it has seen nearest x, z, a town center if it knows of any; or null. */
+    private static Building nearestEnemyBuilding(Game game, Team team, State state, double x, double z) {
         Building best = null;
         double bestDistance = Double.MAX_VALUE;
         for (Building building : game.getBuildings()) {
             Team owner = game.getTeam(building.team);
-            if (owner == null || owner.isDefeated() || !game.areEnemies(team, owner)) {
+            if (owner == null || owner.isDefeated()
+                || !game.areEnemies(team, owner)
+                || !state.knownBuildings.contains(building.id)) {
                 continue;
             }
             double distance = building.distanceTo(x, z) + (building.type == BuildingType.TOWN_HALL ? 0 : 10000);
