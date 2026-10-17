@@ -3,8 +3,6 @@ package com.warofthegods.block;
 import net.minecraft.block.Block;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
-import net.minecraft.item.ItemMultiTexture;
-import net.minecraft.item.ItemSlab;
 
 import cpw.mods.fml.common.registry.GameRegistry;
 
@@ -37,23 +35,11 @@ public final class ModBlocks {
 
     public static void register() {
         graystoneBricks = new BlockGraystone();
-        GameRegistry.registerBlock(
-            graystoneBricks,
-            ItemMultiTexture.class,
-            "graystone_bricks",
-            graystoneBricks,
-            BlockGraystone.KINDS);
+        GameRegistry.registerBlock(graystoneBricks, ItemGraystone.class, "graystone_bricks");
         graystoneSlab = new BlockGraystoneSlab(false);
         graystoneDoubleSlab = new BlockGraystoneSlab(true);
-        GameRegistry
-            .registerBlock(graystoneSlab, ItemSlab.class, "graystone_slab", graystoneSlab, graystoneDoubleSlab, false);
-        GameRegistry.registerBlock(
-            graystoneDoubleSlab,
-            ItemSlab.class,
-            "graystone_double_slab",
-            graystoneSlab,
-            graystoneDoubleSlab,
-            true);
+        GameRegistry.registerBlock(graystoneSlab, ItemGraystoneSlab.class, "graystone_slab");
+        GameRegistry.registerBlock(graystoneDoubleSlab, ItemGraystoneSlab.class, "graystone_double_slab");
         graystoneStairs = new BlockGraystoneStairs();
         GameRegistry.registerBlock(graystoneStairs, "graystone_stairs");
         woodDoor = new BlockWoodDoor();
