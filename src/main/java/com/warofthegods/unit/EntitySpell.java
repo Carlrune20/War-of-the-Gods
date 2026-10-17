@@ -1,5 +1,7 @@
 package com.warofthegods.unit;
 
+import java.util.List;
+
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.projectile.EntityThrowable;
@@ -17,7 +19,8 @@ import com.warofthegods.game.Team;
 
 /**
  * A spell cast by a wizard, a mage or a player with a Zamorak staff: a bolt of air, water, earth or fire, or a curse,
- * flying straight and trailing the particles of its element. Like a team's arrows it flies on past its own team and
+ * flying straight and trailing the particles of its element; or a lesser demon's fireball, which bursts in flame. Like
+ * a team's arrows it flies on past its own team and
  * its allies; it is gone a few seconds after it is cast, or when it hits something.
  */
 public class EntitySpell extends EntityThrowable {
@@ -27,6 +30,10 @@ public class EntitySpell extends EntityThrowable {
     private static final int LIFE = 60;
     /** Seconds a fire spell sets what it hits alight for. */
     private static final int FIRE_SECONDS = 3;
+    /** How far round where a fireball bursts its flames reach, and the share of its damage they do there. */
+    private static final double FIREBALL_SPLASH = 2.5;
+    private static final float FIREBALL_SPLASH_SHARE = 0.5F;
+    private static final int FIREBALL_FIRE_SECONDS = 4;
     /** Which spell it is, kept where the client sees it to draw its particles. */
     private static final int WATCH_SPELL = 20;
 
@@ -93,6 +100,10 @@ public class EntitySpell extends EntityThrowable {
                 // Redstone dust takes its color from what would be its motion; 0 red would make it plain red.
                 worldObj.spawnParticle("reddust", x, y, z, Math.max(0.001, red), green, blue);
                 worldObj.spawnParticle(spell.particle, x, y, z, 0, 0, 0);
+                if (spell == Spell.FIREBALL) {
+                    worldObj.spawnParticle("largesmoke", x, y, z, 0, 0.02, 0);
+                    worldObj.spawnParticle("lava", x, y, z, 0, 0, 0);
+                }
             }
         } else if (ticksExisted > LIFE) {
             setDead();
@@ -115,12 +126,36 @@ public class EntitySpell extends EntityThrowable {
                     ((EntityLivingBase) hit.entityHit).addPotionEffect(new PotionEffect(spell.potion, spell.ticks, 0));
                 }
             } else if (hit.entityHit.attackEntityFrom(DamageSource.causeIndirectMagicDamage(this, getThrower()), damage)
-                && spell == Spell.FIRE) {
-                    hit.entityHit.setFire(FIRE_SECONDS);
+                && (spell == Spell.FIRE || spell == Spell.FIREBALL)) {
+                    hit.entityHit.setFire(spell == Spell.FIREBALL ? FIREBALL_FIRE_SECONDS : FIRE_SECONDS);
                 }
+        }
+        if (spell == Spell.FIREBALL) {
+            splash(hit.entityHit);
         }
         burst(spell);
         setDead();
+    }
+
+    /** A fireball's flames burst round where it lands, burning the caster's enemies there; no block is touched. */
+    private void splash(Entity struck) {
+        List<?> near = worldObj.getEntitiesWithinAABBExcludingEntity(
+            this,
+            boundingBox.expand(FIREBALL_SPLASH, FIREBALL_SPLASH, FIREBALL_SPLASH));
+        for (Object object : near) {
+            if (!(object instanceof EntityLivingBase) || object == struck || object == getThrower()) {
+                continue;
+            }
+            EntityLivingBase living = (EntityLivingBase) object;
+            if (isFriend(living) || living.getDistanceSqToEntity(this) > FIREBALL_SPLASH * FIREBALL_SPLASH) {
+                continue;
+            }
+            if (living.attackEntityFrom(
+                DamageSource.causeIndirectMagicDamage(this, getThrower()),
+                damage * FIREBALL_SPLASH_SHARE)) {
+                living.setFire(FIREBALL_FIRE_SECONDS);
+            }
+        }
     }
 
     /** Whether the entity is of the caster's team or an ally's. */
@@ -133,7 +168,15 @@ public class EntitySpell extends EntityThrowable {
 
     /** A puff of its element where it lands. */
     private void burst(Spell spell) {
-        ((WorldServer) worldObj).func_147487_a(spell.particle, posX, posY, posZ, 12, 0.3, 0.3, 0.3, 0.05);
+        WorldServer world = (WorldServer) worldObj;
+        if (spell == Spell.FIREBALL) {
+            world.func_147487_a("flame", posX, posY, posZ, 40, 1.0, 0.6, 1.0, 0.08);
+            world.func_147487_a("lava", posX, posY, posZ, 12, 0.8, 0.3, 0.8, 0.1);
+            world.func_147487_a("largeexplode", posX, posY, posZ, 1, 0, 0, 0, 0);
+            worldObj.playSoundAtEntity(this, "random.explode", 0.8F, 1.3F);
+            return;
+        }
+        world.func_147487_a(spell.particle, posX, posY, posZ, 12, 0.3, 0.3, 0.3, 0.05);
         worldObj.playSoundAtEntity(this, spell == Spell.FIRE ? "mob.ghast.fireball" : "random.fizz", 0.4F, 1.4F);
     }
 

@@ -51,6 +51,8 @@ public final class Building {
     private String shown;
     /** Where units it trains walk to, as x, z; null to stay at the door. */
     private double[] rally;
+    /** What it trains one more of whenever its queue runs empty, while its team can pay; null for nothing. */
+    private UnitKind autoTrain;
 
     /** What {@link #getResearch()} is while the building goes up a level. */
     public static final String LEVEL_UP = "level";
@@ -312,6 +314,16 @@ public final class Building {
         this.rally = rally == null ? null : new double[] { rally[0], rally[1] };
     }
 
+    /** What it trains one more of whenever its queue runs empty, or null. */
+    public UnitKind getAutoTrain() {
+        return autoTrain;
+    }
+
+    public void setAutoTrain(UnitKind kind) {
+        autoTrain = kind;
+        game.changed();
+    }
+
     public List<UnitKind> getQueue() {
         return Collections.unmodifiableList(queue);
     }
@@ -421,6 +433,9 @@ public final class Building {
             tag.setDouble("rallyX", rally[0]);
             tag.setDouble("rallyZ", rally[1]);
         }
+        if (autoTrain != null) {
+            tag.setString("autoTrain", autoTrain.id);
+        }
         return tag;
     }
 
@@ -463,6 +478,8 @@ public final class Building {
         if (tag.hasKey("rallyX")) {
             building.rally = new double[] { tag.getDouble("rallyX"), tag.getDouble("rallyZ") };
         }
+        UnitKind auto = tag.hasKey("autoTrain") ? UnitKind.byId(tag.getString("autoTrain")) : null;
+        building.autoTrain = auto != null && type.trains.contains(auto) ? auto : null;
         if (tag.hasKey("health")) {
             // Teams are read first, so masonry counts.
             building.health = Math.max(1, Math.min(building.getMaxHealth(), tag.getInteger("health")));

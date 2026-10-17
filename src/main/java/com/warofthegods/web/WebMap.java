@@ -240,7 +240,7 @@ public final class WebMap {
             }
             typeJson.addProperty("health", type.maxHealth());
             if (type.buildable) {
-                typeJson.addProperty("buildSeconds", type.buildTicks() / 20.0);
+                typeJson.addProperty("buildSeconds", type.buildsInstantly() ? 0 : type.buildTicks() / 20.0);
             }
             if (type.storesResources) {
                 typeJson.addProperty("stores", true);
@@ -545,6 +545,9 @@ public final class WebMap {
             }
             if (building.type.isWorkplace() && building.isComplete()) {
                 json.addProperty("workers", Buildings.countWorkers(building));
+            }
+            if (building.getAutoTrain() != null) {
+                json.addProperty("autoTrain", building.getAutoTrain().id);
             }
             buildings.add(json);
         }

@@ -37,8 +37,72 @@ public final class Trees {
     }
 
     /**
+     * Whether the block is leaves that grew on a tree. Leaves placed by hand, and those laid over ruins, are marked
+     * never to decay, and are no tree's.
+     */
+    public static boolean isNaturalLeaves(World world, int x, int y, int z) {
+        return isLeaves(world.getBlock(x, y, z)) && (world.getBlockMetadata(x, y, z) & 4) == 0;
+    }
+
+    /**
+     * Whether the trunk with its foot at x, y, z is a tree that grew there: it stands on earth and has leaves of its
+     * own. Logs in buildings, walls and ruins stand on stone, planks or nothing, and have no leaves on them.
+     */
+    public static boolean isTree(World world, int x, int y, int z) {
+        Block ground = world.getBlock(x, y - 1, z);
+        if (ground != Blocks.grass && ground != Blocks.dirt && ground != Blocks.mycelium) {
+            return false;
+        }
+        for (int[] log : logs(world, x, y, z)) {
+            if (isNaturalLeaves(world, log[0] + 1, log[1], log[2]) || isNaturalLeaves(world, log[0] - 1, log[1], log[2])
+                || isNaturalLeaves(world, log[0], log[1] + 1, log[2])
+                || isNaturalLeaves(world, log[0], log[1], log[2] + 1)
+                || isNaturalLeaves(world, log[0], log[1], log[2] - 1)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The foot of the trunk of a tree that grew there, from one of its logs or leaves, as x, y, z; null for anything
+     * else, such as logs in a building or leaves laid over a ruin.
+     */
+    public static int[] treeOf(World world, int x, int y, int z) {
+        Block block = world.getBlock(x, y, z);
+        if (isLog(block)) {
+            int[] foot = footOf(world, x, y, z);
+            return foot != null && isTree(world, foot[0], foot[1], foot[2]) ? foot : null;
+        }
+        if (!isNaturalLeaves(world, x, y, z)) {
+            return null;
+        }
+        // The nearest trunk under or beside the leaves.
+        int[] best = null;
+        int bestDistance = Integer.MAX_VALUE;
+        for (int dx = -3; dx <= 3; dx++) {
+            for (int dz = -3; dz <= 3; dz++) {
+                for (int dy = 0; dy >= -8; dy--) {
+                    int distance = dx * dx + dz * dz;
+                    if (distance >= bestDistance || !isLog(world.getBlock(x + dx, y + dy, z + dz))) {
+                        continue;
+                    }
+                    int[] foot = footOf(world, x + dx, y + dy, z + dz);
+                    if (foot != null && isTree(world, foot[0], foot[1], foot[2])) {
+                        best = foot;
+                        bestDistance = distance;
+                    }
+                    break;
+                }
+            }
+        }
+        return best;
+    }
+
+    /**
      * The foot of the trunk of the tree nearest a point where someone clicked, within a couple of blocks across and
-     * among the leaves above it, as x, y, z; null if there is no tree there. Logs on a building are not trees.
+     * among the leaves above it, as x, y, z; null if there is no tree there. Logs on a building or a ruin are not
+     * trees.
      */
     public static int[] findTree(World world, Game game, double x, double y, double z) {
         int bx = (int) Math.floor(x);
@@ -58,7 +122,7 @@ public final class Trees {
                         continue;
                     }
                     int[] foot = footOf(world, cx, cy, cz);
-                    if (foot == null) {
+                    if (foot == null || !isTree(world, foot[0], foot[1], foot[2])) {
                         continue;
                     }
                     double distance = dx * dx + dz * dz + Math.abs(dy) * 0.1;
@@ -73,7 +137,7 @@ public final class Trees {
     }
 
     /** Follows a log down its trunk to the log standing on the ground; null if it does not stand on ground. */
-    private static int[] footOf(World world, int x, int y, int z) {
+    public static int[] footOf(World world, int x, int y, int z) {
         for (int i = 0; i < 40 && y > 1; i++) {
             if (isLog(world.getBlock(x, y - 1, z))) {
                 y--;
@@ -212,7 +276,7 @@ public final class Trees {
                     continue;
                 }
                 int[] foot = trunkFoot(world, cx, cz);
-                if (foot != null) {
+                if (foot != null && isTree(world, foot[0], foot[1], foot[2])) {
                     best = foot;
                     bestDistance = distance;
                 }

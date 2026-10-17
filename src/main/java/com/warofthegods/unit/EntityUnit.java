@@ -150,6 +150,15 @@ public class EntityUnit extends EntityCreature {
     private static final float MOUNTED_MELEE_DAMAGE = 1.25F;
     /** How much harder a Zamorak mage's fire strikes than a dark wizard's. */
     private static final int MAGE_EXTRA_DAMAGE = 4;
+    /**
+     * A lesser demon hurls a fireball between its blows every so often, at least and at most this many ticks apart:
+     * the fireball's damage, how far it throws one and how long it takes to wind up.
+     */
+    private static final int FIREBALL_MIN_TICKS = 200;
+    private static final int FIREBALL_MAX_TICKS = 300;
+    private static final float FIREBALL_DAMAGE = 10;
+    private static final double FIREBALL_RANGE = 16;
+    private static final int FIREBALL_WINDUP = 12;
     /** Ticks an archer waits after a shot before drawing again. */
     private static final int ARCHER_REST = 10;
     /** Damage a worker's hit does to an animal it hunts. */
@@ -182,6 +191,8 @@ public class EntityUnit extends EntityCreature {
     private static final double MINE_REACH = 2.5;
     /** How far a worker looks for the next gold mine once one is mined out. */
     private static final int NEXT_MINE_RANGE = 64;
+    /** How far round a storehouse it has just put up a worker looks for a tree or gold mine to work. */
+    private static final int STORE_GATHER_RANGE = 32;
     /** How far a worker looks for the next tree once one falls. */
     private static final int NEXT_TREE_RANGE = 14;
 
@@ -190,6 +201,11 @@ public class EntityUnit extends EntityCreature {
     private static final int WATCH_FACTION = 22;
     private static final int WATCH_DRAWING = 23;
     private static final int WATCH_PRAYER = 24;
+    /** Whether its team has made it elite, for its look; well clear of the ids above for others to add to. */
+    private static final int WATCH_ELITE = 29;
+    /** Health and damage an Elite Black Knight or a Justiciar has over a plain knight. */
+    private static final int ELITE_HEALTH = 20;
+    private static final int ELITE_DAMAGE = 3;
     /** Ticks the computer waits after switching a hero's prayer before it switches again. */
     private static final int AI_PRAYER_SWITCH_TICKS = 100;
 
@@ -274,6 +290,9 @@ public class EntityUnit extends EntityCreature {
     private double anchorZ;
 
     private int attackCooldown;
+    /** Ticks until a lesser demon may hurl its next fireball, and ticks left of the throw it is winding up. */
+    private int fireballTicks = FIREBALL_MIN_TICKS;
+    private int hurlTicks;
     private int planTicks;
     private int scanTicks;
     private int progressTicks;
@@ -309,6 +328,17 @@ public class EntityUnit extends EntityCreature {
         dataWatcher.addObject(WATCH_FACTION, (byte) 0);
         dataWatcher.addObject(WATCH_DRAWING, (byte) 0);
         dataWatcher.addObject(WATCH_PRAYER, (byte) 0);
+        dataWatcher.addObject(WATCH_ELITE, (byte) 0);
+    }
+
+    /** On a client, whether its team has made it elite: an Elite Black Knight or a Justiciar. */
+    public boolean isWatchedElite() {
+        return dataWatcher.getWatchableObjectByte(WATCH_ELITE) != 0;
+    }
+
+    /** Whether its team has the upgrade that makes its kind elite. */
+    private static boolean isElite(UnitKind kind, Team team) {
+        return team != null && kind.eliteUpgrade() != null && team.has(kind.eliteUpgrade());
     }
 
     /** On a client, the protection prayer it has up, shown above its head. */
@@ -396,10 +426,11 @@ public class EntityUnit extends EntityCreature {
      */
     private Item tool() {
         Team team = team();
-        // Wizards hold a staff, Zamorak mages Zamorak's own; priests and monks a holy book; a demon its claws.
+        // Blue wizards hold a staff, Zamorak mages Zamorak's own and dark wizards nothing, casting from bare hands;
+        // priests and monks a holy book; a demon its claws.
         if (kind.isCaster()) {
             return kind == UnitKind.ZAMORAK_MAGE ? WarOfTheGods.zamorakStaff
-                : kind == UnitKind.DARK_WIZARD ? Items.blaze_rod : Items.stick;
+                : kind == UnitKind.DARK_WIZARD ? null : Items.stick;
         }
         if (kind.worships()) {
             return Items.book;
@@ -410,7 +441,7 @@ public class EntityUnit extends EntityCreature {
         if (kind.ranged) {
             return Items.bow;
         }
-        if (kind == UnitKind.TRAGIDEE) {
+        if (kind == UnitKind.TRADIGEE) {
             return Items.diamond_sword;
         }
         if (kind.fights() || order == Order.HUNT) {
@@ -437,7 +468,12 @@ public class EntityUnit extends EntityCreature {
     void updateTeam(Team team) {
         // A hero goes by his own name, in his team's color.
         String name = kind.hero ? team.getColor() + kind.displayName
-            : team.getColor() + team.getName() + " " + kind.lowerName() + " " + number;
+            : team.getColor() + team.getName()
+                + " "
+                + (isElite(kind, team) ? kind.eliteName()
+                    .toLowerCase() : kind.lowerName())
+                + " "
+                + number;
         if (!name.equals(getCustomNameTag())) {
             setCustomNameTag(name);
             setAlwaysRenderNameTag(true);
@@ -469,6 +505,14 @@ public class EntityUnit extends EntityCreature {
             damage += kind.extraDamage + (team.has(Upgrade.FORGED_BLADES) ? 2 : 0)
                 + (team.has(Upgrade.TEMPERED_STEEL) ? 2 : 0);
         }
+        boolean elite = isElite(kind, team);
+        if (elite) {
+            health += ELITE_HEALTH;
+            damage += ELITE_DAMAGE;
+        }
+        if (isWatchedElite() != elite) {
+            dataWatcher.updateObject(WATCH_ELITE, (byte) (elite ? 1 : 0));
+        }
         IAttributeInstance maxHealth = getEntityAttribute(SharedMonsterAttributes.maxHealth);
         double gained = health - maxHealth.getBaseValue();
         if (gained != 0) {
@@ -485,6 +529,8 @@ public class EntityUnit extends EntityCreature {
         if (movement.getBaseValue() != speed) {
             movement.setBaseValue(speed);
         }
+        getEntityAttribute(SharedMonsterAttributes.knockbackResistance)
+            .setBaseValue(kind == UnitKind.LESSER_DEMON ? 1 : 0);
         fitSize(kind);
         wearArmor(team);
         showHeld();
@@ -803,6 +849,31 @@ public class EntityUnit extends EntityCreature {
                 buildQueue.addAll(rest);
                 return true;
             }
+        }
+        return false;
+    }
+
+    /**
+     * Sends a worker that has just put up a storehouse to the tree or gold mine nearest it, as that is what it was put
+     * up for; false when there is neither near it.
+     */
+    private boolean gatherNear(Game game, Building store) {
+        if (game == null || !isWorker()) {
+            return false;
+        }
+        double x = store.getCenterX();
+        double z = store.getCenterZ();
+        GoldMine mine = Units.nearestMine(game, x, z, STORE_GATHER_RANGE);
+        int[] tree = Trees.nearest(worldObj, game, x, z, STORE_GATHER_RANGE);
+        double mineDistance = mine == null ? Double.MAX_VALUE : mine.distanceTo(x, z);
+        double treeDistance = tree == null ? Double.MAX_VALUE : Math.hypot(tree[0] + 0.5 - x, tree[2] + 0.5 - z);
+        if (mine != null && mineDistance <= treeDistance) {
+            orderMine(mine);
+            return true;
+        }
+        if (tree != null) {
+            orderChop(tree[0], tree[1], tree[2]);
+            return true;
         }
         return false;
     }
@@ -1195,6 +1266,14 @@ public class EntityUnit extends EntityCreature {
         if (prayerSwitchTicks > 0) {
             prayerSwitchTicks--;
         }
+        if (fireballTicks > 0) {
+            fireballTicks--;
+        }
+        if (hurlTicks > 0 && order != Order.ATTACK) {
+            // Called off before the throw.
+            hurlTicks = 0;
+            setDrawing(false);
+        }
         // Sagittare always protects from missiles; units that cannot pray have none up.
         if (!prayer.allowedFor(kind)) {
             setPrayer(Prayer.always(kind));
@@ -1319,7 +1398,7 @@ public class EntityUnit extends EntityCreature {
                 : Units.workplaceFor(game, this, site);
             if (workplace != null) {
                 orderBuild(workplace);
-            } else {
+            } else if (site.type != BuildingType.STOREHOUSE || !gatherNear(game, site)) {
                 getNavigator().clearPathEntity();
                 guardHere();
             }
@@ -1893,6 +1972,37 @@ public class EntityUnit extends EntityCreature {
         playSound(spell == Spell.FIRE ? "mob.ghast.fireball" : "random.fizz", 0.6F, 1.2F + rand.nextFloat() * 0.3F);
     }
 
+    /**
+     * A lesser demon's fireball, between its blows: when it is due and the target is in sight and in range, the demon
+     * stops and winds up, its arm raised, and then hurls it. Returns whether it is busy throwing this tick.
+     */
+    private boolean hurlFireball(EntityLivingBase victim) {
+        if (hurlTicks > 0) {
+            getNavigator().clearPathEntity();
+            if (--hurlTicks > 0) {
+                return true;
+            }
+            setDrawing(false);
+            fireballTicks = FIREBALL_MIN_TICKS + rand.nextInt(FIREBALL_MAX_TICKS - FIREBALL_MIN_TICKS + 1);
+            EntitySpell ball = new EntitySpell(worldObj, this, teamId, Spell.FIREBALL, FIREBALL_DAMAGE);
+            ball.aim(victim);
+            worldObj.spawnEntityInWorld(ball);
+            swingItem();
+            playSound("mob.ghast.fireball", 1.5F, 0.6F + rand.nextFloat() * 0.2F);
+            return true;
+        }
+        if (fireballTicks > 0 || getDistanceSqToEntity(victim) > FIREBALL_RANGE * FIREBALL_RANGE
+            || !getEntitySenses().canSee(victim)) {
+            return false;
+        }
+        hurlTicks = FIREBALL_WINDUP;
+        setDrawing(true);
+        getNavigator().clearPathEntity();
+        ((WorldServer) worldObj).func_147487_a("flame", posX, posY + height * 0.8, posZ, 15, 0.4, 0.4, 0.4, 0.02);
+        playSound("mob.blaze.breathe", 1.0F, 0.6F);
+        return true;
+    }
+
     /** One of the spells it knows: a curse the victim is not under, one time in three, else a strike at random. */
     private Spell pickSpell(EntityLivingBase victim) {
         List<Spell> strikes = new ArrayList<>();
@@ -1936,6 +2046,10 @@ public class EntityUnit extends EntityCreature {
             return;
         }
         getLookHelper().setLookPositionWithEntity(current, 30, 30);
+        if (kind == UnitKind.LESSER_DEMON && hurlFireball(current)) {
+            progressTicks = 0;
+            return;
+        }
         double distanceSq = getDistanceSq(current.posX, current.boundingBox.minY, current.posZ);
         if (hasSpot) {
             // First into line with the other archers, unless the target has gone elsewhere meanwhile.
@@ -2153,7 +2267,8 @@ public class EntityUnit extends EntityCreature {
 
     /**
      * The emergency way out for a stuck unit: puts it on the nearest open ground two or more blocks away, with room
-     * to stand, out of water and off every building's footprint. Returns false if there is none within 8 blocks.
+     * to stand, out of water and off every building's footprint but a bridge's. Returns false if there is none within 8
+     * blocks.
      */
     public boolean rescue() {
         int x0 = MathHelper.floor_double(posX);
@@ -2168,7 +2283,8 @@ public class EntityUnit extends EntityCreature {
                     }
                     int x = x0 + dx;
                     int z = z0 + dz;
-                    if (game != null && game.getBuildingAt(x + 0.5, z + 0.5) != null) {
+                    Building building = game == null ? null : game.getBuildingAt(x + 0.5, z + 0.5);
+                    if (building != null && building.type != BuildingType.BRIDGE) {
                         continue;
                     }
                     for (int dy = 3; dy >= -12; dy--) {
@@ -2275,17 +2391,20 @@ public class EntityUnit extends EntityCreature {
         return hurt;
     }
 
-    /** No knockback from a hit a prayer protected against, nor from what the attacker adds to it, as a sprint. */
+    /**
+     * No knockback from a hit a prayer protected against, nor from what the attacker adds to it, as a sprint; and
+     * none at all for a lesser demon, which nothing pushes about.
+     */
     @Override
     public void knockBack(Entity attacker, float amount, double dx, double dz) {
-        if (steadyTick != ticksExisted) {
+        if (steadyTick != ticksExisted && kind != UnitKind.LESSER_DEMON) {
             super.knockBack(attacker, amount, dx, dz);
         }
     }
 
     @Override
     public void addVelocity(double x, double y, double z) {
-        if (steadyTick != ticksExisted) {
+        if (steadyTick != ticksExisted && kind != UnitKind.LESSER_DEMON) {
             super.addVelocity(x, y, z);
         }
     }
@@ -2295,7 +2414,7 @@ public class EntityUnit extends EntityCreature {
      * with, then leaves it a few seconds before switching again.
      */
     private void computerPrays(Prayer style) {
-        if (kind != UnitKind.TRAGIDEE || style == Prayer.NONE || style == prayer || prayerSwitchTicks > 0) {
+        if (kind != UnitKind.TRADIGEE || style == Prayer.NONE || style == prayer || prayerSwitchTicks > 0) {
             return;
         }
         Team team = team();

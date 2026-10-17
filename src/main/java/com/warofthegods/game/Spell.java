@@ -16,7 +16,15 @@ public enum Spell {
     /** Weakness for a few seconds: the enemy's blows do less. */
     WEAKEN("weaken", "Weaken", 0, Potion.weakness.id, 60, "witchMagic", 0x8C8C9C),
     /** Nausea for six seconds. */
-    CONFUSE("confuse", "Confuse", 0, Potion.confusion.id, 120, "portal", 0xA03CC8);
+    CONFUSE("confuse", "Confuse", 0, Potion.confusion.id, 120, "portal", 0xA03CC8),
+    /**
+     * A lesser demon's fireball: a great ball of flame that bursts where it lands, burning whoever it hits and the
+     * caster's enemies round them, but no blocks. Wizards do not cast it.
+     */
+    FIREBALL("fireball", "Fireball", 10, 0, 0, "flame", 0xFF5A14);
+
+    /** The spells wizards cast, picking among them. */
+    public static final Spell[] WIZARD_SPELLS = { AIR, WATER, EARTH, FIRE, WEAKEN, CONFUSE };
 
     public final String id;
     public final String displayName;

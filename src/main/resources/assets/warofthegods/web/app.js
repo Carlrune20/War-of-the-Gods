@@ -748,7 +748,7 @@
     // The building, unit and resource icons in icons.png, one 16 pixel square each, in this order.
     const SPRITES = ["town_hall", "house", "barracks", "storehouse", "quarry", "farm", "armory", "tower", "worker",
         "soldier", "archer", "tree", "upgrade", "level", "food", "wood", "gold", "sword", "axe", "pickaxe", "hoe", "wall",
-        "gate", "white_knights_fortress", "black_knights_fortress", "white_knight", "black_knight", "tragidee",
+        "gate", "white_knights_fortress", "black_knights_fortress", "white_knight", "black_knight", "tradigee",
         "sagittare", "archery_range", "stables", "cavalry", "horse", "favor", "chaos_temple", "monastery",
         "wizards_tower", "stone_circle", "chaos_priest", "monk", "dark_wizard", "zamorak_mage", "blue_wizard",
         "lesser_demon"];
@@ -841,7 +841,14 @@
         }
         const actions = el("span");
         const building = state.buildings.get(state.selectedBuilding);
-        if (placing && placing.type === "wall") {
+        if (placing && placing.type === "bridge") {
+            const bridge = placingWall();
+            actions.append(el("span", "note", placing.start
+                ? "Bridge: click the far bank" + (bridge ? ", " + bridge.pieces.length + " blocks for "
+                    + costText(wallCost(bridge.pieces.length, "bridge")) : "")
+                : "Bridge: click the bank it starts from"));
+            actions.append(button("Cancel", "Esc or right-click", () => stopPlacing()));
+        } else if (placing && placing.type === "wall") {
             const wall = placingWall();
             actions.append(el("span", "note", placing.start
                 ? "Wall: click where it ends" + (wall ? ", " + wall.pieces.length + " pieces for "
@@ -867,10 +874,12 @@
                     continue;
                 }
                 const aged = (team.age || 1) >= (type.age || 1);
-                const title = type.name + " (" + costText(type.cost) + (id === "wall" ? " a piece)" : ")") + "\n"
+                const title = type.name + " (" + costText(type.cost)
+                    + (id === "wall" ? " a piece)" : id === "bridge" ? " a block)" : ")") + "\n"
                     + (!aged ? "Needs " + ageName(type.age) + ": take your town center up a level"
                         : id === "wall" ? "Build a wall: click where it starts and where it ends, or on two of your towers"
-                            : "Build a " + type.name.toLowerCase() + ", then click on the map where it goes");
+                            : id === "bridge" ? "Build a wooden bridge: click one bank, then the other"
+                                : "Build a " + type.name.toLowerCase() + ", then click on the map where it goes");
                 const b = squareButton("building/" + team.faction + "/" + id, id, title, () => startPlacing(id));
                 b.disabled = !aged || !canAfford(team, type.cost);
                 actions.append(b);
@@ -1342,7 +1351,7 @@
     // Where the footprint of the building being placed goes and whether it fits: inside the map and clear of
     // other buildings. The server also checks the ground is dry and level enough.
     function placingFootprint() {
-        if (!placing || placing.cx === null || placing.type === "wall") {
+        if (!placing || placing.cx === null || placing.type === "wall" || placing.type === "bridge") {
             return null;
         }
         const type = buildingType(placing.type);
@@ -1380,6 +1389,9 @@
     // The wall being laid out, from where it starts to the pointer (or the pointer alone before the first click), as
     // its pieces and whether it fits; see WallLine.java, which the server lays the wall out with.
     function placingWall() {
+        if (placing && placing.type === "bridge" && placing.cx !== null) {
+            return placingBridge();
+        }
         if (!placing || placing.type !== "wall" || placing.cx === null) {
             return null;
         }
@@ -1431,13 +1443,68 @@
         return {pieces, ok};
     }
 
+    // The bridge being laid out, as the server will lay it (see BridgeLine.java): straight along x or z from the
+    // first point, a block at a time, leaving out what the team has built of it already. Its deck lies a block over
+    // the water, or in the ground on land.
+    function placingBridge() {
+        const team = myTeam();
+        const x1 = placing.start ? placing.start.x : placing.cx;
+        const z1 = placing.start ? placing.start.z : placing.cz;
+        const alongX = Math.abs(placing.cx - x1) >= Math.abs(placing.cz - z1);
+        const from = alongX ? x1 : z1;
+        const to = alongX ? placing.cx : placing.cz;
+        const step = to >= from ? 1 : -1;
+        const g = state.game;
+        const pieces = [];
+        let water = false;
+        for (let at = from; pieces.length < 48; at += step) {
+            const p = alongX ? {x: at, z: z1 - 2, sizeX: 1, sizeZ: 5, rotation: 0}
+                : {x: x1 - 2, z: at, sizeX: 5, sizeZ: 1, rotation: 1};
+            p.type = "bridge";
+            const hits = (f) => p.x < f.x + f.sizeX && f.x < p.x + p.sizeX && p.z < f.z + f.sizeZ && f.z < p.z + p.sizeZ;
+            let fits = p.x >= g.minX && p.z >= g.minZ && p.x + p.sizeX - 1 <= g.maxX && p.z + p.sizeZ - 1 <= g.maxZ;
+            let built = false;
+            for (const b of state.buildings.values()) {
+                if (hits(b)) {
+                    if (team && b.team === team.id && b.type === "bridge") {
+                        built = true;
+                    } else {
+                        fits = false;
+                    }
+                }
+            }
+            for (const f of state.settlements.concat(state.mines)) {
+                if (hits(f)) {
+                    fits = false;
+                }
+            }
+            if (!built) {
+                const cx = Math.floor(p.x + p.sizeX / 2);
+                const cz = Math.floor(p.z + p.sizeZ / 2);
+                const top = surfaceY(cx, cz) - 1;
+                const value = view.map.chunk(cx >> 4, cz >> 4) ? view.map.block(cx, top, cz) : 0;
+                const wet = value >> 4 === 8 || value >> 4 === 9;
+                water = water || wet;
+                // The ghost goes a block over its ground, so a block under the deck.
+                p.y = (wet ? top + 1 : top) - 1;
+                p.ok = fits;
+                pieces.push(p);
+            }
+            if (at === to) {
+                break;
+            }
+        }
+        const ok = water && pieces.length > 0 && pieces.every((p) => p.ok);
+        return {pieces, ok, dry: !water};
+    }
+
     function isWallType(type) {
         return type === "wall" || type === "wall_post" || type === "gate";
     }
 
-    function wallCost(pieces) {
+    function wallCost(pieces, type = "wall") {
         const cost = {};
-        for (const [resource, amount] of Object.entries(buildingType("wall").cost || {})) {
+        for (const [resource, amount] of Object.entries(buildingType(type).cost || {})) {
             cost[resource] = amount * pieces;
         }
         return cost;
@@ -1562,7 +1629,7 @@
 
     async function place(px, py, keep) {
         movePlacing(px, py);
-        if (placing.type === "wall") {
+        if (placing.type === "wall" || placing.type === "bridge") {
             placeWall(keep);
             return;
         }
@@ -1604,9 +1671,11 @@
             view.dirty = true;
             return;
         }
+        const bridge = placing.type === "bridge";
         const wall = placingWall();
         if (!wall || !wall.ok) {
-            showToast("The wall does not fit there", true);
+            showToast(!bridge ? "The wall does not fit there"
+                : wall && wall.dry ? "A bridge has to cross water" : "The bridge does not fit there", true);
             return;
         }
         const workers = selectedWorkers();
@@ -1622,10 +1691,10 @@
         } else {
             stopPlacing();
         }
-        const reply = await send("buildings.wall", {x1: start.x, z1: start.z, x2: cx, z2: cz, units: workers,
-            queue: Boolean(keep)});
+        const reply = await send(bridge ? "buildings.bridge" : "buildings.wall", {x1: start.x, z1: start.z, x2: cx,
+            z2: cz, units: workers, queue: Boolean(keep)});
         if (reply) {
-            showToast("Wall of " + reply.pieces + " pieces laid out");
+            showToast(bridge ? "Bridge of " + reply.pieces + " blocks laid out" : "Wall of " + reply.pieces + " pieces laid out");
         }
     }
 

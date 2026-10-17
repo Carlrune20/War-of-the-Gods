@@ -145,16 +145,17 @@ public final class Shop {
         ARMORY.put(3, 7, new Ware(new ItemStack(Items.diamond_leggings), 0, 0, 350, 3));
         ARMORY.put(3, 8, new Ware(new ItemStack(Items.diamond_boots), 0, 0, 200, 3));
 
-        ORE_PRICES.put(Items.coal, 2);
-        ORE_PRICES.put(Item.getItemFromBlock(Blocks.coal_ore), 2);
-        ORE_PRICES.put(Item.getItemFromBlock(Blocks.iron_ore), 6);
-        ORE_PRICES.put(Items.iron_ingot, 7);
-        ORE_PRICES.put(Item.getItemFromBlock(Blocks.gold_ore), 12);
-        ORE_PRICES.put(Items.gold_ingot, 13);
-        ORE_PRICES.put(Items.emerald, 30);
-        ORE_PRICES.put(Item.getItemFromBlock(Blocks.emerald_ore), 30);
-        ORE_PRICES.put(Items.diamond, 50);
-        ORE_PRICES.put(Item.getItemFromBlock(Blocks.diamond_ore), 50);
+        // Worth a trip down a cave: a stack of iron is as much gold as a worker mines in a few minutes.
+        ORE_PRICES.put(Items.coal, 8);
+        ORE_PRICES.put(Item.getItemFromBlock(Blocks.coal_ore), 8);
+        ORE_PRICES.put(Item.getItemFromBlock(Blocks.iron_ore), 24);
+        ORE_PRICES.put(Items.iron_ingot, 26);
+        ORE_PRICES.put(Item.getItemFromBlock(Blocks.gold_ore), 40);
+        ORE_PRICES.put(Items.gold_ingot, 42);
+        ORE_PRICES.put(Items.emerald, 100);
+        ORE_PRICES.put(Item.getItemFromBlock(Blocks.emerald_ore), 100);
+        ORE_PRICES.put(Items.diamond, 150);
+        ORE_PRICES.put(Item.getItemFromBlock(Blocks.diamond_ore), 150);
     }
 
     /** The shop a building keeps, or null for a building with none. */

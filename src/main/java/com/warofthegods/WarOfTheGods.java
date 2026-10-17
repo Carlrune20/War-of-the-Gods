@@ -15,6 +15,7 @@ import com.warofthegods.command.Lobby;
 import com.warofthegods.command.TeamCommands;
 import com.warofthegods.game.PlayerEvents;
 import com.warofthegods.game.WinConditions;
+import com.warofthegods.item.ItemSilverlight;
 import com.warofthegods.item.ItemZamorakStaff;
 import com.warofthegods.rts.Commanders;
 import com.warofthegods.rts.EntityCommanderBody;
@@ -63,6 +64,8 @@ public class WarOfTheGods {
 
     /** The staff Zamorak mages carry, which players can cast fire strikes with too. */
     public static ItemZamorakStaff zamorakStaff;
+    /** The demon-slaying sword, one of which lies in a shrine on each game's map. */
+    public static ItemSilverlight silverlight;
 
     @SidedProxy(clientSide = "com.warofthegods.client.ClientProxy", serverSide = "com.warofthegods.CommonProxy")
     public static CommonProxy proxy;
@@ -80,6 +83,8 @@ public class WarOfTheGods {
         zamorakStaff = new ItemZamorakStaff();
         GameRegistry.registerItem(zamorakStaff, "zamorak_staff");
         ModBlocks.register();
+        silverlight = new ItemSilverlight();
+        GameRegistry.registerItem(silverlight, "silverlight");
         RtsNetwork.register();
     }
 
@@ -107,6 +112,7 @@ public class WarOfTheGods {
             .register(units);
         ForgeChunkManager.setForcedChunkLoadingCallback(this, units.chunkLoadingCallback());
         MinecraftForge.EVENT_BUS.register(new Combat());
+        MinecraftForge.EVENT_BUS.register(silverlight);
         Mobs mobs = new Mobs();
         FMLCommonHandler.instance()
             .bus()

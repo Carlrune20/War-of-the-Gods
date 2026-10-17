@@ -31,7 +31,7 @@ public class Config {
         unitCosts.put(UnitKind.WHITE_KNIGHT, new long[] { 60, 0, 75 });
         unitCosts.put(UnitKind.BLACK_KNIGHT, new long[] { 60, 0, 75 });
         unitCosts.put(UnitKind.SAGITTARE, new long[] { 200, 0, 350 });
-        unitCosts.put(UnitKind.TRAGIDEE, new long[] { 200, 0, 350 });
+        unitCosts.put(UnitKind.TRADIGEE, new long[] { 200, 0, 350 });
         unitCosts.put(UnitKind.CAVALRY, new long[] { 80, 0, 60 });
         unitCosts.put(UnitKind.HORSE, new long[] { 60, 0, 20 });
         unitCosts.put(UnitKind.CHAOS_PRIEST, new long[] { 50, 0, 30, 0 });
@@ -39,7 +39,7 @@ public class Config {
         unitCosts.put(UnitKind.DARK_WIZARD, new long[] { 60, 0, 50, 0 });
         unitCosts.put(UnitKind.ZAMORAK_MAGE, new long[] { 80, 0, 120, 0 });
         unitCosts.put(UnitKind.BLUE_WIZARD, new long[] { 60, 0, 50, 0 });
-        unitCosts.put(UnitKind.LESSER_DEMON, new long[] { 300, 200, 300, 150 });
+        unitCosts.put(UnitKind.LESSER_DEMON, new long[] { 300, 0, 300, 7 });
     }
 
     public static int unitsPerTeam = 100;
@@ -54,7 +54,7 @@ public class Config {
 
     static {
         defaults(BuildingType.TOWN_HALL, new long[] { 0, 300, 200 }, 1500, 60);
-        defaults(BuildingType.FARM, new long[] { 0, 75, 0 }, 300, 15);
+        defaults(BuildingType.FARM, new long[] { 0, 75, 0 }, 120, 15);
         defaults(BuildingType.BARRACKS, new long[] { 0, 150, 50 }, 800, 25);
         defaults(BuildingType.STOREHOUSE, new long[] { 0, 100, 0 }, 600, 20);
         defaults(BuildingType.HOUSE, new long[] { 0, 60, 0 }, 300, 12);
@@ -72,6 +72,8 @@ public class Config {
         defaults(BuildingType.MONASTERY, new long[] { 0, 150, 75 }, 800, 30);
         defaults(BuildingType.WIZARDS_TOWER, new long[] { 0, 100, 150 }, 900, 30);
         defaults(BuildingType.STONE_CIRCLE, new long[] { 0, 0, 100 }, 600, 20);
+        // Bridges cost wood for every block of their length.
+        defaults(BuildingType.BRIDGE, new long[] { 0, 6, 0 }, 150, 3);
     }
 
     /** Food, Wood and Gold the town center costs to go up to level 2, and to level 3. */
@@ -91,9 +93,14 @@ public class Config {
     public static int fortressRange = 20;
     /** Blocks guard towers see and shoot farther than watch towers. */
     public static int guardTowerRange = 8;
-    /** Seconds a chaos priest praying at a chaos temple takes to earn a favor, and a monk just living. */
-    public static int priestFavorSeconds = 4;
-    public static int monkFavorSeconds = 8;
+    /**
+     * Seconds a chaos priest praying at a chaos temple takes to earn a favor, and a monk just living. Favor is meant to
+     * be scarce: a full temple earns about seven a minute.
+     */
+    public static int priestFavorSeconds = 45;
+    public static int monkFavorSeconds = 90;
+    /** The most favor a team can hold; what the gods grant beyond it is lost. */
+    public static int maxFavor = 100;
     /** Wood one log of a tree holds; a tree holds between treeWoodMin and treeWoodMax in all. */
     public static int woodPerLog = 25;
     public static int treeWoodMin = 100;
@@ -113,6 +120,8 @@ public class Config {
     public static int farmFood = 5;
     /** Gold a gold mine holds when the game starts. */
     public static int goldMineGold = 2000;
+    /** Gold every mining site holds on top of its share of goldMineGold, whatever its ore. */
+    public static int mineExtraGold = 600;
     /** Gold a worker mines per mineSeconds. */
     public static int mineGold = 4;
     public static int mineSeconds = 3;
@@ -190,7 +199,7 @@ public class Config {
     public static boolean rtsEdgeScroll = true;
 
     /** Bumped when defaults change in a way that should replace what older config files hold. */
-    private static final int CONFIG_VERSION = 7;
+    private static final int CONFIG_VERSION = 9;
 
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
@@ -244,6 +253,17 @@ public class Config {
         if (oldVersion < 7) {
             // Ruins became several times as common.
             forget(configuration, "buildings", "ruinEvery");
+        }
+        if (oldVersion < 8) {
+            // Farms soaked up too much damage.
+            forget(configuration, "buildings", "farmHealth");
+        }
+        if (oldVersion < 9) {
+            // Favor became scarce and a lesser demon cheap in it, and it no longer costs wood.
+            forget(configuration, "units", "priestFavorSeconds");
+            forget(configuration, "units", "monkFavorSeconds");
+            forget(configuration, "units", "lesserDemonCostWood");
+            forget(configuration, "units", "lesserDemonCostFavor");
         }
         version.set(CONFIG_VERSION);
 
@@ -462,6 +482,13 @@ public class Config {
             1,
             3600,
             "Seconds a monk takes to earn its team a favor, wherever it is.");
+        maxFavor = configuration.getInt(
+            "maxFavor",
+            units,
+            maxFavor,
+            0,
+            100000,
+            "The most favor a team can hold; what its priests and monks earn beyond it is lost.");
         guardTowerRange = configuration.getInt(
             "guardTowerRange",
             buildings,
@@ -499,7 +526,14 @@ public class Config {
             1,
             1000000,
             "Gold a gold mine holds when a game starts. Coal mines hold 0.6 times as much, iron 0.8, adamantite 1.3"
-                + " and runite 1.6.");
+                + " and runite 1.6, and every mine mineExtraGold on top.");
+        mineExtraGold = configuration.getInt(
+            "mineExtraGold",
+            buildings,
+            mineExtraGold,
+            0,
+            1000000,
+            "Gold every mining site holds on top of its share of goldMineGold, whatever its ore.");
         mineGold = configuration.getInt(
             "mineGold",
             buildings,
