@@ -368,7 +368,19 @@ public class EntityUnit extends EntityCreature {
         if (getWatchedPrayer() != prayer) {
             dataWatcher.updateObject(WATCH_PRAYER, (byte) prayer.ordinal());
         }
+        // Protecting from magic puts out the fire a spell set him alight with.
+        if (prayer == Prayer.MAGIC) {
+            extinguish();
+        }
         return true;
+    }
+
+    /** No fire takes while Protect from Magic is up. */
+    @Override
+    public void setFire(int seconds) {
+        if (prayer != Prayer.MAGIC) {
+            super.setFire(seconds);
+        }
     }
 
     /** On a client, how long the archer has been drawing its bow for, in ticks; 0 when it is not drawing. */
@@ -2431,6 +2443,11 @@ public class EntityUnit extends EntityCreature {
         // Heroes hit myth units, such as lesser demons, twice as hard, blows and arrows alike.
         if (kind.isMyth() && attacker instanceof EntityUnit && ((EntityUnit) attacker).kind.hero) {
             amount *= HERO_VS_MYTH_DAMAGE;
+        }
+        // Protect from Magic keeps fire off, so nothing burns while it is up.
+        if (prayer == Prayer.MAGIC && source.isFireDamage()) {
+            extinguish();
+            return false;
         }
         // A protection prayer against the hit's style takes most of its damage and all of its knockback.
         Prayer style = Prayer.styleOf(source);
