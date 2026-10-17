@@ -523,6 +523,16 @@ echo "rts ai blue on" >&3
 wait_for_log "Team Blue is now played by the computer" 30
 echo "rts ai" >&3
 wait_for_log "AI teams: Blue" 30
+# The fog of war's testing commands: reveal the map to a team, and lift the fog for everyone and back.
+echo "rts reveal red" >&3
+wait_for_log "The whole map is revealed to " 30
+echo "rts reveal all off" >&3
+wait_for_log "The map is no longer revealed to every team" 30
+echo "rts seeall on" >&3
+wait_for_log "The fog of war is lifted: everyone sees everything" 30
+echo "rts seeall" >&3
+wait_for_log "The fog of war is back" 30
+echo "ok: /rts reveal and /rts seeall"
 wait_for_log "trained Blue worker" 120
 wait_for_log "AI Blue put idle workers to work" 60
 echo "ok: $(grep -oE 'AI Blue put idle workers to work.*' "$WEB_LOG" | head -1)"

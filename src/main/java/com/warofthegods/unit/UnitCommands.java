@@ -28,7 +28,8 @@ import com.warofthegods.world.GameWorld;
  *
  * <pre>
  *   {type: "units.move", units: [id...], x, z, formation?}  walk there, in a box, line or wedge; with attack: true
- *                                                   warriors and archers fight any enemy they meet on the way
+ *                                                   warriors and archers fight any enemy they meet on the way;
+ *                                                   with queue: true after the moves they are on, as waypoints
  *   {type: "units.stance", units: [id...], stance}  aggressive, defensive, hold or passive
  *   {type: "units.attack", units: [id...], target: id}  attack an enemy unit or player, or a mob; workers do not
  *                                                       fight, but hunt cows, pigs, sheep and chickens
@@ -127,7 +128,15 @@ public final class UnitCommands {
             request.body.get("formation")
                 .getAsString())
             : null;
-        if (boolField(request.body, "attack")) {
+        if (boolField(request.body, "queue")) {
+            Units.get()
+                .queueMove(
+                    units,
+                    x,
+                    z,
+                    formation == null ? Units.Formation.BOX : formation,
+                    boolField(request.body, "attack"));
+        } else if (boolField(request.body, "attack")) {
             Units.get()
                 .orderAttackMove(units, x, z, formation == null ? Units.Formation.BOX : formation);
         } else {

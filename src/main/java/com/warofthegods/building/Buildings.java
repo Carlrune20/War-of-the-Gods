@@ -1225,11 +1225,11 @@ public final class Buildings {
     /**
      * Lays a bridge out from x1, z1 to x2, z2 (see {@link BridgeLine}). Its deck lies a block over the water, level
      * with the banks, and in the ground on land. Pieces where the team already has bridge are left out, so a bridge can
-     * be carried on from where one ends; it has to cross some water.
+     * be carried on from where one ends. It may cross water or not, so it can as well run as a boardwalk over a marsh
+     * or a gully.
      */
     public BridgePlan planBridge(Game game, WorldServer world, Team team, int x1, int z1, int x2, int z2) {
         List<Plan> plans = new ArrayList<>();
-        boolean water = false;
         for (BridgeLine.Piece piece : BridgeLine.pieces(x1, z1, x2, z2)) {
             boolean built = false;
             for (Building building : game.getBuildings(team)) {
@@ -1246,11 +1246,10 @@ public final class Buildings {
             // The middle of the piece decides: a block over water, or in the ground's top block.
             int x = (int) Math.floor(piece.centerX());
             int z = (int) Math.floor(piece.centerZ());
-            int top = world.getTopSolidOrLiquidBlock(x, z) - 1;
+            int top = surfaceY(world, x, z);
             boolean wet = world.getBlock(x, top, z)
                 .getMaterial()
                 .isLiquid();
-            water |= wet;
             int groundY = wet ? top + 1 : top;
             if (groundY < 2 || groundY > 250) {
                 return new BridgePlan(plans, "The bridge would be too high or too low");
@@ -1269,10 +1268,27 @@ public final class Buildings {
         if (plans.isEmpty()) {
             return new BridgePlan(plans, "There is bridge there already");
         }
-        if (!water) {
-            return new BridgePlan(plans, "A bridge has to cross water");
-        }
         return new BridgePlan(plans, null);
+    }
+
+    /**
+     * The y of the topmost block at x, z that is ground or water, past air, plants and leaves. Unlike
+     * {@code getTopSolidOrLiquidBlock}, which in 1.7.10 looks through water to the bed under it, this stops at the
+     * water's surface.
+     */
+    private static int surfaceY(WorldServer world, int x, int z) {
+        int y = Math.min(255, world.getHeightValue(x, z));
+        for (; y > 0; y--) {
+            Material material = world.getBlock(x, y, z)
+                .getMaterial();
+            if (material != Material.air && material != Material.plants
+                && material != Material.vine
+                && material != Material.leaves
+                && material != Material.snow) {
+                break;
+            }
+        }
+        return y;
     }
 
     /** Why a piece of bridge cannot go where it is, or null. */

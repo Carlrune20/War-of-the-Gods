@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLiving;
@@ -399,15 +400,36 @@ public final class Units {
      * group does not cross over itself on the way.
      */
     public void orderMove(List<EntityUnit> units, double x, double z, Formation formation) {
+        inFormation(units, x, z, formation, false, (unit, slot) -> unit.orderMove(slot[0], slot[1]));
+    }
+
+    /**
+     * Has the units walk to x, z in formation once done with the moves they are on and those queued before, as a
+     * shift-click does, fighting on the way with attack; units doing anything else go now. The formation faces from
+     * where they will be toward it.
+     */
+    public void queueMove(List<EntityUnit> units, double x, double z, Formation formation, boolean attack) {
+        inFormation(units, x, z, formation, true, (unit, slot) -> unit.queueMove(slot[0], slot[1], attack));
+    }
+
+    /**
+     * Shares out the slots of a formation at x, z among the units (see {@link #orderMove}), facing from where they
+     * are, or from where their queued moves leave them with queued, and hands each its slot.
+     */
+    private static void inFormation(List<EntityUnit> units, double x, double z, Formation formation, boolean queued,
+        BiConsumer<EntityUnit, double[]> go) {
         if (units.isEmpty()) {
             return;
         }
         Game game = GameManager.getGame();
+        Map<EntityUnit, double[]> from = new HashMap<>();
         double cx = 0;
         double cz = 0;
         for (EntityUnit unit : units) {
-            cx += unit.posX;
-            cz += unit.posZ;
+            double[] at = queued ? unit.lastGoal() : new double[] { unit.posX, unit.posZ };
+            from.put(unit, at);
+            cx += at[0];
+            cz += at[1];
         }
         cx /= units.size();
         cz /= units.size();
@@ -434,7 +456,7 @@ public final class Units {
             next += row.size();
             final double sideX = rx;
             final double sideZ = rz;
-            row.sort(Comparator.comparingDouble(unit -> unit.posX * sideX + unit.posZ * sideZ));
+            row.sort(Comparator.comparingDouble(unit -> from.get(unit)[0] * sideX + from.get(unit)[1] * sideZ));
             // A short last row stands in the middle.
             int offset = (slots.size() - row.size()) / 2;
             for (int i = 0; i < row.size(); i++) {
@@ -445,8 +467,7 @@ public final class Units {
                     slotX = Math.max(game.getMinX() + 0.5, Math.min(game.getMaxX() + 0.5, slotX));
                     slotZ = Math.max(game.getMinZ() + 0.5, Math.min(game.getMaxZ() + 0.5, slotZ));
                 }
-                row.get(i)
-                    .orderMove(slotX, slotZ);
+                go.accept(row.get(i), new double[] { slotX, slotZ });
             }
         }
     }

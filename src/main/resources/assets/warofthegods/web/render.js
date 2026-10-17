@@ -283,6 +283,7 @@ out vec3 v_color;
 out vec3 v_local;
 out vec2 v_uv;
 flat out ivec4 v_info;
+flat out vec2 v_column;
 flat out vec3 v_top;
 flat out float v_alpha;
 void main() {
@@ -305,6 +306,7 @@ void main() {
     vec3 local = mix(mn, mx, c);
     if (fullh) local.y = c.y;
     vec3 wp = u_origin + vec3(a_pos.xyz) + local;
+    v_column = u_origin.xz + vec2(a_pos.xz) + 0.5;
     gl_Position = u_mvp * vec4(wp, 1.0);
     vec4 side = texelFetch(u_tab, ivec2(id, dat), 0);
     vec4 top = texelFetch(u_tab, ivec2(id, 16 + dat), 0);
@@ -325,7 +327,11 @@ in vec2 v_uv;
 flat in ivec4 v_info;
 flat in vec3 v_top;
 flat in float v_alpha;
+flat in vec2 v_column;
 uniform float u_detail;
+uniform sampler2D u_fog;
+// The fog's corner in blocks, and its size in cells; z of 0 when there is no fog.
+uniform vec4 u_fogArea;
 out vec4 o_color;
 float hash(vec3 p) {
     p = fract(p * 0.3183099 + vec3(0.71, 0.113, 0.419));
@@ -333,6 +339,15 @@ float hash(vec3 p) {
     return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
 }
 void main() {
+    // Ground the team has never explored is black.
+    if (u_fogArea.z > 0.0) {
+        ivec2 cell = ivec2(floor((v_column - u_fogArea.xy) / 4.0));
+        if (cell.x < 0 || cell.y < 0 || cell.x >= int(u_fogArea.z) || cell.y >= int(u_fogArea.w)
+            || texelFetch(u_fog, cell, 0).r < 0.5) {
+            o_color = vec4(0.0, 0.0, 0.0, 1.0);
+            return;
+        }
+    }
     vec2 t = floor(v_uv * 16.0);
     float n = hash(vec3(t.x + float(v_info.z) * 0.37, t.y + float(v_info.w) * 0.61, float(v_info.x) * 1.7 + float(v_info.y)));
     vec3 col = v_color;
@@ -467,6 +482,34 @@ void main() { o_color = v_c; }`;
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
             gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 256, 96, 0, gl.RGBA, gl.UNSIGNED_BYTE, B.table());
+
+            // The cells of the fog of war, 255 where explored; see setFog.
+            this.fog = null;
+            this.fogVersion = -1;
+            this.fogTexture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, this.fogTexture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 1, 1, 0, gl.RED, gl.UNSIGNED_BYTE, new Uint8Array([255]));
+            gl.bindTexture(gl.TEXTURE_2D, null);
+        }
+
+        // The fog of war to draw: {minX, minZ, columns, rows, explored (a Uint8Array, 255 where explored), version},
+        // cells FOG_CELL blocks across; or null for none.
+        setFog(fog) {
+            if (fog === this.fog && (!fog || fog.version === this.fogVersion)) {
+                return;
+            }
+            this.fog = fog;
+            this.dirty = true;
+            if (!fog) {
+                return;
+            }
+            this.fogVersion = fog.version;
+            const gl = this.gl;
+            gl.bindTexture(gl.TEXTURE_2D, this.fogTexture);
+            gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, fog.columns, fog.rows, 0, gl.RED, gl.UNSIGNED_BYTE, fog.explored);
             gl.bindTexture(gl.TEXTURE_2D, null);
         }
 
@@ -806,6 +849,13 @@ void main() { o_color = v_c; }`;
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, this.table);
             gl.uniform1i(bp.uniforms.u_tab, 0);
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, this.fogTexture);
+            gl.uniform1i(bp.uniforms.u_fog, 1);
+            const fog = this.fog;
+            gl.uniform4f(bp.uniforms.u_fogArea, fog ? fog.minX : 0, fog ? fog.minZ : 0, fog ? fog.columns : 0,
+                fog ? fog.rows : 0);
+            gl.activeTexture(gl.TEXTURE0);
             gl.uniformMatrix4fv(bp.uniforms.u_mvp, false, vp);
             const pixelsPerBlock = this.canvas.height / (2 * this.cam.zoom);
             gl.uniform1f(bp.uniforms.u_detail, Math.min(1, Math.max(0, (pixelsPerBlock - 8) / 12)));

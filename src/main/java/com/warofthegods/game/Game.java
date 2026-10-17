@@ -54,6 +54,8 @@ public class Game {
     private boolean bridgesPlaced;
     /** Whether a winner has been decided; nobody is defeated after that. */
     private boolean over;
+    /** Whether everyone sees the whole map all the time, with no fog of war, for testing. */
+    private boolean seeAll;
     /** Ids of the teams that won, once the game is over; empty if nobody did. */
     private final List<String> winners = new ArrayList<>();
     private Runnable changeListener = () -> {};
@@ -410,6 +412,16 @@ public class Game {
         return over;
     }
 
+    /** Whether the fog of war is lifted for everyone, so all of the map and all on it shows all the time. */
+    public boolean isSeeAll() {
+        return seeAll;
+    }
+
+    public void setSeeAll(boolean seeAll) {
+        this.seeAll = seeAll;
+        changed();
+    }
+
     /** The teams that won, once the game is over; empty if nobody did or it is not over. */
     public List<Team> getWinners() {
         List<Team> result = new ArrayList<>();
@@ -723,6 +735,7 @@ public class Game {
         tag.setInteger("mapTeams", mapTeams);
         tag.setBoolean("bridgesPlaced", bridgesPlaced);
         tag.setBoolean("over", over);
+        tag.setBoolean("seeAll", seeAll);
         NBTTagList winnerList = new NBTTagList();
         for (String id : winners) {
             winnerList.appendTag(new NBTTagString(id));
@@ -802,6 +815,7 @@ public class Game {
         game.mapTeams = tag.getInteger("mapTeams");
         game.bridgesPlaced = tag.getBoolean("bridgesPlaced");
         game.over = tag.getBoolean("over");
+        game.seeAll = tag.getBoolean("seeAll");
         NBTTagList winnerList = tag.getTagList("winners", 8);
         for (int i = 0; i < winnerList.tagCount(); i++) {
             game.winners.add(winnerList.getStringTagAt(i));

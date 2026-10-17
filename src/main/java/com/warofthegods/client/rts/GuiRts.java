@@ -275,6 +275,7 @@ public final class GuiRts extends GuiScreen {
                 body.addProperty("x", onMap[0]);
                 body.addProperty("z", onMap[1]);
                 body.addProperty("formation", client.formation);
+                body.addProperty("queue", isShiftKeyDown());
                 client.command("units.move", body, null);
             }
             return;
@@ -854,6 +855,8 @@ public final class GuiRts extends GuiScreen {
         body.addProperty("x", ground[0]);
         body.addProperty("z", ground[2]);
         body.addProperty("formation", client.formation);
+        // Shift-clicking ground one spot after another lays out waypoints to walk in turn, as for scouting.
+        body.addProperty("queue", isShiftKeyDown());
         client.command("units.move", body, null);
     }
 
@@ -884,6 +887,7 @@ public final class GuiRts extends GuiScreen {
         body.addProperty("z", ground[2]);
         body.addProperty("formation", client.formation);
         body.addProperty("attack", true);
+        body.addProperty("queue", isShiftKeyDown());
         client.command("units.move", body, reply -> client.showToast("Attack move", false));
     }
 
@@ -1343,10 +1347,7 @@ public final class GuiRts extends GuiScreen {
         }
         boolean bridge = RtsClient.BRIDGE.equals(placing.type);
         if (!spot.ok) {
-            client.showToast(
-                !bridge ? "The wall does not fit there"
-                    : spot.dry ? "A bridge has to cross water" : "The bridge does not fit there",
-                true);
+            client.showToast(!bridge ? "The wall does not fit there" : "The bridge does not fit there", true);
             return;
         }
         Set<String> workers = client.selectedWorkers();

@@ -15,6 +15,7 @@ import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 
+import net.minecraft.block.material.Material;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiChat;
 import net.minecraft.client.multiplayer.WorldClient;
@@ -955,8 +956,6 @@ public final class RtsClient {
         public final List<Footprint> pieces = new ArrayList<>();
         public final List<String> types = new ArrayList<>();
         public boolean ok;
-        /** For a bridge, whether it crosses no water, and so cannot go there. */
-        public boolean dry;
     }
 
     /**
@@ -1048,7 +1047,6 @@ public final class RtsClient {
         int[] start = placing.start == null ? new int[] { placing.cx, placing.cz } : placing.start;
         WallSpot spot = new WallSpot();
         spot.ok = true;
-        spot.dry = true;
         RtsState.GameInfo game = state.game;
         for (BridgeLine.Piece piece : BridgeLine.pieces(start[0], start[1], placing.cx, placing.cz)) {
             Footprint footprint = new Footprint();
@@ -1086,19 +1084,34 @@ public final class RtsClient {
             }
             int x = (int) Math.floor(piece.centerX());
             int z = (int) Math.floor(piece.centerZ());
-            int top = mc.theWorld == null ? 63 : mc.theWorld.getTopSolidOrLiquidBlock(x, z) - 1;
+            int top = mc.theWorld == null ? 63 : waterOrGround(x, z);
             boolean wet = mc.theWorld != null && mc.theWorld.getBlock(x, top, z)
                 .getMaterial()
                 .isLiquid();
-            spot.dry &= !wet;
             // The ghost is drawn a block over its ground, so a block under the deck.
             footprint.y = (wet ? top + 1 : top) - 1;
             spot.ok &= footprint.ok;
             spot.pieces.add(footprint);
             spot.types.add(BRIDGE);
         }
-        spot.ok &= !spot.pieces.isEmpty() && !spot.dry;
+        spot.ok &= !spot.pieces.isEmpty();
         return spot;
+    }
+
+    /** The y of the topmost ground or water block at x, z, past air, plants and leaves, as the server lays bridges. */
+    private int waterOrGround(int x, int z) {
+        int y = Math.min(255, mc.theWorld.getHeightValue(x, z));
+        for (; y > 0; y--) {
+            Material material = mc.theWorld.getBlock(x, y, z)
+                .getMaterial();
+            if (material != Material.air && material != Material.plants
+                && material != Material.vine
+                && material != Material.leaves
+                && material != Material.snow) {
+                break;
+            }
+        }
+        return y;
     }
 
     /** A wall end at x, z: the middle of the team's tower there, if there is one, else x, z itself. */
