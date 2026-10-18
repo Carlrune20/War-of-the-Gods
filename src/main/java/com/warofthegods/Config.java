@@ -580,7 +580,7 @@ public class Config {
             0,
             64,
             "Gold mines laid out on each new map for each team between its town center and the middle, besides the"
-                + " one by its town center, the one by each settlement and the wild ones.");
+                + " one by each settlement and the wild ones.");
         goldMineEvery = configuration.getInt(
             "goldMineEvery",
             buildings,
