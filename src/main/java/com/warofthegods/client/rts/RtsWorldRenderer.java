@@ -17,13 +17,15 @@ import com.warofthegods.building.Schematic;
 
 /**
  * What the RTS view draws into the world, after Minecraft has drawn it: building outlines in their team's colour,
- * a see-through copy of the building being placed, rings under selected units with a line to
- * where each is headed, the last order's marker and the edge of the map. Lines show faintly through what is in front
- * of them, so selected units stay visible behind a hill.
+ * a see-through copy of the building being placed, rings in their team's colour under selected units with a yellow
+ * line to where each is headed, the last order's marker and the edge of the map. Lines show faintly through what is
+ * in front of them, so selected units stay visible behind a hill.
  */
 public final class RtsWorldRenderer {
 
     private static final float[] SELECTED = { 0.45F, 1, 0.5F };
+    /** Where selected units, and new units from a selected building, are headed. */
+    private static final float[] ROUTE = { 1, 0.9F, 0.2F };
     private static final float[] ATTACK = { 1, 0.3F, 0.25F };
     private static final float[] RANGE = { 1, 0.85F, 0.35F };
     private static final float[] BORDER = { 1, 0.32F, 0.24F };
@@ -190,8 +192,8 @@ public final class RtsWorldRenderer {
             // Where the new units of a selected building go.
             if (chosen && !Double.isNaN(b.rallyX)) {
                 double rallyY = client.groundHeight(b.rallyX, b.rallyZ) + 0.15;
-                line(b.x + b.sizeX / 2.0, b.y + 1.1, b.z + b.sizeZ / 2.0, b.rallyX, rallyY, b.rallyZ, SELECTED, alpha);
-                ring(b.rallyX, rallyY, b.rallyZ, 0.6, SELECTED, alpha);
+                line(b.x + b.sizeX / 2.0, b.y + 1.1, b.z + b.sizeZ / 2.0, b.rallyX, rallyY, b.rallyZ, ROUTE, alpha);
+                ring(b.rallyX, rallyY, b.rallyZ, 0.6, ROUTE, alpha);
             }
         }
         RtsClient.Footprint spot = client.footprint();
@@ -224,7 +226,8 @@ public final class RtsWorldRenderer {
                 continue;
             }
             double[] at = client.positionOf(unit, partialTicks);
-            ring(at[0], at[1] + 0.05, at[2], 0.7, SELECTED, alpha);
+            RtsState.TeamInfo team = state.teamsById.get(unit.team);
+            ring(at[0], at[1] + 0.05, at[2], 0.7, team == null ? SELECTED : rgb(team.color), alpha);
             RtsState.Thing target = unit.target == null ? null
                 : state.units.containsKey(unit.target) ? state.units.get(unit.target)
                     : state.players.containsKey(unit.target) ? state.players.get(unit.target)
@@ -237,7 +240,7 @@ public final class RtsWorldRenderer {
                 line(at[0], at[1] + 0.1, at[2], to[0], to[1] + 0.1, to[2], ATTACK, alpha);
             } else if (!"attack".equals(unit.order) && !"idle".equals(unit.order) && !Double.isNaN(unit.toX)) {
                 double y = client.groundHeight(unit.toX, unit.toZ);
-                line(at[0], at[1] + 0.1, at[2], unit.toX, y + 0.1, unit.toZ, SELECTED, alpha);
+                line(at[0], at[1] + 0.1, at[2], unit.toX, y + 0.1, unit.toZ, ROUTE, alpha);
             }
             // On from there to each queued waypoint.
             double fromX = unit.toX;
@@ -252,7 +255,7 @@ public final class RtsWorldRenderer {
                     x,
                     client.groundHeight(x, z) + 0.1,
                     z,
-                    SELECTED,
+                    ROUTE,
                     alpha * 0.6F);
                 fromX = x;
                 fromZ = z;
