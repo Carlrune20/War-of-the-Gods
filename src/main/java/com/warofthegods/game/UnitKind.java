@@ -147,6 +147,14 @@ public enum UnitKind {
     }
 
     /**
+     * Whether nothing knocks it back: a lesser demon, and knights in their plate, elite or not, Sir Tradigee among
+     * them.
+     */
+    public boolean isUnshakable() {
+        return this == LESSER_DEMON || this == WHITE_KNIGHT || this == BLACK_KNIGHT || this == TRADIGEE;
+    }
+
+    /**
      * Whether training it brings out a tame horse for players to ride rather than a unit: it takes no room and is
      * not commanded.
      */

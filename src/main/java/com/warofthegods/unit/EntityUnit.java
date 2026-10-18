@@ -553,8 +553,7 @@ public class EntityUnit extends EntityCreature {
         if (movement.getBaseValue() != speed) {
             movement.setBaseValue(speed);
         }
-        getEntityAttribute(SharedMonsterAttributes.knockbackResistance)
-            .setBaseValue(kind == UnitKind.LESSER_DEMON ? 1 : 0);
+        getEntityAttribute(SharedMonsterAttributes.knockbackResistance).setBaseValue(kind.isUnshakable() ? 1 : 0);
         fitSize(kind);
         wearArmor(team);
         showHeld();
@@ -2487,18 +2486,18 @@ public class EntityUnit extends EntityCreature {
 
     /**
      * No knockback from a hit a prayer protected against, nor from what the attacker adds to it, as a sprint; and
-     * none at all for a lesser demon, which nothing pushes about.
+     * none at all for a lesser demon or a knight, which nothing pushes about.
      */
     @Override
     public void knockBack(Entity attacker, float amount, double dx, double dz) {
-        if (steadyTick != ticksExisted && kind != UnitKind.LESSER_DEMON) {
+        if (steadyTick != ticksExisted && !kind.isUnshakable()) {
             super.knockBack(attacker, amount, dx, dz);
         }
     }
 
     @Override
     public void addVelocity(double x, double y, double z) {
-        if (steadyTick != ticksExisted && kind != UnitKind.LESSER_DEMON) {
+        if (steadyTick != ticksExisted && !kind.isUnshakable()) {
             super.addVelocity(x, y, z);
         }
     }
