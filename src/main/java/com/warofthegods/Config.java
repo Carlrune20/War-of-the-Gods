@@ -133,6 +133,8 @@ public class Config {
     public static int settlementEvery = 250;
     /** Gold mines away from any settlement, laid out on each new map for each team. */
     public static int extraGoldMines = 1;
+    /** Blocks of map width for each wild gold mine laid out for each team: a 1000 block map has 8 for each team. */
+    public static int goldMineEvery = 125;
     /** Animals that graze near each team's first town center: a flock of chickens and a herd of pigs, cows or sheep. */
     public static int startingChickens = 8;
     public static int startingLivestock = 6;
@@ -559,7 +561,16 @@ public class Config {
             extraGoldMines,
             0,
             64,
-            "Gold mines laid out on each new map for each team, besides the one by each settlement.");
+            "Gold mines laid out on each new map for each team between its town center and the middle, besides the"
+                + " one by its town center, the one by each settlement and the wild ones.");
+        goldMineEvery = configuration.getInt(
+            "goldMineEvery",
+            buildings,
+            goldMineEvery,
+            0,
+            100000,
+            "Blocks of map width for each wild gold mine laid out for each team on a new map, spread over its side of"
+                + " the map away from any settlement: 125 gives a 1000 block map 8 for each team. 0 for none.");
         startingChickens = configuration.getInt(
             "startingChickens",
             buildings,

@@ -59,9 +59,10 @@ public final class MapFeatures {
 
     /**
      * Lays out the map's towers, settlements, gold mines and herds once every team has its first town center.
-     * Each team gets four towers round its town center, chickens and livestock grazing near it, an extra gold mine
-     * and wild herds over its side of the map. Settlements lie scattered at random over the whole map, each with a
-     * gold mine behind it, to be found rather than known in advance.
+     * Each team gets four towers round its town center, chickens and livestock grazing near it, a gold mine beside it,
+     * an extra gold mine toward the middle, and wild gold mines and herds over its side of the map. Settlements lie
+     * scattered at random over the whole map, each with a gold mine behind it, to be found rather than known in
+     * advance.
      */
     void placeIfDue(Game game, WorldServer world) {
         if (game.areFeaturesPlaced()) {
@@ -111,6 +112,12 @@ public final class MapFeatures {
             extraKinds[k] = MineKind.byRoll(kinds.nextInt(common));
             extraDesigns[k] = kinds.nextInt(MineSites.DESIGNS);
         }
+        // Each team's own mine, beside its town center: never runite either, and the same kind for every team.
+        MineKind homeKind = MineKind.byRoll(kinds.nextInt(MineKind.totalWeight() - MineKind.RUNITE.weight));
+        int homeDesign = kinds.nextInt(MineSites.DESIGNS);
+        for (Team team : teams) {
+            placeHomeMine(game, world, team, homeKind, homeDesign);
+        }
         for (int i = 0; i < teams.size(); i++) {
             double angle = -Math.PI / 2 + 2 * Math.PI * i / n;
             for (int k = 0; k < Config.extraGoldMines; k++) {
@@ -120,6 +127,7 @@ public final class MapFeatures {
                 addMine(game, world, spot[0], spot[1], 48, extraKinds[k], extraDesigns[k]);
             }
         }
+        placeWildMines(game, world, teams, n, sector);
         placeShrine(game, world);
         for (Team team : teams) {
             placeHerds(game, world, team);
@@ -236,6 +244,54 @@ public final class MapFeatures {
     /** Settlements laid out for each team besides the one it starts on, by the size of the map. */
     static int settlementsPerTeam(Game game) {
         return Math.max(1, (int) Math.round(game.getSize() / (double) Config.settlementEvery));
+    }
+
+    /** Wild gold mines laid out for each team besides the ones by its town center and the settlements. */
+    static int wildMinesPerTeam(Game game) {
+        return Config.goldMineEvery <= 0 ? 0 : (int) Math.round(game.getSize() / (double) Config.goldMineEvery);
+    }
+
+    /**
+     * Gold mines spread over each team's side of the map, from near the middle out toward the edge, the same kinds at
+     * the same spots round every team: more on bigger maps, so there is gold to find wherever a team goes.
+     */
+    private void placeWildMines(Game game, WorldServer world, List<Team> teams, int n, double sector) {
+        int mines = wildMinesPerTeam(game);
+        Random random = new Random(game.getSeed() * 19 + 11);
+        for (int k = 0; k < mines; k++) {
+            MineKind kind = MineKind.byRoll(random.nextInt(MineKind.totalWeight()));
+            int design = random.nextInt(MineSites.DESIGNS);
+            double t = -1 + 2.0 * (k + 0.5) / mines;
+            // By the golden ratio, offset from the herds' so mines and herds do not sit on each other.
+            double out = 0.08 + 0.36 * ((k * 0.618034 + 0.75) % 1);
+            for (int i = 0; i < teams.size(); i++) {
+                double angle = -Math.PI / 2 + 2 * Math.PI * i / n;
+                int[] spot = around(game, angle + t * 0.45 * sector, out);
+                addMine(game, world, spot[0], spot[1], 48, kind, design);
+            }
+        }
+    }
+
+    /** A gold mine beside the team's town center, toward the middle of the map, so every team starts with gold. */
+    private void placeHomeMine(Game game, WorldServer world, Team team, MineKind kind, int design) {
+        Building center = game.getTownHall(team);
+        if (center == null) {
+            return;
+        }
+        double cx = center.minX + center.sizeX / 2.0;
+        double cz = center.minZ + center.sizeZ / 2.0;
+        double dx = game.getCenterX() - cx;
+        double dz = game.getCenterZ() - cz;
+        double length = Math.max(1, Math.sqrt(dx * dx + dz * dz));
+        double reach = Math.max(center.sizeX, center.sizeZ) / 2.0 + SPACING + MineSites.sizeOf(design) / 2.0 + 10;
+        addMine(
+            game,
+            world,
+            (int) Math.round(cx + dx / length * reach),
+            (int) Math.round(cz + dz / length * reach),
+            32,
+            kind,
+            design);
     }
 
     /**
