@@ -13,15 +13,21 @@ src/main/resources/assets/warofthegods/textures/gui/icons.png, which the web map
 
 import argparse
 import io
+import json
 import os
 import random
+import sys
 import zipfile
 
 from PIL import Image
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models"))
+import blockbench  # noqa: E402
+
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "src", "main", "resources", "assets", "warofthegods")
 SKINS = os.path.join(ROOT, "textures", "entity", "unit")
 ICONS = os.path.join(ROOT, "textures", "gui", "icons.png")
+FACTIONS = blockbench.FACTIONS
 
 # ---------------------------------------------------------------- skins
 
@@ -1574,6 +1580,22 @@ def icons(jar):
     return sheet
 
 
+def painted_in_blockbench(name, painted):
+    """Whether a knight's skin, by its name after the faction's, is worn by a model in tools/models/blockbench/ that
+    holds a skin other than the one painted here (for the first faction): then it was painted by hand, and is the skin
+    now."""
+    for model, skin_name in blockbench.SKINS.items():
+        path = os.path.join(blockbench.BLOCKBENCH, model + ".bbmodel")
+        if skin_name != name or not os.path.exists(path):
+            continue
+        with open(path) as file:
+            _, textures = blockbench.from_blockbench(json.load(file))
+        for data in textures.values():
+            if list(Image.open(io.BytesIO(data)).convert("RGBA").getdata()) != list(painted.convert("RGBA").getdata()):
+                return True
+    return False
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--preview", help="also write enlarged pictures into this folder")
@@ -1583,7 +1605,7 @@ def main():
     os.makedirs(SKINS, exist_ok=True)
     os.makedirs(os.path.dirname(ICONS), exist_ok=True)
     written = []
-    for faction in ("saradomin", "zamorak"):
+    for faction in FACTIONS:
         # Knights and heroes look the same whichever team trains them; both factions get a copy.
         for kind, name in ((worker, "worker"), (warrior, "soldier"), (archer, "archer"),
                            (white_knight, "white_knight"), (black_knight, "black_knight"), (tradigee, "tradigee"),
@@ -1592,6 +1614,9 @@ def main():
                            (blue_wizard, "blue_wizard"), (lesser_demon, "lesser_demon"), (centaur, "centaur"),
                            (elite_black_knight, "black_knight_elite"), (justiciar, "white_knight_elite")):
             path = os.path.join(SKINS, "%s_%s.png" % (faction, name))
+            if painted_in_blockbench(name, skin(kind, FACTIONS[0])):
+                print("%s: painted in Blockbench, so left as it is" % path)
+                continue
             skin(kind, faction).save(path)
             written.append(path)
     overlay().save(os.path.join(SKINS, "team_overlay.png"))

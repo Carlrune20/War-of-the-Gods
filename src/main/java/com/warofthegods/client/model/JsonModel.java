@@ -48,6 +48,7 @@ public final class JsonModel {
     private final List<ModelRenderer> roots = new ArrayList<>();
     private final Map<String, ModelRenderer> parts = new HashMap<>();
     private final Map<String, float[]> rest = new HashMap<>();
+    private final Map<String, float[]> restPivots = new HashMap<>();
     private final List<ModelRenderer> geometry = new ArrayList<>();
     private final List<ModelRenderer> glowing = new ArrayList<>();
     private int textureWidth;
@@ -97,6 +98,7 @@ public final class JsonModel {
         List<ModelRenderer> oldRoots = new ArrayList<>(roots);
         Map<String, ModelRenderer> oldParts = new HashMap<>(parts);
         Map<String, float[]> oldRest = new HashMap<>(rest);
+        Map<String, float[]> oldPivots = new HashMap<>(restPivots);
         List<ModelRenderer> oldGeometry = new ArrayList<>(geometry);
         List<ModelRenderer> oldGlowing = new ArrayList<>(glowing);
         int width = textureWidth;
@@ -112,6 +114,8 @@ public final class JsonModel {
             parts.putAll(oldParts);
             rest.clear();
             rest.putAll(oldRest);
+            restPivots.clear();
+            restPivots.putAll(oldPivots);
             model.textureWidth = textureWidth = width;
             model.textureHeight = textureHeight = height;
         }
@@ -126,6 +130,7 @@ public final class JsonModel {
         roots.clear();
         parts.clear();
         rest.clear();
+        restPivots.clear();
         geometry.clear();
         glowing.clear();
         JsonArray texture = json.getAsJsonArray("texture");
@@ -183,6 +188,7 @@ public final class JsonModel {
                 }
                 parts.put(partName, node);
                 rest.put(partName, rotation);
+                restPivots.put(partName, pivot);
             }
         } finally {
             while (model.boxList.size() > before) {
@@ -236,13 +242,79 @@ public final class JsonModel {
         return parts.get(name);
     }
 
-    /** Puts every part back as the model was made, before an animation turns them anew. */
+    /** Puts every part back as the model was made, before an animation turns and moves them anew. */
     public void resetPose() {
         for (Map.Entry<String, float[]> entry : rest.entrySet()) {
             ModelRenderer part = parts.get(entry.getKey());
             part.rotateAngleX = entry.getValue()[0];
             part.rotateAngleY = entry.getValue()[1];
             part.rotateAngleZ = entry.getValue()[2];
+            float[] pivot = restPivots.get(entry.getKey());
+            part.setRotationPoint(pivot[0], pivot[1], pivot[2]);
+        }
+    }
+
+    /** Moves a part's pivot from where it rests by x, y and z. */
+    public void move(String name, float x, float y, float z) {
+        ModelRenderer part = parts.get(name);
+        if (part != null) {
+            float[] at = restPivots.get(name);
+            part.setRotationPoint(at[0] + x, at[1] + y, at[2] + z);
+        }
+    }
+
+    /** Copies a part's turn and move away from its rest from a part of another model, from how that one rests. */
+    public void follow(String name, ModelRenderer other, float restX, float restY, float restZ) {
+        turn(name, other.rotateAngleX, other.rotateAngleY, other.rotateAngleZ);
+        move(name, other.rotationPointX - restX, other.rotationPointY - restY, other.rotationPointZ - restZ);
+    }
+
+    /** Whether it has the named part. */
+    public boolean has(String name) {
+        return parts.containsKey(name);
+    }
+
+    /** Shows or hides a part, and the parts hanging from it with it. */
+    public void show(String name, boolean shown) {
+        ModelRenderer part = parts.get(name);
+        if (part != null) {
+            part.showModel = shown;
+        }
+    }
+
+    /**
+     * Draws only the named part, even when it is hidden, and the parts hanging from it, where they are on the model;
+     * nothing when there is no such part.
+     */
+    public void renderOnly(String name, float scale) {
+        ModelRenderer part = parts.get(name);
+        if (part == null) {
+            return;
+        }
+        boolean shown = part.showModel;
+        part.showModel = true;
+        for (ModelRenderer boxes : geometry) {
+            boxes.showModel = false;
+        }
+        showBoxes(part);
+        render(scale);
+        for (ModelRenderer boxes : geometry) {
+            boxes.showModel = true;
+        }
+        part.showModel = shown;
+    }
+
+    private void showBoxes(ModelRenderer node) {
+        if (node.childModels == null) {
+            return;
+        }
+        for (Object child : node.childModels) {
+            ModelRenderer renderer = (ModelRenderer) child;
+            if (geometry.contains(renderer)) {
+                renderer.showModel = true;
+            } else {
+                showBoxes(renderer);
+            }
         }
     }
 
