@@ -80,13 +80,29 @@
    "parent": "head",
    "pivot": [
     0.0,
-    -8.3,
-    -1.0
+    -9.3,
+    0.0
    ],
    "rotation": [
-    0.2,
+    -0.14907,
     0.0,
     0.0
+   ],
+   "glow": false,
+   "boxes": []
+  },
+  {
+   "name": "plume_turned1",
+   "parent": "plume",
+   "pivot": [
+    0.9,
+    0.0,
+    1.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -1.5708
    ],
    "glow": false,
    "boxes": [
@@ -97,8 +113,8 @@
      ],
      "from": [
       -1,
-      -3,
-      -1.5
+      -2.404,
+      1.4402
      ],
      "size": [
       2,
@@ -132,8 +148,8 @@
      ],
      "from": [
       -1,
-      -3,
-      -1.5
+      -2.9413,
+      3.0452
      ],
      "size": [
       2,
@@ -167,8 +183,113 @@
      ],
      "from": [
       -1,
-      -3,
-      -1.5
+      -5.1276,
+      2.5169
+     ],
+     "size": [
+      2,
+      3,
+      3
+     ],
+     "inflate": -0.05,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "plume_3_turned1",
+   "parent": "plume_3",
+   "pivot": [
+    0.0,
+    0.0,
+    3.0
+   ],
+   "rotation": [
+    -0.43633,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      16,
+      32
+     ],
+     "from": [
+      -1,
+      -5.6775,
+      2.2657
+     ],
+     "size": [
+      2,
+      3,
+      3
+     ],
+     "inflate": -0.05,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "plume_3_turned2",
+   "parent": "plume_3",
+   "pivot": [
+    0.0,
+    -1.0,
+    4.25
+   ],
+   "rotation": [
+    -0.43633,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      16,
+      32
+     ],
+     "from": [
+      -1,
+      -5.6775,
+      2.2657
+     ],
+     "size": [
+      2,
+      3,
+      3
+     ],
+     "inflate": -0.05,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "plume_3_turned3",
+   "parent": "plume_3",
+   "pivot": [
+    0.0,
+    -2.0,
+    1.0
+   ],
+   "rotation": [
+    -0.43633,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      16,
+      32
+     ],
+     "from": [
+      -1,
+      -5.6775,
+      2.2657
      ],
      "size": [
       2,
@@ -194,26 +315,7 @@
     0.0
    ],
    "glow": false,
-   "boxes": [
-    {
-     "uv": [
-      16,
-      32
-     ],
-     "from": [
-      -1,
-      -3,
-      -1.5
-     ],
-     "size": [
-      2,
-      3,
-      3
-     ],
-     "inflate": -0.05,
-     "mirror": false
-    }
-   ]
+   "boxes": []
   },
   {
    "name": "body",
