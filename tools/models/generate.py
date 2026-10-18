@@ -11,6 +11,7 @@ those has been edited by hand, that model is made from it and this leaves it alo
 """
 
 import argparse
+import json
 import math
 import os
 import sys
@@ -920,12 +921,15 @@ def main():
     for folder in (MODELS, TEXTURES, ITEMS):
         os.makedirs(folder, exist_ok=True)
     for name, build in MODELS_BUILT.items():
-        if blockbench.edited(name):
+        model = build()
+        texture, mask = model.paint()
+        images = {name + ".png": texture}
+        if model.has_team(mask):
+            images[name + "_team.png"] = mask
+        if blockbench.edited(name, json.loads(model.to_json()), images):
             print("%s: edited in Blockbench (tools/models/blockbench/%s.bbmodel), so left as it is; make it from here "
                   "again by deleting that file" % (name, name))
             continue
-        model = build()
-        texture, mask = model.paint()
         with open(os.path.join(MODELS, name + ".json"), "w") as file:
             file.write(model.to_json() + "\n")
         texture.save(os.path.join(TEXTURES, name + ".png"))

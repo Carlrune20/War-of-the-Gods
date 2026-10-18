@@ -138,7 +138,18 @@ public enum UnitKind {
 
     /** How much bigger than a man it is drawn and stands. */
     public float scale() {
-        return this == LESSER_DEMON ? 1.5F : hero ? 1.15F : 1;
+        return scale(0);
+    }
+
+    /**
+     * How much bigger than a man it is drawn and stands at an elite tier (see {@link #eliteUpgrade}): a lesser demon
+     * grows as a greater demon and again as a black demon.
+     */
+    public float scale(int tier) {
+        if (this == LESSER_DEMON) {
+            return tier >= 2 ? 2.0F : tier == 1 ? 1.75F : 1.5F;
+        }
+        return hero ? 1.15F : 1;
     }
 
     /** Whether it rides a horse: faster, with a horse drawn under it, and hit differently by arrows and blows. */
@@ -171,16 +182,32 @@ public enum UnitKind {
     }
 
     /**
-     * The upgrade at its fortress that makes it elite, with its own look and name and more strength: Elite Black
-     * Knights for Black Knights, Justiciars for White Knights; null for the rest.
+     * The upgrade that makes it elite, with its own look and name and more strength: Elite Black Knights for Black
+     * Knights and Justiciars for White Knights at their fortress, greater demons for lesser demons at the chaos
+     * temple; null for the rest.
      */
     public Upgrade eliteUpgrade() {
-        return this == BLACK_KNIGHT ? Upgrade.ELITE_BLACK_KNIGHTS : this == WHITE_KNIGHT ? Upgrade.JUSTICIARS : null;
+        return this == BLACK_KNIGHT ? Upgrade.ELITE_BLACK_KNIGHTS
+            : this == WHITE_KNIGHT ? Upgrade.JUSTICIARS : this == LESSER_DEMON ? Upgrade.GREATER_DEMONS : null;
+    }
+
+    /** The upgrade that takes it a tier further after its elite one: black demons for lesser demons; null else. */
+    public Upgrade higherUpgrade() {
+        return this == LESSER_DEMON ? Upgrade.BLACK_DEMONS : null;
     }
 
     /** Its name once its team has made it elite, such as Justiciar; its own name for kinds that never are. */
     public String eliteName() {
-        return this == BLACK_KNIGHT ? "Elite Black Knight" : this == WHITE_KNIGHT ? "Justiciar" : displayName;
+        return eliteName(1);
+    }
+
+    /** Its name at an elite tier: 1 with its elite upgrade, 2 with its higher one too, as a black demon. */
+    public String eliteName(int tier) {
+        if (this == LESSER_DEMON) {
+            return tier >= 2 ? "Black demon" : tier == 1 ? "Greater demon" : displayName;
+        }
+        return tier == 0 ? displayName
+            : this == BLACK_KNIGHT ? "Elite Black Knight" : this == WHITE_KNIGHT ? "Justiciar" : displayName;
     }
 
     /** How several are named, such as archers; a hero by his own name, as a team has only one. */
