@@ -553,8 +553,7 @@ public class EntityUnit extends EntityCreature {
         if (movement.getBaseValue() != speed) {
             movement.setBaseValue(speed);
         }
-        getEntityAttribute(SharedMonsterAttributes.knockbackResistance)
-            .setBaseValue(kind.isUnshakable() ? 1 : 0);
+        getEntityAttribute(SharedMonsterAttributes.knockbackResistance).setBaseValue(kind.isUnshakable() ? 1 : 0);
         fitSize(kind);
         wearArmor(team);
         showHeld();
