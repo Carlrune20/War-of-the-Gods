@@ -314,6 +314,16 @@ public class EntityUnit extends EntityCreature {
     private double progressX;
     private double progressZ;
     private int stalls;
+    /**
+     * A second watch on whether the unit gets anywhere, which no new order starts again: an attack move given every
+     * few seconds, a chase that keeps switching targets, or following never let the one above run its course.
+     */
+    private int stuckTicks;
+    private double stuckX;
+    private double stuckZ;
+    private int stuckChecks;
+    /** Whether it set out for somewhere more than a few blocks off since the last look. */
+    private boolean triedToMove;
     /** Ticks in a row the unit has been inside a solid block. */
     private int buriedTicks;
     /** Waypoints of the long route being walked, and where it leads; not saved, planned again after a restart. */
@@ -1389,6 +1399,7 @@ public class EntityUnit extends EntityCreature {
             rescue();
         }
         tickOrder();
+        watchStuck();
         if (!drewThisTick && drawTicks > 0) {
             drawTicks = 0;
             setDrawing(false);
@@ -2192,6 +2203,9 @@ public class EntityUnit extends EntityCreature {
         }
         if (--planTicks <= 0) {
             planTicks = 10 + rand.nextInt(5);
+            if (Math.sqrt(distanceSq) > 3) {
+                triedToMove = true;
+            }
             if (Math.sqrt(distanceSq) > LEG || !getNavigator().tryMoveToEntityLiving(current, SPEED)) {
                 walkToward(current.posX, current.posZ);
             }
@@ -2287,6 +2301,9 @@ public class EntityUnit extends EntityCreature {
      * either side. When nothing works it walks straight ahead and hopes.
      */
     private void walkToward(double x, double z) {
+        if (distanceTo(x, z) > 3) {
+            triedToMove = true;
+        }
         double[] next = nextWaypoint(x, z);
         x = next[0];
         z = next[1];
@@ -2345,6 +2362,33 @@ public class EntityUnit extends EntityCreature {
         return route.isEmpty() ? new double[] { x, z } : route.get(0);
     }
 
+    /**
+     * Every two seconds, whether a unit that is trying to get somewhere got anywhere, whatever it has been ordered
+     * meanwhile. Stuck in water, as in a river with banks it cannot climb, it is put on dry land; stuck on land, it
+     * gets one hop out to open ground, and another only once it has got going again.
+     */
+    private void watchStuck() {
+        if (++stuckTicks < 40) {
+            return;
+        }
+        stuckTicks = 0;
+        boolean tried = triedToMove;
+        triedToMove = false;
+        double moved = distanceTo(stuckX, stuckZ);
+        stuckX = posX;
+        stuckZ = posZ;
+        if (!tried || moved >= 1.5 || order == Order.IDLE) {
+            stuckChecks = 0;
+            return;
+        }
+        stuckChecks++;
+        if (isInWater() ? stuckChecks % 2 == 0 : stuckChecks == 2) {
+            route = null;
+            planTicks = 0;
+            rescue();
+        }
+    }
+
     /** Checks every two seconds that the unit got somewhere; returns false once it has been stuck too long. */
     private boolean madeProgress() {
         if (++progressTicks < 40) {
@@ -2399,6 +2443,8 @@ public class EntityUnit extends EntityCreature {
                             stalls = 0;
                             progressX = posX;
                             progressZ = posZ;
+                            stuckX = posX;
+                            stuckZ = posZ;
                             return true;
                         }
                     }
