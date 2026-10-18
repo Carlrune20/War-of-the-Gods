@@ -16,8 +16,8 @@ import com.google.gson.JsonObject;
 /**
  * The team menu, opened with B in person or in the RTS view: every team with its faction and players, and who is on
  * no team. Players join and leave teams here when the server lets them; ops also pick a player and move them, fill
- * the teams with whoever is on none, or deal everyone out afresh. Each team shows whether the computer plays it; players
- * hand their own team to the computer, in full or only to run its workers, and ops any team.
+ * the teams with whoever is on none, or deal everyone out afresh. Each team shows whether the computer plays it;
+ * players hand their own team to the computer, in full or only to run its workers, and ops any team.
  */
 public final class GuiTeams extends GuiScreen {
 
