@@ -137,7 +137,7 @@ public class RenderUnit extends RenderBiped {
             modelBipedMain = centaurModel;
         } else if (kind.eliteUpgrade() != null) {
             boolean elite = unit.isWatchedElite();
-            knightModel.setStyle(elite && kind == UnitKind.BLACK_KNIGHT, elite && kind == UnitKind.WHITE_KNIGHT);
+            knightModel.setStyle(kind, elite);
             modelBipedMain = knightModel;
         } else {
             modelBipedMain = manModel;

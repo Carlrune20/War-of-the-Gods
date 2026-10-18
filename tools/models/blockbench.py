@@ -22,6 +22,8 @@ In Blockbench:
 - A group whose name ends in _glow glows in the dark (Silverlight's gem).
 - The texture named NAME_team.png is the team mask: white where the team's color is painted over. Paint it as well
   when you move a team-colored area, and keep both textures the size they are.
+- A knight's texture is his unit's skin (textures/entity/unit/), painted once for both gods' teams; his "plume"
+  group is drawn again in his team's color, so paint it white.
 
 Only the conversion itself uses nothing beyond Python, so a build can run it without anything installed.
 """
@@ -37,7 +39,13 @@ import uuid
 HERE = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.path.join(HERE, "..", "..", "src", "main", "resources", "assets", "warofthegods")
 BLOCKBENCH = os.path.join(HERE, "blockbench")
-NAMES = ("lesser_demon", "greater_demon", "black_demon", "centaur", "zamorak_staff", "silverlight")
+NAMES = ("lesser_demon", "greater_demon", "black_demon", "centaur", "zamorak_staff", "silverlight", "white_knight",
+         "black_knight", "elite_black_knight", "justiciar")
+# The knights wear the skins of their units, one for each god's teams though both look the same; by model, the skin's
+# name after the faction's.
+SKINS = {"white_knight": "white_knight", "black_knight": "black_knight", "elite_black_knight": "black_knight_elite",
+         "justiciar": "white_knight_elite"}
+FACTIONS = ("saradomin", "zamorak")
 ICONS = ("zamorak_staff", "silverlight")
 GLOW = "_glow"
 # Blockbench's models stand on y = 0 with y up; the game's hang from y = 24 with y down, x the other way about.
@@ -46,9 +54,13 @@ NAMESPACE = uuid.UUID("5f0c8a1e-7d3b-4c61-9a2e-0b6d1f4e8c27")
 
 
 def paths(root, name):
+    """Where the model's files are; a knight's texture is its skin, the first of its factions'."""
+    skins = [os.path.join(root, "textures", "entity", "unit", "%s_%s.png" % (faction, SKINS[name]))
+             for faction in FACTIONS] if name in SKINS else []
     return {
         "model": os.path.join(root, "models", name + ".json"),
-        "texture": os.path.join(root, "textures", "models", name + ".png"),
+        "texture": skins[0] if skins else os.path.join(root, "textures", "models", name + ".png"),
+        "skins": skins,
         "team": os.path.join(root, "textures", "models", name + "_team.png"),
         "icon": os.path.join(root, "textures", "items", name + ".png"),
     }
@@ -371,6 +383,14 @@ def draw_icon(name, model, texture_path):
     return generate.icon(built(model), Image.open(texture_path).convert("RGBA"))
 
 
+def unchanged(path, data):
+    """Whether the file at path holds just these bytes."""
+    if not os.path.exists(path):
+        return False
+    with open(path, "rb") as file:
+        return file.read() == data
+
+
 def import_(files, into):
     sys.path.insert(0, HERE)
     for path in files:
@@ -388,9 +408,12 @@ def import_(files, into):
             file.write(model_json(model))
         texture = textures.get(name + ".png") or next(
             (data for key, data in textures.items() if not key.endswith("_team.png")), None)
-        if texture is not None:
-            with open(out["texture"], "wb") as file:
-                file.write(texture)
+        if texture is not None and not (out["skins"] and unchanged(out["texture"], texture)):
+            # A knight's skin, once painted, goes to both gods' teams.
+            for target in out["skins"] or [out["texture"]]:
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                with open(target, "wb") as file:
+                    file.write(texture)
         if name + "_team.png" in textures:
             with open(out["team"], "wb") as file:
                 file.write(textures[name + "_team.png"])
