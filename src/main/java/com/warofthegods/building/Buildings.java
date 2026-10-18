@@ -346,7 +346,9 @@ public final class Buildings {
             for (int z = minZ; z < minZ + sizeZ; z++) {
                 int top = world.getTopSolidOrLiquidBlock(x, z) - 1;
                 heights[i++] = top;
-                if (world.getBlock(x, top, z)
+                // Despite its name, getTopSolidOrLiquidBlock passes through water to the bed under it, so look at
+                // what lies on top of the ground.
+                if (world.getBlock(x, top + 1, z)
                     .getMaterial()
                     .isLiquid()) {
                     water++;
