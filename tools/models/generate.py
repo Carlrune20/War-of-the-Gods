@@ -6,6 +6,8 @@
 For each model it writes its parts as JSON into src/main/resources/assets/warofthegods/models/ and its texture
 (and for the demon and the centaur, its team mask: where the team's color goes) into textures/models/. Items also get their
 inventory icon, drawn from the model, in textures/items/. With --preview it draws each model the way the game does.
+Each model is also written for Blockbench into tools/models/blockbench/ (see tools/models/blockbench.py); once one of
+those has been edited by hand, that model is made from it and this leaves it alone.
 """
 
 import argparse
@@ -17,6 +19,7 @@ from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import blockbench  # noqa: E402
 import boxmodel  # noqa: E402
 from boxmodel import TEAM, Model, mix, shade  # noqa: E402
 
@@ -917,6 +920,10 @@ def main():
     for folder in (MODELS, TEXTURES, ITEMS):
         os.makedirs(folder, exist_ok=True)
     for name, build in MODELS_BUILT.items():
+        if blockbench.edited(name):
+            print("%s: edited in Blockbench (tools/models/blockbench/%s.bbmodel), so left as it is; make it from here "
+                  "again by deleting that file" % (name, name))
+            continue
         model = build()
         texture, mask = model.paint()
         with open(os.path.join(MODELS, name + ".json"), "w") as file:
@@ -926,6 +933,7 @@ def main():
             mask.save(os.path.join(TEXTURES, name + "_team.png"))
         if name in ICONS:
             icon(model, texture).save(os.path.join(ITEMS, name + ".png"))
+        blockbench.export([name])
         lo, hi = boxmodel.bounds(model)
         print("%s: %d parts, from %s to %s" % (name, len(list(model.parts())), lo.round(1), hi.round(1)))
         if args.preview:
