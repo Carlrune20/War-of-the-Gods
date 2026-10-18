@@ -96,7 +96,7 @@ The map is laid out the same way round every team. Besides the settlement each t
 settlements spread over its side of the map, one for every 250 blocks of map width (4 on a 1000 block map, at least
 one): out toward the edge far round either side and nearer the middle in between. There is a gold mine behind every
 settlement, the ones the teams start on too, one more for each team between it and the middle, and wild gold mines over each
-team's side of the map, one for every 125 blocks of map width (8 on a 1000 block map). A flock of chickens and a herd of pigs, cows or sheep (the same for every team)
+team's side of the map, one for every 150 blocks of map width (7 on a 1000 block map). A flock of chickens and a herd of pigs, cows or sheep (the same for every team)
 graze either side of each town center, and wild herds, one for every 125 blocks of map width, roam each team's side.
 No other animals spawn, and animals that wander onto a building or building site are put back outside it.
 

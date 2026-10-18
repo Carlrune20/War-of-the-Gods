@@ -137,8 +137,8 @@ public class Config {
     public static int settlementEvery = 250;
     /** Gold mines away from any settlement, laid out on each new map for each team. */
     public static int extraGoldMines = 1;
-    /** Blocks of map width for each wild gold mine laid out for each team: a 1000 block map has 8 for each team. */
-    public static int goldMineEvery = 125;
+    /** Blocks of map width for each wild gold mine laid out for each team: a 1000 block map has 7 for each team. */
+    public static int goldMineEvery = 150;
     /** Animals that graze near each team's first town center: a flock of chickens and a herd of pigs, cows or sheep. */
     public static int startingChickens = 8;
     public static int startingLivestock = 6;
@@ -206,7 +206,7 @@ public class Config {
     public static boolean rtsEdgeScroll = true;
 
     /** Bumped when defaults change in a way that should replace what older config files hold. */
-    private static final int CONFIG_VERSION = 9;
+    private static final int CONFIG_VERSION = 10;
 
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
@@ -271,6 +271,10 @@ public class Config {
             forget(configuration, "units", "monkFavorSeconds");
             forget(configuration, "units", "lesserDemonCostWood");
             forget(configuration, "units", "lesserDemonCostFavor");
+        }
+        if (oldVersion < 10) {
+            // Wild gold mines were a little too many.
+            forget(configuration, "buildings", "goldMineEvery");
         }
         version.set(CONFIG_VERSION);
 
@@ -588,7 +592,7 @@ public class Config {
             0,
             100000,
             "Blocks of map width for each wild gold mine laid out for each team on a new map, spread over its side of"
-                + " the map away from any settlement: 125 gives a 1000 block map 8 for each team. 0 for none.");
+                + " the map away from any settlement: 150 gives a 1000 block map 7 for each team. 0 for none.");
         startingChickens = configuration.getInt(
             "startingChickens",
             buildings,
