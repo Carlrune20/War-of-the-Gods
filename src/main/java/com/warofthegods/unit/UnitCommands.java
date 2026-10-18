@@ -545,8 +545,9 @@ public final class UnitCommands {
                         .getUnit(id);
                 if (unit != null && unit.getTeamId()
                     .equals(team.getId())) {
-                    // The computer playing alongside the team commands the units it trained itself.
-                    if (team.isAi() && unit.isAiControlled()) {
+                    // The computer playing alongside the team commands the units it trained itself; running only
+                    // the workers, it leaves players free to order any of them about.
+                    if (team.isAi() && !team.isAiEconomy() && unit.isAiControlled()) {
                         computers = true;
                     } else {
                         units.add(unit);

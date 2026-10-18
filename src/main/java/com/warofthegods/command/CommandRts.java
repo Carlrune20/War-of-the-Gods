@@ -293,7 +293,7 @@ public class CommandRts extends CommandBase {
         send(sender, "/rts mine <team> - send a team's idle workers to the nearest gold mine (op)");
         send(sender, "/rts damage <building id> <amount> - take health off a building; at 0 it is gone (op)");
         send(sender, "/rts ai - list the teams the computer plays");
-        send(sender, "/rts ai <team> [on|off] - have the computer play a team, or stop it (op)");
+        send(sender, "/rts ai <team> [on|off|economy] - have the computer play a team, or just its workers (op)");
         send(
             sender,
             "/rts reveal [team|all] [off] - show a team the whole map, as though explored, or black it out again"
@@ -1507,7 +1507,7 @@ public class CommandRts extends CommandBase {
             send(
                 sender,
                 "Team " + team.getColoredName()
-                    + (team.isAi() ? " (AI)" : "")
+                    + (team.isAiEconomy() ? " (AI workers)" : team.isAi() ? " (AI)" : "")
                     + " ["
                     + resourceSummary(team)
                     + "] members: "
@@ -1522,7 +1522,7 @@ public class CommandRts extends CommandBase {
             List<String> names = new ArrayList<>();
             for (Team team : game.getTeams()) {
                 if (team.isAi()) {
-                    names.add(team.getColoredName());
+                    names.add(team.getColoredName() + (team.isAiEconomy() ? " (workers only)" : ""));
                 }
             }
             send(sender, "AI teams: " + (names.isEmpty() ? "none" : String.join(", ", names)));
@@ -1530,21 +1530,19 @@ public class CommandRts extends CommandBase {
         }
         requireOp(sender);
         Team team = requireTeam(game, args[0]);
-        boolean on;
+        String mode;
         if (args.length < 2) {
-            on = !team.isAi();
-        } else if ("on".equalsIgnoreCase(args[1])) {
-            on = true;
+            mode = team.isAi() ? "off" : "full";
+        } else if ("on".equalsIgnoreCase(args[1]) || "full".equalsIgnoreCase(args[1])) {
+            mode = "full";
         } else if ("off".equalsIgnoreCase(args[1])) {
-            on = false;
+            mode = "off";
+        } else if ("economy".equalsIgnoreCase(args[1]) || "workers".equalsIgnoreCase(args[1])) {
+            mode = "economy";
         } else {
-            throw new WrongUsageException("/rts ai <team> [on|off]");
+            throw new WrongUsageException("/rts ai <team> [on|off|economy]");
         }
-        team.setAi(on);
-        broadcast(
-            "Team " + team.getColoredName()
-                + EnumChatFormatting.GOLD
-                + (on ? " is now played by the computer" : " is no longer played by the computer"));
+        TeamCommands.setAi(team, mode, null);
     }
 
     /** For testing: marks the whole map explored for a team, or every team, or takes that back. */
@@ -1739,7 +1737,7 @@ public class CommandRts extends CommandBase {
                 if (args.length == 2) {
                     return getListOfStringsFromIterableMatchingLastWord(args, teams);
                 }
-                return args.length == 3 ? getListOfStringsMatchingLastWord(args, "on", "off") : null;
+                return args.length == 3 ? getListOfStringsMatchingLastWord(args, "on", "off", "economy") : null;
             case "reveal":
                 if (args.length == 2) {
                     List<String> options = new ArrayList<>(teams);

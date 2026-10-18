@@ -1992,11 +1992,21 @@ public final class GuiRts extends GuiScreen {
             lines.add("No game is running");
             colors.add(0xFFFFFF);
         } else if (team == null) {
-            lines.add("Watching: join a team to command");
+            lines.add("Watching: join a team to command" + (state.elapsed >= 0 ? " · " + clock(state.elapsed) : ""));
             colors.add(0xFFFFFF);
         } else {
-            lines.add("Team " + team.name + " · " + ageName(team.age));
+            lines.add(
+                "Team " + team.name
+                    + " · "
+                    + ageName(team.age)
+                    + (state.elapsed >= 0 ? " · " + clock(state.elapsed) : ""));
             colors.add(team.color);
+            if (team.ai != null) {
+                lines.add(
+                    "economy".equals(team.ai) ? "The computer runs your workers (B to change)"
+                        : "The computer plays alongside you (B to change)");
+                colors.add(0x9ACBFF);
+            }
             if (team.defeated) {
                 lines.add("Your team has been defeated");
                 colors.add(0xFF6A5A);
@@ -2039,6 +2049,14 @@ public final class GuiRts extends GuiScreen {
         for (int i = 0; i < iconAt.size(); i++) {
             drawIcon(RtsState.RESOURCES[i], 8 + iconAt.get(i), 7 + resourceLine * 11, 9);
         }
+    }
+
+    /** Seconds as m:ss, or h:mm:ss from an hour on. */
+    private static String clock(long seconds) {
+        long h = seconds / 3600;
+        long m = seconds / 60 % 60;
+        long sec = seconds % 60;
+        return h > 0 ? String.format("%d:%02d:%02d", h, m, sec) : String.format("%d:%02d", m, sec);
     }
 
     private void drawHelp() {

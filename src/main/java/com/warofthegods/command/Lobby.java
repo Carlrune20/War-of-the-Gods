@@ -118,7 +118,7 @@ public final class Lobby {
                 }
                 Slot slot = lobby.addSlot();
                 slot.faction = team.getFaction();
-                slot.ai = team.isAi();
+                slot.ai = team.isAi() && !team.isAiEconomy();
                 for (EntityPlayerMP player : online()) {
                     if (team.getMembers()
                         .containsKey(player.getUniqueID())) {

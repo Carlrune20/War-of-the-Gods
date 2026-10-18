@@ -27,6 +27,8 @@ import com.warofthegods.world.GameWorld;
  *   {type: "teams.join", team, player?}      join a team, or (ops) put another player on it
  *   {type: "teams.leave", player?}           leave your team, or (ops) take another player off theirs
  *   {type: "teams.auto", all?}               (ops) put players on no team on the smallest teams; all deals everyone
+ *   {type: "teams.ai", team, mode}           hand your own team (ops: any team) to the computer: mode is off,
+ *                                            economy (it runs only the workers) or full
  * </pre>
  */
 public final class TeamCommands {
@@ -38,6 +40,7 @@ public final class TeamCommands {
         WebCommand.register("teams.join", TeamCommands::join);
         WebCommand.register("teams.leave", TeamCommands::leave);
         WebCommand.register("teams.auto", TeamCommands::auto);
+        WebCommand.register("teams.ai", TeamCommands::ai);
     }
 
     static EntityPlayerMP online(UUID id) {
@@ -84,6 +87,7 @@ public final class TeamCommands {
             json.addProperty("name", team.getName());
             json.addProperty("color", team.getRgb());
             json.addProperty("faction", team.getFaction().displayName);
+            json.addProperty("ai", team.getAiMode());
             JsonArray members = new JsonArray();
             for (Map.Entry<UUID, String> member : team.getMembers()
                 .entrySet()) {
@@ -212,6 +216,48 @@ public final class TeamCommands {
         if (player != null) {
             GameWorld.setTeamSpawn(player, game);
         }
+    }
+
+    /**
+     * Hands a team to the computer, in full or only to run its workers, or takes it back. Players may do this for their
+     * own team; ops for any.
+     */
+    private static void ai(WebRequest request) {
+        Game game = game(request);
+        if (game == null) {
+            return;
+        }
+        Team team = request.body.has("team") ? game.getTeam(
+            request.body.get("team")
+                .getAsString())
+            : null;
+        if (team == null) {
+            request.replyError("Unknown team");
+            return;
+        }
+        if (!isOp(request) && team != game.getTeamOf(request.viewer.getPlayer())) {
+            request.replyError("Only ops can hand other teams to the computer");
+            return;
+        }
+        String mode = request.body.has("mode") ? request.body.get("mode")
+            .getAsString() : "";
+        if (!"off".equals(mode) && !"economy".equals(mode) && !"full".equals(mode)) {
+            request.replyError("Unknown AI mode");
+            return;
+        }
+        if (!mode.equals(team.getAiMode())) {
+            setAi(team, mode, request.viewer.getName());
+        }
+        request.reply(WebJson.message("ok"));
+    }
+
+    /** Sets how much of the team the computer plays, "off", "economy" or "full", and tells everyone who did it. */
+    static void setAi(Team team, String mode, String by) {
+        team.setAi(!"off".equals(mode), "economy".equals(mode));
+        String what = "off".equals(mode) ? " is no longer played by the computer"
+            : "economy".equals(mode) ? ": the computer now runs its workers" : " is now played by the computer";
+        CommandRts.broadcast(
+            "Team " + team.getColoredName() + EnumChatFormatting.GOLD + what + (by == null ? "" : " (" + by + ")"));
     }
 
     private static void auto(WebRequest request) {

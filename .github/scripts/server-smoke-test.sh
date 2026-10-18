@@ -625,6 +625,15 @@ echo "rts resources blue" >&3
 echo "rts buildings blue" >&3
 echo "rts units blue" >&3
 sleep 2
+# Economy mode: the computer runs only Red's workers, putting the idle ones to gathering, then lets go again.
+echo "rts ai red economy" >&3
+wait_for_log "Team Red: the computer now runs its workers" 30
+echo "rts ai" >&3
+wait_for_log "(workers only)" 30
+wait_for_log "AI Red put idle workers to work" 60
+echo "rts ai red off" >&3
+wait_for_log "Team Red is no longer played by the computer" 30
+echo "ok: the computer ran Red's workers in economy mode"
 # The lobby ends the game and starts the next with the same teams, the computer still on Blue.
 echo "rts newgame" >&3
 wait_for_log "opened the lobby for a new game" 30
