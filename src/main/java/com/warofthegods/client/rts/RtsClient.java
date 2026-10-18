@@ -970,6 +970,22 @@ public final class RtsClient {
         boolean turned = placing.rotation % 2 != 0;
         spot.sizeX = turned ? type.length : type.width;
         spot.sizeZ = turned ? type.width : type.length;
+        if ("quarry".equals(placing.type)) {
+            // A quarry goes in the middle of a mined out mine with none on it yet.
+            RtsState.FeatureInfo mine = state.freeMineNear(placing.cx + 0.5, placing.cz + 0.5, 4);
+            if (mine == null) {
+                spot.x = placing.cx - spot.sizeX / 2;
+                spot.z = placing.cz - spot.sizeZ / 2;
+                spot.y = (int) groundHeight(placing.cx + 0.5, placing.cz + 0.5) - 1;
+                spot.ok = false;
+                return spot;
+            }
+            spot.x = mine.x + (mine.sizeX - spot.sizeX) / 2;
+            spot.z = mine.z + (mine.sizeZ - spot.sizeZ) / 2;
+            spot.y = mine.y;
+            spot.ok = true;
+            return spot;
+        }
         spot.x = placing.cx - spot.sizeX / 2;
         spot.z = placing.cz - spot.sizeZ / 2;
         RtsState.GameInfo game = state.game;

@@ -75,6 +75,7 @@ public class Config {
         defaults(BuildingType.STONE_CIRCLE, new long[] { 0, 0, 100 }, 600, 20);
         // Bridges cost wood for every block of their length.
         defaults(BuildingType.BRIDGE, new long[] { 0, 6, 0 }, 150, 3);
+        defaults(BuildingType.QUARRY, new long[] { 0, 100, 0 }, 500, 20);
     }
 
     /** Food, Wood and Gold the town center costs to go up to level 2, and to level 3. */
@@ -119,6 +120,9 @@ public class Config {
     public static int farmWorkers = 1;
     public static int farmYieldSeconds = 5;
     public static int farmFood = 5;
+    /** Most workers at one quarry, and the gold each gets out of it per harvest, which comes as often as a farm's. */
+    public static int quarryWorkers = 3;
+    public static int quarryGold = 2;
     /** Gold a gold mine holds when the game starts. */
     public static int goldMineGold = 2000;
     /** Gold every mining site holds on top of its share of goldMineGold, whatever its ore. */
@@ -412,6 +416,20 @@ public class Config {
             .getInt("farmYieldSeconds", buildings, farmYieldSeconds, 1, 3600, "Seconds between a farm's harvests.");
         farmFood = configuration
             .getInt("farmFood", buildings, farmFood, 0, 100000, "Food each worker at a farm gathers per harvest.");
+        quarryWorkers = configuration.getInt(
+            "quarryWorkers",
+            buildings,
+            quarryWorkers,
+            1,
+            64,
+            "Most workers that can work one quarry at a time. A quarry can only be dug into a mined out gold mine.");
+        quarryGold = configuration.getInt(
+            "quarryGold",
+            buildings,
+            quarryGold,
+            0,
+            100000,
+            "Gold each worker at a quarry gathers per harvest, for ever; harvests come as often as a farm's.");
         townCenterPopulation = configuration.getInt(
             "townCenterPopulation",
             buildings,

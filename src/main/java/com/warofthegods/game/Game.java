@@ -585,6 +585,38 @@ public class Game {
         return null;
     }
 
+    /** The quarry or quarry site dug into a mine, or null. */
+    public Building quarryOn(GoldMine mine) {
+        for (Building building : buildings.values()) {
+            if (building.type == BuildingType.QUARRY && mine.overlaps(building.minX, building.minZ, 1, 1, 0)) {
+                return building;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The mined out mine with no quarry on it whose footprint holds x, z or comes within margin blocks of it, nearest
+     * first; or null.
+     */
+    public GoldMine freeMinedOutMineNear(double x, double z, double margin) {
+        GoldMine best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (GoldMine mine : mines.values()) {
+            if (!mine.isDepleted() || !mine.covers(x, z, margin) || quarryOn(mine) != null) {
+                continue;
+            }
+            double dx = mine.getCenterX() - x;
+            double dz = mine.getCenterZ() - z;
+            double distance = dx * dx + dz * dz;
+            if (distance < bestDistance) {
+                best = mine;
+                bestDistance = distance;
+            }
+        }
+        return best;
+    }
+
     /** Takes gold out of a mine; returns how much it gave. */
     public int mine(GoldMine mine, int amount) {
         int taken = mine.take(amount);

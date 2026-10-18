@@ -75,7 +75,12 @@ public enum BuildingType {
      * A piece of a wooden bridge, a block long and five wide, laid out with others in a line across water by
      * {@link BridgeLine}: a plank deck with rails, on posts down to the bottom. Anyone can walk over it.
      */
-    BRIDGE("bridge", "Bridge", "bridge", 1, true, false);
+    BRIDGE("bridge", "Bridge", "bridge", 1, true, false),
+    /**
+     * Dug into a mined out gold mine, the only place it can go: workers working at it get a little gold out of it
+     * for ever.
+     */
+    QUARRY("quarry", "Quarry", "quarry", 3, true, false);
 
     public final String id;
     public final String displayName;
@@ -179,7 +184,7 @@ public enum BuildingType {
 
     /** Whether workers can work here, gathering resources. */
     public boolean isWorkplace() {
-        return this == FARM;
+        return this == FARM || this == QUARRY;
     }
 
     /** Whether it can shoot at enemies at that level; a tower only once its team has watch towers. */
@@ -253,13 +258,15 @@ public enum BuildingType {
         // The same at every level, which only changes how it looks.
         if (this == FARM) {
             amounts[Resource.FOOD.ordinal()] = Config.farmFood;
+        } else if (this == QUARRY) {
+            amounts[Resource.GOLD.ordinal()] = Config.quarryGold;
         }
         return amounts;
     }
 
     /** Most workers that can work here at once. */
     public int maxWorkers() {
-        return this == FARM ? Config.farmWorkers : 0;
+        return this == FARM ? Config.farmWorkers : this == QUARRY ? Config.quarryWorkers : 0;
     }
 
     /** Units it houses at a level: the town center houses more in each age, a house always as many. */

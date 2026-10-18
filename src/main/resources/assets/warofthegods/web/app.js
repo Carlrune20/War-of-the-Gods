@@ -1580,11 +1580,20 @@
                     y: settlement.y, rotation: settlement.rotation};
             }
         }
+        if (placing.type === "quarry") {
+            // A quarry snaps into the middle of the mined out mine under the pointer.
+            const mine = freeMineNear(placing.cx, placing.cz, 4);
+            if (mine) {
+                const [qx, qz] = footprintSize(type, placing.rotation);
+                return {x: mine.x + Math.floor((mine.sizeX - qx) / 2), z: mine.z + Math.floor((mine.sizeZ - qz) / 2),
+                    sizeX: qx, sizeZ: qz, ok: true, y: mine.y, rotation: placing.rotation};
+            }
+        }
         const [sizeX, sizeZ] = footprintSize(type, placing.rotation);
         const x = placing.cx - Math.floor(sizeX / 2);
         const z = placing.cz - Math.floor(sizeZ / 2);
         const g = state.game;
-        let ok = placing.type !== "town_hall" && x >= g.minX && z >= g.minZ && x + sizeX - 1 <= g.maxX
+        let ok = placing.type !== "town_hall" && placing.type !== "quarry" && x >= g.minX && z >= g.minZ && x + sizeX - 1 <= g.maxX
             && z + sizeZ - 1 <= g.maxZ;
         const gap = g.buildingGap || 0;
         const overlaps = (b, bx, bz) => x < bx + b.sizeX + gap && bx < x + sizeX + gap && z < bz + b.sizeZ + gap
@@ -1809,9 +1818,18 @@
 
     // The free settlement whose footprint holds x, z or comes within margin blocks of it, nearest first.
     function freeSettlementNear(x, z, margin) {
+        return freeFeatureNear(state.settlements, x, z, margin);
+    }
+
+    // The mined out mine with no quarry on it whose footprint holds x, z or comes within margin blocks of it.
+    function freeMineNear(x, z, margin) {
+        return freeFeatureNear(state.mines, x, z, margin);
+    }
+
+    function freeFeatureNear(features, x, z, margin) {
         let best = null;
         let bestDistance = Infinity;
-        for (const f of state.settlements) {
+        for (const f of features) {
             if (!f.free || x < f.x - margin || x >= f.x + f.sizeX + margin || z < f.z - margin
                 || z >= f.z + f.sizeZ + margin) {
                 continue;
@@ -1856,6 +1874,7 @@
         }
         if (!spot.ok) {
             showToast(placing.type === "town_hall" ? "A town center can only go on a settlement"
+                : placing.type === "quarry" ? "A quarry can only go on a mined out gold mine"
                 : "It does not fit there", true);
             return;
         }
@@ -2749,9 +2768,9 @@
             + (b.level > 1 ? " (level " + b.level + ")" : "");
     }
 
-    // The tool workers use at a building: a hoe at a farm, else an axe.
+    // The tool workers use at a building: a hoe at a farm, a pickaxe at a quarry, else an axe.
     function toolFor(type) {
-        return type === "farm" ? "hoe" : "axe";
+        return type === "farm" ? "hoe" : type === "quarry" ? "pickaxe" : "axe";
     }
 
     // What the pointer at px, py is over, as {icon, text, action}, or null for nothing worth a tooltip.
@@ -2819,7 +2838,8 @@
                         action: "build"};
                 }
                 return {icon: "gold", text: (mine.name || "Gold mine") + " \u00B7 " + gold
-                    + (team && mine.gold > 0 ? " \u00B7 select workers to mine it" : "")};
+                    + (team && mine.gold > 0 ? " \u00B7 select workers to mine it" : "")
+                    + (team && mine.free ? " \u00B7 workers can dig a quarry here" : "")};
             }
             const settlement = ground && freeSettlementNear(ground.x, ground.z, 0);
             if (settlement) {
