@@ -16,8 +16,9 @@ import org.lwjgl.opengl.GL11;
 
 /**
  * The little map in a corner of the RTS view: the whole game map as far as the client has seen it, with buildings,
- * units and hostile mobs on top and the part the camera looks at outlined. Terrain is read from the chunks the client
- * has, a slice of the map each frame, so it fills in as the camera goes about.
+ * units, hostile mobs and icons for town centers and found settlements on top and the part the camera looks at
+ * outlined. Terrain is read from the chunks the client has, a slice of the map each frame, so it fills in as the camera
+ * goes about.
  */
 final class Minimap {
 
@@ -26,6 +27,10 @@ final class Minimap {
     /** Map pixels sampled per frame. */
     private static final int SAMPLES_PER_FRAME = 1024;
     private static final int UNKNOWN = 0xFF1A1E22;
+    /** The colour of a free settlement's icon. */
+    private static final int SETTLEMENT = 0xE8D9A0;
+    /** The icon for a town center or a settlement, row by row. */
+    private static final String[] KEEP = { "#.#.#", "#####", "#####", "##.##", "##.##" };
 
     private final Minecraft mc = Minecraft.getMinecraft();
     private DynamicTexture texture;
@@ -188,6 +193,26 @@ final class Minimap {
             int color = team == null ? 0xFFFFFF : team.color;
             dot(unit.x, unit.z, left, top, size, client.selected.contains(unit.id) ? 0xFFFFFFFF : 0xFF000000 | color);
         }
+        // Town centers in their team's colour, and the free settlements the viewer's team has found.
+        for (RtsState.BuildingInfo b : state.buildings.values()) {
+            if (!"town_hall".equals(b.type)
+                || (state.isEnemyTeam(b.team) && !fog.isExplored(b.x, b.z, b.sizeX, b.sizeZ))) {
+                continue;
+            }
+            RtsState.TeamInfo team = state.teamsById.get(b.team);
+            keep(b.x + b.sizeX / 2.0, b.z + b.sizeZ / 2.0, left, top, size, team == null ? 0xFFFFFF : team.color);
+        }
+        for (RtsState.FeatureInfo settlement : state.settlements) {
+            if (settlement.free && fog.isExplored(settlement.x, settlement.z, settlement.sizeX, settlement.sizeZ)) {
+                keep(
+                    settlement.x + settlement.sizeX / 2.0,
+                    settlement.z + settlement.sizeZ / 2.0,
+                    left,
+                    top,
+                    size,
+                    SETTLEMENT);
+            }
+        }
         if (frame != null) {
             GL11.glDisable(GL11.GL_TEXTURE_2D);
             GL11.glEnable(GL11.GL_BLEND);
@@ -236,6 +261,33 @@ final class Minimap {
         tessellator.addVertexWithUV(left + size, top, 0, 1, 0);
         tessellator.addVertexWithUV(left, top, 0, 0, 0);
         tessellator.draw();
+    }
+
+    /** A little keep with three battlements and a door, outlined in black, centred on x, z. */
+    private void keep(double x, double z, int left, int top, int size, int color) {
+        int px = (int) toX(x, left, size);
+        int py = (int) toY(z, top, size);
+        if (px < left || py < top || px >= left + size || py >= top + size) {
+            return;
+        }
+        int x0 = px - KEEP[0].length() / 2;
+        int y0 = py - KEEP.length / 2;
+        for (int pass = 0; pass < 2; pass++) {
+            for (int j = 0; j < KEEP.length; j++) {
+                for (int i = 0; i < KEEP[j].length(); i++) {
+                    if (KEEP[j].charAt(i) != '#') {
+                        continue;
+                    }
+                    int gx = x0 + i;
+                    int gy = y0 + j;
+                    if (pass == 0) {
+                        Gui.drawRect(gx - 1, gy - 1, gx + 2, gy + 2, 0xFF000000);
+                    } else {
+                        Gui.drawRect(gx, gy, gx + 1, gy + 1, 0xFF000000 | color);
+                    }
+                }
+            }
+        }
     }
 
     private void dot(double x, double z, int left, int top, int size, int color) {

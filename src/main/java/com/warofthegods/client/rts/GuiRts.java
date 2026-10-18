@@ -1871,8 +1871,7 @@ public final class GuiRts extends GuiScreen {
                 bar(x, y + row++ * 5, 40, b.researched, 0xFF6FA8FF);
             }
             if (hurt) {
-                double health = b.health / (double) b.maxHealth;
-                bar(x, y + row * 5, 40, health, health > 0.5 ? GREEN : health > 0.25 ? AMBER : RED);
+                bar(x, y + row * 5, 40, b.health / (double) b.maxHealth, 0xFF000000 | team.color);
             }
         }
         for (RtsState.TreeInfo tree : state.trees) {
@@ -1892,8 +1891,7 @@ public final class GuiRts extends GuiScreen {
             double[] at = client.positionOf(unit, partialTicks);
             double[] p = project(at[0], at[1] + at[3] + 0.4, at[2]);
             if (p != null) {
-                double health = unit.health / Math.max(1, unit.maxHealth);
-                bar(guiX(p[0]), guiY(p[1]), 16, health, health > 0.5 ? GREEN : health > 0.25 ? AMBER : RED);
+                bar(guiX(p[0]), guiY(p[1]), 16, unit.health / Math.max(1, unit.maxHealth), teamColor(unit.team));
             }
         }
         for (RtsState.MobInfo mob : state.mobs.values()) {
@@ -1914,8 +1912,12 @@ public final class GuiRts extends GuiScreen {
             double[] p = project(at[0], at[1] + 2.2, at[2]);
             // Anyone hurt shows it, the viewer's own body too; commanders' bodies carry their own names.
             if (p != null && player.health < player.maxHealth) {
-                double health = player.health / Math.max(1, player.maxHealth);
-                bar(guiX(p[0]), guiY(p[1]) + 2, 16, health, health > 0.5 ? GREEN : health > 0.25 ? AMBER : RED);
+                bar(
+                    guiX(p[0]),
+                    guiY(p[1]) + 2,
+                    16,
+                    player.health / Math.max(1, player.maxHealth),
+                    teamColor(player.team));
             }
             if (player.commanding || player.id.equals(state.me)) {
                 continue;
@@ -1936,6 +1938,12 @@ public final class GuiRts extends GuiScreen {
 
     private static String roman(int level) {
         return level == 1 ? "I" : level == 2 ? "II" : level == 3 ? "III" : String.valueOf(level);
+    }
+
+    /** A team's colour for its health bars, whatever health is left; white for no team. */
+    private int teamColor(String id) {
+        RtsState.TeamInfo team = id == null ? null : state().teamsById.get(id);
+        return 0xFF000000 | (team == null ? 0xFFFFFF : team.color);
     }
 
     private void bar(int cx, int y, int w, double fraction, int color) {
