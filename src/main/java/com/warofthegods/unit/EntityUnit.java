@@ -587,9 +587,9 @@ public class EntityUnit extends EntityCreature {
     }
 
     /**
-     * Warriors and archers show their team's armor upgrades, boots included: chainmail with padded armor, iron with
-     * plate. It is only for show; the upgrades' extra health is what protects them. Workers wear none, and knights and
-     * heroes keep their own look.
+     * Warriors, archers and cavalry show their team's armor upgrades, boots included: chainmail with padded armor,
+     * iron with plate. It is only for show; the upgrades' extra health is what protects them. Workers wear none, and
+     * knights and heroes keep their own look.
      */
     private void wearArmor(Team team) {
         Item[] armor = new Item[5];

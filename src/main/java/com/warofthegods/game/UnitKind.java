@@ -174,11 +174,11 @@ public enum UnitKind {
     }
 
     /**
-     * Whether it wears its team's armor upgrades for show. Knights and heroes keep their own look, though the upgrades
-     * still make them stronger.
+     * Whether it wears its team's armor upgrades for show: warriors, archers and cavalry. Knights and heroes keep their
+     * own look, though the upgrades still make them stronger.
      */
     public boolean showsArmor() {
-        return this == SOLDIER || this == ARCHER;
+        return this == SOLDIER || this == ARCHER || this == CAVALRY;
     }
 
     /**
