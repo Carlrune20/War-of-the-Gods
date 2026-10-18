@@ -385,6 +385,10 @@ public final class WebMap {
                 if (team.isRevealed()) {
                     json.addProperty("revealed", true);
                 }
+                if (team.isAi()) {
+                    // "full" or "economy": how much of the team the computer plays.
+                    json.addProperty("ai", team.getAiMode());
+                }
                 if (team.isDefeated()) {
                     json.addProperty("defeated", true);
                 } else if (team.getDefeatTicks() >= 0) {
@@ -393,6 +397,8 @@ public final class WebMap {
                 }
                 teams.add(json);
             }
+            // Seconds the game has run, stopping once it is over.
+            message.addProperty("elapsed", game.getElapsedTicks() / 20);
             if (game.isOver()) {
                 JsonArray winners = new JsonArray();
                 for (Team team : game.getWinners()) {

@@ -24,6 +24,8 @@ public class Game {
 
     private final int number;
     private final long startedAt;
+    /** Ticks the game has run on the server, while not over; time the server was down does not count. */
+    private long elapsedTicks;
     private final int centerX;
     private final int centerZ;
     private final int size;
@@ -83,6 +85,16 @@ public class Game {
 
     public long getStartedAt() {
         return startedAt;
+    }
+
+    /** Ticks the game has run on the server, stopping once it is over. */
+    public long getElapsedTicks() {
+        return elapsedTicks;
+    }
+
+    /** Counts ticks the game has run; saved with the rest of the game, but not reason enough to save it. */
+    public void addElapsedTicks(int ticks) {
+        elapsedTicks += ticks;
     }
 
     public int getCenterX() {
@@ -201,11 +213,11 @@ public class Game {
         boolean anyHuman = false;
         for (Team team : teams.values()) {
             anyStanding |= !team.isDefeated();
-            anyHuman |= !team.isAi();
+            anyHuman |= !team.isAi() || team.isAiEconomy();
         }
         Team smallest = null;
         for (Team team : teams.values()) {
-            if ((anyStanding && team.isDefeated()) || (anyHuman && team.isAi())) {
+            if ((anyStanding && team.isDefeated()) || (anyHuman && team.isAi() && !team.isAiEconomy())) {
                 continue;
             }
             if (smallest == null || team.getMembers()
@@ -681,6 +693,7 @@ public class Game {
         NBTTagCompound tag = new NBTTagCompound();
         tag.setInteger("number", number);
         tag.setLong("startedAt", startedAt);
+        tag.setLong("elapsedTicks", elapsedTicks);
         tag.setInteger("centerX", centerX);
         tag.setInteger("centerZ", centerZ);
         tag.setInteger("size", size);
@@ -752,6 +765,7 @@ public class Game {
             tag.getInteger("centerZ"),
             tag.getInteger("size"),
             tag.getLong("seed"));
+        game.elapsedTicks = tag.getLong("elapsedTicks");
 
         NBTTagList teamList = tag.getTagList("teams", 10);
         for (int i = 0; i < teamList.tagCount(); i++) {

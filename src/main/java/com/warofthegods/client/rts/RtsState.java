@@ -112,6 +112,8 @@ public final class RtsState {
         public int countdown = -1;
         /** Whether the whole map has been revealed to the team, for testing. */
         public boolean revealed;
+        /** "full" or "economy" while the computer plays the team, else null. */
+        public String ai;
     }
 
     /** Something with a place in the world: a unit, player or mob. */
@@ -263,6 +265,8 @@ public final class RtsState {
     public List<String> winners;
     /** Whether the fog of war is lifted for everyone, for testing. */
     public boolean seeAll;
+    /** Seconds the game has run, or -1 before the server says. */
+    public long elapsed = -1;
     public final Map<String, TeamInfo> teamsById = new HashMap<>();
     public final Map<String, UnitInfo> units = new LinkedHashMap<>();
     public final Map<String, PlayerInfo> players = new LinkedHashMap<>();
@@ -389,6 +393,8 @@ public final class RtsState {
         clearState();
         winners = null;
         seeAll = bool(json, "seeAll");
+        elapsed = json.has("elapsed") ? json.get("elapsed")
+            .getAsLong() : -1;
         if (json.has("winners")) {
             winners = new ArrayList<>();
             for (JsonElement winner : array(json, "winners")) {
@@ -422,6 +428,7 @@ public final class RtsState {
             info.defeated = team.has("defeated");
             info.countdown = team.has("countdown") ? integer(team, "countdown") : -1;
             info.revealed = bool(team, "revealed");
+            info.ai = team.has("ai") ? string(team, "ai") : null;
             teams.add(info);
             teamsById.put(info.id, info);
         }

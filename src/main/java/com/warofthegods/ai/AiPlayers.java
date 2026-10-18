@@ -60,6 +60,12 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  * demons there when it has the favor; playing Saradomin, its monks earn favor and its wizards' tower trains blue
  * wizards. Once it has walls it researches stone and then citadel walls. It pays for everything like a player and gets
  * no bonuses.
+ *
+ * <p>
+ * Handed a team only to run its economy, it commands all the team's workers, whoever trained them, and nothing else:
+ * it trains workers, shares them over food, wood and gold, puts up houses, storehouses and farms, staffs building
+ * sites nobody is at and repairs. The players lead the army, take the town into the next age and research, and may
+ * still order any worker about; it puts a worker back to gathering once it stands idle.
  */
 public final class AiPlayers {
 
@@ -222,6 +228,10 @@ public final class AiPlayers {
         if (hall == null) {
             return;
         }
+        if (team.isAiEconomy()) {
+            runEconomy(game, world, team, state, hall);
+            return;
+        }
         List<EntityUnit> workers = new ArrayList<>();
         List<EntityUnit> fighters = new ArrayList<>();
         // Playing alongside people, it commands only the units it trained; on its own, the whole team's.
@@ -247,7 +257,7 @@ public final class AiPlayers {
             && game.getAge(team) >= 3
             && count(game, team, fortressOf(team), false) == 0
             && fighters.size() >= FORTRESS_FIGHTERS;
-        build(game, world, team, state, hall, workers, saving, fighters.size());
+        build(game, world, team, state, hall, workers, saving, fighters.size(), false);
         if (!saving && !savingForFortress) {
             wall(game, world, team, state, hall, workers);
         }
@@ -262,6 +272,22 @@ public final class AiPlayers {
         }
         fight(game, world, team, hall, fighters, state);
         scout(game, team, hall, fighters, state);
+    }
+
+    /** Runs only the team's economy, with every worker the team has, and leaves the rest to its players. */
+    private void runEconomy(Game game, WorldServer world, Team team, State state, Building hall) {
+        List<EntityUnit> workers = new ArrayList<>();
+        for (EntityUnit unit : Units.get()
+            .getUnits(team)) {
+            if (unit.isWorker()) {
+                workers.add(unit);
+            }
+        }
+        trainWorkers(game, team, hall, workers.size());
+        build(game, world, team, state, hall, workers, false, 0, true);
+        staffSites(game, team, workers);
+        repair(game, world, team, workers);
+        gather(game, world, team, hall, workers, state);
     }
 
     // ---------------------------------------------------------------- fog of war
@@ -631,23 +657,24 @@ public final class AiPlayers {
      * Lays out one building at a time: a house near the town center when it runs short of room, then what it needs
      * for its age, then a storehouse by a forest or gold mine its workers gather far from a store, then a barracks
      * and a tower by each town center it took, then, with resources to spare, more town centers, barracks, towers,
-     * houses and fortresses.
+     * houses and fortresses. Running only the economy, it puts up just houses, storehouses and farms.
      */
     private static void build(Game game, WorldServer world, Team team, State state, Building hall,
-        List<EntityUnit> workers, boolean saving, int fighters) {
+        List<EntityUnit> workers, boolean saving, int fighters, boolean economyOnly) {
         for (Building building : game.getBuildings(team)) {
             if (!building.isComplete() && !building.type.isWall()) {
                 return;
             }
         }
-        BuildingType type = neededBuilding(game, team, state, workers.size(), saving);
+        BuildingType type = economyOnly ? neededEconomyBuilding(game, team, workers.size())
+            : neededBuilding(game, team, state, workers.size(), saving);
         // Where to put it, when not round the town center.
         double[] near = null;
         if (type == null && !saving) {
             near = outpostStorehouse(game, team, workers);
             if (near != null) {
                 type = BuildingType.STOREHOUSE;
-            } else {
+            } else if (!economyOnly) {
                 Object[] guard = outpostGuard(game, team, hall);
                 if (guard != null) {
                     type = (BuildingType) guard[0];
@@ -659,7 +686,7 @@ public final class AiPlayers {
             if (!team.canAfford(type.cost())) {
                 return;
             }
-        } else if (!saving) {
+        } else if (!saving && !economyOnly) {
             type = spareBuilding(game, team, state, fighters);
         }
         if (type == null) {
@@ -727,6 +754,22 @@ public final class AiPlayers {
         }
         if (age >= 3 && count(game, team, BuildingType.BARRACKS, false) < 2) {
             return BuildingType.BARRACKS;
+        }
+        return null;
+    }
+
+    /** Running only the economy: a house when short of room, its first storehouse, or farms for its food workers. */
+    private static BuildingType neededEconomyBuilding(Game game, Team team, int workers) {
+        int age = game.getAge(team);
+        if (Buildings.room(game, team) <= 3 && game.getPopulationCap(team) < Config.unitsPerTeam) {
+            return BuildingType.HOUSE;
+        }
+        if (count(game, team, BuildingType.STOREHOUSE, false) == 0 && (workers >= STOREHOUSE_WORKERS || age >= 2)) {
+            return BuildingType.STOREHOUSE;
+        }
+        int foodWorkers = (int) Math.round(WORKERS_WANTED[age] * SHARE_LATER[0]);
+        if (age >= 2 && count(game, team, BuildingType.FARM, false) * BuildingType.FARM.maxWorkers() < foodWorkers) {
+            return BuildingType.FARM;
         }
         return null;
     }

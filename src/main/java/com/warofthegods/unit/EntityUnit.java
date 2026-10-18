@@ -2509,7 +2509,7 @@ public class EntityUnit extends EntityCreature {
             return;
         }
         Team team = team();
-        if (team == null || !team.isAi()) {
+        if (team == null || !team.isAi() || team.isAiEconomy()) {
             return;
         }
         // Playing alongside people, the computer commands only the units it trained.

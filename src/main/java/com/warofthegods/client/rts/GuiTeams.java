@@ -16,7 +16,8 @@ import com.google.gson.JsonObject;
 /**
  * The team menu, opened with B in person or in the RTS view: every team with its faction and players, and who is on
  * no team. Players join and leave teams here when the server lets them; ops also pick a player and move them, fill
- * the teams with whoever is on none, or deal everyone out afresh.
+ * the teams with whoever is on none, or deal everyone out afresh. Each team shows whether the computer plays it; players
+ * hand their own team to the computer, in full or only to run its workers, and ops any team.
  */
 public final class GuiTeams extends GuiScreen {
 
@@ -40,6 +41,8 @@ public final class GuiTeams extends GuiScreen {
         String id;
         String title;
         String subtitle;
+        /** "off", "economy" or "full": how much of the team the computer plays. */
+        String ai = "off";
         int color;
         List<JsonObject> players = new ArrayList<>();
     }
@@ -100,6 +103,10 @@ public final class GuiTeams extends GuiScreen {
                 .getAsString();
             column.subtitle = team.get("faction")
                 .getAsString();
+            if (team.has("ai")) {
+                column.ai = team.get("ai")
+                    .getAsString();
+            }
             column.color = team.get("color")
                 .getAsInt();
             for (JsonElement member : team.getAsJsonArray("members")) {
@@ -125,10 +132,26 @@ public final class GuiTeams extends GuiScreen {
 
     private int columnHeight(List<Column> columns) {
         int most = 1;
+        boolean aiButton = false;
         for (Column column : columns) {
             most = Math.max(most, column.players.size());
+            aiButton |= canSetAi(column);
         }
-        return 26 + most * LINE + 26;
+        return 26 + most * LINE + 26 + (aiButton ? 22 : 0);
+    }
+
+    /** Whether this player may hand the team to the computer: their own team, or any team for ops. */
+    private boolean canSetAi(Column column) {
+        return column.id != null && (isOp() || column.id.equals(mine()));
+    }
+
+    /** What the AI button switches to: off, then the computer running the workers, then playing in full. */
+    private static String nextAi(String mode) {
+        return "off".equals(mode) ? "economy" : "economy".equals(mode) ? "full" : "off";
+    }
+
+    private static String aiLabel(String mode) {
+        return "economy".equals(mode) ? "AI: workers only" : "full".equals(mode) ? "AI: full" : "AI: off";
     }
 
     private void layout() {
@@ -159,6 +182,15 @@ public final class GuiTeams extends GuiScreen {
                 continue;
             }
             String team = column.id;
+            if (canSetAi(column)) {
+                String next = nextAi(column.ai);
+                addButton(at[0] + 4, y - 22, COLUMN - 8, aiLabel(column.ai), () -> {
+                    JsonObject body = new JsonObject();
+                    body.addProperty("team", team);
+                    body.addProperty("mode", next);
+                    send("teams.ai", body);
+                });
+            }
             if (op && picked != null) {
                 String player = picked;
                 addButton(at[0] + 4, y, COLUMN - 8, "Move " + shorten(pickedName, 9) + " here", () -> {
@@ -315,6 +347,14 @@ public final class GuiTeams extends GuiScreen {
             }
             fontRendererObj.drawStringWithShadow(column.title, x + 5, y + 6, column.color);
             fontRendererObj.drawStringWithShadow(column.subtitle, x + 5, y + 15, 0x909090);
+            String aiTag = "economy".equals(column.ai) ? "AI workers" : "full".equals(column.ai) ? "AI" : null;
+            if (aiTag != null) {
+                fontRendererObj.drawStringWithShadow(
+                    aiTag,
+                    x + COLUMN - 5 - fontRendererObj.getStringWidth(aiTag),
+                    y + 15,
+                    0x9ACBFF);
+            }
             int ny = y + 28;
             if (column.players.isEmpty()) {
                 fontRendererObj.drawStringWithShadow("nobody", x + 8, ny, 0x606060);

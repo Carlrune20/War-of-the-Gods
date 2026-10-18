@@ -46,6 +46,8 @@ public class Team {
     private int defeatTicks = -1;
     /** Whether the computer plays the team. */
     private boolean ai;
+    /** Whether the computer, while it plays the team, only runs its economy with the team's workers. */
+    private boolean aiEconomy;
     /** Whether the whole map has been shown to the team, as though explored, for testing. */
     private boolean revealed;
 
@@ -149,8 +151,27 @@ public class Team {
     }
 
     public void setAi(boolean ai) {
+        setAi(ai, false);
+    }
+
+    /**
+     * Whether the computer only runs the team's economy: it commands all the team's workers, alongside the players,
+     * and leaves the army and everything else to them. Only while it plays the team at all.
+     */
+    public boolean isAiEconomy() {
+        return ai && aiEconomy;
+    }
+
+    /** Hands the team to the computer to play in full or only to run its economy, or takes it back. */
+    public void setAi(boolean ai, boolean economyOnly) {
         this.ai = ai;
+        this.aiEconomy = ai && economyOnly;
         game.changed();
+    }
+
+    /** "off", "economy" or "full": how much of the team the computer plays. */
+    public String getAiMode() {
+        return !ai ? "off" : aiEconomy ? "economy" : "full";
     }
 
     /** Whether the team has had the whole map revealed, so none of it is black in the fog of war. */
@@ -344,6 +365,7 @@ public class Team {
         tag.setBoolean("defeated", defeated);
         tag.setInteger("defeatTicks", defeatTicks);
         tag.setBoolean("ai", ai);
+        tag.setBoolean("aiEconomy", aiEconomy);
         tag.setBoolean("revealed", revealed);
         return tag;
     }
@@ -387,6 +409,7 @@ public class Team {
         team.defeated = tag.getBoolean("defeated");
         team.defeatTicks = tag.hasKey("defeatTicks") ? tag.getInteger("defeatTicks") : -1;
         team.ai = tag.getBoolean("ai");
+        team.aiEconomy = tag.getBoolean("aiEconomy");
         team.revealed = tag.getBoolean("revealed");
         return team;
     }

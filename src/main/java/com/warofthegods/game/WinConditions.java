@@ -42,6 +42,7 @@ public final class WinConditions {
         if (game == null || game.isOver()) {
             return;
         }
+        game.addElapsedTicks(INTERVAL);
         for (Team team : new ArrayList<>(game.getTeams())) {
             if (!team.isDefeated()) {
                 check(game, team);
