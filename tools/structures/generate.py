@@ -1174,6 +1174,83 @@ def farm(p, level):
     return s
 
 
+def quarry(p, level):
+    """Dug into a mined out mine, to keep getting a little gold out of it for ever: a pit stepped down into the rock
+    with ore still showing in its faces, a crane with a bucket over it, the quarrymen's tent and piles of spoil. From
+    Age II rails run along the bottom and a second crane goes up."""
+    s = Struct(11, 11, 6, 5)
+    rng = random.Random(1000 + level + (7 if zam(p) else 0))
+    # Solid rock under the whole footprint, then the pit dug into it in steps.
+    s.fill(0, -5, 0, 10, -1, 10, p.quarry_stone)
+    s.fill(0, 0, 0, 10, 0, 10, p.path if not zam(p) else (NETHERRACK, 0))
+    px0, pz0, px1, pz1 = 1, 1, 7, 7
+    for x in range(px0, px1 + 1):
+        for z in range(pz0, pz1 + 1):
+            ring = min(x - px0, px1 - x, z - pz0, pz1 - z)
+            depth = min(4, ring + 1 + (1 if level > 1 and ring >= 2 else 0))
+            s.clear(x, -depth + 1, z, x, 0, z)
+    # Ore in the faces of the pit: little gold left, more as the quarry is dug deeper.
+    ores = [(COAL_ORE, 40), (IRON_ORE, 34), (GOLD_ORE, 16), (REDSTONE_ORE, 6), (LAPIS_ORE, 2), (DIAMOND_ORE, 2)]
+    chance = (0.2, 0.28, 0.36)[level - 1]
+    for (x, y, z), block in list(s.blocks.items()):
+        if block != p.quarry_stone or y > 0:
+            continue
+        exposed = any(s.inside(x + dx, y + dy, z + dz) and s.get(x + dx, y + dy, z + dz) == AIR
+                      for dx, dy, dz in ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, 0, 1), (0, 0, -1)))
+        if exposed and rng.random() < chance:
+            pick = rng.uniform(0, sum(w for _, w in ores))
+            for ore, weight in ores:
+                pick -= weight
+                if pick <= 0:
+                    s.set(x, y, z, (ore, 0))
+                    break
+        elif zam(p) and rng.random() < 0.15:
+            s.set(x, y, z, (NETHERRACK, 0))
+    # Steps down one side.
+    for i in range(3):
+        s.set(px0 + 1 + i, -i, pz1, stairs(COBBLE_STAIRS, UP_WEST))
+    # A crane over the pit with a bucket on a rope.
+    s.fill(8, 1, 1, 8, 5, 1, p.frame)
+    s.fill(4, 5, 1, 7, 5, 1, p.frame_x)
+    s.fill(4, 3, 1, 4, 4, 1, p.fence)
+    s.set(4, 2, 1, (CAULDRON, 0))
+    # The quarrymen's tent.
+    tx0, tz0, tx1, tz1 = 8, 4, 10, 8
+    s.fill(tx0, 0, tz0, tx1, 0, tz1, p.planks)
+    for z in range(tz0, tz1 + 1):
+        cloth = p.tent2 if z == 6 else p.tent
+        s.set(tx0, 1, z, cloth)
+        s.set(tx1, 1, z, cloth)
+        s.set(tx0 + 1, 2, z, cloth)
+    s.set(tx0 + 1, 1, tz1, (CHEST, 2))
+    s.set(tx0 + 1, 1, tz1 - 1, (WORKBENCH, 0))
+    if zam(p):
+        skull(s, tx0 + 1, 1, tz0)
+    # Piles of what came out of it.
+    s.set(9, 1, 0, (COBBLE, 0))
+    s.set(10, 1, 0, (COBBLE, 0))
+    s.set(10, 2, 0, (COBBLE, 0))
+    s.set(10, 1, 1, (GRAVEL, 0))
+    # Lights round the edge.
+    for x, z in ((0, 0), (0, 9), (7, 10)):
+        s.set(x, 1, z, p.fence)
+        s.set(x, 2, z, (p.light, 5))
+    if level > 1:
+        # Rails along the bottom and a second crane.
+        for x in range(3, 6):
+            s.set(x, -3, 4, (RAIL, 1))
+        s.fill(1, 1, 9, 1, 5, 9, p.frame)
+        s.fill(2, 5, 9, 3, 5, 9, p.frame_x)
+        s.fill(3, 3, 9, 3, 4, 9, p.fence)
+    if level > 2:
+        # Iron in the god's colors: a cart of ore and a lamp at the top of the steps.
+        s.set(6, 1, 9, p.lamp)
+        s.set(5, 1, 9, p.fence)
+        s.set(9, 1, 9, (IRON_ORE, 0))
+        s.set(9, 1, 10, (GOLD_ORE, 0))
+    return s
+
+
 def armory(p, level):
     """Researches military upgrades and sells arms: a stone workshop at the back with a door anyone can open, a forge
     under a porch in front, and the god's banners hanging from the porch roof."""
@@ -1698,6 +1775,7 @@ BUILDINGS = {
     "barracks": (barracks, 3),
     "storehouse": (storehouse, 3),
     "farm": (farm, 3),
+    "quarry": (quarry, 3),
     "armory": (armory, 3),
     "tower": (tower, 3),
     "archery_range": (archery_range, 3),

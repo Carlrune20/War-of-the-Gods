@@ -501,6 +501,8 @@ public final class WebMap {
             json.addProperty("maxGold", mine.maxGold);
             json.addProperty("kind", mine.kind.id);
             json.addProperty("name", mine.getName());
+            // Mined out with nothing dug into it yet, so a quarry can go on it.
+            json.addProperty("free", mine.isDepleted() && game.quarryOn(mine) == null);
             mines.add(json);
         }
         return mines;

@@ -75,6 +75,7 @@ public class Config {
         defaults(BuildingType.STONE_CIRCLE, new long[] { 0, 0, 100 }, 600, 20);
         // Bridges cost wood for every block of their length.
         defaults(BuildingType.BRIDGE, new long[] { 0, 6, 0 }, 150, 3);
+        defaults(BuildingType.QUARRY, new long[] { 0, 100, 0 }, 500, 20);
     }
 
     /** Food, Wood and Gold the town center costs to go up to level 2, and to level 3. */
@@ -119,6 +120,9 @@ public class Config {
     public static int farmWorkers = 1;
     public static int farmYieldSeconds = 5;
     public static int farmFood = 5;
+    /** Most workers at one quarry, and the gold each gets out of it per harvest, which comes as often as a farm's. */
+    public static int quarryWorkers = 3;
+    public static int quarryGold = 2;
     /** Gold a gold mine holds when the game starts. */
     public static int goldMineGold = 2000;
     /** Gold every mining site holds on top of its share of goldMineGold, whatever its ore. */
@@ -133,6 +137,8 @@ public class Config {
     public static int settlementEvery = 250;
     /** Gold mines away from any settlement, laid out on each new map for each team. */
     public static int extraGoldMines = 1;
+    /** Blocks of map width for each wild gold mine laid out for each team: a 1000 block map has 8 for each team. */
+    public static int goldMineEvery = 125;
     /** Animals that graze near each team's first town center: a flock of chickens and a herd of pigs, cows or sheep. */
     public static int startingChickens = 8;
     public static int startingLivestock = 6;
@@ -410,6 +416,20 @@ public class Config {
             .getInt("farmYieldSeconds", buildings, farmYieldSeconds, 1, 3600, "Seconds between a farm's harvests.");
         farmFood = configuration
             .getInt("farmFood", buildings, farmFood, 0, 100000, "Food each worker at a farm gathers per harvest.");
+        quarryWorkers = configuration.getInt(
+            "quarryWorkers",
+            buildings,
+            quarryWorkers,
+            1,
+            64,
+            "Most workers that can work one quarry at a time. A quarry can only be dug into a mined out gold mine.");
+        quarryGold = configuration.getInt(
+            "quarryGold",
+            buildings,
+            quarryGold,
+            0,
+            100000,
+            "Gold each worker at a quarry gathers per harvest, for ever; harvests come as often as a farm's.");
         townCenterPopulation = configuration.getInt(
             "townCenterPopulation",
             buildings,
@@ -559,7 +579,16 @@ public class Config {
             extraGoldMines,
             0,
             64,
-            "Gold mines laid out on each new map for each team, besides the one by each settlement.");
+            "Gold mines laid out on each new map for each team between its town center and the middle, besides the"
+                + " one by its town center, the one by each settlement and the wild ones.");
+        goldMineEvery = configuration.getInt(
+            "goldMineEvery",
+            buildings,
+            goldMineEvery,
+            0,
+            100000,
+            "Blocks of map width for each wild gold mine laid out for each team on a new map, spread over its side of"
+                + " the map away from any settlement: 125 gives a 1000 block map 8 for each team. 0 for none.");
         startingChickens = configuration.getInt(
             "startingChickens",
             buildings,

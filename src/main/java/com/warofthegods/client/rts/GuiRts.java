@@ -1307,7 +1307,8 @@ public final class GuiRts extends GuiScreen {
         if (!spot.ok) {
             client.showToast(
                 "town_hall".equals(client.placing.type) ? "A town center can only go on a settlement"
-                    : "It does not fit there",
+                    : "quarry".equals(client.placing.type) ? "A quarry can only go on a mined out gold mine"
+                        : "It does not fit there",
                 true);
             return;
         }
@@ -1542,7 +1543,8 @@ public final class GuiRts extends GuiScreen {
             if (goldMine != null) {
                 String gold = goldMine.gold + "/" + goldMine.maxGold + " gold";
                 if (goldMine.gold <= 0) {
-                    return new Object[] { "gold", "Mined out " + goldMine.name.toLowerCase(), null };
+                    return new Object[] { "gold", "Mined out " + goldMine.name.toLowerCase()
+                        + (team != null && goldMine.free ? " · workers can dig a quarry here" : ""), null };
                 }
                 if (workers > 0) {
                     return new Object[] { "pickaxe", "Mine gold · " + goldMine.name + " · " + gold, "act" };
@@ -1607,9 +1609,9 @@ public final class GuiRts extends GuiScreen {
         return upgrade == null ? research : upgrade.name;
     }
 
-    /** The tool workers use at a building: a hoe at a farm, else an axe. */
+    /** The tool workers use at a building: a hoe at a farm, a pickaxe at a quarry, else an axe. */
     private static String toolFor(String buildingType) {
-        return "farm".equals(buildingType) ? "hoe" : "axe";
+        return "farm".equals(buildingType) ? "hoe" : "quarry".equals(buildingType) ? "pickaxe" : "axe";
     }
 
     /** Draws one of the icons, 16 pixels square, scaled to size. */

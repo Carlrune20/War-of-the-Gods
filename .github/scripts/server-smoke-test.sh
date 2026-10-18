@@ -625,6 +625,31 @@ echo "rts resources blue" >&3
 echo "rts buildings blue" >&3
 echo "rts units blue" >&3
 sleep 2
+# A quarry goes only on a mined out gold mine; a worker works it and brings in gold for ever.
+echo "rts build red quarry" >&3
+wait_for_log "There is no mined out gold mine to dig a quarry into" 30
+echo "rts deplete red" >&3
+wait_for_log "Mined out the " 30
+echo "rts units spawn red 1 worker" >&3
+wait_for_log "Spawned 1 units for Red" 30
+echo "rts build red quarry" >&3
+wait_for_log "Laid out Red quarry #" 30
+echo "rts finish red" >&3
+wait_for_log "Built Red quarry #" 60
+echo "rts resources red" >&3
+sleep 2
+red_gold_before=$(grep -oE 'Team Red resources: .*Gold [0-9]+' "$WEB_LOG" | tail -1 | grep -oE '[0-9]+$')
+red_gold=0
+for _ in $(seq 60); do
+    echo "rts resources red" >&3
+    sleep 3
+    red_gold=$(grep -oE 'Team Red resources: .*Gold [0-9]+' "$WEB_LOG" | tail -1 | grep -oE '[0-9]+$')
+    [ "${red_gold:-0}" -gt "${red_gold_before:-0}" ] && break
+done
+echo "rts buildings red" >&3
+sleep 2
+[ "${red_gold:-0}" -gt "${red_gold_before:-0}" ] || web_fail "boot-5-ai: no gold came in from the quarry: $red_gold_before, then $red_gold"
+echo "ok: Red gold went from $red_gold_before to $red_gold at the quarry"
 # Economy mode: the computer runs only Red's workers, putting the idle ones to gathering, then lets go again.
 echo "rts ai red economy" >&3
 wait_for_log "Team Red: the computer now runs its workers" 30

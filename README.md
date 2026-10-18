@@ -48,6 +48,7 @@ Everyone can use `/rts`; commands marked (op) need operator rights.
 | `/rts wall <team> <x1> <z1> <x2> <z2>` | (op) Lay out a wall from one point to another for free, running up to the team's towers at either end, and send the team's idle workers to build it. |
 | `/rts gate <building id>` | (op) Make a finished wall segment a gate, for free. |
 | `/rts mine <team>` | (op) Send a team's idle workers to the gold mine nearest its town center. |
+| `/rts deplete <team>` | (op) Mine out the gold mine nearest a team's town center at once, so a quarry can go on it. |
 | `/rts chop <team>` | (op) Send a team's idle workers to chop the tree nearest its town center. |
 | `/rts light <team> [x1 z1 x2 z2]` | (op) Send a team's idle workers to put torches in the dark parts of an area, or around its town center. |
 | `/rts explode <building id>` | (op) Set off a creeper-sized explosion beside a building, hurting no one, to see what it does to the building. |
@@ -94,7 +95,8 @@ the river runs straight where it passes under them.
 The map is laid out the same way round every team. Besides the settlement each team starts on, it gets more
 settlements spread over its side of the map, one for every 250 blocks of map width (4 on a 1000 block map, at least
 one): out toward the edge far round either side and nearer the middle in between. There is a gold mine behind every
-settlement and one more for each team. A flock of chickens and a herd of pigs, cows or sheep (the same for every team)
+settlement, one beside each team's town center, one more between it and the middle, and wild gold mines over each
+team's side of the map, one for every 125 blocks of map width (8 on a 1000 block map). A flock of chickens and a herd of pigs, cows or sheep (the same for every team)
 graze either side of each town center, and wild herds, one for every 125 blocks of map width, roam each team's side.
 No other animals spawn, and animals that wander onto a building or building site are put back outside it.
 
@@ -145,7 +147,9 @@ plank huts with rotted walls and sagging roofs, one half fallen in, round a cold
 with a white flag at the gate. Once every team's first town
 center is up, the rest of the settlements and the gold mines are laid out (see the map above). Workers can raise a
 town center (300 Wood, 200 Gold) only on a settlement nobody holds, and a town center that is destroyed leaves an
-abandoned settlement again. Settlements and gold mines cannot be built on or broken. Trees are cleared from a
+abandoned settlement again. Settlements and gold mines cannot be built on or broken, except that once a gold mine is
+mined out workers can dig a quarry (100 Wood) into it: up to three workers work a quarry like a farm, bringing in
+2 gold each per harvest for ever, more with the pickaxe upgrades. Trees are cleared from a
 settlement and a few blocks round it, so none grows into a town center or blocks the way.
 
 Workers build: pick a building, place it on the web map or in the RTS view, and the selected workers walk to the site

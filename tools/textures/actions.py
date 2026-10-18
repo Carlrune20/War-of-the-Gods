@@ -35,7 +35,7 @@ MINECRAFT_JAR = os.path.expanduser("~/.gradle/caches/retro_futura_gradle/mc-vani
 SIZE = 64
 COLUMNS = 16
 FACTIONS = ("saradomin", "zamorak")
-BUILDINGS = ("town_hall", "house", "farm", "barracks", "storehouse", "armory", "tower", "wall", "gate",
+BUILDINGS = ("town_hall", "house", "farm", "quarry", "barracks", "storehouse", "armory", "tower", "wall", "gate",
              "white_knights_fortress", "black_knights_fortress", "archery_range", "stables", "chaos_temple",
              "monastery", "wizards_tower", "stone_circle")
 UNITS = ("worker", "soldier", "archer", "white_knight", "black_knight", "tradigee", "sagittare", "cavalry",

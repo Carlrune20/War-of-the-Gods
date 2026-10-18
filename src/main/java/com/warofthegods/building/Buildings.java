@@ -419,6 +419,9 @@ public final class Buildings {
                 settlement.groundY,
                 null);
         }
+        if (type == BuildingType.QUARRY) {
+            return planQuarry(game, schematic, centerX, centerZ, rotation);
+        }
         int sizeX = schematic.sizeX(rotation);
         int sizeZ = schematic.sizeZ(rotation);
         int minX = centerX - sizeX / 2;
@@ -464,6 +467,33 @@ public final class Buildings {
             problem = "That is too high or too low";
         }
         return new Plan(type, minX, minZ, sizeX, sizeZ, rotation, site.groundY, problem);
+    }
+
+    /** A quarry only goes on a mined out mine with none on it yet, in the middle of the mine, on its ground. */
+    private static Plan planQuarry(Game game, Schematic schematic, int centerX, int centerZ, int rotation) {
+        int sizeX = schematic.sizeX(rotation);
+        int sizeZ = schematic.sizeZ(rotation);
+        GoldMine mine = game.freeMinedOutMineNear(centerX + 0.5, centerZ + 0.5, 4);
+        if (mine == null) {
+            return new Plan(
+                BuildingType.QUARRY,
+                centerX - sizeX / 2,
+                centerZ - sizeZ / 2,
+                sizeX,
+                sizeZ,
+                rotation,
+                0,
+                "A quarry can only go on a mined out gold mine");
+        }
+        return new Plan(
+            BuildingType.QUARRY,
+            mine.minX + (mine.size - sizeX) / 2,
+            mine.minZ + (mine.size - sizeZ) / 2,
+            sizeX,
+            sizeZ,
+            rotation,
+            mine.groundY,
+            null);
     }
 
     /** Lays out a building site for a plan without a problem; a stone circle stands at once. */
@@ -516,6 +546,20 @@ public final class Buildings {
             }
             return best == null ? null
                 : plan(game, world, type, (int) best.getCenterX(), (int) best.getCenterZ(), best.rotation);
+        }
+        if (type == BuildingType.QUARRY) {
+            // The nearest mined out mine with no quarry on it.
+            GoldMine best = null;
+            double bestDistance = Double.MAX_VALUE;
+            for (GoldMine mine : game.getMines()) {
+                double dx = mine.getCenterX() - cx;
+                double dz = mine.getCenterZ() - cz;
+                if (mine.isDepleted() && game.quarryOn(mine) == null && dx * dx + dz * dz < bestDistance) {
+                    best = mine;
+                    bestDistance = dx * dx + dz * dz;
+                }
+            }
+            return best == null ? null : plan(game, world, type, (int) best.getCenterX(), (int) best.getCenterZ(), 0);
         }
         // Start far enough out that it clears the town hall with room to walk around it.
         Schematic schematic = schematic(type);
@@ -878,7 +922,7 @@ public final class Buildings {
         return workers;
     }
 
-    /** Hands each harvest to the workers at farms, who carry it to a town hall or storehouse. */
+    /** Hands each harvest to the workers at farms and quarries, who carry it to a town hall or storehouse. */
     private void harvest(Game game) {
         int ticksPerHarvest = Config.farmYieldSeconds * 20;
         for (Building workplace : game.getBuildings()) {
@@ -911,6 +955,8 @@ public final class Buildings {
         int halves = 2;
         if (team != null && workplace.type == BuildingType.FARM) {
             halves = team.has(Upgrade.DIAMOND_HOES) ? 4 : team.has(Upgrade.PLOUGHS) ? 3 : 2;
+        } else if (team != null && workplace.type == BuildingType.QUARRY) {
+            halves = team.has(Upgrade.DIAMOND_PICKAXES) ? 4 : team.has(Upgrade.PICKAXES) ? 3 : 2;
         }
         for (int i = 0; i < yield.length; i++) {
             yield[i] = yield[i] * halves / 2;

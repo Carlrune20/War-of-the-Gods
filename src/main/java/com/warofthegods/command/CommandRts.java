@@ -79,6 +79,7 @@ public class CommandRts extends CommandBase {
         "research",
         "chop",
         "mine",
+        "deplete",
         "light",
         "route",
         "explode",
@@ -187,6 +188,9 @@ public class CommandRts extends CommandBase {
             case "mine":
                 mine(sender, rest);
                 break;
+            case "deplete":
+                deplete(sender, rest);
+                break;
             case "light":
                 light(sender, rest);
                 break;
@@ -291,6 +295,10 @@ public class CommandRts extends CommandBase {
                 + " team's idle workers to build it (op)");
         send(sender, "/rts gate <building id> - make a finished wall segment a gate, for free (op)");
         send(sender, "/rts mine <team> - send a team's idle workers to the nearest gold mine (op)");
+        send(
+            sender,
+            "/rts deplete <team> - mine out the gold mine nearest a team's town center at once, so a quarry can go on"
+                + " it (op)");
         send(sender, "/rts damage <building id> <amount> - take health off a building; at 0 it is gone (op)");
         send(sender, "/rts ai - list the teams the computer plays");
         send(sender, "/rts ai <team> [on|off|economy] - have the computer play a team, or just its workers (op)");
@@ -1004,8 +1012,8 @@ public class CommandRts extends CommandBase {
         BuildingType type = BuildingType.byId(args[1]);
         if (type == null || !type.buildable) {
             throw new CommandException(
-                "Workers can build a farm, house, barracks, archery range, stables, storehouse, armory, tower, town center"
-                    + ", White Knights' castle or Kinshra fortress");
+                "Workers can build a farm, quarry, house, barracks, archery range, stables, storehouse, armory, tower,"
+                    + " town center, White Knights' castle or Kinshra fortress");
         }
         if (!type.buildableBy(team.getFaction())) {
             throw new CommandException("Only %s's teams can build a %s", type.faction().displayName, type.displayName);
@@ -1033,7 +1041,8 @@ public class CommandRts extends CommandBase {
             if (plan == null) {
                 throw new CommandException(
                     type == BuildingType.TOWN_HALL ? "There is no settlement left to build on"
-                        : "Found no room for a " + type.displayName.toLowerCase() + " near the town hall");
+                        : type == BuildingType.QUARRY ? "There is no mined out gold mine to dig a quarry into"
+                            : "Found no room for a " + type.displayName.toLowerCase() + " near the town hall");
             }
         }
         Building site = Buildings.get()
@@ -1225,6 +1234,30 @@ public class CommandRts extends CommandBase {
                 + " with "
                 + tracked.getWood()
                 + " wood");
+    }
+
+    /** Mines out the gold mine nearest a team's town center that still has gold, at once. */
+    private void deplete(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        Game game = requireGame();
+        requireArgs(args, 1, "/rts deplete <team>");
+        Team team = requireTeam(game, args[0]);
+        Building hall = game.getTownHall(team);
+        if (hall == null) {
+            throw new CommandException("Team %s has no town center", team.getName());
+        }
+        GoldMine mine = Units.nearestMine(game, hall.getCenterX(), hall.getCenterZ(), Double.MAX_VALUE);
+        if (mine == null) {
+            throw new CommandException("There is no gold mine with gold left");
+        }
+        game.mine(mine, mine.getGold());
+        Buildings.get()
+            .features()
+            .deplete(GameWorld.getWorld(), game, mine);
+        send(
+            sender,
+            "Mined out the " + mine.getName()
+                .toLowerCase() + " at " + (int) mine.getCenterX() + "," + (int) mine.getCenterZ());
     }
 
     /** Sends a team's idle workers to the gold mine nearest its town center that still has gold. */

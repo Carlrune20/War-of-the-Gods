@@ -246,7 +246,7 @@ public final class RtsState {
         public int sizeZ;
         public int y;
         public int rotation;
-        /** For a settlement: whether no town center stands on it. */
+        /** For a settlement: whether no town center stands on it; for a mine: whether a quarry can go on it. */
         public boolean free;
         /** For a gold mine: the gold left in it, and what it started with. */
         public int gold;
@@ -607,9 +607,21 @@ public final class RtsState {
 
     /** The free settlement whose footprint holds x, z or comes within margin blocks of it, nearest first; or null. */
     public FeatureInfo freeSettlementNear(double x, double z, double margin) {
+        return freeFeatureNear(settlements, x, z, margin);
+    }
+
+    /**
+     * The mined out mine with no quarry on it whose footprint holds x, z or comes within margin blocks of it, nearest
+     * first; or null.
+     */
+    public FeatureInfo freeMineNear(double x, double z, double margin) {
+        return freeFeatureNear(mines, x, z, margin);
+    }
+
+    private static FeatureInfo freeFeatureNear(List<FeatureInfo> features, double x, double z, double margin) {
         FeatureInfo best = null;
         double bestDistance = Double.MAX_VALUE;
-        for (FeatureInfo settlement : settlements) {
+        for (FeatureInfo settlement : features) {
             if (!settlement.free || !settlement.contains(x, z, margin)) {
                 continue;
             }

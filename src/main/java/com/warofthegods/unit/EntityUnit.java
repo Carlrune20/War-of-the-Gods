@@ -476,6 +476,9 @@ public class EntityUnit extends EntityCreature {
             if (workplace != null && workplace.type == BuildingType.FARM) {
                 return HOES[tier(team, Upgrade.PLOUGHS, Upgrade.DIAMOND_HOES)];
             }
+            if (workplace != null && workplace.type == BuildingType.QUARRY) {
+                return PICKAXES[tier(team, Upgrade.PICKAXES, Upgrade.DIAMOND_PICKAXES)];
+            }
         }
         return AXES[tier(team, Upgrade.SHARP_AXES, Upgrade.DIAMOND_AXES)];
     }
