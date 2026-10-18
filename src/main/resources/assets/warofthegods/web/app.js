@@ -2402,19 +2402,33 @@
         return true;
     }
 
-    // Right-clicking one of the team's building sites, or a farm, sends the selected workers to build or
-    // work it.
+    // Right-clicking one of the team's building sites, damaged buildings or farms sends the selected units that
+    // can build it there: dark wizards to a stone circle, workers to the rest. Any others selected walk there.
     function orderBuild(px, py, queue) {
         const building = buildingAt(px, py);
-        const workers = selectedWorkers();
-        const type = building && buildingType(building.type);
-        if (!building || building.team !== myTeam().id || !workers.length
-            || (building.complete && building.health >= building.maxHealth && !(type && type.workers))) {
+        const team = myTeam();
+        if (!building || !team || building.team !== team.id) {
             return false;
         }
-        orderMark = {x: building.x + building.sizeX / 2, y: building.y + 1, z: building.z + building.sizeZ / 2,
-            color: [0.45, 1, 0.5, 1], time: performance.now()};
-        send("units.build", {units: workers, building: building.id, queue: Boolean(queue)});
+        const type = buildingType(building.type);
+        const whole = building.complete && building.health >= building.maxHealth;
+        const wizards = Boolean(type && type.wizards);
+        // A whole building needs no building or repair; only workers go to work a farm.
+        const builders = !whole || (!wizards && type && type.workers) ? [...state.selected].filter((id) => {
+            const u = state.units.get(id);
+            return u && u.kind === (wizards ? "dark_wizard" : "worker");
+        }) : [];
+        if (!builders.length) {
+            return false;
+        }
+        const x = building.x + building.sizeX / 2;
+        const z = building.z + building.sizeZ / 2;
+        orderMark = {x, y: building.y + 1, z, color: [0.45, 1, 0.5, 1], time: performance.now()};
+        send("units.build", {units: builders, building: building.id, queue: Boolean(queue)});
+        const others = [...state.selected].filter((id) => !builders.includes(id));
+        if (others.length) {
+            send("units.move", {units: others, x, z, formation, queue: Boolean(queue)});
+        }
         view.dirty = true;
         return true;
     }

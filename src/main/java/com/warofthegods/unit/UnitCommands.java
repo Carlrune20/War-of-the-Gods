@@ -295,12 +295,14 @@ public final class UnitCommands {
             request.replyError("That is already built and needs no repair");
             return;
         }
+        // Dark wizards raise and repair a stone circle, workers every other building.
         int workers = 0;
         for (EntityUnit unit : units) {
-            workers += unit.isWorker() ? 1 : 0;
+            workers += unit.canRaise(building.type) ? 1 : 0;
         }
         if (workers == 0) {
-            request.replyError("Only workers can build and gather");
+            request.replyError(building.type.raisedByWizards() ? "Only dark wizards raise and repair a stone circle"
+                : "Only workers can build and gather");
             return;
         }
         int sent = Units.get()
