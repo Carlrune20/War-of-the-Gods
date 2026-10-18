@@ -269,8 +269,8 @@ building.
 A team's town center sets its age: taking it up a level advances the whole town from Age I to Age II, for 200 Food,
 200 Wood and 150 Gold, and then to Age III, for 400 Food, 300 Wood and 400 Gold. Every other building
 of the team takes on the new age's look with it, at once, and buildings put up later look the age too; nothing else
-about them changes. Age I has no military and no farms: workers build, chop, mine and hunt, and towers stand watch
-but do not shoot. In Age II the town center houses 5 more units and starts shooting, the second row of upgrades opens
+about them changes. Age I has no military and no farms: workers build, chop, mine and hunt, the town center shoots arrows at
+enemies in range, and towers stand watch but do not shoot. In Age II the town center houses 5 more units, the second row of upgrades opens
 up, and barracks, archery ranges, stables, farms and armories can be built, and each god's temples and towers. For more health, research fortified walls at the town center.
 
 Each team starts with four towers, one well off each corner of its town center, so between them they cover the
