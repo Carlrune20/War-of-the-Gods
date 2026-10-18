@@ -42,6 +42,13 @@ jobs:
           ./gradlew --stacktrace spotlessApply
           git diff --exit-code || { echo "::error::Formatting differs from spotless; diff above"; exit 1; }
 
+      # Models edited in Blockbench (tools/models/blockbench/*.bbmodel) go into the jar as they were saved, so a
+      # .bbmodel uploaded on its own is enough. Pillow and numpy draw the staff's and Silverlight's inventory icons.
+      - name: Build models from their Blockbench files
+        run: |
+          python3 -m pip install --quiet --break-system-packages pillow numpy
+          python3 tools/models/blockbench.py import
+
       - name: Build
         run: ./gradlew --stacktrace build
 

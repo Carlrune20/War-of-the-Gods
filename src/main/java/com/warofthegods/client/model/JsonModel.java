@@ -8,39 +8,126 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.ModelBase;
 import net.minecraft.client.model.ModelRenderer;
 import net.minecraft.client.renderer.OpenGlHelper;
+import net.minecraft.client.resources.IReloadableResourceManager;
+import net.minecraft.client.resources.IResourceManager;
+import net.minecraft.client.resources.IResourceManagerReloadListener;
+import net.minecraft.util.ResourceLocation;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.lwjgl.opengl.GL11;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.warofthegods.WarOfTheGods;
 
 /**
  * A box model made by tools/models/generate.py: a tree of named parts, each turning about its pivot, holding boxes laid
  * out in the texture the way Minecraft's own models lay them out. Each part is a pair of renderers: one that only
  * places and turns, with the next parts under it, and one under that holding the part's boxes, so a pass can draw
  * some parts' boxes and not others while every part still moves with the parts it hangs from.
+ * <p>
+ * Models are read through the game's resources, so a resource pack can replace them, and every model is read again
+ * when the resources reload (F3+T): edit a model in Blockbench, turn it back into JSON with tools/models/blockbench.py
+ * and see it in the game straight away. A file that will not read leaves the model as it was.
  */
 public final class JsonModel {
 
+    private static final Logger LOG = LogManager.getLogger("WarOfTheGods");
+    private static final List<JsonModel> ALL = new ArrayList<>();
+    private static boolean listening;
+
+    private final ModelBase model;
+    private final String name;
     private final List<ModelRenderer> roots = new ArrayList<>();
     private final Map<String, ModelRenderer> parts = new HashMap<>();
     private final Map<String, float[]> rest = new HashMap<>();
     private final List<ModelRenderer> geometry = new ArrayList<>();
     private final List<ModelRenderer> glowing = new ArrayList<>();
-    public final int textureWidth;
-    public final int textureHeight;
+    private int textureWidth;
+    private int textureHeight;
 
     /**
      * Loads assets/warofthegods/models/name.json for the model, sizing its texture as the file says. Its renderers
      * are left out of the model's list of boxes, which only arrows stuck in an entity use.
      */
     public JsonModel(ModelBase model, String name) {
-        JsonObject json = read(name);
+        this.model = model;
+        this.name = name;
+        build(read(name, false));
+        ALL.add(this);
+        listen();
+    }
+
+    /** Reads every model again when the game's resources reload. */
+    private static void listen() {
+        if (listening) {
+            return;
+        }
+        IResourceManager manager = Minecraft.getMinecraft()
+            .getResourceManager();
+        if (manager instanceof IReloadableResourceManager) {
+            ((IReloadableResourceManager) manager).registerReloadListener(new IResourceManagerReloadListener() {
+
+                @Override
+                public void onResourceManagerReload(IResourceManager resources) {
+                    for (JsonModel each : ALL) {
+                        each.reload();
+                    }
+                }
+            });
+            listening = true;
+        }
+    }
+
+    private void reload() {
+        JsonObject json;
+        try {
+            json = read(name, true);
+        } catch (RuntimeException e) {
+            LOG.warn("Keeping the model {} as it was: {}", name, e.toString());
+            return;
+        }
+        List<ModelRenderer> oldRoots = new ArrayList<>(roots);
+        Map<String, ModelRenderer> oldParts = new HashMap<>(parts);
+        Map<String, float[]> oldRest = new HashMap<>(rest);
+        List<ModelRenderer> oldGeometry = new ArrayList<>(geometry);
+        List<ModelRenderer> oldGlowing = new ArrayList<>(glowing);
+        int width = textureWidth;
+        int height = textureHeight;
+        try {
+            build(json);
+        } catch (RuntimeException e) {
+            LOG.warn("Keeping the model {} as it was: {}", name, e.toString());
+            restore(roots, oldRoots);
+            restore(geometry, oldGeometry);
+            restore(glowing, oldGlowing);
+            parts.clear();
+            parts.putAll(oldParts);
+            rest.clear();
+            rest.putAll(oldRest);
+            model.textureWidth = textureWidth = width;
+            model.textureHeight = textureHeight = height;
+        }
+    }
+
+    private static <T> void restore(List<T> list, List<T> old) {
+        list.clear();
+        list.addAll(old);
+    }
+
+    private void build(JsonObject json) {
+        roots.clear();
+        parts.clear();
+        rest.clear();
+        geometry.clear();
+        glowing.clear();
         JsonArray texture = json.getAsJsonArray("texture");
         textureWidth = texture.get(0)
             .getAsInt();
@@ -49,69 +136,90 @@ public final class JsonModel {
         model.textureWidth = textureWidth;
         model.textureHeight = textureHeight;
         int before = model.boxList.size();
-        for (JsonElement element : json.getAsJsonArray("parts")) {
-            JsonObject part = element.getAsJsonObject();
-            String partName = part.get("name")
-                .getAsString();
-            ModelRenderer node = new ModelRenderer(model, partName);
-            float[] pivot = floats(part.getAsJsonArray("pivot"));
-            float[] rotation = floats(part.getAsJsonArray("rotation"));
-            node.setRotationPoint(pivot[0], pivot[1], pivot[2]);
-            node.rotateAngleX = rotation[0];
-            node.rotateAngleY = rotation[1];
-            node.rotateAngleZ = rotation[2];
-            ModelRenderer boxes = new ModelRenderer(model, partName + "_boxes");
-            boxes.setTextureSize(textureWidth, textureHeight);
-            for (JsonElement boxElement : part.getAsJsonArray("boxes")) {
-                JsonObject box = boxElement.getAsJsonObject();
-                float[] uv = floats(box.getAsJsonArray("uv"));
-                float[] from = floats(box.getAsJsonArray("from"));
-                float[] size = floats(box.getAsJsonArray("size"));
-                boxes.setTextureOffset((int) uv[0], (int) uv[1]);
-                boxes.mirror = box.get("mirror")
-                    .getAsBoolean();
-                boxes.addBox(
-                    from[0],
-                    from[1],
-                    from[2],
-                    Math.round(size[0]),
-                    Math.round(size[1]),
-                    Math.round(size[2]),
-                    box.get("inflate")
-                        .getAsFloat());
+        try {
+            for (JsonElement element : json.getAsJsonArray("parts")) {
+                JsonObject part = element.getAsJsonObject();
+                String partName = part.get("name")
+                    .getAsString();
+                ModelRenderer node = new ModelRenderer(model, partName);
+                float[] pivot = floats(part.getAsJsonArray("pivot"));
+                float[] rotation = floats(part.getAsJsonArray("rotation"));
+                node.setRotationPoint(pivot[0], pivot[1], pivot[2]);
+                node.rotateAngleX = rotation[0];
+                node.rotateAngleY = rotation[1];
+                node.rotateAngleZ = rotation[2];
+                ModelRenderer boxes = new ModelRenderer(model, partName + "_boxes");
+                boxes.setTextureSize(textureWidth, textureHeight);
+                for (JsonElement boxElement : part.getAsJsonArray("boxes")) {
+                    JsonObject box = boxElement.getAsJsonObject();
+                    float[] uv = floats(box.getAsJsonArray("uv"));
+                    float[] from = floats(box.getAsJsonArray("from"));
+                    float[] size = floats(box.getAsJsonArray("size"));
+                    boxes.setTextureOffset((int) uv[0], (int) uv[1]);
+                    boxes.mirror = box.get("mirror")
+                        .getAsBoolean();
+                    boxes.addBox(
+                        from[0],
+                        from[1],
+                        from[2],
+                        Math.round(size[0]),
+                        Math.round(size[1]),
+                        Math.round(size[2]),
+                        box.get("inflate")
+                            .getAsFloat());
+                }
+                node.addChild(boxes);
+                geometry.add(boxes);
+                if (part.has("glow") && part.get("glow")
+                    .getAsBoolean()) {
+                    glowing.add(boxes);
+                }
+                JsonElement parent = part.get("parent");
+                if (parent == null || parent.isJsonNull()) {
+                    roots.add(node);
+                } else {
+                    parts.get(parent.getAsString())
+                        .addChild(node);
+                }
+                parts.put(partName, node);
+                rest.put(partName, rotation);
             }
-            node.addChild(boxes);
-            geometry.add(boxes);
-            if (part.has("glow") && part.get("glow")
-                .getAsBoolean()) {
-                glowing.add(boxes);
+        } finally {
+            while (model.boxList.size() > before) {
+                model.boxList.remove(model.boxList.size() - 1);
             }
-            JsonElement parent = part.get("parent");
-            if (parent == null || parent.isJsonNull()) {
-                roots.add(node);
-            } else {
-                parts.get(parent.getAsString())
-                    .addChild(node);
-            }
-            parts.put(partName, node);
-            rest.put(partName, rotation);
-        }
-        while (model.boxList.size() > before) {
-            model.boxList.remove(model.boxList.size() - 1);
         }
     }
 
-    private static JsonObject read(String name) {
+    /**
+     * The model's file, from the game's resources (so a resource pack can replace it) or, before the mod's own
+     * resources are loaded and unless only the resources will do, from the mod's jar.
+     */
+    private static JsonObject read(String name, boolean resourcesOnly) {
+        try (InputStream in = Minecraft.getMinecraft()
+            .getResourceManager()
+            .getResource(new ResourceLocation(WarOfTheGods.MODID, "models/" + name + ".json"))
+            .getInputStream()) {
+            return parse(in);
+        } catch (java.io.IOException | RuntimeException e) {
+            if (resourcesOnly) {
+                throw new IllegalStateException("Could not read model " + name, e);
+            }
+        }
         String path = "/assets/warofthegods/models/" + name + ".json";
         try (InputStream in = JsonModel.class.getResourceAsStream(path)) {
             if (in == null) {
                 throw new IllegalStateException("Missing model " + path);
             }
-            return new JsonParser().parse(new InputStreamReader(in, StandardCharsets.UTF_8))
-                .getAsJsonObject();
+            return parse(in);
         } catch (java.io.IOException e) {
             throw new IllegalStateException("Could not read model " + path, e);
         }
+    }
+
+    private static JsonObject parse(InputStream in) {
+        return new JsonParser().parse(new InputStreamReader(in, StandardCharsets.UTF_8))
+            .getAsJsonObject();
     }
 
     private static float[] floats(JsonArray array) {

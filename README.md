@@ -363,6 +363,16 @@ two blocks clear of other buildings, on ground that is mostly dry and not too st
 anything above the building is cleared. The structures are drawn by `tools/structures/generate.py` into
 `assets/warofthegods/structures/<faction>`, the skins and small icons by `tools/textures/generate.py` (the resource and tool icons are copied from the Minecraft 1.7.10 client jar), and the square icons on the build, train and upgrade buttons by `tools/textures/actions.py`, which draws each building from its level 1 structure with Minecraft's block textures, each unit's face from its skin, and an item or block for each upgrade. Run it again after changing a structure. The lesser demon, Zamorak's staff and Silverlight are box models made by `tools/models/generate.py`, which writes each model's parts as JSON into `assets/warofthegods/models`, its texture into `textures/models` and an item's icon, drawn from its model; `--preview DIR` draws each one as the game does.
 
+### Editing models in Blockbench
+
+The lesser demon, the centaur, Zamorak's staff and Silverlight can be edited by hand in [Blockbench](https://www.blockbench.net/) (free, on the desktop or in the browser). Each is in `tools/models/blockbench/` as a `.bbmodel` with its texture and team mask inside it:
+
+1. Open the `.bbmodel` in Blockbench. Each group is a part, turning about its pivot; keep the names of the parts the game moves (legs, arms, head, jaw, tail), as new groups simply stand still. Every cube must be in a group, and cubes cannot be turned on their own. A group whose name ends in `_glow` glows in the dark. The second texture, `NAME_team.png`, is where the team's color goes.
+2. Save it (File > Save Model, keeping the name) and put it back in `tools/models/blockbench/`, for example by uploading it in a pull request on GitHub. The build turns it into the mod's model, texture and icon, so the jar the pull request builds has it.
+3. To see a change in the game without building, run `python3 tools/models/blockbench.py import --into <resourcepacks>/wotg/assets/warofthegods` with a `pack.mcmeta` in `<resourcepacks>/wotg/`, turn that pack on, and press F3+T: models and textures are read again from resource packs on every reload.
+
+`python3 tools/models/blockbench.py import` writes the models into the mod's own assets. Once a `.bbmodel` has been edited, `tools/models/generate.py` leaves that model alone (delete the `.bbmodel` to make it from the generator again).
+
 A unit that has no orders guards the spot where it stopped. How it fights depends on its stance, set from the bar
 with warriors or archers selected:
 
