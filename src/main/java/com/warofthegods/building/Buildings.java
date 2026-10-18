@@ -1535,7 +1535,7 @@ public final class Buildings {
     // ---------------------------------------------------------------- towers
 
     /**
-     * Watch towers, and town centers from level 2, shoot arrows at the nearest enemy in range; knights' fortresses
+     * Watch towers and town centers shoot arrows at the nearest enemy in range; knights' fortresses
      * shoot a volley at the nearest few.
      */
     private void shoot(Game game, WorldServer world) {

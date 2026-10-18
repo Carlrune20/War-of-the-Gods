@@ -13,7 +13,7 @@ public enum BuildingType {
 
     /**
      * Every team starts with one: trains workers, takes in what workers carry, houses units, and shoots arrows at
-     * enemies once upgraded. Workers can build more, but only on a free settlement. Its id is from when it was called
+     * enemies from Age I. Workers can build more, but only on a free settlement. Its id is from when it was called
      * the town hall.
      */
     TOWN_HALL("town_hall", "Town center", "townHall", 3, true, true, UnitKind.WORKER),
@@ -189,7 +189,7 @@ public enum BuildingType {
 
     /** Whether it can shoot at enemies at that level; a tower only once its team has watch towers. */
     public boolean shoots(int level) {
-        return this == TOWER || isFortress() || (this == TOWN_HALL && level >= 2);
+        return this == TOWER || isFortress() || this == TOWN_HALL;
     }
 
     /** Arrows it shoots at once, each at another of the nearest enemies: a fortress shoots many. */

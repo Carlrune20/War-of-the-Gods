@@ -473,7 +473,7 @@ public class Config {
             towerRange,
             1,
             64,
-            "Blocks a watch tower, or a town center from Age II, sees and shoots enemies at.");
+            "Blocks a watch tower or a town center sees and shoots enemies at.");
         towerDamage = configuration.getInt(
             "towerDamage",
             buildings,
@@ -488,7 +488,7 @@ public class Config {
             towerShotTicks,
             5,
             1200,
-            "Ticks between the shots of a watch tower or a town center from Age II.");
+            "Ticks between the shots of a watch tower or a town center.");
         priestFavorSeconds = configuration.getInt(
             "priestFavorSeconds",
             units,
