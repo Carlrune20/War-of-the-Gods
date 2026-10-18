@@ -165,7 +165,7 @@ is built, and the finished building stands once the site is done; more workers b
 | Barracks | Trains warriors; needs Age II | 150 Wood, 50 Gold | 800 | 25 s |
 | Archery range | Trains archers; needs Age II | 150 Wood | 700 | 25 s |
 | Stables | Trains cavalry, and tame horses for players to ride; needs Age II | 175 Wood, 50 Gold | 800 | 30 s |
-| Chaos temple | Zamorak's teams only, Age II: trains chaos priests, who pray there for favor, dark wizards and Zamorak mages | 150 Wood, 100 Gold | 900 | 30 s |
+| Chaos temple | Zamorak's teams only, Age II: trains chaos priests, who pray there for favor, dark wizards and Zamorak mages; researches greater and black demons | 150 Wood, 100 Gold | 900 | 30 s |
 | Stone circle | Zamorak's teams only, Age II: an old ring of grey standing stones, raised by dark wizards, not workers; four dark wizards standing in it summon a lesser demon | 100 Gold | 600 | at once |
 | Monastery | Saradomin's teams only, Age II: trains monks, who earn favor just by living | 150 Wood, 75 Gold | 800 | 30 s |
 | Wizards' tower | Saradomin's teams only, Age II: trains blue wizards | 100 Wood, 150 Gold | 900 | 30 s |
