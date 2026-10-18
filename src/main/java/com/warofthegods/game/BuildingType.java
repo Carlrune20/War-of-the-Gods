@@ -197,9 +197,14 @@ public enum BuildingType {
         return isFortress() ? Config.fortressArrows : 1;
     }
 
-    /** Whether upgrades are researched here. */
+    /** Whether upgrades are researched here: any building an upgrade names as where it is researched. */
     public boolean researches() {
-        return this == ARMORY || this == STOREHOUSE || this == TOWN_HALL || this == TOWER || isFortress();
+        for (Upgrade upgrade : Upgrade.values()) {
+            if (upgrade.at == this) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** What building one costs, leaving out resources it costs none of. */
