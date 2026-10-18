@@ -141,7 +141,8 @@ public final class AiPlayers {
         Upgrade.PICKAXES, Upgrade.FORGED_BLADES, Upgrade.PADDED_ARMOR, Upgrade.FLETCHING, Upgrade.WATCH_TOWER,
         Upgrade.MASONRY, Upgrade.PLATE_ARMOR, Upgrade.FIRE_ARROWS, Upgrade.FORTIFIED_WALLS, Upgrade.STONE_WALLS,
         Upgrade.DIAMOND_HOES, Upgrade.DIAMOND_AXES, Upgrade.DIAMOND_PICKAXES, Upgrade.TEMPERED_STEEL,
-        Upgrade.GUARD_TOWER, Upgrade.ELITE_BLACK_KNIGHTS, Upgrade.JUSTICIARS, Upgrade.CITADEL_WALLS };
+        Upgrade.GUARD_TOWER, Upgrade.ELITE_BLACK_KNIGHTS, Upgrade.JUSTICIARS, Upgrade.CITADEL_WALLS,
+        Upgrade.GREATER_DEMONS, Upgrade.BLACK_DEMONS };
     /** Blocks across a cell of the map it keeps track of having explored. */
     private static final int FOG_CELL = 8;
     /** How far its units and buildings see, in blocks, as in the RTS view's fog of war. */

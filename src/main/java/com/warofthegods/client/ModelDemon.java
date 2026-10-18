@@ -8,19 +8,31 @@ import com.warofthegods.client.model.JsonModel;
 
 /**
  * A lesser demon, as in Old School RuneScape: hunched and heavy, horned, fanged and clawed, on legs bent like a
- * beast's, with a long tail. Its parts come from models/lesser_demon.json (made by tools/models/generate.py); this only
- * moves them. It walks with a heavy swing of its arms, its tail swaying behind it; it opens its jaw and rakes with its
- * right claw when it strikes, and throws up its arm when it hurls a fireball.
+ * beast's, with a long tail; a greater demon is the same with bat wings, and a black demon a black greater demon. Their
+ * parts come from models/lesser_demon.json, greater_demon.json and black_demon.json (edited in Blockbench, see
+ * tools/models/blockbench.py); this only moves them. It walks with a heavy swing of its arms, its tail swaying behind
+ * it and its wings beating slowly; it opens its jaw and rakes with its right claw when it strikes, and throws up its
+ * arm when it hurls a fireball.
  */
 public class ModelDemon extends ModelBiped {
 
     private static final int TAIL_LINKS = 9;
 
-    private final JsonModel model;
+    /** The lesser, greater and black demon, by elite tier. */
+    private final JsonModel[] models = new JsonModel[3];
+    private JsonModel model;
 
     public ModelDemon() {
         super(0, 0, 128, 128);
-        model = new JsonModel(this, "lesser_demon");
+        models[0] = new JsonModel(this, "lesser_demon");
+        models[1] = new JsonModel(this, "greater_demon");
+        models[2] = new JsonModel(this, "black_demon");
+        model = models[0];
+    }
+
+    /** Draws it as a lesser demon (0), a greater demon (1) or a black demon (2) from now on. */
+    public void setTier(int tier) {
+        model = models[Math.max(0, Math.min(models.length - 1, tier))];
     }
 
     @Override
@@ -75,5 +87,11 @@ public class ModelDemon extends ModelBiped {
             float walk = MathHelper.cos(stride - i * 0.4F) * 0.18F * swingAmount;
             model.turn("tail" + i, MathHelper.sin(age * 0.05F - i * 0.3F) * 0.03F, wave + walk, 0);
         }
+        // A greater or black demon's wings beat slowly, faster as it walks, the tips following the beat.
+        float beat = MathHelper.sin(age * (0.12F + swingAmount * 0.1F)) * (0.18F + swingAmount * 0.12F);
+        model.turn("left_wing", 0, 0, beat);
+        model.turn("right_wing", 0, 0, -beat);
+        model.turn("left_wing_tip", 0, 0, beat * 0.6F);
+        model.turn("right_wing_tip", 0, 0, -beat * 0.6F);
     }
 }

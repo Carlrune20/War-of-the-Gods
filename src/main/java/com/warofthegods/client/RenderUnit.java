@@ -38,13 +38,9 @@ public class RenderUnit extends RenderBiped {
     private static final ResourceLocation OVERLAY = new ResourceLocation(
         WarOfTheGods.MODID,
         "textures/entity/unit/team_overlay.png");
-    /** A lesser demon's own texture, and where on it its team's color goes. */
-    private static final ResourceLocation DEMON = new ResourceLocation(
-        WarOfTheGods.MODID,
-        "textures/models/lesser_demon.png");
-    private static final ResourceLocation DEMON_TEAM = new ResourceLocation(
-        WarOfTheGods.MODID,
-        "textures/models/lesser_demon_team.png");
+    /** The lesser, greater and black demon's own textures, and where on them their team's color goes. */
+    private static final ResourceLocation[] DEMON = demonTextures("");
+    private static final ResourceLocation[] DEMON_TEAM = demonTextures("_team");
     /** A centaur's own texture, and where on it its team's color goes. */
     private static final ResourceLocation CENTAUR = new ResourceLocation(
         WarOfTheGods.MODID,
@@ -53,6 +49,15 @@ public class RenderUnit extends RenderBiped {
         WarOfTheGods.MODID,
         "textures/models/centaur_team.png");
     private static final Map<String, ResourceLocation> SKINS = new HashMap<>();
+
+    private static ResourceLocation[] demonTextures(String suffix) {
+        String[] names = { "lesser_demon", "greater_demon", "black_demon" };
+        ResourceLocation[] textures = new ResourceLocation[names.length];
+        for (int i = 0; i < names.length; i++) {
+            textures[i] = new ResourceLocation(WarOfTheGods.MODID, "textures/models/" + names[i] + suffix + ".png");
+        }
+        return textures;
+    }
 
     static {
         for (Faction faction : Faction.values()) {
@@ -72,7 +77,7 @@ public class RenderUnit extends RenderBiped {
     static {
         for (Faction faction : Faction.values()) {
             for (UnitKind kind : UnitKind.values()) {
-                if (kind.eliteUpgrade() != null) {
+                if (kind.eliteUpgrade() != null && !kind.hasOwnModel()) {
                     ELITE_SKINS.put(
                         faction.id + "_" + kind.id,
                         new ResourceLocation(
@@ -126,6 +131,7 @@ public class RenderUnit extends RenderBiped {
         // A lesser demon and a centaur have models of their own, and knights wear full plate with a plume.
         UnitKind kind = unit.getWatchedKind();
         if (kind == UnitKind.LESSER_DEMON) {
+            demonModel.setTier(unit.getWatchedEliteTier());
             modelBipedMain = demonModel;
         } else if (kind == UnitKind.CENTAUR) {
             modelBipedMain = centaurModel;
@@ -203,7 +209,7 @@ public class RenderUnit extends RenderBiped {
     @Override
     protected void preRenderCallback(EntityLivingBase entity, float partialTicks) {
         UnitKind kind = ((EntityUnit) entity).getWatchedKind();
-        float size = kind.scale();
+        float size = kind.scale(((EntityUnit) entity).getWatchedEliteTier());
         if (size != 1) {
             GL11.glScalef(size, size, size);
         }
@@ -255,7 +261,7 @@ public class RenderUnit extends RenderBiped {
     protected ResourceLocation getEntityTexture(EntityLiving entity) {
         EntityUnit unit = (EntityUnit) entity;
         if (unit.getWatchedKind() == UnitKind.LESSER_DEMON) {
-            return DEMON;
+            return DEMON[Math.min(DEMON.length - 1, unit.getWatchedEliteTier())];
         }
         if (unit.getWatchedKind() == UnitKind.CENTAUR) {
             return CENTAUR;
@@ -278,7 +284,7 @@ public class RenderUnit extends RenderBiped {
         int color = ((EntityUnit) entity).getTeamColor();
         if (mainModel == demonModel) {
             // Its belt, loincloth and arm bands, drawn again over themselves in the team's color.
-            bindTexture(DEMON_TEAM);
+            bindTexture(DEMON_TEAM[Math.min(DEMON_TEAM.length - 1, ((EntityUnit) entity).getWatchedEliteTier())]);
             GL11.glColor3f((color >> 16 & 255) / 255F, (color >> 8 & 255) / 255F, (color & 255) / 255F);
             GL11.glDepthFunc(GL11.GL_EQUAL);
             demonModel.renderAgain(scale);

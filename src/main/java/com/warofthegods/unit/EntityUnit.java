@@ -203,11 +203,17 @@ public class EntityUnit extends EntityCreature {
     private static final int WATCH_FACTION = 22;
     private static final int WATCH_DRAWING = 23;
     private static final int WATCH_PRAYER = 24;
-    /** Whether its team has made it elite, for its look; well clear of the ids above for others to add to. */
+    /**
+     * How far its team has made it elite, for its look: 0 not, 1 elite (an Elite Black Knight, a Justiciar, a greater
+     * demon), 2 a black demon; well clear of the ids above for others to add to.
+     */
     private static final int WATCH_ELITE = 29;
     /** Health and damage an Elite Black Knight or a Justiciar has over a plain knight. */
     private static final int ELITE_HEALTH = 20;
     private static final int ELITE_DAMAGE = 3;
+    /** Health and damage a greater demon, then a black demon, has over a lesser demon. */
+    private static final int[] DEMON_HEALTH = { 0, 40, 100 };
+    private static final int[] DEMON_DAMAGE = { 0, 3, 6 };
     /** How much harder a hero hits a myth unit. */
     private static final float HERO_VS_MYTH_DAMAGE = 2.0F;
     /** Ticks the computer waits after switching a hero's prayer before it switches again. */
@@ -340,14 +346,22 @@ public class EntityUnit extends EntityCreature {
         dataWatcher.addObject(WATCH_ELITE, (byte) 0);
     }
 
-    /** On a client, whether its team has made it elite: an Elite Black Knight or a Justiciar. */
+    /** On a client, whether its team has made it elite: an Elite Black Knight, a Justiciar or a greater demon. */
     public boolean isWatchedElite() {
-        return dataWatcher.getWatchableObjectByte(WATCH_ELITE) != 0;
+        return getWatchedEliteTier() != 0;
     }
 
-    /** Whether its team has the upgrade that makes its kind elite. */
-    private static boolean isElite(UnitKind kind, Team team) {
-        return team != null && kind.eliteUpgrade() != null && team.has(kind.eliteUpgrade());
+    /** On a client, how far its team has made it elite: 0 not, 1 elite, 2 a black demon. */
+    public int getWatchedEliteTier() {
+        return dataWatcher.getWatchableObjectByte(WATCH_ELITE);
+    }
+
+    /** How far its team has made its kind elite: 0 not, 1 with its elite upgrade, 2 with its higher one too. */
+    private static int eliteTier(UnitKind kind, Team team) {
+        if (team == null || kind.eliteUpgrade() == null || !team.has(kind.eliteUpgrade())) {
+            return 0;
+        }
+        return kind.higherUpgrade() != null && team.has(kind.higherUpgrade()) ? 2 : 1;
     }
 
     /** On a client, the protection prayer it has up, shown above its head. */
@@ -494,7 +508,7 @@ public class EntityUnit extends EntityCreature {
         String name = kind.hero ? team.getColor() + kind.displayName
             : team.getColor() + team.getName()
                 + " "
-                + (isElite(kind, team) ? kind.eliteName()
+                + (eliteTier(kind, team) > 0 ? kind.eliteName(eliteTier(kind, team))
                     .toLowerCase() : kind.lowerName())
                 + " "
                 + number;
@@ -529,13 +543,16 @@ public class EntityUnit extends EntityCreature {
             damage += kind.extraDamage + (team.has(Upgrade.FORGED_BLADES) ? 2 : 0)
                 + (team.has(Upgrade.TEMPERED_STEEL) ? 2 : 0);
         }
-        boolean elite = isElite(kind, team);
-        if (elite) {
+        int tier = eliteTier(kind, team);
+        if (kind == UnitKind.LESSER_DEMON) {
+            health += DEMON_HEALTH[tier];
+            damage += DEMON_DAMAGE[tier];
+        } else if (tier > 0) {
             health += ELITE_HEALTH;
             damage += ELITE_DAMAGE;
         }
-        if (isWatchedElite() != elite) {
-            dataWatcher.updateObject(WATCH_ELITE, (byte) (elite ? 1 : 0));
+        if (getWatchedEliteTier() != tier) {
+            dataWatcher.updateObject(WATCH_ELITE, (byte) tier);
         }
         IAttributeInstance maxHealth = getEntityAttribute(SharedMonsterAttributes.maxHealth);
         double gained = health - maxHealth.getBaseValue();
@@ -554,7 +571,7 @@ public class EntityUnit extends EntityCreature {
             movement.setBaseValue(speed);
         }
         getEntityAttribute(SharedMonsterAttributes.knockbackResistance).setBaseValue(kind.isUnshakable() ? 1 : 0);
-        fitSize(kind);
+        fitSize(kind, tier);
         wearArmor(team);
         showHeld();
     }
@@ -1310,15 +1327,18 @@ public class EntityUnit extends EntityCreature {
         super.onUpdate();
         if (worldObj.isRemote) {
             clientDrawTicks = dataWatcher.getWatchableObjectByte(WATCH_DRAWING) != 0 ? clientDrawTicks + 1 : 0;
-            fitSize(getWatchedKind());
+            fitSize(getWatchedKind(), getWatchedEliteTier());
         }
     }
 
-    /** A rider on its horse is wider than a man on foot, a centaur as wide and taller, and a demon taller still. */
-    private void fitSize(UnitKind kind) {
+    /**
+     * A rider on its horse is wider than a man on foot, a centaur as wide and taller, and a demon taller still, the
+     * more so as a greater or black demon.
+     */
+    private void fitSize(UnitKind kind, int tier) {
         float wide = kind.isMounted() || kind.hasOwnModel() ? MOUNTED_WIDTH : 0.6F;
         float tall = kind == UnitKind.CENTAUR ? CENTAUR_HEIGHT
-            : 1.8F * Math.max(1, kind == UnitKind.LESSER_DEMON ? kind.scale() : 1);
+            : 1.8F * Math.max(1, kind == UnitKind.LESSER_DEMON ? kind.scale(tier) : 1);
         if (width != wide || height != tall) {
             setSize(wide, tall);
         }

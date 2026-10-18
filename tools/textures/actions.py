@@ -22,12 +22,15 @@ from PIL import Image, ImageDraw
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "structures"))
+sys.path.insert(0, os.path.join(HERE, "..", "models"))
 import nbt  # noqa: E402
 
 ROOT = os.path.join(HERE, "..", "..", "src", "main", "resources", "assets", "warofthegods")
 STRUCTURES = os.path.join(ROOT, "structures")
 SKINS = os.path.join(ROOT, "textures", "entity", "unit")
 MOD_BLOCKS = os.path.join(ROOT, "textures", "blocks")
+MODELS = os.path.join(ROOT, "models")
+MODEL_TEXTURES = os.path.join(ROOT, "textures", "models")
 OUT = os.path.join(ROOT, "textures", "gui", "actions.png")
 OUT_NAMES = os.path.join(ROOT, "textures", "gui", "actions.json")
 MINECRAFT_JAR = os.path.expanduser("~/.gradle/caches/retro_futura_gradle/mc-vanilla/1.7.10/client.jar")
@@ -43,7 +46,8 @@ UNITS = ("worker", "soldier", "archer", "white_knight", "black_knight", "tradige
          "centaur")
 
 # Upgrades and other actions: an item picture, ("block", top, side) for a block drawn as the inventory draws it, or
-# ("face", skin) for the face of a skin, such as the knights the knights' upgrades make.
+# ("face", skin) for the face of a skin, such as the knights the knights' upgrades make, or ("head", model) for the
+# head of one of the mod's own models, drawn in 3D.
 ITEMS = {
     "upgrade/forged_blades": "items/iron_sword.png",
     "upgrade/tempered_steel": "items/diamond_sword.png",
@@ -66,6 +70,8 @@ ITEMS = {
     "upgrade/citadel_walls": ("block", "blocks/obsidian.png", "blocks/obsidian.png"),
     "upgrade/elite_black_knights": ("face", "zamorak_black_knight_elite"),
     "upgrade/justiciars": ("face", "saradomin_white_knight_elite"),
+    "upgrade/greater_demons": ("head", "greater_demon"),
+    "upgrade/black_demons": ("head", "black_demon"),
     # Taking a building up a level, or the town into the next age.
     "level": "items/experience_bottle.png",
     "gate": "items/door_wood.png",
@@ -324,9 +330,50 @@ def framed(image, background, margin):
     return icon
 
 
+# Units drawn as their model's head rather than their skin's face.
+HEADS = {"lesser_demon": "lesser_demon"}
+
+
 def face_icon(faction, kind):
     """A unit's face: the front of its head with its hat layer over it, as large as the icon."""
+    if kind in HEADS:
+        return model_head(HEADS[kind])
     return skin_face("%s_%s" % (faction, kind))
+
+
+def model_head(name):
+    """The head of one of the mod's own models, seen a little from the left and above: its face and the roots of its
+    horns, and behind them anything else that hangs from its body, such as a greater demon's wings, with the body
+    itself left out."""
+    import blockbench
+    import boxmodel
+    with open(os.path.join(MODELS, name + ".json")) as f:
+        model = json.load(f)
+    texture = Image.open(os.path.join(MODEL_TEXTURES, name + ".png")).convert("RGBA")
+    parts, keep = [], set()
+    for part in model["parts"]:
+        if part["name"] == "body":
+            part = dict(part, boxes=[], rotation=[0.0, 0.0, 0.0])
+        elif part["parent"] == "body" and (part["name"] == "head" or "wing" in part["name"]):
+            if part["name"] == "head":
+                part = dict(part, rotation=[0.0, 0.0, 0.0])
+        elif part["parent"] not in keep or part["parent"] == "body":
+            continue
+        parts.append(part)
+        keep.add(part["name"])
+    bust = blockbench.built({"texture": model["texture"], "parts": parts})
+    yaw, pitch, big = -12, 18, 1024
+    picture = boxmodel.render(bust, texture, size=big, yaw=yaw, pitch=pitch, margin=0.02)
+    # Where the face is in the picture: the same view with only the head's own box in the texture.
+    head = next(part for part in model["parts"] if part["name"] == "head")["boxes"][0]
+    (u, v), (w, h, d) = head["uv"], head["size"]
+    alone = Image.new("RGBA", texture.size, (0, 0, 0, 0))
+    alone.paste(texture.crop((u, v, u + 2 * (d + w), v + d + h)), (u, v))
+    left, top, right, bottom = boxmodel.render(bust, alone, size=big, yaw=yaw, pitch=pitch, margin=0.02).getbbox()
+    middle_x, middle_y = (left + right) / 2, (top + bottom) / 2 + (bottom - top) * 0.1
+    half = max(right - left, bottom - top) * 1.15
+    square = picture.crop((int(middle_x - half), int(middle_y - half), int(middle_x + half), int(middle_y + half)))
+    return square.resize((SIZE, SIZE), Image.LANCZOS)
 
 
 def skin_face(name):
@@ -350,6 +397,8 @@ def block_icon(top, side):
 def item_icon(jar, spec):
     if isinstance(spec, tuple) and spec[0] == "face":
         return skin_face(spec[1])
+    if isinstance(spec, tuple) and spec[0] == "head":
+        return model_head(spec[1])
     if isinstance(spec, tuple) and spec[0] == "block":
         return block_icon(texture(jar, spec[1]), texture(jar, spec[2]))
     if isinstance(spec, tuple) and spec[0] == "tint":

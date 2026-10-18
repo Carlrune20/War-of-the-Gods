@@ -313,6 +313,8 @@ An upgrade that needs another one first only shows up once the team has that one
 | Citadel walls | Town center, Age III, after stone walls, for 150 Wood and 300 Gold | Walls and gates are rebuilt in stone brick, or graystone, with three times the health |
 | Elite Black Knights | Kinshra fortress, for 400 Food and 600 Gold | Black Knights have 20 more health and hit 3 harder, and wear gold-trimmed black plate and a red cape with Zamorak's sign |
 | Justiciars | White Knights' castle, for 400 Food and 600 Gold | White Knights become justiciars, with 20 more health and hitting 3 harder, in gold-trimmed silver plate with a crowned helm and a blue tabard |
+| Greater demons | Chaos temple, Age II, for 300 Food, 400 Gold and 20 Favor | Lesser demons become greater demons: bat-winged and a head taller, with 40 more health and hitting 3 harder |
+| Black demons | Chaos temple, Age III, after greater demons, for 500 Food, 700 Gold and 40 Favor | Greater demons become black demons: black, with bone-white horns and claws, taller still, with 100 more health than a lesser demon and hitting 6 harder |
 
 Buildings have health. A building site starts with a tenth of it and gains the rest as it is built. As a building
 loses health it looks it: at three quarters, half and a quarter it shows holes, cracks, cobwebs and rubble. Enemy
@@ -365,13 +367,13 @@ anything above the building is cleared. The structures are drawn by `tools/struc
 
 ### Editing models in Blockbench
 
-The lesser demon, the centaur, Zamorak's staff and Silverlight can be edited by hand in [Blockbench](https://www.blockbench.net/) (free, on the desktop or in the browser). Each is in `tools/models/blockbench/` as a `.bbmodel` with its texture and team mask inside it:
+The lesser, greater and black demon, the centaur, Zamorak's staff and Silverlight can be edited by hand in [Blockbench](https://www.blockbench.net/) (free, on the desktop or in the browser). Each is in `tools/models/blockbench/` as a `.bbmodel` with its texture and team mask inside it:
 
-1. Open the `.bbmodel` in Blockbench. Each group is a part, turning about its pivot; keep the names of the parts the game moves (legs, arms, head, jaw, tail), as new groups simply stand still. Every cube must be in a group, and cubes cannot be turned on their own. A group whose name ends in `_glow` glows in the dark. The second texture, `NAME_team.png`, is where the team's color goes.
+1. Open the `.bbmodel` in Blockbench. Each group is a part, turning about its pivot; keep the names of the parts the game moves (legs, arms, head, jaw, tail, and the greater and black demons' `left_wing`, `right_wing` and their `_tip`s), as new groups simply stand still. Every cube must be in a group; a cube turned on its own becomes a part of its own in the game, which stays still while the rest moves. Group cubes only with cubes from the same group (Blockbench puts a new group inside the last cube's group, so cubes from elsewhere take on its turn). A group whose name ends in `_glow` glows in the dark. The second texture, `NAME_team.png`, is where the team's color goes.
 2. Save it (File > Save Model, keeping the name) and put it back in `tools/models/blockbench/`, for example by uploading it in a pull request on GitHub. The build turns it into the mod's model, texture and icon, so the jar the pull request builds has it.
 3. To see a change in the game without building, run `python3 tools/models/blockbench.py import --into <resourcepacks>/wotg/assets/warofthegods` with a `pack.mcmeta` in `<resourcepacks>/wotg/`, turn that pack on, and press F3+T: models and textures are read again from resource packs on every reload.
 
-`python3 tools/models/blockbench.py import` writes the models into the mod's own assets. Once a `.bbmodel` has been edited, `tools/models/generate.py` leaves that model alone (delete the `.bbmodel` to make it from the generator again).
+`python3 tools/models/blockbench.py import` writes the models into the mod's own assets. Once a `.bbmodel` has been edited, `tools/models/generate.py` leaves that model alone (delete the `.bbmodel` to make it from the generator again); the greater and black demons are only made in Blockbench. After editing a demon, run `python3 tools/textures/actions.py` to draw its head icon again.
 
 A unit that has no orders guards the spot where it stopped. How it fights depends on its stance, set from the bar
 with warriors or archers selected:

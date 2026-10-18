@@ -17,7 +17,8 @@ there shows the change in the game after F3+T without building the mod.
 In Blockbench:
 - Each group is one of the model's parts, turning about the group's pivot. The game moves parts by their names (the
   demon's "jaw", the centaur's "tail"), so keep those names; new groups just stand still.
-- Every cube must be in a group, and cubes cannot be turned on their own: turn their group.
+- Every cube must be in a group. A cube turned on its own becomes a part of its own in the game (GROUP_turnedN),
+  which keeps still while the game moves the rest; cube sizes are whole pixels in the game.
 - A group whose name ends in _glow glows in the dark (Silverlight's gem).
 - The texture named NAME_team.png is the team mask: white where the team's color is painted over. Paint it as well
   when you move a team-colored area, and keep both textures the size they are.
@@ -27,6 +28,7 @@ Only the conversion itself uses nothing beyond Python, so a build can run it wit
 
 import argparse
 import base64
+import io
 import json
 import os
 import sys
@@ -35,7 +37,7 @@ import uuid
 HERE = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.path.join(HERE, "..", "..", "src", "main", "resources", "assets", "warofthegods")
 BLOCKBENCH = os.path.join(HERE, "blockbench")
-NAMES = ("lesser_demon", "centaur", "zamorak_staff", "silverlight")
+NAMES = ("lesser_demon", "greater_demon", "black_demon", "centaur", "zamorak_staff", "silverlight")
 ICONS = ("zamorak_staff", "silverlight")
 GLOW = "_glow"
 # Blockbench's models stand on y = 0 with y up; the game's hang from y = 24 with y down, x the other way about.
@@ -235,21 +237,12 @@ def from_blockbench(project):
             pivot = [-origin[0], FEET - origin[1], origin[2]]
         else:
             pivot = [parent_origin[0] - origin[0], parent_origin[1] - origin[1], origin[2] - parent_origin[2]]
-        rotation = [float(c) for c in group.get("rotation", [0, 0, 0])]
-        part = {
-            "name": name,
-            "parent": parent,
-            "pivot": [float(number(c)) for c in pivot],
-            "rotation": [round(-rotation[0] / 57.29577951308232, 5) + 0.0,
-                         round(-rotation[1] / 57.29577951308232, 5) + 0.0,
-                         round(rotation[2] / 57.29577951308232, 5) + 0.0],
-            "glow": glow,
-            "boxes": [],
-        }
+        part = new_part(name, parent, pivot, group.get("rotation", [0, 0, 0]), glow)
         if any(p["name"] == name for p in parts):
             raise SystemExit("two groups are named %s; every group needs its own name" % name)
         parts.append(part)
         children = []
+        turned = 0
         for child in group.get("children", []):
             if isinstance(child, dict):
                 children.append(child)
@@ -258,20 +251,18 @@ def from_blockbench(project):
             if cube is None:
                 continue
             used.add(child)
-            if any(abs(float(a)) > 1e-6 for a in cube.get("rotation", [0, 0, 0])):
-                raise SystemExit("cube %s in %s is turned on its own; turn its group instead"
-                                 % (cube.get("name"), name))
-            start = [float(c) for c in cube["from"]]
-            end = [float(c) for c in cube["to"]]
-            size = [int(round(end[i] - start[i])) for i in range(3)]
-            uv = cube.get("uv_offset", [0, 0])
-            part["boxes"].append({
-                "uv": [int(uv[0]), int(uv[1])],
-                "from": [number(origin[0] - end[0]), number(origin[1] - end[1]), number(start[2] - origin[2])],
-                "size": size,
-                "inflate": float(cube.get("inflate", 0.0)),
-                "mirror": bool(cube.get("mirror_uv", False)),
-            })
+            if not any(abs(float(a)) > 1e-6 for a in cube.get("rotation", [0, 0, 0])):
+                part["boxes"].append(box_json(cube, origin))
+                continue
+            # A cube turned on its own: the game turns only parts, so it becomes a part of its own, hanging from its
+            # group and turning about the cube's pivot.
+            turned += 1
+            pivot_at = [float(c) for c in cube.get("origin", origin)]
+            own = new_part("%s_turned%d" % (name, turned), name,
+                           [origin[0] - pivot_at[0], origin[1] - pivot_at[1], pivot_at[2] - origin[2]],
+                           cube["rotation"], glow)
+            own["boxes"].append(box_json(cube, pivot_at))
+            parts.append(own)
         for child in children:
             walk(child, name, origin)
 
@@ -288,6 +279,37 @@ def from_blockbench(project):
     return {"texture": [width, height], "parts": parts}, textures
 
 
+def new_part(name, parent, pivot, rotation, glow):
+    """A part of the mod's model from a Blockbench group: its pivot from its parent's, its turn in radians."""
+    rotation = [float(c) for c in rotation]
+    return {
+        "name": name,
+        "parent": parent,
+        "pivot": [float(number(c)) for c in pivot],
+        "rotation": [round(-rotation[0] / 57.29577951308232, 5) + 0.0,
+                     round(-rotation[1] / 57.29577951308232, 5) + 0.0,
+                     round(rotation[2] / 57.29577951308232, 5) + 0.0],
+        "glow": glow,
+        "boxes": [],
+    }
+
+
+def box_json(cube, origin):
+    """A box of the mod's model from a Blockbench cube, placed from the pivot of the part it is in. The game only
+    draws boxes a whole number of pixels in size, so a size in between is rounded."""
+    start = [float(c) for c in cube["from"]]
+    end = [float(c) for c in cube["to"]]
+    size = [int(round(end[i] - start[i])) for i in range(3)]
+    uv = cube.get("uv_offset", [0, 0])
+    return {
+        "uv": [int(uv[0]), int(uv[1])],
+        "from": [number(origin[0] - end[0]), number(origin[1] - end[1]), number(start[2] - origin[2])],
+        "size": size,
+        "inflate": float(cube.get("inflate", 0.0)),
+        "mirror": bool(cube.get("mirror_uv", False)),
+    }
+
+
 def same(a, b):
     """Whether two models' JSON say the same, whole numbers written either way."""
     if isinstance(a, (int, float)) and isinstance(b, (int, float)) and not isinstance(a, bool):
@@ -299,23 +321,22 @@ def same(a, b):
     return a == b
 
 
-def edited(name):
-    """Whether tools/models/blockbench/NAME.bbmodel was changed since it was written from the model, so the model
-    is now made in Blockbench rather than by tools/models/generate.py."""
+def edited(name, model, images):
+    """Whether tools/models/blockbench/NAME.bbmodel says something other than the model and its textures (PIL images
+    by texture name) as tools/models/generate.py makes them: then it was edited by hand, and is the model now."""
     path = os.path.join(BLOCKBENCH, name + ".bbmodel")
     if not os.path.exists(path):
         return False
     with open(path) as file:
-        model, textures = from_blockbench(json.load(file))
-    files = paths(ASSETS, name)
-    with open(files["model"]) as file:
-        if not same(model, json.load(file)):
+        saved, textures = from_blockbench(json.load(file))
+    if not same(saved, model):
+        return True
+    from PIL import Image
+    for texture, data in textures.items():
+        image = images.get(texture)
+        if image is None or list(Image.open(io.BytesIO(data)).convert("RGBA").getdata()) != list(
+                image.convert("RGBA").getdata()):
             return True
-    for texture, key in ((name + ".png", "texture"), (name + "_team.png", "team")):
-        if texture in textures:
-            with open(files[key], "rb") as file:
-                if file.read() != textures[texture]:
-                    return True
     return False
 
 
@@ -323,26 +344,31 @@ def model_json(model):
     return json.dumps(model, indent=1) + "\n"
 
 
-def draw_icon(name, model, texture_path):
-    """The inventory icon, drawn from the model as tools/models/generate.py draws it."""
-    try:
-        import generate  # noqa: E402  (needs Pillow and numpy)
-        from boxmodel import Model
-        from PIL import Image
-    except ImportError:
-        print("%s: Pillow or numpy is missing, so its icon is left as it was" % name)
-        return None
-    built = Model(name, *model["texture"])
+def built(model):
+    """The model's JSON as a tools/models/boxmodel.Model, to draw; its boxes have no paint, the texture being made."""
+    from boxmodel import Model
+    result = Model(model.get("name", "model"), *model["texture"])
     made = {}
     for part in model["parts"]:
         parent = made.get(part["parent"])
-        add = parent.child if parent is not None else built.part
+        add = parent.child if parent is not None else result.part
         node = add(part["name"], part["pivot"], part["rotation"], part["glow"])
         for box in part["boxes"]:
             node.box(*box["from"], *box["size"], paint=None, inflate=box["inflate"], mirror=box["mirror"])
             node.boxes[-1].u, node.boxes[-1].v = box["uv"]
         made[part["name"]] = node
-    return generate.icon(built, Image.open(texture_path).convert("RGBA"))
+    return result
+
+
+def draw_icon(name, model, texture_path):
+    """The inventory icon, drawn from the model as tools/models/generate.py draws it."""
+    try:
+        import generate  # noqa: E402  (needs Pillow and numpy)
+        from PIL import Image
+    except ImportError:
+        print("%s: Pillow or numpy is missing, so its icon is left as it was" % name)
+        return None
+    return generate.icon(built(model), Image.open(texture_path).convert("RGBA"))
 
 
 def import_(files, into):

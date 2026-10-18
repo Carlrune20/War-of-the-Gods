@@ -5,8 +5,8 @@ import java.util.Map;
 
 /**
  * Team-wide improvements researched at a building: military ones at the armory, economic ones at the storehouse,
- * fortified, stone and citadel walls at the town center, watch and guard towers at a tower, and the knights' own at
- * their fortress. Some need another
+ * fortified, stone and citadel walls at the town center, watch and guard towers at a tower, the knights' own at
+ * their fortress, and greater and black demons, for favor too, at Zamorak's chaos temple. Some need another
  * first: diamond tools
  * and swords their iron ones, plate armor padded armor, fire arrows fletching and guard towers watch towers. Each is
  * researched once and lasts the game. Ids are stored in save data, so only add new values.
@@ -58,7 +58,14 @@ public enum Upgrade {
         BuildingType.BLACK_KNIGHTS_FORTRESS, 3, null, 400, 0, 600, 90),
     JUSTICIARS("justiciars", "Justiciars",
         "White Knights become justiciars: gold-trimmed plate and a crowned helm, 20 more health and hit 3 harder",
-        BuildingType.WHITE_KNIGHTS_FORTRESS, 3, null, 400, 0, 600, 90);
+        BuildingType.WHITE_KNIGHTS_FORTRESS, 3, null, 400, 0, 600, 90),
+    GREATER_DEMONS("greater_demons", "Greater demons",
+        "Lesser demons become greater demons: winged and bigger, with 40 more health, hitting 3 harder",
+        BuildingType.CHAOS_TEMPLE, 2, null, 300, 0, 400, 20, 60),
+    BLACK_DEMONS("black_demons", "Black demons",
+        "Greater demons become black demons: black, horned in bone and bigger still, with 100 more health than a "
+            + "lesser demon, hitting 6 harder",
+        BuildingType.CHAOS_TEMPLE, 3, "greater_demons", 500, 0, 700, 40, 90);
 
     public final String id;
     public final String displayName;
@@ -74,13 +81,18 @@ public enum Upgrade {
 
     Upgrade(String id, String displayName, String description, BuildingType at, int level, String requiresId, long food,
         long wood, long gold, int seconds) {
+        this(id, displayName, description, at, level, requiresId, food, wood, gold, 0, seconds);
+    }
+
+    Upgrade(String id, String displayName, String description, BuildingType at, int level, String requiresId, long food,
+        long wood, long gold, long favor, int seconds) {
         this.id = id;
         this.requiresId = requiresId;
         this.displayName = displayName;
         this.description = description;
         this.at = at;
         this.level = level;
-        this.cost = new long[] { food, wood, gold };
+        this.cost = new long[] { food, wood, gold, favor };
         this.seconds = seconds;
     }
 
