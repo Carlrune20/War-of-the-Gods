@@ -8,6 +8,8 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.nbt.NBTTagString;
 
+import com.warofthegods.Config;
+
 /**
  * A building of a team: what it is, the ground it stands on, which way it faces, its health, and whether it is still
  * a building site and how far along. Buildings that train units keep their training queue here.
@@ -36,6 +38,8 @@ public final class Building {
     /** Ticks of work put into a building site. */
     private int buildTicks;
     private int health;
+    /** Health worth of repair work put in that has not yet made a whole point of health, times build time. */
+    private long repairWork;
     private final List<UnitKind> queue = new ArrayList<>();
     /** For each unit in the queue, whether the computer queued it, and so commands it once trained. */
     private final List<Boolean> queuedByAi = new ArrayList<>();
@@ -154,10 +158,22 @@ public final class Building {
         return complete && health < getMaxHealth();
     }
 
-    /** Adds ticks of workers' repairs, each worth as much health as a tick of building it; up to full health. */
+    /**
+     * Adds ticks of workers' repairs; mending all its health takes repairTimeMultiplier times as long as building it.
+     * Up to full health.
+     */
     public void mend(int ticks) {
-        health = Math.min(getMaxHealth(), health + Math.max(1, getMaxHealth() * ticks / type.buildTicks()));
-        game.changed();
+        long fullTicks = Math.max(1L, (long) type.buildTicks() * Config.repairTimeMultiplier);
+        repairWork += (long) getMaxHealth() * ticks;
+        int gained = (int) Math.min(Integer.MAX_VALUE, repairWork / fullTicks);
+        repairWork %= fullTicks;
+        if (gained > 0) {
+            health = Math.min(getMaxHealth(), health + gained);
+            game.changed();
+        }
+        if (health >= getMaxHealth()) {
+            repairWork = 0;
+        }
     }
 
     /** Health back to full, as when an op repairs it. */

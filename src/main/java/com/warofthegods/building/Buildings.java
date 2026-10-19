@@ -599,7 +599,7 @@ public final class Buildings {
 
     /**
      * Puts the work of the workers at each building site in, and raises the sites that are done. Workers at a
-     * damaged building repair it, as fast as they would build it.
+     * damaged building repair it, a third as fast as they would build it (repairTimeMultiplier).
      */
     private void construct(Game game, WorldServer world) {
         for (Building site : new ArrayList<>(game.getBuildings())) {

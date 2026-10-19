@@ -438,7 +438,7 @@ Commanding units, from the bar at the bottom of the page:
 | Build, train and upgrade buttons | Square icons: a building's picture, a unit's face, an item for an upgrade. Hover one to see its name, cost and what it does |
 | The queue and research icons on a building | Click a unit waiting or in training, or what the building researches or its level-up, to cancel it and get back what it cost. A number on a Train button shows how many of that unit are waiting |
 | Delete | Kill your selected units and destroy your selected buildings or building sites, at once |
-| Right-click one of your building sites or farms, or a gold mine | Send the selected workers to build or work it, or to mine gold. Sent to an unbuilt piece of wall, they go on to build the rest of that wall after it. Right-click one of your damaged buildings to have them repair it, as fast as they would build it, for free |
+| Right-click one of your building sites or farms, or a gold mine | Send the selected workers to build or work it, or to mine gold. Sent to an unbuilt piece of wall, they go on to build the rest of that wall after it. Right-click one of your damaged buildings to have them repair it for free, a third as fast as they would build it |
 | Right-click a tree | Send the selected workers to chop it |
 | Torches | With workers selected: click two corners of an area for them to light up against mobs |
 | Click one of your units | Select it; shift-click adds or removes it |
