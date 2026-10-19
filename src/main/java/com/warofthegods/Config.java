@@ -83,6 +83,8 @@ public class Config {
     public static final long[] townCenterLevel3Cost = { 400, 300, 400 };
     /** Seconds going up from level 1 to 2 takes; from 2 to 3 takes twice as long. */
     public static int upgradeSeconds = 30;
+    /** How many times as long repairing a building's whole health takes as building it. */
+    public static int repairTimeMultiplier = 3;
     public static int townCenterPopulation = 10;
     public static int housePopulation = 5;
     public static int towerRange = 16;
@@ -459,6 +461,13 @@ public class Config {
             0,
             3600,
             "Seconds a building takes to go up to level 2; level 3 takes twice as long.");
+        repairTimeMultiplier = configuration.getInt(
+            "repairTimeMultiplier",
+            buildings,
+            repairTimeMultiplier,
+            1,
+            100,
+            "How many times as long workers take to repair a building's whole health as to build it.");
         for (Resource resource : Resource.GATHERED) {
             townCenterLevel2Cost[resource.ordinal()] = configuration.getInt(
                 "townCenterLevel2Cost" + resource.displayName,
