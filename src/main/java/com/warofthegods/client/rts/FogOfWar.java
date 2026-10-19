@@ -176,6 +176,31 @@ final class FogOfWar {
         return visible[i] ? FULL_LIGHT : HALF_LIGHT;
     }
 
+    int columns() {
+        return columns;
+    }
+
+    int rows() {
+        return rows;
+    }
+
+    int minX() {
+        return minX;
+    }
+
+    int minZ() {
+        return minZ;
+    }
+
+    /** The light the RTS view draws cell c, r in, packed as {@link #light} gives it; none off the map. */
+    int cellLight(int c, int r) {
+        int i = c < 0 || r < 0 || c >= columns || r >= rows ? -1 : r * columns + c;
+        if (i < 0 || !explored[i]) {
+            return 0;
+        }
+        return visible[i] ? FULL_LIGHT : HALF_LIGHT;
+    }
+
     /** Has the ground whose light changed drawn again. */
     void redrawChanged(Minecraft mc) {
         if (changedAll) {

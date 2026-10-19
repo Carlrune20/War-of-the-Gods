@@ -25,6 +25,7 @@ public final class RtsNetwork {
         channel = NetworkRegistry.INSTANCE.newSimpleChannel(WarOfTheGods.MODID);
         channel.registerMessage(ToServer.class, RtsMessage.class, 0, Side.SERVER);
         channel.registerMessage(ToClient.class, RtsMessage.class, 0, Side.CLIENT);
+        channel.registerMessage(TerrainToClient.class, TerrainMessage.class, 1, Side.CLIENT);
     }
 
     public static void sendTo(EntityPlayerMP player, String json) {
@@ -33,6 +34,10 @@ public final class RtsNetwork {
 
     /** Sends a message already made, which may go to several players and is compressed only the first time. */
     public static void sendTo(EntityPlayerMP player, RtsMessage message) {
+        channel.sendTo(message, player);
+    }
+
+    public static void sendTerrain(EntityPlayerMP player, TerrainMessage message) {
         channel.sendTo(message, player);
     }
 
@@ -57,6 +62,17 @@ public final class RtsNetwork {
         public IMessage onMessage(RtsMessage message, MessageContext ctx) {
             if (message.json != null) {
                 WarOfTheGods.proxy.receiveRts(message.json);
+            }
+            return null;
+        }
+    }
+
+    public static final class TerrainToClient implements IMessageHandler<TerrainMessage, IMessage> {
+
+        @Override
+        public IMessage onMessage(TerrainMessage message, MessageContext ctx) {
+            if (message.chunks.length > 0) {
+                WarOfTheGods.proxy.receiveTerrain(message);
             }
             return null;
         }

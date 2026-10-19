@@ -29,6 +29,7 @@ import com.warofthegods.WarOfTheGods;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.unit.UnitCommands;
+import com.warofthegods.web.MapTiles;
 import com.warofthegods.web.Viewer;
 import com.warofthegods.web.WebCommand;
 import com.warofthegods.web.WebJson;
@@ -71,6 +72,7 @@ public final class Commanders {
     private final Queue<Incoming> inbox = new ConcurrentLinkedQueue<>();
     private final Set<UUID> commanding = new HashSet<>();
     private final Map<UUID, EntityCommanderBody> bodies = new HashMap<>();
+    private final TerrainSender terrain = new TerrainSender();
     /**
      * Players back from commanding who get back on the horse their body sat on, with the ticks left before they do.
      * Put straight back in the saddle, their client would still have the body sitting there as well and, once the
@@ -155,6 +157,13 @@ public final class Commanders {
         RtsMessage packet = new RtsMessage(message);
         for (EntityPlayerMP player : online()) {
             RtsNetwork.sendTo(player, packet);
+        }
+    }
+
+    /** Sends the commanding players the map's surface they lack; tiles is null when there is none to send. */
+    public void sendTerrain(MapTiles tiles) {
+        if (any()) {
+            terrain.tick(tiles, online());
         }
     }
 
@@ -301,6 +310,8 @@ public final class Commanders {
             hoverOver(player, player.posX, player.posZ);
             WarOfTheGods.LOG.info("{} is commanding from the RTS view", player.getCommandSenderName());
         }
+        JsonElement terrainMap = request.body.get("terrain");
+        terrain.entered(player, terrainMap != null && terrainMap.isJsonPrimitive() ? terrainMap.getAsString() : null);
         JsonObject reply = WebJson.message("rts.entered");
         JsonObject me = new JsonObject();
         me.addProperty(

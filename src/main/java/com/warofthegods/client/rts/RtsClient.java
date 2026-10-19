@@ -57,6 +57,7 @@ import com.warofthegods.Config;
 import com.warofthegods.game.BridgeLine;
 import com.warofthegods.game.WallLine;
 import com.warofthegods.rts.RtsNetwork;
+import com.warofthegods.rts.TerrainMessage;
 import com.warofthegods.world.GameWorld;
 
 import cpw.mods.fml.client.registry.ClientRegistry;
@@ -155,6 +156,30 @@ public final class RtsClient {
     final Minimap minimap = new Minimap();
     /** What the viewer's team has seen and sees now. */
     final FogOfWar fog = new FogOfWar();
+    /** The map's surface beyond the chunks the client has. */
+    final LodTerrain terrain = new LodTerrain();
+    /** The world's own sky renderer while the view draws the sky and then the map's surface; null for Minecraft's. */
+    private IRenderHandler worldSky;
+    /** Draws the sky, then the map's surface beyond the chunks the client has, before the world. */
+    private final IRenderHandler skyAndTerrain = new IRenderHandler() {
+
+        @Override
+        public void render(float partialTicks, WorldClient world, Minecraft mc) {
+            world.provider.setSkyRenderer(worldSky);
+            try {
+                if (worldSky != null) {
+                    worldSky.render(partialTicks, world, mc);
+                } else {
+                    mc.renderGlobal.renderSky(partialTicks);
+                }
+            } finally {
+                world.provider.setSkyRenderer(this);
+            }
+            if (active && camera != null) {
+                terrain.render(RtsClient.this, partialTicks);
+            }
+        }
+    };
     /** How units line up where they are sent: box, line or wedge. */
     public String formation = "box";
     /** The building being placed, or null. */
@@ -203,6 +228,11 @@ public final class RtsClient {
 
     public RtsCamera getCamera() {
         return camera;
+    }
+
+    /** Some of the map's surface from the server; called on a Netty thread. */
+    public void receiveTerrain(TerrainMessage message) {
+        terrain.receive(message);
     }
 
     /** A message from the server; called on a Netty thread. */
@@ -481,7 +511,12 @@ public final class RtsClient {
         }
         entering = true;
         enterId = nextCommandId;
-        command("rts.enter", new JsonObject(), this::start);
+        JsonObject enter = new JsonObject();
+        // The server sends the map's surface the client does not hold yet.
+        if (terrain.mapId() != null) {
+            enter.addProperty("terrain", terrain.mapId());
+        }
+        command("rts.enter", enter, this::start);
     }
 
     private void start(JsonObject reply) {
@@ -506,6 +541,8 @@ public final class RtsClient {
         mc.gameSettings.thirdPersonView = 0;
         // No clouds between the camera and the map.
         mc.theWorld.provider.setCloudRenderer(NO_CLOUDS);
+        worldSky = mc.theWorld.provider.getSkyRenderer();
+        mc.theWorld.provider.setSkyRenderer(skyAndTerrain);
         mc.renderViewEntity = camera;
         // Commanders see in the dark. Only this client knows, and only while the view is open.
         if (!mc.thePlayer.isPotionActive(Potion.nightVision)) {
@@ -549,6 +586,10 @@ public final class RtsClient {
         if (mc.theWorld != null && mc.theWorld.provider.getCloudRenderer() == NO_CLOUDS) {
             mc.theWorld.provider.setCloudRenderer(null);
         }
+        if (mc.theWorld != null && mc.theWorld.provider.getSkyRenderer() == skyAndTerrain) {
+            mc.theWorld.provider.setSkyRenderer(worldSky);
+        }
+        worldSky = null;
         for (Map.Entry<Entity, Double> entry : renderWeights.entrySet()) {
             entry.getKey().renderDistanceWeight = entry.getValue();
         }
@@ -587,6 +628,7 @@ public final class RtsClient {
         while ((message = inbox.poll()) != null) {
             handle(message);
         }
+        terrain.update();
         if (mc.theWorld == null || mc.thePlayer == null) {
             if (active) {
                 stop();
@@ -718,23 +760,59 @@ public final class RtsClient {
         camera.focusZ = Math.max(game.minZ - margin, Math.min(game.maxZ + 1 + margin, camera.focusZ));
     }
 
-    /** Farthest the camera may stand back: within the distance the client draws the world. */
+    /**
+     * Farthest the camera may stand back: within the distance the client draws the world, or once the server has sent
+     * the map's surface, as far as the config lets it.
+     */
     public double maxDistance() {
-        return Math.max(24, Math.min(128, mc.gameSettings.renderDistanceChunks * 16 * 0.75));
+        double drawn = Math.max(24, Math.min(128, mc.gameSettings.renderDistanceChunks * 16 * 0.75));
+        return terrain.isEmpty() ? drawn : Math.max(drawn, Config.rtsMaxZoomOut);
     }
 
-    /** The y on top of the ground at x, z, as the client has it, or above sea level where it is not loaded. */
+    /**
+     * The y on top of the ground at x, z, as the client has it, else as the map's surface the server sent has it, else
+     * above sea level.
+     */
     public double groundHeight(double x, double z) {
         int bx = MathHelper.floor_double(x);
         int bz = MathHelper.floor_double(z);
-        if (mc.theWorld != null && mc.theWorld.getChunkProvider()
-            .chunkExists(bx >> 4, bz >> 4)) {
+        if (isLoaded(bx, bz)) {
             int top = mc.theWorld.getHeightValue(bx, bz);
             if (top > 0) {
                 return top;
             }
         }
+        int top = terrain.top(bx, bz);
+        if (top > 0) {
+            return top;
+        }
         return state.game == null ? 64 : state.game.seaLevel + 1;
+    }
+
+    /** Whether the client has the chunk holding block x, z. */
+    public boolean isLoaded(int x, int z) {
+        return mc.theWorld != null && !mc.theWorld.getChunkFromChunkCoords(x >> 4, z >> 4)
+            .isEmpty();
+    }
+
+    /** The y just above the top block at x, z in the map's surface the server sent, or -1 where it is not known. */
+    public int surfaceTop(int x, int z) {
+        return terrain.top(x, z);
+    }
+
+    /**
+     * Whether Minecraft draws the thing itself: it is loaded, within its render distance and before the far plane.
+     * Others the view marks with a dot.
+     */
+    public boolean isDrawn(RtsState.Thing thing) {
+        Entity entity = thing.eid < 0 || mc.theWorld == null ? null : mc.theWorld.getEntityByID(thing.eid);
+        Entity view = mc.renderViewEntity;
+        if (entity == null || entity.isDead || view == null) {
+            return false;
+        }
+        double far = mc.gameSettings.renderDistanceChunks * 16 * 2 * 0.95;
+        return entity.getDistanceSqToEntity(view) < far * far
+            && entity.isInRangeToRender3d(view.posX, view.posY, view.posZ);
     }
 
     private static boolean down(int key) {

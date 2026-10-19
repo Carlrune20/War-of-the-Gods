@@ -49,8 +49,8 @@ final class Minimap {
     private ResourceLocation fogLocation;
     private int fogVersion = -1;
 
-    /** Samples a slice of the map; call once a frame. */
-    void update(RtsState.GameInfo game) {
+    /** Samples a slice of the map, from the chunks the client has or else the map's surface; call once a frame. */
+    void update(RtsState.GameInfo game, LodTerrain terrain) {
         if (game == null || mc.theWorld == null) {
             return;
         }
@@ -66,7 +66,7 @@ final class Minimap {
             int i = cursor % PIXELS;
             int j = cursor / PIXELS;
             cursor = (cursor + 1) % (PIXELS * PIXELS);
-            int color = sample(i, j, game.seaLevel);
+            int color = sample(i, j, game.seaLevel, terrain);
             if (color != 0 && pixels[j * PIXELS + i] != color) {
                 pixels[j * PIXELS + i] = color;
                 dirty = true;
@@ -92,32 +92,43 @@ final class Minimap {
     }
 
     /** The color of map pixel i, j, shaded by slope as on a paper map; 0 if that part has not been seen. */
-    private int sample(int i, int j, int seaLevel) {
+    private int sample(int i, int j, int seaLevel, LodTerrain terrain) {
         int x = minX + (int) ((i + 0.5) * (maxX - minX + 1) / PIXELS);
         int z = minZ + (int) ((j + 0.5) * (maxZ - minZ + 1) / PIXELS);
         Chunk chunk = world.getChunkFromBlockCoords(x, z);
+        int y;
+        int rgb;
+        boolean water;
         if (chunk == null || chunk.isEmpty()) {
-            return 0;
-        }
-        int lx = x & 15;
-        int lz = z & 15;
-        int y = Math.min(255, chunk.getHeightValue(lx, lz));
-        MapColor color = MapColor.airColor;
-        while (y > 0 && color == MapColor.airColor) {
-            y--;
-            Block block = chunk.getBlock(lx, y, lz);
-            color = block.getMapColor(chunk.getBlockMetadata(lx, y, lz));
-        }
-        if (color == MapColor.airColor) {
-            return UNKNOWN;
+            // Not loaded here: the map's surface the server sent, if it has come.
+            y = terrain.top(x, z) - 1;
+            rgb = terrain.color(x, z);
+            if (y < 0 || rgb < 0) {
+                return 0;
+            }
+            water = terrain.isWater(x, z);
+        } else {
+            int lx = x & 15;
+            int lz = z & 15;
+            y = Math.min(255, chunk.getHeightValue(lx, lz));
+            MapColor color = MapColor.airColor;
+            while (y > 0 && color == MapColor.airColor) {
+                y--;
+                Block block = chunk.getBlock(lx, y, lz);
+                color = block.getMapColor(chunk.getBlockMetadata(lx, y, lz));
+            }
+            if (color == MapColor.airColor) {
+                return UNKNOWN;
+            }
+            rgb = color.colorValue;
+            water = color == MapColor.waterColor;
         }
         heights[j * PIXELS + i] = y;
         int above = j > 0 ? heights[(j - 1) * PIXELS + i] : y;
-        double shade = color == MapColor.waterColor ? 0.86 : y > above ? 1.08 : y < above ? 0.82 : 0.95;
-        if (color != MapColor.waterColor) {
+        double shade = water ? 0.86 : y > above ? 1.08 : y < above ? 0.82 : 0.95;
+        if (!water) {
             shade *= 0.9 + Math.max(-0.1, Math.min(0.15, (y - seaLevel) / 120.0));
         }
-        int rgb = color.colorValue;
         int r = Math.min(255, (int) (((rgb >> 16) & 0xFF) * shade));
         int g = Math.min(255, (int) (((rgb >> 8) & 0xFF) * shade));
         int b = Math.min(255, (int) ((rgb & 0xFF) * shade));

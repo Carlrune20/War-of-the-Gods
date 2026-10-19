@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -29,7 +30,7 @@ import java.util.zip.DeflaterOutputStream;
 public final class MapTiles {
 
     public static final int TILE_SIZE = 128;
-    private static final int CHUNKS_PER_TILE = TILE_SIZE / 16;
+    public static final int CHUNKS_PER_TILE = TILE_SIZE / 16;
     private static final byte FORMAT = 1;
 
     private final int gameNumber;
@@ -46,6 +47,8 @@ public final class MapTiles {
     private static final class Tile {
 
         final byte[][] chunks = new byte[CHUNKS_PER_TILE * CHUNKS_PER_TILE][];
+        /** The version each chunk got when it last changed, 0 for one not drawn yet. */
+        final int[] chunkVersions = new int[CHUNKS_PER_TILE * CHUNKS_PER_TILE];
         volatile int version;
         byte[] blob;
         int blobVersion = -1;
@@ -84,8 +87,9 @@ public final class MapTiles {
                 return;
             }
             tile.chunks[index] = data;
+            tile.chunkVersions[index] = versions.incrementAndGet();
+            tile.version = tile.chunkVersions[index];
         }
-        tile.version = versions.incrementAndGet();
         changed.add(key);
     }
 
@@ -109,6 +113,48 @@ public final class MapTiles {
             result.put(name(entry.getKey()), entry.getValue().version);
         }
         return result;
+    }
+
+    /** Every tile drawn so far, as its key ({@link #tileX}, {@link #tileZ}) to version. */
+    public Map<Long, Integer> versionsByKey() {
+        Map<Long, Integer> result = new HashMap<>();
+        for (Map.Entry<Long, Tile> entry : tiles.entrySet()) {
+            result.put(entry.getKey(), entry.getValue().version);
+        }
+        return result;
+    }
+
+    public static int tileX(long key) {
+        return (int) (key >> 32);
+    }
+
+    public static int tileZ(long key) {
+        return (int) key;
+    }
+
+    /**
+     * The chunks of a tile that changed since the versions in sent, which it brings up to date: as many as were found,
+     * their indexes within the tile (chunkX + chunkZ * 8) in indexes and their encoded blocks in data. sent, indexes
+     * and
+     * data hold {@link #CHUNKS_PER_TILE} squared entries.
+     */
+    public int newerChunks(long key, int[] sent, int[] indexes, byte[][] data) {
+        Tile tile = tiles.get(key);
+        if (tile == null) {
+            return 0;
+        }
+        int count = 0;
+        synchronized (tile) {
+            for (int i = 0; i < tile.chunks.length; i++) {
+                if (tile.chunks[i] != null && tile.chunkVersions[i] > sent[i]) {
+                    sent[i] = tile.chunkVersions[i];
+                    indexes[count] = i;
+                    data[count] = tile.chunks[i];
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     private static String name(long key) {
