@@ -148,7 +148,8 @@ with a white flag at the gate. Once every team's first town
 center is up, the rest of the settlements and the gold mines are laid out (see the map above). Workers can raise a
 town center (300 Wood, 200 Gold) only on a settlement nobody holds, and a town center that is destroyed leaves an
 abandoned settlement again. Settlements and gold mines cannot be built on or broken, except that once a gold mine is
-mined out workers can dig a quarry (100 Wood) into it: up to three workers work a quarry like a farm, bringing in
+mined out workers can dig a quarry (500 Wood, Age III, once the armory has researched tunnel mining for 400 Food and
+400 Wood after diamond pickaxes) into it: up to three workers work a quarry like a farm, bringing in
 2 gold each per harvest for ever, more with the pickaxe upgrades. Trees are cleared from a
 settlement and a few blocks round it, so none grows into a town center or blocks the way.
 
@@ -169,11 +170,12 @@ is built, and the finished building stands once the site is done; more workers b
 | Stone circle | Zamorak's teams only, Age II: an old ring of grey standing stones, raised by dark wizards, not workers; four dark wizards standing in it summon a lesser demon | 100 Gold | 600 | at once |
 | Monastery | Saradomin's teams only, Age II: trains monks, who earn favor just by living | 150 Wood, 75 Gold | 800 | 30 s |
 | Wizards' tower | Saradomin's teams only, Age II: trains blue wizards | 100 Wood, 150 Gold | 900 | 30 s |
-| Armory | Researches military upgrades; needs Age II | 120 Wood, 60 Gold | 700 | 25 s |
+| Armory | Researches military upgrades, and tunnel mining for quarries; needs Age II | 120 Wood, 60 Gold | 700 | 25 s |
 | Tower | Watches over the land round it; with watch towers (Age II) shoots arrows at enemies within 16 blocks, and with guard towers (Age III) within 24; researches both | 50 Wood, 100 Gold | 900 | 25 s |
 | Wall | Keeps enemies out; laid out from one point to another, a 5 by 5 piece at a time | 10 Gold a piece | 600 a segment, 800 a post | 10 s a piece |
 | Gate | A wall segment your own units and allies walk through; it opens as they come near | 40 Gold | 600 | at once |
 | White Knights' castle | Saradomin's teams only, Age III: a white stone castle that trains White Knights and Sir Tradigee, and shoots a volley of 4 arrows a second at the nearest enemies within 20 blocks | 300 Wood, 400 Gold | 4000 | 90 s |
+| Quarry | Age III, after tunnel mining: dug into a mined out gold mine, where up to 3 workers get 2 gold each every 5 s for ever | 500 Wood | 500 | 20 s |
 | Kinshra fortress | Zamorak's teams only, Age III: the Black Knights' graystone keep that trains Black Knights and Sagittare, and shoots a volley of 4 arrows a second at the nearest enemies within 20 blocks | 300 Wood, 400 Gold | 4000 | 90 s |
 
 | Unit | Costs (default) | |

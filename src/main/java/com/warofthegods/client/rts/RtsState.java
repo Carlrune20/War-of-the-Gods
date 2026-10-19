@@ -73,6 +73,8 @@ public final class RtsState {
         public int[] population;
         /** The age a team needs before it can build this. */
         public int age = 1;
+        /** The upgrade a team needs before it can build this, or null. */
+        public String requires;
         public final List<String> researches = new ArrayList<>();
         public int width;
         public int length;
@@ -319,6 +321,7 @@ public final class RtsState {
             typeInfo.wizards = bool(type, "wizards");
             typeInfo.faction = type.has("faction") ? string(type, "faction") : null;
             typeInfo.age = type.has("age") ? integer(type, "age") : 1;
+            typeInfo.requires = type.has("requires") ? string(type, "requires") : null;
             typeInfo.health = integer(type, "health");
             typeInfo.workers = integer(type, "workers");
             for (JsonElement kind : array(type, "trains")) {

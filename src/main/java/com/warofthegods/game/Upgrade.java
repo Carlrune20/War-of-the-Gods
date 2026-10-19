@@ -8,7 +8,8 @@ import java.util.Map;
  * fortified, stone and citadel walls at the town center, watch and guard towers at a tower, the knights' own at
  * their fortress, and greater and black demons, for favor too, at Zamorak's chaos temple. Some need another
  * first: diamond tools
- * and swords their iron ones, plate armor padded armor, fire arrows fletching and guard towers watch towers. Each is
+ * and swords their iron ones, plate armor padded armor, fire arrows fletching, guard towers watch towers and tunnel
+ * mining, which lets workers dig quarries, diamond pickaxes. Each is
  * researched once and lasts the game. Ids are stored in save data, so only add new values.
  */
 public enum Upgrade {
@@ -65,7 +66,9 @@ public enum Upgrade {
     BLACK_DEMONS("black_demons", "Black demons",
         "Greater demons become black demons: black, horned in bone and bigger still, with 100 more health than a "
             + "lesser demon, hitting 6 harder",
-        BuildingType.CHAOS_TEMPLE, 3, "greater_demons", 500, 0, 700, 40, 90);
+        BuildingType.CHAOS_TEMPLE, 3, "greater_demons", 500, 0, 700, 40, 90),
+    TUNNEL_MINING("tunnel_mining", "Tunnel mining", "Workers can dig quarries into mined out gold mines",
+        BuildingType.ARMORY, 3, "diamond_pickaxes", 400, 400, 0, 60);
 
     public final String id;
     public final String displayName;

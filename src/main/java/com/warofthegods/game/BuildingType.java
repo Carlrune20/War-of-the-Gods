@@ -78,7 +78,7 @@ public enum BuildingType {
     BRIDGE("bridge", "Bridge", "bridge", 1, true, false),
     /**
      * Dug into a mined out gold mine, the only place it can go: workers working at it get a little gold out of it
-     * for ever.
+     * for ever. Needs Age III and tunnel mining, researched at the armory.
      */
     QUARRY("quarry", "Quarry", "quarry", 3, true, false);
 
@@ -103,13 +103,18 @@ public enum BuildingType {
      * military and no farms: food comes from hunting until then.
      */
     public int age() {
-        if (isFortress()) {
+        if (isFortress() || this == QUARRY) {
             return 3;
         }
         // Everything else but houses, storehouses and towers waits for Age II, as do the gods' own buildings.
         return this == HOUSE || this == STOREHOUSE || this == TOWER || this == TOWN_HALL || this == BRIDGE || isWall()
             ? 1
             : 2;
+    }
+
+    /** The upgrade a team has to have before it can build this, or null: a quarry needs tunnel mining. */
+    public Upgrade requiredUpgrade() {
+        return this == QUARRY ? Upgrade.TUNNEL_MINING : null;
     }
 
     /** Whether it is one of the knights' fortresses. */

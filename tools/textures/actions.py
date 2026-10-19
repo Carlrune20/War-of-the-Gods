@@ -62,6 +62,7 @@ ITEMS = {
     "upgrade/diamond_axes": "items/diamond_axe.png",
     "upgrade/diamond_pickaxes": "items/diamond_pickaxe.png",
     "upgrade/diamond_hoes": "items/diamond_hoe.png",
+    "upgrade/tunnel_mining": "items/minecart_normal.png",
     "upgrade/masonry": ("block", "blocks/stonebrick.png", "blocks/stonebrick.png"),
     "upgrade/fortified_walls": ("block", "blocks/iron_block.png", "blocks/iron_block.png"),
     "upgrade/watch_tower": "items/bow_standby.png",
