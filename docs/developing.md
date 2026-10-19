@@ -43,8 +43,8 @@ The end-to-end checks are in the server smoke test described under [Continuous i
 
 ## Continuous integration
 
-CI runs only when started by hand: on GitHub, open Actions > Build and test > Run workflow and pick the branch. Pushes
-and pull requests don't start it, and merging doesn't wait for it. It:
+CI runs on every push and pull request to `master` or `main`, and can be started by hand from Actions > Build and test
+> Run workflow. A pull request can be merged whether or not it passes. It:
 
 1. checks formatting with Spotless
 2. builds the models from their Blockbench files
@@ -102,8 +102,8 @@ it has one) inside it.
    - The second texture, `NAME_team.png`, is where the team's colour goes. A knight's texture is his unit's 64x64 skin,
      which goes to both gods' teams. His `plume` group, and everything in it, is drawn in his team's colour over white.
 2. **Save.** Use File > Save Model, keeping the name, and put the file back in `tools/models/blockbench/`. For example,
-   upload it in a pull request on GitHub, then run the workflow on that branch. The build turns it into the mod's
-   model, texture and icon, commits them to the branch, and the jar that run builds has the change.
+   upload it in a pull request on GitHub. The build turns it into the mod's model, texture and icon, so the jar that
+   the pull request builds has the change.
 3. **Preview without building.** Run
    `python3 tools/models/blockbench.py import --into <resourcepacks>/wotg/assets/warofthegods`, with a `pack.mcmeta` in
    `<resourcepacks>/wotg/`. Turn that pack on, then press F3+T. Models and textures are read again from resource packs
