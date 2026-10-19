@@ -192,16 +192,13 @@ final class FogOfWar {
         return minZ;
     }
 
-    /**
-     * How bright the RTS view draws cell c, r, as the world is drawn by {@link #light}: 1 where the team sees, about
-     * half where it has been and nearly black elsewhere.
-     */
-    float brightness(int c, int r) {
+    /** The light the RTS view draws cell c, r in, packed as {@link #light} gives it; none off the map. */
+    int cellLight(int c, int r) {
         int i = c < 0 || r < 0 || c >= columns || r >= rows ? -1 : r * columns + c;
         if (i < 0 || !explored[i]) {
-            return 0.05F;
+            return 0;
         }
-        return visible[i] ? 1 : 0.5F;
+        return visible[i] ? FULL_LIGHT : HALF_LIGHT;
     }
 
     /** Has the ground whose light changed drawn again. */

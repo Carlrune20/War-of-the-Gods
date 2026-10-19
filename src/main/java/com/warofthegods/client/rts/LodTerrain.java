@@ -3,6 +3,7 @@ package com.warofthegods.client.rts;
 import java.lang.reflect.Field;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -14,6 +15,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.EntityRenderer;
 import net.minecraft.client.renderer.GLAllocation;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.RenderGlobal;
@@ -134,7 +136,16 @@ final class LodTerrain {
     private int fogWidth;
     private int fogHeight;
     private int fogVersion = -1;
-    private float fogDaylight = -1;
+    /** The colours of {@link #LIGHTS} the light texture was made with, by light. */
+    private int[] fogColors;
+    private boolean lightmapLookedUp;
+    private int[] lightmapColors;
+    /** Lights, as sky light << 4 | block light: what the fog of war lights the ground in sight and seen before with. */
+    private static final int FULL_LIGHT_INDEX = 15 << 4 | 15;
+    private static final int HALF_LIGHT_INDEX = 12 << 4;
+    /** Open ground under the sky, with no fog of war. */
+    private static final int OPEN_GROUND = 15 << 4;
+    private static final int[] LIGHTS = { 0, HALF_LIGHT_INDEX, OPEN_GROUND, FULL_LIGHT_INDEX };
 
     private static long key(int chunkX, int chunkZ) {
         return (long) chunkX << 32 | chunkZ & 0xFFFFFFFFL;
@@ -365,22 +376,20 @@ final class LodTerrain {
         GL11.glDepthMask(true);
         GL11.glShadeModel(GL11.GL_FLAT);
         GL11.glColor4f(1, 1, 1, 1);
+        // Lit like the world: by the fog of war where there is fog, else as open ground under the sky, and either way
+        // as dark as Minecraft's own light makes it at this time of day.
         FogOfWar fog = client.fog;
         boolean fogged = fog.isOn() && fog.columns() > 0;
-        if (fogged) {
-            bindFog(fog, partialTicks);
-            GL11.glEnable(GL11.GL_TEXTURE_2D);
-            GL11.glTexGeni(GL11.GL_S, GL11.GL_TEXTURE_GEN_MODE, GL11.GL_OBJECT_LINEAR);
-            GL11.glTexGeni(GL11.GL_T, GL11.GL_TEXTURE_GEN_MODE, GL11.GL_OBJECT_LINEAR);
-            GL11.glEnable(GL11.GL_TEXTURE_GEN_S);
-            GL11.glEnable(GL11.GL_TEXTURE_GEN_T);
-            GL11.glMatrixMode(GL11.GL_TEXTURE);
-            GL11.glPushMatrix();
-            GL11.glLoadIdentity();
-            GL11.glMatrixMode(GL11.GL_MODELVIEW);
-        } else {
-            GL11.glDisable(GL11.GL_TEXTURE_2D);
-        }
+        bindLight(fog, fogged, partialTicks);
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glTexGeni(GL11.GL_S, GL11.GL_TEXTURE_GEN_MODE, GL11.GL_OBJECT_LINEAR);
+        GL11.glTexGeni(GL11.GL_T, GL11.GL_TEXTURE_GEN_MODE, GL11.GL_OBJECT_LINEAR);
+        GL11.glEnable(GL11.GL_TEXTURE_GEN_S);
+        GL11.glEnable(GL11.GL_TEXTURE_GEN_T);
+        GL11.glMatrixMode(GL11.GL_TEXTURE);
+        GL11.glPushMatrix();
+        GL11.glLoadIdentity();
+        GL11.glMatrixMode(GL11.GL_MODELVIEW);
 
         int renderChunks = mc.gameSettings.renderDistanceChunks;
         double vanillaFar = renderChunks * 16 * 2;
@@ -424,20 +433,16 @@ final class LodTerrain {
             } else {
                 chunk.level = level;
             }
-            if (fogged) {
-                fogPlanes(fog, chunk);
-            }
+            fogPlanes(fog, chunk);
             GL11.glPushMatrix();
             GL11.glTranslated(x0 - ex, -ey, z0 - ez);
             GL11.glCallList(list);
             GL11.glPopMatrix();
         }
 
-        if (fogged) {
-            GL11.glMatrixMode(GL11.GL_TEXTURE);
-            GL11.glPopMatrix();
-            GL11.glMatrixMode(GL11.GL_MODELVIEW);
-        }
+        GL11.glMatrixMode(GL11.GL_TEXTURE);
+        GL11.glPopMatrix();
+        GL11.glMatrixMode(GL11.GL_MODELVIEW);
         GL11.glPopAttrib();
         GL11.glPopMatrix();
         GL11.glMatrixMode(GL11.GL_PROJECTION);
@@ -679,14 +684,19 @@ final class LodTerrain {
     }
 
     /**
-     * Binds the fog of war as a texture, a texel per fog cell with a dark border round the map, made again when the
-     * fog or the daylight changes.
+     * Binds the light the surface is drawn in as a texture: with fog, a texel per fog cell with a dark border round the
+     * map; without, one texel of open ground. Each texel takes its colour from Minecraft's lightmap for the light the
+     * world there is drawn in, so the surface darkens at night, brightens under night vision and follows the gamma
+     * setting just as the world does. Made again when the fog or the lightmap changes.
      */
-    private void bindFog(FogOfWar fog, float partialTicks) {
-        int width = fog.columns() + 2;
-        int height = fog.rows() + 2;
-        // Lit by the fog, the world darkens at night; so does the surface, in steps so it is not made every frame.
-        float daylight = Math.round((world.getSunBrightness(partialTicks) * 0.95F + 0.05F) * 32) / 32F;
+    private void bindLight(FogOfWar fog, boolean fogged, float partialTicks) {
+        int width = fogged ? fog.columns() + 2 : 1;
+        int height = fogged ? fog.rows() + 2 : 1;
+        int[] lightmap = lightmap();
+        int[] colors = new int[256];
+        for (int light : LIGHTS) {
+            colors[light] = lightColor(lightmap, light, partialTicks);
+        }
         if (fogTexture == null || fogWidth != width || fogHeight != height) {
             if (fogTexture != null) {
                 fogTexture.deleteGlTexture();
@@ -696,14 +706,19 @@ final class LodTerrain {
             fogHeight = height;
             fogVersion = -1;
         }
-        if (fogVersion != fog.version() || fogDaylight != daylight) {
-            fogVersion = fog.version();
-            fogDaylight = daylight;
+        int version = fogged ? fog.version() : -2;
+        if (fogVersion != version || !Arrays.equals(fogColors, colors)) {
+            fogVersion = version;
+            fogColors = colors;
             int[] pixels = fogTexture.getTextureData();
             for (int r = 0; r < height; r++) {
                 for (int c = 0; c < width; c++) {
-                    int v = (int) (fog.brightness(c - 1, r - 1) * daylight * 255);
-                    pixels[r * width + c] = 0xFF000000 | v << 16 | v << 8 | v;
+                    int light = OPEN_GROUND;
+                    if (fogged) {
+                        int packed = fog.cellLight(c - 1, r - 1);
+                        light = (packed >> 20 & 15) << 4 | (packed >> 4 & 15);
+                    }
+                    pixels[r * width + c] = 0xFF000000 | colors[light];
                 }
             }
             fogTexture.updateDynamicTexture();
@@ -713,6 +728,34 @@ final class LodTerrain {
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
         GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+    }
+
+    /**
+     * The colour, as 0xRRGGBB, of a light (sky light << 4 | block light) in Minecraft's lightmap; without the lightmap,
+     * a grey from the sky light and the time of day.
+     */
+    private int lightColor(int[] lightmap, int light, float partialTicks) {
+        if (lightmap != null && light < lightmap.length) {
+            return lightmap[light] & 0xFFFFFF;
+        }
+        float sky = Math.max(light >> 4, light & 15) / 15F;
+        float daylight = (light & 15) == 15 ? 1 : world.getSunBrightness(partialTicks) * 0.95F + 0.05F;
+        int v = Math.round(Math.max(0.05F, sky * sky) * daylight * 255);
+        return v << 16 | v << 8 | v;
+    }
+
+    /** Minecraft's lightmap colours, by sky light << 4 | block light, or null if they cannot be read. */
+    private int[] lightmap() {
+        if (!lightmapLookedUp) {
+            lightmapLookedUp = true;
+            try {
+                lightmapColors = (int[]) ReflectionHelper
+                    .getPrivateValue(EntityRenderer.class, mc.entityRenderer, "lightmapColors", "field_78504_Q");
+            } catch (RuntimeException e) {
+                WarOfTheGods.LOG.warn("Cannot read Minecraft's lightmap; the far terrain is lit by the time of day", e);
+            }
+        }
+        return lightmapColors != null && lightmapColors.length >= 256 ? lightmapColors : null;
     }
 
     /** Lays the fog texture over a chunk, whose display list has its corner at 0, 0. */
