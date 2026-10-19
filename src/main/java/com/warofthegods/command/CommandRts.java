@@ -1,5 +1,7 @@
 package com.warofthegods.command;
 
+import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -87,6 +89,7 @@ public class CommandRts extends CommandBase {
         "ai",
         "reveal",
         "seeall",
+        "memory",
         "web");
     private static final List<String> TEAM_SUBCOMMANDS = Arrays
         .asList("list", "create", "remove", "color", "faction", "join", "leave", "auto", "base");
@@ -104,7 +107,7 @@ public class CommandRts extends CommandBase {
     @Override
     public String getCommandUsage(ICommandSender sender) {
         return "/rts <help|info|newgame|quickgame|endgame|spawn|surrender|team|ally|unally|resources|units|buildings|build|wall|bridge|gate|train|damage"
-            + "|upgrade|research|chop|mine|finish|ai|reveal|seeall|web>";
+            + "|upgrade|research|chop|mine|finish|ai|reveal|seeall|memory|web>";
     }
 
     /** Everyone may run /rts; subcommands that change the game check for op themselves. */
@@ -220,6 +223,9 @@ public class CommandRts extends CommandBase {
                 break;
             case "seeall":
                 seeAll(sender, rest);
+                break;
+            case "memory":
+                memory(sender);
                 break;
             case "web":
                 web(sender, rest);
@@ -1603,6 +1609,54 @@ public class CommandRts extends CommandBase {
     }
 
     /** For testing: lifts the fog of war for everyone, or brings it back. */
+    /**
+     * Shows how full the server's memory is and how much time the garbage collector has spent, with how big the
+     * current game is, so ops can judge whether to change the heap size or the map settings.
+     */
+    private void memory(ICommandSender sender) {
+        requireOp(sender);
+        Runtime runtime = Runtime.getRuntime();
+        long mb = 1024L * 1024L;
+        send(sender, EnumChatFormatting.GOLD + "Server memory");
+        send(
+            sender,
+            "Heap: " + (runtime.totalMemory() - runtime.freeMemory()) / mb
+                + " MB used (includes garbage not yet"
+                + " collected), "
+                + runtime.totalMemory() / mb
+                + " MB committed, "
+                + runtime.maxMemory() / mb
+                + " MB maximum");
+        long collections = 0;
+        long collectionMillis = 0;
+        for (GarbageCollectorMXBean collector : ManagementFactory.getGarbageCollectorMXBeans()) {
+            collections += Math.max(0, collector.getCollectionCount());
+            collectionMillis += Math.max(0, collector.getCollectionTime());
+        }
+        send(sender, "Garbage collections so far: " + collections + ", " + collectionMillis + " ms in total");
+        Game game = GameManager.getGame();
+        if (game == null) {
+            send(sender, "No game is running");
+            return;
+        }
+        int units = 0;
+        for (Team team : game.getTeams()) {
+            units += game.countUnits(team);
+        }
+        send(
+            sender,
+            "Game #" + game.getNumber()
+                + ": "
+                + units
+                + " units, "
+                + game.getBuildings()
+                    .size()
+                + " buildings, "
+                + game.getTrees()
+                    .size()
+                + " trees");
+    }
+
     private void seeAll(ICommandSender sender, String[] args) {
         requireOp(sender);
         Game game = requireGame();

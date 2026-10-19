@@ -7,6 +7,7 @@ units are a mod entity that the client draws.
 - [Web map settings](#web-map-settings)
 - [HTTPS](#https)
 - [Docker](#docker-itzgminecraft-server)
+- [Memory](#memory)
 
 ## Configuration
 
@@ -66,3 +67,32 @@ web {
 
 **Using another port.** Change both sides together, for example `"8200:8200"` with `I:port=8200`. Or keep the container
 port and map a different host port, `"8200:8124"`, with `publicUrl` ending in `:8200`.
+
+## Memory
+
+Big games with many units use a lot of memory. If the server runs out, it slows down or crashes, so set the heap size
+to suit the machine and the games you host.
+
+**Check the numbers.** `/rts memory` (op) shows the heap in use, the heap the JVM has reserved, and its maximum. It also
+shows how often and how long the garbage collector has run, and the current game's unit, building and tree counts. Run
+it during a busy moment to see how much headroom is left.
+
+**Set the heap size.** The server's JVM takes its heap size from its startup flags:
+
+- `-Xmx` is the maximum heap, for example `-Xmx3G`. Without it the JVM uses a default, usually a quarter of the
+  machine's RAM.
+- `-Xms` is the starting heap. Setting it equal to `-Xmx` (for example `-Xms3G -Xmx3G`) stops the JVM resizing the heap
+  during play, which causes stutters.
+- `-XX:+UseG1GC -XX:MaxGCPauseMillis=100` keeps garbage collection pauses short.
+
+Start with a few gigabytes for a small server, then raise it if `/rts memory` shows the heap staying nearly full. Leave
+room for the operating system and for other programs on the machine. With the itzg Docker image, set `MEMORY` (and
+optionally `INIT_MEMORY`) instead of writing the flags yourself.
+
+**Lower the load.** These settings in `config/warofthegods.cfg` use less memory and processing:
+
+- `defaultMapSize`: memory use grows with the map's area, so 500 instead of 1000 is a quarter of the area.
+- `web.stateTicks` and `rts.stateTicks`: raise these from 1 and 2 to 2–4 to send live updates less often.
+- `web.renderBudgetMs`: lower this to spend less of each tick on drawing the map. A new map then fills in more slowly.
+- `mobs.maxMobs`: caps the zombies and skeletons on the whole map.
+- `web.enabled`: set to `false` if nobody uses the web map.

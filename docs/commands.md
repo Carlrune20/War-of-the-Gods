@@ -17,6 +17,7 @@ Everyone can use `/rts`. Commands marked **(op)** need operator rights.
 | `/rts quickgame [teams] [mapSize] [seed]` | (op) Skip the lobby: end the current game and start a new one on a freshly generated map at once. The gods take turns, so each follows half the teams (Red Zamorak, Blue Saradomin, Green Zamorak...), and everyone online is shuffled evenly onto the teams. Defaults: 2 teams, 1000x1000 map, random seed. Teams are named after their color: Red, Blue, Green... |
 | `/rts endgame` | (op) End the current game. |
 | `/rts finish [team]` | (op) Finish every building site at once. |
+| `/rts memory` | (op) Show the server's heap use (used, committed and maximum), how often and how long the garbage collector has run, and the current game's unit, building and tree counts. See [Memory](hosting.md#memory). |
 
 ## Teams and players
 
