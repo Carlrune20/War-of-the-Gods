@@ -122,7 +122,7 @@ public final class WebMap {
             boolean wasDone = renderer.isWalkDone();
             renderer.tick(TimeUnit.MILLISECONDS.toNanos(Config.webRenderBudgetMs));
             if (!wasDone && renderer.isWalkDone()) {
-                WarOfTheGods.LOG.info("Map of game #{} drawn", renderer.gameNumber);
+                WarOfTheGods.LOG.info("Web map of game #{} drawn", renderer.gameNumber);
             }
         }
         if (server != null) {
