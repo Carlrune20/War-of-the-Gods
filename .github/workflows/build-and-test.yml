@@ -71,3 +71,30 @@ jobs:
         with:
           name: mod-jar
           path: build/libs/*.jar
+
+  # A .bbmodel uploaded on its own on a branch of this repository gets the mod's files built from it committed next to
+  # it, so they are in the source once merged and a build without Python (gradlew on a checkout) has the edit too.
+  sync-models:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout the branch
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Build models from their Blockbench files and commit them
+        run: |
+          python3 -m pip install --quiet --break-system-packages pillow numpy
+          python3 tools/models/blockbench.py import
+          git add src/main/resources/assets
+          if git diff --cached --quiet; then
+            echo "The models already match their Blockbench files"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Build the models from their Blockbench files"
+          git push origin HEAD:${{ github.head_ref }}
