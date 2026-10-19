@@ -3,7 +3,7 @@
 Each is one model, its parts named as the player model's are (head, body, right_arm, left_arm, right_leg, left_leg)
 so the game can move them the way it moves a man; the hobgoblin's spear, the ork's cleaver and the ogre's club are
 parts in the right hand. Each unit kind drawn with one of them has a texture of its own, painted on the same layout:
-a goblin, a slave, an axe-thrower, a priest, the three spirits and the three sergeants all wear the goblin, and
+a goblin, an axe-thrower, a priest, the three spirits and the three sergeants all wear the goblin, and
 General Graardor the ork. Boxes a kind does not use (a helmet, a robe) are left clear on its texture, so they do not
 show. Where the team's color goes is painted white on the kind's team mask.
 """
@@ -15,7 +15,6 @@ CLEAR = None
 # ---------------------------------------------------------------- colors
 
 GOBLIN_SKIN = (104, 142, 56)
-SLAVE_SKIN = (112, 126, 72)
 SPIRIT_SKIN = (150, 208, 196)
 HOBGOBLIN_SKIN = (150, 112, 62)
 ORK_SKIN = (84, 104, 64)
@@ -31,8 +30,6 @@ NAIL = (60, 50, 40)
 
 LEATHER = (110, 72, 40)
 LEATHER_DARK = (72, 46, 26)
-RAG = (120, 104, 80)
-RAG_DARK = (88, 74, 56)
 STEEL = (150, 154, 162)
 STEEL_DARK = (96, 100, 108)
 STEEL_LIGHT = (196, 200, 206)
@@ -269,7 +266,6 @@ def feet(skin):
 # By kind: skin, eyes, then the paint for the helmet, the body's covering, the arms', and the legs'.
 GOBLIN_LOOKS = {
     "goblin": (GOBLIN_SKIN, EYE, clear, tunic(None, None), clear, clear),
-    "slave": (SLAVE_SKIN, EYE, clear, ragged(RAG, RAG_DARK), clear, clear),
     "goblin_thrower": (GOBLIN_SKIN, EYE, helm(LEATHER, LEATHER, LEATHER_DARK), tunic(LEATHER, LEATHER_DARK, False),
                        team_band, clear),
     "goblin_priest": (GOBLIN_SKIN, EYE_YELLOW, hood(ROBE, ROBE_DARK), robe(ROBE, ROBE_DARK), clear,

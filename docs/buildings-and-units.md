@@ -240,7 +240,7 @@ differently from Saradomin's and Zamorak's:
 
 | Unit | Health | Notes |
 |---|---|---|
-| Slave | as a worker | gathers and builds |
+| Slave | as a worker | a worn-out man in rags; gathers and builds |
 | Goblin | 0.6× | fights with an axe, builds |
 | Goblin axe-thrower | 0.6× | throws axes, short range; builds |
 | Hobgoblin | 1.5× | a spearman: double damage against cavalry and other fast units |

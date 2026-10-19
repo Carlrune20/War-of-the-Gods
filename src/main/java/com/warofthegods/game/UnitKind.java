@@ -246,7 +246,6 @@ public enum UnitKind {
      */
     public String creatureModel() {
         switch (this) {
-            case SLAVE:
             case GOBLIN:
             case GOBLIN_THROWER:
             case GOBLIN_PRIEST:
@@ -314,7 +313,7 @@ public enum UnitKind {
             return 1.7F;
         }
         if (isGoblin()) {
-            return hero ? 0.9F : 0.75F;
+            return hero ? 1.1F : 1;
         }
         if (this == HOBGOBLIN) {
             return 1.1F;

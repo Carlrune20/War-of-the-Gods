@@ -108,12 +108,14 @@ class UnitKindTest {
     @Test
     void everyBandosKindWearsACreatureModel() {
         for (UnitKind kind : UnitKind.values()) {
-            if (kind.faction() == Faction.BANDOS) {
+            if (kind.faction() == Faction.BANDOS && kind != UnitKind.SLAVE) {
                 assertTrue(kind.creatureModel() != null, kind + " has no model");
             }
         }
         assertEquals("ork", UnitKind.GRAARDOR.creatureModel());
         assertEquals(null, UnitKind.SOLDIER.creatureModel());
+        // Slaves are men, worn out and in rags.
+        assertEquals(null, UnitKind.SLAVE.creatureModel());
     }
 
     @Test

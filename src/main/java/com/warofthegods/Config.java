@@ -42,8 +42,8 @@ public class Config {
         unitCosts.put(UnitKind.LESSER_DEMON, new long[] { 300, 0, 300, 7 });
         unitCosts.put(UnitKind.CENTAUR, new long[] { 150, 150, 0, 3 });
         unitCosts.put(UnitKind.SLAVE, new long[] { 40, 0, 0, 0 });
-        unitCosts.put(UnitKind.GOBLIN, new long[] { 30, 0, 10, 0 });
-        unitCosts.put(UnitKind.GOBLIN_THROWER, new long[] { 30, 25, 0, 0 });
+        unitCosts.put(UnitKind.GOBLIN, new long[] { 20, 0, 5, 0 });
+        unitCosts.put(UnitKind.GOBLIN_THROWER, new long[] { 25, 20, 0, 0 });
         unitCosts.put(UnitKind.HOBGOBLIN, new long[] { 50, 0, 30, 0 });
         unitCosts.put(UnitKind.ORK, new long[] { 90, 0, 60, 0 });
         unitCosts.put(UnitKind.OGRE, new long[] { 150, 0, 100, 0 });

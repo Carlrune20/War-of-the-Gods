@@ -346,7 +346,7 @@ def face_icon(faction, kind):
     """A unit's face: the front of its head with its hat layer over it, as large as the icon."""
     if kind in HEADS:
         return model_head(HEADS[kind])
-    if kind in BANDOS_UNITS:
+    if kind in BANDOS_UNITS and kind != "slave":
         return creature_head(CREATURES.get(kind, "goblin"), kind)
     return skin_face("%s_%s" % (faction, kind))
 
