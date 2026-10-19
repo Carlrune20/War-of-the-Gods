@@ -60,6 +60,8 @@ public final class WebMap {
     private static WebMap instance;
 
     private MapRenderer renderer;
+    /** The map browsers were last told to draw. */
+    private MapTiles webTiles;
     /** Whether changed tiles go out on the next tick rather than at the next interval. */
     private boolean flushTiles;
     private boolean webAnnounced;
@@ -110,12 +112,26 @@ public final class WebMap {
             announced = true;
             commanders.setGame(gameMessage(drawn));
         }
-        if (server != null) {
-            tickWeb(server, drawn, world);
-        } else {
+        // The map is read for browsers, and for players in the RTS view who see the whole map's surface.
+        if (drawn == null || server == null && !Config.rtsFarTerrain) {
             renderer = null;
+        } else if (renderer == null || renderer.world != world || renderer.gameNumber != drawn.getNumber()) {
+            renderer = new MapRenderer(world, drawn);
+        }
+        if (renderer != null) {
+            boolean wasDone = renderer.isWalkDone();
+            renderer.tick(TimeUnit.MILLISECONDS.toNanos(Config.webRenderBudgetMs));
+            if (!wasDone && renderer.isWalkDone()) {
+                WarOfTheGods.LOG.info("Map of game #{} drawn", renderer.gameNumber);
+            }
+        }
+        if (server != null) {
+            tickWeb(server);
+        } else {
+            webTiles = null;
         }
         commanders.tick();
+        commanders.sendTerrain(Config.rtsFarTerrain && renderer != null ? renderer.tiles : null);
 
         ticks++;
         // Built only when someone is watching, as it holds every unit, mob and building, and written out once for both.
@@ -132,35 +148,28 @@ public final class WebMap {
         }
     }
 
-    /** Keeps the map drawn for browsers, sends them changed tiles and runs their commands. */
-    private void tickWeb(WebServer server, Game game, WorldServer world) {
-        if (game == null) {
-            if (renderer != null || !webAnnounced) {
-                renderer = null;
+    /** Tells browsers which map to draw, sends them changed tiles and runs their commands. */
+    private void tickWeb(WebServer server) {
+        MapTiles tiles = renderer == null ? null : renderer.tiles;
+        if (tiles == null) {
+            if (webTiles != null || !webAnnounced) {
+                webTiles = null;
                 server.setGame(null, gameMessage(null));
                 webAnnounced = true;
             }
-        } else if (renderer == null || renderer.world != world || renderer.gameNumber != game.getNumber()) {
-            renderer = new MapRenderer(world, game);
-            JsonObject message = gameMessage(game);
+        } else if (tiles != webTiles) {
+            webTiles = tiles;
+            JsonObject message = gameMessage(announcedGame);
             message.getAsJsonObject("game")
-                .addProperty("mapId", renderer.tiles.getId());
-            server.setGame(renderer.tiles, message);
+                .addProperty("mapId", tiles.getId());
+            server.setGame(tiles, message);
             webAnnounced = true;
-        }
-
-        if (renderer != null) {
-            boolean wasDone = renderer.isWalkDone();
-            renderer.tick(TimeUnit.MILLISECONDS.toNanos(Config.webRenderBudgetMs));
-            if (!wasDone && renderer.isWalkDone()) {
-                WarOfTheGods.LOG.info("Web map of game #{} drawn", renderer.gameNumber);
-            }
         }
         runCommands(server);
 
-        if (renderer != null && (flushTiles || ticks % TILES_INTERVAL == 0)) {
+        if (tiles != null && (flushTiles || ticks % TILES_INTERVAL == 0)) {
             flushTiles = false;
-            server.tilesChanged(renderer.tiles.takeChanged());
+            server.tilesChanged(tiles.takeChanged());
         }
     }
 

@@ -206,6 +206,10 @@ public class Config {
     public static int rtsStateTicks = 2;
     public static int rtsCameraFov = 40;
     public static boolean rtsEdgeScroll = true;
+    public static boolean rtsFarTerrain = true;
+    public static int rtsFarTerrainKbPerSecond = 256;
+    public static int rtsMaxZoomOut = 1000;
+    public static int rtsFarTerrainCellPixels = 6;
 
     /** Bumped when defaults change in a way that should replace what older config files hold. */
     private static final int CONFIG_VERSION = 11;
@@ -850,6 +854,36 @@ public class Config {
             rts,
             rtsEdgeScroll,
             "Whether the RTS camera moves when the mouse touches the edge of the window.");
+        rtsFarTerrain = configuration.getBoolean(
+            "farTerrain",
+            rts,
+            rtsFarTerrain,
+            "Whether players in the RTS view are sent the surface of the whole map, so they see it all, in less detail"
+                + " the farther it is, beyond the chunks their client has. Set on the server.");
+        rtsFarTerrainKbPerSecond = configuration.getInt(
+            "farTerrainKbPerSecond",
+            rts,
+            rtsFarTerrainKbPerSecond,
+            16,
+            65536,
+            "Most kilobytes a second of map surface the server sends each player in the RTS view. The whole map goes"
+                + " once, nearest first, then only what changes.");
+        rtsMaxZoomOut = configuration.getInt(
+            "maxZoomOut",
+            rts,
+            rtsMaxZoomOut,
+            64,
+            4000,
+            "Farthest the RTS camera stands back, in blocks, once the server sends the map's surface. Without it the"
+                + " camera stays within the client's render distance.");
+        rtsFarTerrainCellPixels = configuration.getInt(
+            "farTerrainCellPixels",
+            rts,
+            rtsFarTerrainCellPixels,
+            2,
+            32,
+            "How coarse the map's surface beyond the loaded chunks is drawn: about this many pixels across each of its"
+                + " squares. Lower is finer and slower.");
 
         if (configuration.hasChanged()) {
             configuration.save();

@@ -108,7 +108,7 @@ panels, buttons and tooltips as on the web map are drawn over the real world. No
 | Right-drag / Space then click | With warriors or archers selected: a red box of enemies to attack, shared out by their health / an attack move, as on the web map. |
 | Click one of your buildings | Its controls in the bar, such as Train. |
 | H / Space | Go to your town center / to the selected units. Space starts an attack move instead when warriors or archers are selected. |
-| Minimap (bottom right) | Click or drag to move the camera there. Right-click to send the selected units there. It shows the map as far as your client has seen it, with buildings, units and hostile mobs, and the part in view outlined. |
+| Minimap (bottom right) | Click or drag to move the camera there. Right-click to send the selected units there. It shows the map as far as your client has seen it or the server has sent its surface, with buildings, units and hostile mobs, and the part in view outlined. |
 | Torches | With workers selected: click two corners of an area for them to light up. |
 | Wall / Make gate | With workers selected: click where a wall starts and where it ends, or two of your towers. With a wall segment selected, Make gate. As on the web map. |
 | B | The team menu, in the view or in person: join or leave a team. Ops click a player to move them, or fill or shuffle the teams. |
@@ -126,6 +126,15 @@ the view, in person and on the web map.
 Meanwhile the real you floats unseen and unhurt over the spot the camera looks at. That keeps the world there loaded for
 you, and you can see in the dark.
 
-The view only shows what your client has loaded, so the camera stays within your render distance of the spot it looks
-at. The web map shows the whole map. Hostile mobs go after real players and units, but leave a commander's body alone for
-now.
+**Seeing the whole map.** Your client only loads the world near the spot the camera looks at. Beyond that the view draws
+the map's surface, which the server sends while you command: nearest first, then only what changes. It is drawn in
+coloured blocks, coarser the farther away it is, much like the web map. Fog of war darkens it just as it darkens the
+world, so unexplored land stays dark. Once some of it has arrived you can zoom out much further, up to 1000 blocks by
+default. Units too far away for Minecraft to draw show as dots in their team's colour, and you can still click far
+terrain to give orders. The minimap fills in from the surface too.
+
+The server can turn this off or limit the bandwidth it uses, and each player can set how far the camera zooms out and
+how coarse the far terrain looks. These are the `farTerrain`, `farTerrainKbPerSecond`, `maxZoomOut` and
+`farTerrainCellPixels` settings under `rts` in `config/warofthegods.cfg`. Without the surface, the camera stays within
+your render distance of the spot it looks at. Hostile mobs go after real players and units, but leave a commander's body
+alone for now.

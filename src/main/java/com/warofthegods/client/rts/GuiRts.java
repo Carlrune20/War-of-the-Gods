@@ -599,7 +599,8 @@ public final class GuiRts extends GuiScreen {
 
     /**
      * The ground under a screen point: where the ray from the camera through it first meets a solid block or water,
-     * walking the blocks the client has. Past them it meets sea level. As {x, y, z}.
+     * walking the blocks the client has, and past them the map's surface the server sent. Past that it meets sea
+     * level. As {x, y, z}.
      */
     private double[] groundUnder(int px, int py) {
         RtsCamera camera = camera();
@@ -623,7 +624,7 @@ public final class GuiRts extends GuiScreen {
         double tMaxY = dy == 0 ? Double.MAX_VALUE : ((dy > 0 ? y + 1 - oy : oy - y) * tDeltaY);
         double tMaxZ = dz == 0 ? Double.MAX_VALUE : ((dz > 0 ? z + 1 - oz : oz - z) * tDeltaZ);
         double t = 0;
-        double limit = 600;
+        double limit = Math.max(600, camera.distance * 4);
         while (t < limit) {
             if (y >= 0 && y < 256 && isGround(x, y, z)) {
                 return new double[] { ox + dx * t, oy + dy * t, oz + dz * t };
@@ -654,6 +655,9 @@ public final class GuiRts extends GuiScreen {
     }
 
     private boolean isGround(int x, int y, int z) {
+        if (!client.isLoaded(x, z)) {
+            return y < client.surfaceTop(x, z);
+        }
         Block block = mc.theWorld.getBlock(x, y, z);
         if (block.getMaterial() == Material.air) {
             return false;
@@ -1738,7 +1742,7 @@ public final class GuiRts extends GuiScreen {
             return;
         }
         int size = minimapSize();
-        client.minimap.update(state().game);
+        client.minimap.update(state().game, client.terrain);
         client.minimap.draw(client, width - size - 6, height - size - 6, size, viewFrame());
         GL11.glColor4f(1, 1, 1, 1);
     }
@@ -1908,6 +1912,24 @@ public final class GuiRts extends GuiScreen {
             double[] p = project(tree.x + 0.5, tree.top + 2, tree.z + 0.5);
             if (p != null) {
                 bar(guiX(p[0]), guiY(p[1]), 20, tree.wood / (double) Math.max(1, tree.maxWood), 0xFFC8963C);
+            }
+        }
+        // Units too far off for Minecraft to draw show as dots in their team's colour.
+        for (RtsState.UnitInfo unit : state.units.values()) {
+            if (client.isDrawn(unit) || !seen(unit, partialTicks)) {
+                continue;
+            }
+            double[] p = project(unit.x, unit.y + 0.5, unit.z);
+            if (p != null) {
+                int x = guiX(p[0]);
+                int y = guiY(p[1]);
+                drawRect(x - 2, y - 2, x + 2, y + 2, 0xC0000000);
+                drawRect(
+                    x - 1,
+                    y - 1,
+                    x + 1,
+                    y + 1,
+                    client.selected.contains(unit.id) ? 0xFF73FF80 : teamColor(unit.team));
             }
         }
         for (RtsState.UnitInfo unit : state.units.values()) {

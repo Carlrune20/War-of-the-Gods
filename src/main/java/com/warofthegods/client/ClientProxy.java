@@ -7,6 +7,7 @@ import com.warofthegods.CommonProxy;
 import com.warofthegods.WarOfTheGods;
 import com.warofthegods.client.rts.RtsClient;
 import com.warofthegods.rts.EntityCommanderBody;
+import com.warofthegods.rts.TerrainMessage;
 import com.warofthegods.unit.EntityCarcass;
 import com.warofthegods.unit.EntitySpell;
 import com.warofthegods.unit.EntityTeamArrow;
@@ -48,6 +49,14 @@ public class ClientProxy extends CommonProxy {
         RtsClient client = RtsClient.get();
         if (client != null) {
             client.receive(json);
+        }
+    }
+
+    @Override
+    public void receiveTerrain(TerrainMessage message) {
+        RtsClient client = RtsClient.get();
+        if (client != null) {
+            client.receiveTerrain(message);
         }
     }
 }
