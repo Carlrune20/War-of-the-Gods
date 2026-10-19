@@ -14,6 +14,7 @@ import org.lwjgl.input.Keyboard;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.warofthegods.game.Faction;
 
 /**
  * The new game lobby, which comes up for everyone when an op opens it. Ops pick the map, its size and seed, how many
@@ -182,11 +183,11 @@ public final class GuiLobby extends GuiScreen {
             int ry = rowsTop() + i * rowHeight + (rowHeight - 20) / 2;
             int index = i;
             if (op) {
-                boolean zamorak = "zamorak".equals(text(team, "faction"));
+                Faction faction = Faction.byId(text(team, "faction"));
                 addButton(left + 78, ry, 72, text(team, "factionName"), () -> {
                     JsonObject body = new JsonObject();
                     body.addProperty("team", index);
-                    body.addProperty("faction", zamorak ? "saradomin" : "zamorak");
+                    body.addProperty("faction", (faction == null ? Faction.SARADOMIN : faction).next().id);
                     send("lobby.team", body);
                 });
                 boolean ai = team.get("ai")

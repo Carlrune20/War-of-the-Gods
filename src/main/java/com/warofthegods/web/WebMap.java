@@ -25,6 +25,7 @@ import com.warofthegods.building.Buildings;
 import com.warofthegods.building.Schematic;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
+import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.GoldMine;
@@ -225,6 +226,15 @@ public final class WebMap {
             kindJson.addProperty("name", kind.displayName);
             kindJson.add("cost", costJson(kind.cost()));
             kindJson.addProperty("fights", kind.fights());
+            kindJson.addProperty("gathers", kind.gathers());
+            kindJson.addProperty("builds", kind.builds());
+            JsonArray trainedBy = new JsonArray();
+            for (Faction faction : Faction.values()) {
+                if (kind.trainableBy(faction)) {
+                    trainedBy.add(new JsonPrimitive(faction.id));
+                }
+            }
+            kindJson.add("factions", trainedBy);
             if (kind.hero) {
                 kindJson.addProperty("hero", true);
             }
@@ -248,6 +258,15 @@ public final class WebMap {
             typeJson.addProperty("buildable", type.buildable);
             if (type.faction() != null) {
                 typeJson.addProperty("faction", type.faction().id);
+            }
+            JsonArray shunned = new JsonArray();
+            for (Faction faction : Faction.values()) {
+                if (type.shunnedBy(faction)) {
+                    shunned.add(new JsonPrimitive(faction.id));
+                }
+            }
+            if (shunned.size() > 0) {
+                typeJson.add("shunnedBy", shunned);
             }
             typeJson.addProperty("health", type.maxHealth());
             if (type.buildable) {

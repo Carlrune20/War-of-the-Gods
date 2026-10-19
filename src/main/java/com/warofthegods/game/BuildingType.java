@@ -1,5 +1,6 @@
 package com.warofthegods.game;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -12,11 +13,12 @@ import com.warofthegods.Config;
 public enum BuildingType {
 
     /**
-     * Every team starts with one: trains workers, takes in what workers carry, houses units, and shoots arrows at
-     * enemies from Age I. Workers can build more, but only on a free settlement. Its id is from when it was called
+     * Every team starts with one: trains workers, or for Bandos slaves and goblins, takes in what workers carry,
+     * houses units, and shoots arrows at enemies from Age I. Workers can build more, but only on a free settlement. Its
+     * id is from when it was called
      * the town hall.
      */
-    TOWN_HALL("town_hall", "Town center", "townHall", 3, true, true, UnitKind.WORKER),
+    TOWN_HALL("town_hall", "Town center", "townHall", 3, true, true, UnitKind.WORKER, UnitKind.SLAVE, UnitKind.GOBLIN),
     /** Workers working at it gather food. */
     FARM("farm", "Farm", "farm", 3, true, false),
     /** Trains warriors. */
@@ -80,7 +82,30 @@ public enum BuildingType {
      * Dug into a mined out gold mine, the only place it can go: workers working at it get a little gold out of it
      * for ever. Needs Age III and tunnel mining, researched at the armory.
      */
-    QUARRY("quarry", "Quarry", "quarry", 3, true, false);
+    QUARRY("quarry", "Quarry", "quarry", 3, true, false),
+    /**
+     * Bandos's house: a mound of earth and rubble over a hole in the ground, free but slow to dig and easy to knock
+     * down. Houses as many as a house, and trains goblins. Bandos's teams only.
+     */
+    GOBLIN_CAVE("goblin_cave", "Goblin cave", "goblinCave", 3, true, false, UnitKind.GOBLIN),
+    /**
+     * Bandos's barracks: a sunken fighting pit ringed with stakes, training axe-throwers, hobgoblins and orks. Bandos's
+     * teams only.
+     */
+    WAR_PIT("war_pit", "War pit", "warPit", 3, true, false, UnitKind.GOBLIN_THROWER, UnitKind.HOBGOBLIN, UnitKind.ORK),
+    /**
+     * Bandos's temple: trains goblin priests, who pray here for favor and turn the team's kills into more. Bandos's
+     * teams only.
+     */
+    BANDOS_TEMPLE("bandos_temple", "Bandos temple", "bandosTemple", 3, true, false, UnitKind.GOBLIN_PRIEST),
+    /**
+     * Bandos's stronghold in Age III: a rough cobblestone keep with much health that shoots many arrows, training
+     * ogres, the spiritual warrior, ranger and mage, the three goblin sergeants and General Graardor. Bandos's teams
+     * only.
+     */
+    BANDOS_BASTION("bandos_bastion", "Bandos bastion", "bandosBastion", 1, true, false, UnitKind.OGRE,
+        UnitKind.SPIRITUAL_WARRIOR, UnitKind.SPIRITUAL_RANGER, UnitKind.SPIRITUAL_MAGE, UnitKind.STRONGSTACK,
+        UnitKind.STEELWILL, UnitKind.GRIMSPIKE, UnitKind.GRAARDOR);
 
     public final String id;
     public final String displayName;
@@ -107,9 +132,12 @@ public enum BuildingType {
             return 3;
         }
         // Everything else but houses, storehouses and towers waits for Age II, as do the gods' own buildings.
-        return this == HOUSE || this == STOREHOUSE || this == TOWER || this == TOWN_HALL || this == BRIDGE || isWall()
-            ? 1
-            : 2;
+        return this == HOUSE || this == GOBLIN_CAVE
+            || this == STOREHOUSE
+            || this == TOWER
+            || this == TOWN_HALL
+            || this == BRIDGE
+            || isWall() ? 1 : 2;
     }
 
     /** The upgrade a team has to have before it can build this, or null: a quarry needs tunnel mining. */
@@ -117,9 +145,9 @@ public enum BuildingType {
         return this == QUARRY ? Upgrade.TUNNEL_MINING : null;
     }
 
-    /** Whether it is one of the knights' fortresses. */
+    /** Whether it is one of the gods' strongholds: the knights' fortresses, or the Bandos bastion. */
     public boolean isFortress() {
-        return this == WHITE_KNIGHTS_FORTRESS || this == BLACK_KNIGHTS_FORTRESS;
+        return this == WHITE_KNIGHTS_FORTRESS || this == BLACK_KNIGHTS_FORTRESS || this == BANDOS_BASTION;
     }
 
     /**
@@ -136,9 +164,34 @@ public enum BuildingType {
             case CHAOS_TEMPLE:
             case STONE_CIRCLE:
                 return Faction.ZAMORAK;
+            case GOBLIN_CAVE:
+            case WAR_PIT:
+            case BANDOS_TEMPLE:
+            case BANDOS_BASTION:
+                return Faction.BANDOS;
             default:
                 return null;
         }
+    }
+
+    /**
+     * Whether a faction's teams go without it though every god's may build it: Bandos's goblins dig caves rather than
+     * build houses, and train in a war pit rather than a barracks, an archery range or stables.
+     */
+    public boolean shunnedBy(Faction faction) {
+        return faction == Faction.BANDOS
+            && (this == HOUSE || this == BARRACKS || this == ARCHERY_RANGE || this == STABLES);
+    }
+
+    /** The units it trains for a team of the faction: a Bandos town center trains slaves and goblins, not workers. */
+    public List<UnitKind> trainsFor(Faction faction) {
+        List<UnitKind> kinds = new ArrayList<>();
+        for (UnitKind kind : trains) {
+            if (kind.trainableBy(faction)) {
+                kinds.add(kind);
+            }
+        }
+        return kinds;
     }
 
     /** Whether dark wizards raise it rather than workers. */
@@ -156,7 +209,7 @@ public enum BuildingType {
 
     /** Whether a team of the faction can build it. */
     public boolean buildableBy(Faction faction) {
-        return buildable && (faction() == null || faction() == faction);
+        return buildable && (faction() == null || faction() == faction) && !shunnedBy(faction);
     }
 
     /** The name of an age, such as "Age II". */
@@ -284,7 +337,7 @@ public enum BuildingType {
         if (this == TOWN_HALL) {
             return Config.townCenterPopulation + (level - 1) * Config.townCenterPopulation / 2;
         }
-        if (this == HOUSE) {
+        if (this == HOUSE || this == GOBLIN_CAVE) {
             return Config.housePopulation;
         }
         return 0;

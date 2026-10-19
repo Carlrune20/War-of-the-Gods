@@ -212,12 +212,41 @@ ZAMORAK_SMALL = [
     "...##...",
 ]
 
+# Bandos's mark: a spiked crest over two tusks.
+BANDOS = [
+    "#....##....#",
+    "##..####..##",
+    ".##########.",
+    "..########..",
+    "...######...",
+    "..##.##.##..",
+    "..########..",
+    ".##.####.##.",
+    ".#..####..#.",
+    "#....##....#",
+    ".....##.....",
+    "....#..#....",
+]
+BANDOS_SMALL = [
+    "#..##..#",
+    ".######.",
+    "..####..",
+    ".#.##.#.",
+    ".######.",
+    "#..##..#",
+    "...##...",
+    "..#..#..",
+]
+
 BLUE = (40, 66, 168)
 WHITE = (236, 236, 230)
 GOLD = (222, 180, 52)
 BLACK = (28, 24, 26)
 RED = (168, 28, 26)
 DARK_RED = (104, 18, 18)
+GREEN = (74, 106, 42)
+BROWN = (106, 74, 42)
+DARK_BROWN = (62, 42, 24)
 ROD = (92, 64, 36)
 ROD_END = (200, 164, 60)
 
@@ -227,6 +256,8 @@ BANNERS = {
     "saradomin_inverted": (WHITE, BLUE, GOLD, GOLD, STAR, STAR_SMALL),
     "zamorak": (BLACK, RED, DARK_RED, RED, ZAMORAK, ZAMORAK_SMALL),
     "zamorak_inverted": (RED, BLACK, (60, 10, 10), BLACK, ZAMORAK, ZAMORAK_SMALL),
+    "bandos": (GREEN, BROWN, DARK_BROWN, BROWN, BANDOS, BANDOS_SMALL),
+    "bandos_inverted": (BROWN, GREEN, (36, 52, 20), GREEN, BANDOS, BANDOS_SMALL),
 }
 
 

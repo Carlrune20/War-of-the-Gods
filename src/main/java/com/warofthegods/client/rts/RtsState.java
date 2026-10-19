@@ -30,6 +30,12 @@ public final class RtsState {
         public boolean hero;
         /** Whether training it brings out a horse for players to ride, which takes no room, rather than a unit. */
         public boolean animal;
+        /** The gods whose teams can train it. */
+        public final List<String> factions = new ArrayList<>();
+
+        public boolean trainableBy(String faction) {
+            return factions.isEmpty() || factions.contains(faction);
+        }
     }
 
     public static final class LevelInfo {
@@ -61,6 +67,8 @@ public final class RtsState {
         public boolean buildable;
         /** The only faction whose teams can build it, or null when every team can. */
         public String faction;
+        /** The gods whose teams will not build it, as Bandos will not build houses or barracks. */
+        public final List<String> shunnedBy = new ArrayList<>();
         public int health;
         public int workers;
         /** Raised by dark wizards rather than workers, as the stone circle is. */
@@ -160,8 +168,14 @@ public final class RtsState {
         /** The protection prayer it has up: melee, missiles, magic or none. */
         public String prayer = "none";
 
+        /** Whether it gathers and carries resources home: a worker, or Bandos's slave. */
         public boolean isWorker() {
-            return "worker".equals(kind);
+            return "worker".equals(kind) || "slave".equals(kind);
+        }
+
+        /** Whether it builds: a worker or slave, or one of Bandos's goblins, who fight too. */
+        public boolean canBuild() {
+            return isWorker() || "goblin".equals(kind) || "goblin_thrower".equals(kind);
         }
 
         public boolean isDarkWizard() {
@@ -308,6 +322,9 @@ public final class RtsState {
             kindInfo.fights = bool(kind, "fights");
             kindInfo.hero = bool(kind, "hero");
             kindInfo.animal = bool(kind, "animal");
+            for (JsonElement faction : array(kind, "factions")) {
+                kindInfo.factions.add(faction.getAsString());
+            }
             info.unitKinds.put(kindInfo.id, kindInfo);
         }
         for (Map.Entry<String, JsonElement> entry : object(json, "buildingTypes").entrySet()) {
@@ -320,6 +337,9 @@ public final class RtsState {
             typeInfo.buildable = bool(type, "buildable");
             typeInfo.wizards = bool(type, "wizards");
             typeInfo.faction = type.has("faction") ? string(type, "faction") : null;
+            for (JsonElement faction : array(type, "shunnedBy")) {
+                typeInfo.shunnedBy.add(faction.getAsString());
+            }
             typeInfo.age = type.has("age") ? integer(type, "age") : 1;
             typeInfo.requires = type.has("requires") ? string(type, "requires") : null;
             typeInfo.health = integer(type, "health");

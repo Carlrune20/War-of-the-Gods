@@ -1,6 +1,5 @@
 package com.warofthegods.client;
 
-import net.minecraft.client.renderer.entity.RenderArrow;
 import net.minecraftforge.client.MinecraftForgeClient;
 
 import com.warofthegods.CommonProxy;
@@ -28,7 +27,7 @@ public class ClientProxy extends CommonProxy {
     public void init() {
         RenderingRegistry.registerEntityRenderingHandler(EntityUnit.class, new RenderUnit());
         RenderingRegistry.registerEntityRenderingHandler(EntityCommanderBody.class, new RenderCommanderBody());
-        RenderingRegistry.registerEntityRenderingHandler(EntityTeamArrow.class, new RenderArrow());
+        RenderingRegistry.registerEntityRenderingHandler(EntityTeamArrow.class, new RenderTeamArrow());
         RenderingRegistry.registerEntityRenderingHandler(EntityCarcass.class, new RenderCarcass());
         RenderingRegistry.registerEntityRenderingHandler(EntitySpell.class, new RenderSpell());
         MinecraftForgeClient.registerItemRenderer(

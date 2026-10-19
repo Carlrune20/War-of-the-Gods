@@ -22,6 +22,8 @@ public class EntityTeamArrow extends EntityArrow {
 
     /** Whether it is a fire arrow, kept where the client sees it to draw the flames. */
     private static final int FLAMING = 17;
+    /** Whether it is a goblin's thrown axe rather than an arrow, kept where the client sees it to draw the axe. */
+    private static final int AXE = 18;
 
     private String teamId = "";
 
@@ -55,6 +57,16 @@ public class EntityTeamArrow extends EntityArrow {
     protected void entityInit() {
         super.entityInit();
         dataWatcher.addObject(FLAMING, (byte) 0);
+        dataWatcher.addObject(AXE, (byte) 0);
+    }
+
+    /** Makes it an axe a goblin threw: it flies and hits as an arrow does, but is drawn as a spinning axe. */
+    public void setAxe(boolean axe) {
+        dataWatcher.updateObject(AXE, (byte) (axe ? 1 : 0));
+    }
+
+    public boolean isAxe() {
+        return dataWatcher.getWatchableObjectByte(AXE) != 0;
     }
 
     /**

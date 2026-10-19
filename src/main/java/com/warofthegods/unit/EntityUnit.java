@@ -216,6 +216,8 @@ public class EntityUnit extends EntityCreature {
     private static final int[] DEMON_DAMAGE = { 0, 3, 6 };
     /** How much harder a hero hits a myth unit. */
     private static final float HERO_VS_MYTH_DAMAGE = 2.0F;
+    /** How much harder a hobgoblin's spear hits a rider or a centaur. */
+    private static final float SPEAR_VS_RIDERS = 2.0F;
     /** Ticks the computer waits after switching a hero's prayer before it switches again. */
     private static final int AI_PRAYER_SWITCH_TICKS = 100;
 
@@ -477,14 +479,25 @@ public class EntityUnit extends EntityCreature {
         // Blue wizards hold a staff, Zamorak mages Zamorak's own and dark wizards nothing, casting from bare hands;
         // priests and monks a holy book; a demon its claws, and a centaur the bow its model has in hand.
         if (kind.isCaster()) {
+            // A goblin priest shakes a bone, Steelwill a blaze rod.
             return kind == UnitKind.ZAMORAK_MAGE ? WarOfTheGods.zamorakStaff
-                : kind == UnitKind.DARK_WIZARD ? null : Items.stick;
+                : kind == UnitKind.DARK_WIZARD ? null
+                    : kind == UnitKind.GOBLIN_PRIEST ? Items.bone
+                        : kind == UnitKind.STEELWILL ? Items.blaze_rod : Items.stick;
         }
         if (kind.worships()) {
             return Items.book;
         }
-        if (kind.hasOwnModel()) {
+        // Hobgoblins, orks, ogres and Graardor carry the spear, cleaver or club their model has in hand.
+        if (kind.hasOwnModel() || kind.creatureModel() != null && !kind.isGoblin()) {
             return null;
+        }
+        // Goblins fight with axes, which their axe-throwers throw too; Strongstack's is diamond.
+        if (kind == UnitKind.STRONGSTACK) {
+            return Items.diamond_axe;
+        }
+        if (kind == UnitKind.GOBLIN || kind == UnitKind.GOBLIN_THROWER || kind == UnitKind.SPIRITUAL_WARRIOR) {
+            return AXES[tier(team, Upgrade.FORGED_BLADES, Upgrade.TEMPERED_STEEL)];
         }
         if (kind.ranged) {
             return Items.bow;
@@ -577,8 +590,8 @@ public class EntityUnit extends EntityCreature {
         if (attack.getBaseValue() != damage) {
             attack.setBaseValue(damage);
         }
-        // Riders and centaurs go faster than men on foot, and their horses make them wider.
-        double speed = MOVEMENT_SPEED * (kind.isFast() ? MOUNTED_SPEED : 1);
+        // Riders and centaurs go faster than men on foot, and their horses make them wider; orks and ogres plod.
+        double speed = MOVEMENT_SPEED * kind.speedFactor();
         IAttributeInstance movement = getEntityAttribute(SharedMonsterAttributes.movementSpeed);
         if (movement.getBaseValue() != speed) {
             movement.setBaseValue(speed);
@@ -644,13 +657,21 @@ public class EntityUnit extends EntityCreature {
         return kind;
     }
 
+    /** Whether it gathers and carries home what it gathers: a worker, or one of Bandos's slaves. */
     public boolean isWorker() {
-        return kind == UnitKind.WORKER;
+        return kind.gathers();
     }
 
-    /** Whether the unit can raise or repair a building of the type: dark wizards a stone circle, workers the rest. */
+    /** Whether it builds and repairs: workers and slaves, and Bandos's goblins and axe-throwers. */
+    public boolean canBuild() {
+        return kind.builds();
+    }
+
+    /**
+     * Whether the unit can raise or repair a building of the type: dark wizards a stone circle, builders the rest.
+     */
     public boolean canRaise(BuildingType type) {
-        return type.raisedByWizards() ? kind == UnitKind.DARK_WIZARD : isWorker();
+        return type.raisedByWizards() ? kind == UnitKind.DARK_WIZARD : canBuild();
     }
 
     /** The foot of the tree a worker chops, as x, y, z, or null when it chops none. */
@@ -1346,12 +1367,14 @@ public class EntityUnit extends EntityCreature {
 
     /**
      * A rider on its horse is wider than a man on foot, a centaur as wide and taller, and a demon taller still, the
-     * more so as a greater or black demon.
+     * more so as a greater or black demon. Goblins are shorter than a man, and orks and ogres taller and wider.
      */
     private void fitSize(UnitKind kind, int tier) {
-        float wide = kind.isMounted() || kind.hasOwnModel() ? MOUNTED_WIDTH : 0.6F;
+        float scale = kind.scale(tier);
+        float wide = kind.isMounted() || kind.hasOwnModel() || scale >= 1.25F ? MOUNTED_WIDTH : 0.6F;
+        // Heroes stand taller in look only; goblins stand shorter, and Bandos's brutes taller.
         float tall = kind == UnitKind.CENTAUR ? CENTAUR_HEIGHT
-            : 1.8F * Math.max(1, kind == UnitKind.LESSER_DEMON ? kind.scale(tier) : 1);
+            : 1.8F * (kind == UnitKind.LESSER_DEMON || kind.creatureModel() != null ? scale : 1);
         if (width != wide || height != tall) {
             setSize(wide, tall);
         }
@@ -1512,7 +1535,7 @@ public class EntityUnit extends EntityCreature {
             }
             // Only so many work a farm: the rest go to another nearby with room, or stand by.
             Game game = GameManager.getGame();
-            Building workplace = game == null || !Units.takesWorkers(site) ? null
+            Building workplace = game == null || !isWorker() || !Units.takesWorkers(site) ? null
                 : Units.workplaceFor(game, this, site);
             if (workplace != null) {
                 orderBuild(workplace);
@@ -2011,7 +2034,9 @@ public class EntityUnit extends EntityCreature {
             getNavigator().clearPathEntity();
             getLookHelper().setLookPosition(building.getCenterX(), building.groundY + 1, building.getCenterZ(), 30, 30);
             // Knights hit buildings harder than warriors, and heroes harder still.
-            int damage = Config.unitBuildingDamage * (1 + (kind.extraDamage + kind.extraArrowDamage) / 3);
+            // Orks and ogres smash them harder still.
+            int damage = (int) (Config.unitBuildingDamage * (1 + (kind.extraDamage + kind.extraArrowDamage) / 3)
+                * kind.buildingDamageFactor());
             if (kind.ranged) {
                 if (drawBow()) {
                     // A wizard's spell, or an archer's arrow; either way the building takes the same.
@@ -2033,6 +2058,10 @@ public class EntityUnit extends EntityCreature {
                 swingItem();
                 Buildings.get()
                     .damage(building, damage, getCommandSenderName().replaceAll("\u00a7.", ""));
+            }
+            if (GameManager.getGame() != null && GameManager.getGame()
+                .getBuilding(building.id) == null) {
+                WarFavor.razed(this);
             }
             progressTicks = 0;
             return;
@@ -2076,6 +2105,14 @@ public class EntityUnit extends EntityCreature {
             victim,
             Config.archerDamage + kind.extraArrowDamage + (team != null && team.has(Upgrade.FLETCHING) ? 1 : 0));
         arrow.setFlaming(team != null && team.has(Upgrade.FIRE_ARROWS));
+        if (kind.throwsAxes()) {
+            // An axe-thrower throws the axe in its hand, with a swing of its arm.
+            arrow.setAxe(true);
+            swingItem();
+            worldObj.spawnEntityInWorld(arrow);
+            playSound("random.bow", 0.8F, 0.5F + rand.nextFloat() * 0.2F);
+            return;
+        }
         worldObj.spawnEntityInWorld(arrow);
         playSound("random.bow", 1.0F, 1.0F / (rand.nextFloat() * 0.4F + 0.8F));
     }
@@ -2083,7 +2120,8 @@ public class EntityUnit extends EntityCreature {
     /** Casts a spell at the victim: now and then a curse it is not already under, otherwise a strike. */
     private void cast(EntityLivingBase victim) {
         Spell spell = pickSpell(victim);
-        float damage = spell.isCurse() ? 0 : spell.damage + (kind == UnitKind.ZAMORAK_MAGE ? MAGE_EXTRA_DAMAGE : 0);
+        float damage = spell.isCurse() ? 0
+            : spell.damage + (kind == UnitKind.ZAMORAK_MAGE ? MAGE_EXTRA_DAMAGE : kind.extraArrowDamage);
         EntitySpell bolt = new EntitySpell(worldObj, this, teamId, spell, damage);
         bolt.aim(victim);
         worldObj.spawnEntityInWorld(bolt);
@@ -2493,6 +2531,11 @@ public class EntityUnit extends EntityCreature {
     @Override
     public boolean attackEntityAsMob(Entity victim) {
         float damage = (float) getEntityAttribute(SharedMonsterAttributes.attackDamage).getAttributeValue();
+        // A hobgoblin's spear goes into riders and centaurs twice as hard.
+        if (kind.isSpearman() && victim instanceof EntityUnit && ((EntityUnit) victim).kind.isFast()) {
+            damage *= SPEAR_VS_RIDERS;
+        }
+        damage += WarFavor.heroBonus(this);
         return victim.attackEntityFrom(DamageSource.causeMobDamage(this), damage);
     }
 
@@ -2514,6 +2557,10 @@ public class EntityUnit extends EntityCreature {
         // Heroes hit myth units, such as lesser demons, twice as hard, blows and arrows alike.
         if (kind.isMyth() && attacker instanceof EntityUnit && ((EntityUnit) attacker).kind.hero) {
             amount *= HERO_VS_MYTH_DAMAGE;
+        }
+        // Goblins near Sergeant Steelwill take less from spells.
+        if (source.isMagicDamage() && kind.isGoblin() && WarFavor.nearHero(this, UnitKind.STEELWILL)) {
+            amount *= WarFavor.STEELWILL_SPELL_DAMAGE;
         }
         // Protect from Magic keeps fire off, so nothing burns while it is up.
         if (prayer == Prayer.MAGIC && source.isFireDamage()) {

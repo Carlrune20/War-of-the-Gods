@@ -41,6 +41,20 @@ public class Config {
         unitCosts.put(UnitKind.BLUE_WIZARD, new long[] { 60, 0, 50, 0 });
         unitCosts.put(UnitKind.LESSER_DEMON, new long[] { 300, 0, 300, 7 });
         unitCosts.put(UnitKind.CENTAUR, new long[] { 150, 150, 0, 3 });
+        unitCosts.put(UnitKind.SLAVE, new long[] { 40, 0, 0, 0 });
+        unitCosts.put(UnitKind.GOBLIN, new long[] { 30, 0, 10, 0 });
+        unitCosts.put(UnitKind.GOBLIN_THROWER, new long[] { 30, 25, 0, 0 });
+        unitCosts.put(UnitKind.HOBGOBLIN, new long[] { 50, 0, 30, 0 });
+        unitCosts.put(UnitKind.ORK, new long[] { 90, 0, 60, 0 });
+        unitCosts.put(UnitKind.OGRE, new long[] { 150, 0, 100, 0 });
+        unitCosts.put(UnitKind.GOBLIN_PRIEST, new long[] { 50, 0, 30, 0 });
+        unitCosts.put(UnitKind.SPIRITUAL_WARRIOR, new long[] { 80, 0, 60, 4 });
+        unitCosts.put(UnitKind.SPIRITUAL_RANGER, new long[] { 70, 60, 0, 4 });
+        unitCosts.put(UnitKind.SPIRITUAL_MAGE, new long[] { 70, 0, 80, 5 });
+        unitCosts.put(UnitKind.STRONGSTACK, new long[] { 200, 0, 300, 0 });
+        unitCosts.put(UnitKind.STEELWILL, new long[] { 200, 0, 300, 0 });
+        unitCosts.put(UnitKind.GRIMSPIKE, new long[] { 200, 0, 300, 0 });
+        unitCosts.put(UnitKind.GRAARDOR, new long[] { 400, 0, 600, 20 });
     }
 
     public static int unitsPerTeam = 100;
@@ -76,6 +90,11 @@ public class Config {
         // Bridges cost wood for every block of their length.
         defaults(BuildingType.BRIDGE, new long[] { 0, 6, 0 }, 150, 3);
         defaults(BuildingType.QUARRY, new long[] { 0, 500, 0 }, 500, 20);
+        // A goblin cave is free, but slow to dig and easy to knock down.
+        defaults(BuildingType.GOBLIN_CAVE, new long[] { 0, 0, 0 }, 150, 40);
+        defaults(BuildingType.WAR_PIT, new long[] { 0, 150, 50 }, 800, 25);
+        defaults(BuildingType.BANDOS_TEMPLE, new long[] { 0, 150, 100 }, 900, 30);
+        defaults(BuildingType.BANDOS_BASTION, new long[] { 0, 300, 400 }, 4500, 90);
     }
 
     /** Food, Wood and Gold the town center costs to go up to level 2, and to level 3. */
@@ -103,6 +122,16 @@ public class Config {
      */
     public static int priestFavorSeconds = 45;
     public static int monkFavorSeconds = 90;
+    /** Seconds a goblin priest praying at a Bandos temple takes to earn a favor: Bandos grants most of his for war. */
+    public static int goblinPriestFavorSeconds = 90;
+    /**
+     * Bandos's favor for war: a favor for every so many enemy units, or wild mobs, his teams kill within
+     * warFavorRange blocks of one of their goblin priests, and favor for every enemy building they raze.
+     */
+    public static int killsPerFavor = 3;
+    public static int mobKillsPerFavor = 6;
+    public static int razeFavor = 3;
+    public static int warFavorRange = 16;
     /** The most favor a team can hold; what the gods grant beyond it is lost. */
     public static int maxFavor = 100;
     /** Wood one log of a tree holds; a tree holds between treeWoodMin and treeWoodMax in all. */
@@ -524,6 +553,41 @@ public class Config {
             1,
             3600,
             "Seconds a monk takes to earn its team a favor, wherever it is.");
+        goblinPriestFavorSeconds = configuration.getInt(
+            "goblinPriestFavorSeconds",
+            units,
+            goblinPriestFavorSeconds,
+            1,
+            3600,
+            "Seconds a goblin priest praying at a Bandos temple takes to earn its team a favor; a temple has room for 5.");
+        killsPerFavor = configuration.getInt(
+            "killsPerFavor",
+            units,
+            killsPerFavor,
+            1,
+            1000,
+            "Enemy units a Bandos team kills near one of its goblin priests for each favor Bandos grants.");
+        mobKillsPerFavor = configuration.getInt(
+            "mobKillsPerFavor",
+            units,
+            mobKillsPerFavor,
+            1,
+            1000,
+            "Wild mobs a Bandos team kills near one of its goblin priests for each favor Bandos grants.");
+        razeFavor = configuration.getInt(
+            "razeFavor",
+            units,
+            razeFavor,
+            0,
+            100,
+            "Favor Bandos grants a team for each enemy building its units destroy.");
+        warFavorRange = configuration.getInt(
+            "warFavorRange",
+            units,
+            warFavorRange,
+            1,
+            128,
+            "Blocks from one of its goblin priests within which a Bandos team's kills earn favor.");
         maxFavor = configuration.getInt(
             "maxFavor",
             units,

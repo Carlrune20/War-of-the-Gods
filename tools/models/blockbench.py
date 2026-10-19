@@ -40,12 +40,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.path.join(HERE, "..", "..", "src", "main", "resources", "assets", "warofthegods")
 BLOCKBENCH = os.path.join(HERE, "blockbench")
 NAMES = ("lesser_demon", "greater_demon", "black_demon", "centaur", "zamorak_staff", "silverlight", "white_knight",
-         "black_knight", "elite_black_knight", "justiciar")
+         "black_knight", "elite_black_knight", "justiciar", "goblin", "hobgoblin", "ork", "ogre")
 # The knights wear the skins of their units, one for each god's teams though both look the same; by model, the skin's
 # name after the faction's.
 SKINS = {"white_knight": "white_knight", "black_knight": "black_knight", "elite_black_knight": "black_knight_elite",
          "justiciar": "white_knight_elite"}
-FACTIONS = ("saradomin", "zamorak")
+FACTIONS = ("saradomin", "zamorak", "bandos")
 ICONS = ("zamorak_staff", "silverlight")
 GLOW = "_glow"
 # Blockbench's models stand on y = 0 with y up; the game's hang from y = 24 with y down, x the other way about.
@@ -408,9 +408,12 @@ def import_(files, into):
             file.write(model_json(model))
         texture = textures.get(name + ".png") or next(
             (data for key, data in textures.items() if not key.endswith("_team.png")), None)
-        if texture is not None and not (out["skins"] and unchanged(out["texture"], texture)):
-            # A knight's skin, once painted, goes to both gods' teams.
+        if texture is not None:
+            # A knight's skin, once painted, goes to every god's teams; a god's copy it has none of yet, it gets.
+            painted = not (out["skins"] and unchanged(out["texture"], texture))
             for target in out["skins"] or [out["texture"]]:
+                if not painted and os.path.exists(target):
+                    continue
                 os.makedirs(os.path.dirname(target), exist_ok=True)
                 with open(target, "wb") as file:
                     file.write(texture)

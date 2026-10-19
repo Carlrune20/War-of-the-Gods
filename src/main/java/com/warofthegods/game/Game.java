@@ -362,13 +362,14 @@ public class Game {
     }
 
     /**
-     * The team's workers, loaded or not. A unit saved before kinds were remembered counts until it is next seen, so a
-     * team is never thought to have none while its units are still loading.
+     * The team's workers, loaded or not: whoever can raise a new town center, Bandos's slaves and goblins included. A
+     * unit saved before kinds were remembered counts until it is next seen, so a team is never thought to have none
+     * while its units are still loading.
      */
     public int countWorkers(Team team) {
         int count = 0;
         for (UnitRecord unit : units.values()) {
-            if (unit.team.equals(team.getId()) && (unit.kind == null || unit.kind == UnitKind.WORKER)) {
+            if (unit.team.equals(team.getId()) && (unit.kind == null || unit.kind.builds())) {
                 count++;
             }
         }
