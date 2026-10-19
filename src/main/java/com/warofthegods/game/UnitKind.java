@@ -46,7 +46,7 @@ public enum UnitKind {
      * A lesser demon of Zamorak, huge and strong, summoned at a stone circle by four dark wizards for favor, food and
      * gold. Nothing knocks it back, and between its blows it hurls a fireball every 10 to 15 seconds.
      */
-    LESSER_DEMON("lesser_demon", "Lesser demon", "lesserDemon", 10, 8, 0, 0, 6, false, false),
+    LESSER_DEMON("lesser_demon", "Lesser demon", "lesserDemon", 10, 8, 0, 0, 3, false, false),
     /**
      * A centaur of Saradomin, man above and horse below, trained at the monastery for food, wood and favor. It shoots
      * a longbow farther than an archer, harder, and runs as fast as a rider.

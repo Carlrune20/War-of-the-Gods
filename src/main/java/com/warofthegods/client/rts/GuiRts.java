@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -912,23 +913,49 @@ public final class GuiRts extends GuiScreen {
         return true;
     }
 
-    /** Right-clicking one of the team's building sites, or a farm, sends the selected workers to it. */
+    /**
+     * Right-clicking one of the team's building sites, damaged buildings or farms sends the selected units that can
+     * build it there: dark wizards to a stone circle, workers to the rest. Any others selected walk there.
+     */
     private boolean orderBuild(int px, int py) {
         RtsState.BuildingInfo building = buildingAt(px, py);
         RtsState.TeamInfo team = state().myTeam();
         RtsState.BuildingTypeInfo type = building == null ? null : state().buildingType(building.type);
-        Set<String> workers = client.selectedBuilders();
-        if (building == null || team == null
-            || !building.team.equals(team.id)
-            || workers.isEmpty()
-            || (building.complete && building.health >= building.maxHealth && (type == null || type.workers == 0))) {
+        if (building == null || team == null || !building.team.equals(team.id)) {
             return false;
         }
-        client.mark(building.x + building.sizeX / 2.0, building.y + 1, building.z + building.sizeZ / 2.0, false);
-        JsonObject body = unitsBody(workers);
+        boolean whole = building.complete && building.health >= building.maxHealth;
+        boolean wizards = type != null && type.wizards;
+        // A whole building needs no building or repair; only workers go to work a farm.
+        Set<String> builders = new LinkedHashSet<>();
+        if (!whole || (!wizards && type != null && type.workers > 0)) {
+            for (String id : client.selected) {
+                RtsState.UnitInfo unit = state().units.get(id);
+                if (unit != null && (wizards ? unit.isDarkWizard() : unit.isWorker())) {
+                    builders.add(id);
+                }
+            }
+        }
+        if (builders.isEmpty()) {
+            return false;
+        }
+        double x = building.x + building.sizeX / 2.0;
+        double z = building.z + building.sizeZ / 2.0;
+        client.mark(x, building.y + 1, z, false);
+        JsonObject body = unitsBody(builders);
         body.addProperty("building", building.id);
         body.addProperty("queue", isShiftKeyDown());
         client.command("units.build", body, null);
+        Set<String> others = new LinkedHashSet<>(client.selected);
+        others.removeAll(builders);
+        if (!others.isEmpty()) {
+            JsonObject move = unitsBody(others);
+            move.addProperty("x", x);
+            move.addProperty("z", z);
+            move.addProperty("formation", client.formation);
+            move.addProperty("queue", isShiftKeyDown());
+            client.command("units.move", move, null);
+        }
         return true;
     }
 
