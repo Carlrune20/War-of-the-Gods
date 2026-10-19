@@ -149,10 +149,12 @@ public final class Commanders {
         }
     }
 
-    public void setState(JsonObject message) {
-        stateMessage = message.toString();
+    public void setState(String message) {
+        stateMessage = message;
+        // One message for everyone, so it is compressed once however many are commanding.
+        RtsMessage packet = new RtsMessage(message);
         for (EntityPlayerMP player : online()) {
-            RtsNetwork.sendTo(player, stateMessage);
+            RtsNetwork.sendTo(player, packet);
         }
     }
 

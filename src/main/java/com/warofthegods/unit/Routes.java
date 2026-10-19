@@ -309,6 +309,10 @@ public final class Routes {
                     && !game.areEnemies(own, owner)) {
                     continue;
                 }
+                // Only those within the searched area: every block looked at is checked against each of them.
+                if (!building.overlaps(minX, minZ, maxX - minX + 1, maxZ - minZ + 1, 0)) {
+                    continue;
+                }
                 if (building.getShown() != null && !building.covers(goalX + 0.5, goalZ + 0.5, 0)
                     && !building.covers(startX + 0.5, startZ + 0.5, 0)) {
                     buildings.add(building);
