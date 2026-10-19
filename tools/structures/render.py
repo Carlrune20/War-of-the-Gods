@@ -40,7 +40,8 @@ SLAB_TEXTURES = ["stone_slab_top", "sandstone_normal", "planks_oak", "cobbleston
 CROSS = {6: "sapling_oak", 30: "web", 31: "tallgrass", 32: "deadbush", 37: "flower_dandelion", 38: "flower_rose",
          59: "wheat_stage_7", 115: "nether_wart_stage_2", 141: "carrots_stage_3", 142: "potatoes_stage_3",
          51: "fire_layer_0", 209: "fire_layer_0"}
-BANNER_KINDS = {205: "saradomin", 206: "saradomin_inverted", 207: "zamorak", 208: "zamorak_inverted"}
+BANNER_KINDS = {205: "saradomin", 206: "saradomin_inverted", 207: "zamorak", 208: "zamorak_inverted", 210: "bandos",
+                211: "bandos_inverted"}
 
 
 class Textures:

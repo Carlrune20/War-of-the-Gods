@@ -19,7 +19,6 @@ SPIRIT_SKIN = (150, 208, 196)
 HOBGOBLIN_SKIN = (150, 112, 62)
 ORK_SKIN = (84, 104, 64)
 GRAARDOR_SKIN = (70, 88, 60)
-OGRE_SKIN = (154, 136, 94)
 
 EYE = (220, 40, 30)
 EYE_YELLOW = (240, 210, 60)
@@ -259,189 +258,711 @@ def feet(skin):
 
 # ---------------------------------------------------------------- the goblin
 #
-# A small, hunched goblin: a head as wide as its shoulders, long ears sticking out sideways and a long nose, a pot
-# belly on short bowed legs, and long arms. Over it, boxes left clear unless the kind wears them: a helmet or hood
-# over the head, a tunic, robe or plate over the body, and a robe's skirt or greaves over the legs.
+# A goblin as in Old School RuneScape: lanky and stooped, its small head thrust forward on a hunched back, a long nose
+# and jutting jaw, long pointed ears sweeping up and back and a tuft of hair down its crown; long thin arms with iron
+# pauldrons on the shoulders, a sleeveless tunic hanging to its knees in front and behind, a loincloth, and big bare
+# feet. Over the head a box is left clear unless the kind wears a helmet or hood, and over the shins wraps or greaves.
 
-# By kind: skin, eyes, then the paint for the helmet, the body's covering, the arms', and the legs'.
+CLOTH = (204, 194, 168)
+CLOTH_DARK = (168, 158, 134)
+HAIR = (44, 36, 30)
+LOIN = (110, 76, 44)
+# Plain eyes: a dark pupil beside the white.
+GOBLIN_EYE = (52, 40, 30)
+EYE_WHITE = (232, 230, 220)
+
+
+def cloth(color, dark):
+    """A sleeveless tunic, its hem a little darker."""
+
+    def fn(face, x, y, w, h):
+        if face == "bottom":
+            return CLEAR
+        if y == h - 1 or (x * 3 + y * 5) % 11 == 0:
+            return dark
+        return color
+
+    return fn
+
+
+def skirt(color, dark):
+    """The tunic's flap hanging in front or behind, its bottom edge torn."""
+
+    def fn(face, x, y, w, h):
+        if face in ("top", "bottom"):
+            return CLEAR
+        if y == h - 1 and x % 2 == 1:
+            return CLEAR
+        return dark if y == h - 1 or x in (0, w - 1) else color
+
+    return fn
+
+
+def loin(face, x, y, w, h):
+    if face == "bottom":
+        return CLEAR
+    if y == 0:
+        return (TEAM, 210)                                               # a belt in the team's color
+    return LOIN if (x + y) % 3 else shade(LOIN, 0.8)
+
+
+def mohawk(color):
+    def fn(face, x, y, w, h):
+        return shade(color, 1.2) if face == "top" else color
+
+    return fn
+
+
+def goblin_head(skin, eye):
+    """A small head: plain eyes, white with a dark pupil each, under a heavy brow, and a mouth with a fang poking up
+    at each corner."""
+    base = flesh(skin)
+
+    def fn(face, x, y, w, h):
+        if face == "front":
+            if y == 1:
+                return shade(skin, 0.7)
+            if y == 2 and x in (0, w - 1):
+                return EYE_WHITE
+            if y == 2 and x in (1, w - 2):
+                return eye
+            if y == h - 1 and 1 <= x <= w - 2:
+                return TOOTH if x in (1, w - 2) else MOUTH
+        return base(face, x, y, w, h)
+
+    return fn
+
+
+# By kind: skin, eyes, then the paint for the helmet or hood, the tunic (and its flaps), the pauldrons and the shin
+# wraps.
 GOBLIN_LOOKS = {
-    "goblin": (GOBLIN_SKIN, EYE, clear, tunic(None, None), clear, clear),
-    "goblin_thrower": (GOBLIN_SKIN, EYE, helm(LEATHER, LEATHER, LEATHER_DARK), tunic(LEATHER, LEATHER_DARK, False),
-                       team_band, clear),
-    "goblin_priest": (GOBLIN_SKIN, EYE_YELLOW, hood(ROBE, ROBE_DARK), robe(ROBE, ROBE_DARK), clear,
-                      robe(ROBE, ROBE_DARK)),
-    "spiritual_warrior": (SPIRIT_SKIN, SPIRIT_EYE, helm(STEEL_LIGHT, STEEL, STEEL_DARK),
-                          plate(STEEL_LIGHT, STEEL, STEEL_DARK), clear, clear),
+    "goblin": (GOBLIN_SKIN, GOBLIN_EYE, clear, (CLOTH, CLOTH_DARK), iron, clear),
+    "goblin_thrower": ((126, 146, 52), GOBLIN_EYE, clear, (LEATHER, LEATHER_DARK), plain(LEATHER), team_band),
+    "goblin_priest": ((96, 134, 70), GOBLIN_EYE, hood(ROBE, ROBE_DARK), (ROBE, ROBE_DARK), clear, clear),
+    "spiritual_warrior": (SPIRIT_SKIN, SPIRIT_EYE, helm(STEEL_LIGHT, STEEL, STEEL_DARK), (STEEL, STEEL_DARK), iron,
+                          plain(STEEL)),
     "spiritual_ranger": (SPIRIT_SKIN, SPIRIT_EYE, hood(HOOD_GREEN, shade(HOOD_GREEN, 0.75)),
-                         tunic(HOOD_GREEN, shade(HOOD_GREEN, 0.75), False), team_band, clear),
-    "spiritual_mage": (SPIRIT_SKIN, SPIRIT_EYE, hood(PURPLE, shade(PURPLE, 0.75)), robe(PURPLE, shade(PURPLE, 0.75)),
-                       clear, robe(PURPLE, shade(PURPLE, 0.75))),
-    "strongstack": (GOBLIN_SKIN, EYE, helm(STEEL_LIGHT, STEEL, STEEL_DARK), plate(STEEL_LIGHT, STEEL, STEEL_DARK),
-                    plate(STEEL_LIGHT, STEEL, STEEL_DARK, False), plate(STEEL_LIGHT, STEEL, STEEL_DARK, False)),
-    "steelwill": (shade(GOBLIN_SKIN, 0.9), EYE_YELLOW, hood(ROBE_DARK, (30, 20, 16)),
-                  robe(ROBE_DARK, (30, 20, 16)), team_band, robe(ROBE_DARK, (30, 20, 16))),
-    "grimspike": (GOBLIN_SKIN, EYE, helm(LEATHER, LEATHER, LEATHER_DARK), tunic(None, None),
-                  plate(LEATHER, LEATHER, LEATHER_DARK, False), plate(LEATHER, LEATHER, LEATHER_DARK, False)),
+                         (HOOD_GREEN, shade(HOOD_GREEN, 0.75)), plain(LEATHER), team_band),
+    "spiritual_mage": (SPIRIT_SKIN, SPIRIT_EYE, hood(PURPLE, shade(PURPLE, 0.75)), (PURPLE, shade(PURPLE, 0.75)),
+                       clear, clear),
 }
 
 
 def goblin(kind="goblin"):
-    skin, eye, helmet, body_cover, arm_cover, leg_cover = GOBLIN_LOOKS[kind]
+    skin, eye, helmet, (tunic_color, tunic_dark), pauldron, wraps = GOBLIN_LOOKS[kind]
     m = Model("goblin", 64, 64, seed=21)
-    head = m.part("head", pivot=(0, 10, -1))
-    head.box(-4.5, -7, -4.5, 9, 7, 8, goblin_face(skin, eye))
-    head.box(-1, -4, -6.5, 2, 3, 2, nose(skin))
-    head.box(-4.5, -7, -4.5, 9, 4, 8, helmet, inflate=0.5)
+    # The head, thrust forward from the hunched shoulders.
+    head = m.part("head", pivot=(0, 8, -2.5))
+    head.box(-3, -6, -3, 6, 6, 6, goblin_head(skin, eye))
+    head.box(-2.5, -1.5, -4, 5, 2, 1, flesh(skin))                    # the jutting jaw
+    head.child("nose", pivot=(0, -3.5, -3), rotation=(0.35, 0, 0)).box(-1, -0.5, -3, 2, 2, 3, nose(skin))
+    head.box(-0.5, -8, -2, 1, 2, 5, mohawk(HAIR))
+    head.box(-3, -6, -3, 6, 3, 6, helmet, inflate=0.5)
     for side in (-1, 1):
-        ear = head.child("%s_ear" % ("left" if side > 0 else "right"), pivot=(side * 4.5, -5, -0.5),
-                         rotation=(0, 0, side * -0.25))
-        ear.box(0 if side > 0 else -4, -1, -0.5, 4, 2, 1, flesh(skin), mirror=side > 0)
-        ear.box(4 if side > 0 else -6, -1.5, -0.5, 2, 1, 1, flesh(skin), mirror=side > 0)
+        ear = head.child("%s_ear" % ("left" if side > 0 else "right"), pivot=(side * 3, -4, 0.5),
+                         rotation=(0, side * -0.45, side * -0.5))
+        ear.box(0 if side > 0 else -5, -1, -0.5, 5, 2, 1, flesh(skin), mirror=side > 0)
+        ear.box(5 if side > 0 else -7, -1.5, -0.5, 2, 1, 1, flesh(skin), mirror=side > 0)
 
-    body = m.part("body", pivot=(0, 10, 0))
-    body.box(-4, 0, -2, 8, 7, 4, flesh(skin))
-    body.box(-3.5, 3, -3, 7, 4, 1, flesh(skin))                      # the pot belly
-    body.box(-4, 0, -2, 8, 7, 4, body_cover, inflate=0.3)
-    body.box(-4, 7, -2, 8, 2, 4, body_cover, inflate=0.3)             # the hem, down over the hips
+    # A thin body, stooped forward, with the tunic's flaps hanging from it and a loincloth under them.
+    body = m.part("body", pivot=(0, 7, 0))
+    torso = body.child("torso", pivot=(0, 0, -0.5), rotation=(0.3, 0, 0))
+    torso.box(-3, 0, -1.5, 6, 8, 3, flesh(skin))
+    torso.box(-3, 0, -1.5, 6, 8, 3, cloth(tunic_color, tunic_dark), inflate=0.3)
+    torso.box(-3, 7, -1.5, 6, 2, 3, loin, inflate=0.45)
+    torso.box(-2.5, 8, -2.3, 5, 4, 1, skirt(tunic_color, tunic_dark))
+    torso.box(-2.5, 8, 1.3, 5, 4, 1, skirt(tunic_color, tunic_dark))
 
+    # Long thin arms, nearly to the knees, with pauldrons on the shoulders and bands round the wrists.
     for side in (-1, 1):
         name = "left" if side > 0 else "right"
-        arm = m.part("%s_arm" % name, pivot=(side * 5.5, 11, 0))
-        arm.box(-1.5, -1, -1.5, 3, 9, 3, flesh(skin), mirror=side > 0)
-        arm.box(-1.5, -1, -1.5, 3, 4, 3, arm_cover, inflate=0.25)
-        leg = m.part("%s_leg" % name, pivot=(side * 2, 17, 0.5))
-        leg.box(-1.5, 0, -1.5, 3, 7, 3, feet(skin), mirror=side > 0)
-        leg.box(-1.5, 0, -1.5, 3, 5, 3, leg_cover, inflate=0.3)
+        arm = m.part("%s_arm" % name, pivot=(side * 4, 8, -1))
+        arm.box(-1, -1, -1, 2, 11, 2, flesh(skin), mirror=side > 0)
+        arm.box(-1.5, -2, -1.5, 3, 2, 3, pauldron, inflate=0.3)
+        arm.box(-1, 7, -1, 2, 2, 2, team_band, inflate=0.2)
+        leg = m.part("%s_leg" % name, pivot=(side * 1.6, 15, 0))
+        leg.box(-1, 0, -1, 2, 8, 2, flesh(skin), mirror=side > 0)
+        leg.box(-1, 4, -1, 2, 3, 2, wraps, inflate=0.2)
+        leg.box(-1.5, 8, -3, 3, 1, 4, feet(skin))                     # big bare feet
     return m
 
 
 # ---------------------------------------------------------------- the hobgoblin
 #
-# A hobgoblin stands as tall as a man and broader, with a short snout, small tusks and pointed ears that stand up,
-# in a leather jerkin over a team-colored tunic, holding a long spear with an iron head.
+# A hobgoblin as in Old School RuneScape: as tall as a man, orange-skinned, its head long in the snout like a dog's,
+# with pointed ears and slit eyes; a white shirt under an open olive vest, a dark belt with an iron buckle, olive
+# breeches, great grey pauldrons and big bare feet. It holds a long spear with an iron head.
+
+HOB_SKIN = (198, 122, 34)
+VEST = (112, 104, 30)
+VEST_DARK = (84, 78, 22)
+SHIRT = (214, 208, 200)
+BELT = (58, 44, 34)
+PAULDRON = (104, 102, 108)
 
 
-def jerkin(face, x, y, w, h):
+def hob_head(face, x, y, w, h):
+    if face == "front":
+        if y == 2 and x in (1, 2, w - 3, w - 2):
+            return (40, 24, 12)                                          # slit eyes under the brow
+        if y == 1:
+            return shade(HOB_SKIN, 0.8)
+    return flesh(HOB_SKIN)(face, x, y, w, h)
+
+
+def snout(face, x, y, w, h):
+    if face == "front" and y == 0 and x in (0, w - 1):
+        return (60, 34, 16)                                              # nostrils
+    if face == "front" and y == h - 1:
+        return (70, 36, 20)                                              # the mouth
+    return flesh(HOB_SKIN, 0.85)(face, x, y, w, h)
+
+
+def vest(face, x, y, w, h):
     if face == "bottom":
         return CLEAR
-    if face == "front" and 2 <= x <= w - 3 and y < h - 3:
-        return (TEAM, 215 if (x + y) % 4 else 185)
-    if y >= h - 2:
-        return LEATHER_DARK
-    return LEATHER if (x + y) % 5 else LEATHER_DARK
+    if y == 8:
+        if face == "front" and abs(x - (w - 1) / 2) < 1:
+            return IRON                                                  # the buckle
+        return BELT
+    if y > 8:
+        return SHIRT if face == "front" and 3 <= x <= w - 4 else VEST_DARK
+    if face == "front" and 2 <= x <= w - 3:
+        return SHIRT                                                     # the shirt, where the vest hangs open
+    if face == "top" and 2 <= x <= w - 3:
+        return SHIRT
+    return VEST if (x + y) % 6 else VEST_DARK
+
+
+def breeches(face, x, y, w, h):
+    if face == "bottom" or y >= h - 2:
+        return flesh(HOB_SKIN)(face, x, y, w, h)
+    return VEST_DARK if (x + y) % 5 == 0 else shade(VEST, 0.85)
 
 
 def hobgoblin(kind="hobgoblin"):
-    skin = HOBGOBLIN_SKIN
     m = Model("hobgoblin", 128, 64, seed=22)
-    head = m.part("head", pivot=(0, 1, -0.5))
-    head.box(-4, -8, -4, 8, 8, 8, tusked_face(skin, EYE_YELLOW, tusks=False))
-    head.box(-2, -4, -5.5, 4, 3, 2, nose(skin))
+    head = m.part("head", pivot=(0, 1, -1))
+    head.box(-3.5, -7, -3.5, 7, 7, 7, hob_head)
+    head.box(-2, -4, -7, 4, 3, 4, snout)
     for side in (-1, 1):
-        head.box(side * 1.5 - 0.5, -2, -5, 1, 2, 1, tooth)
-        ear = head.child("%s_ear" % ("left" if side > 0 else "right"), pivot=(side * 4, -6, 0),
-                         rotation=(0, 0, side * 0.35))
-        ear.box(-1 if side < 0 else 0, -4, -0.5, 1, 4, 1, flesh(skin), mirror=side > 0)
+        ear = head.child("%s_ear" % ("left" if side > 0 else "right"), pivot=(side * 3, -6, 0),
+                         rotation=(-0.25, 0, side * 0.4))
+        ear.box(-1 if side < 0 else 0, -4, -0.5, 1, 4, 2, flesh(HOB_SKIN), mirror=side > 0)
 
     body = m.part("body", pivot=(0, 1, 0))
-    body.box(-4.5, 0, -2.5, 9, 12, 5, flesh(skin))
-    body.box(-4.5, 0, -2.5, 9, 12, 5, jerkin, inflate=0.3)
+    body.box(-4.5, 0, -2.5, 9, 12, 5, flesh(HOB_SKIN))
+    body.box(-4.5, 0, -2.5, 9, 12, 5, vest, inflate=0.3)
 
     for side in (-1, 1):
         name = "left" if side > 0 else "right"
         arm = m.part("%s_arm" % name, pivot=(side * 6.5, 3, 0))
-        arm.box(-2, -1.5, -2, 4, 12, 4, flesh(skin), mirror=side > 0)
-        arm.box(-2, -1.5, -2, 4, 3, 4, team_band, inflate=0.25)
+        arm.box(-2, -1.5, -2, 4, 12, 4, flesh(HOB_SKIN), mirror=side > 0)
+        arm.box(-3, -3, -3, 6, 4, 6, plate(shade(PAULDRON, 1.25), PAULDRON, shade(PAULDRON, 0.7), False))
+        arm.box(-2, 8, -2, 4, 1, 4, team_band, inflate=0.2)
         if side < 0:
             # The spear, upright in the right hand and leaning a little forward.
             spear = arm.child("spear", pivot=(0, 9.5, -0.5), rotation=(0.45, 0, 0))
             spear.box(-0.5, -16, -0.5, 1, 24, 1, wood)
             spear.box(-1, -20, -0.5, 2, 4, 1, iron)
         leg = m.part("%s_leg" % name, pivot=(side * 2.2, 13, 0))
-        leg.box(-2, 0, -2, 4, 11, 4, feet(skin), mirror=side > 0)
-        leg.box(-2, 0, -2, 4, 5, 4, plain(LEATHER_DARK), inflate=0.25)
+        leg.box(-2, 0, -2, 4, 11, 4, breeches, mirror=side > 0)
+        leg.box(-2, 10, -4, 4, 1, 2, feet(HOB_SKIN))                    # big bare feet
     return m
 
 
 # ---------------------------------------------------------------- the ork
 #
-# An ork is a head taller than a man and twice as broad: a small head sunk between its shoulders, a jutting jaw with
-# tusks, iron shoulder plates with a team-colored rim, and a heavy cleaver in its right hand. General Graardor is an
-# ork in dark armor, grown huge.
+# An ork as in Old School RuneScape: a hulking, hunched olive brute, a head taller than a man and twice as broad, its
+# small head sunk low and forward between huge shoulders under a battered cooking pot for a helmet, with a jutting
+# jaw and tusks; plates of bone on its shoulders and chest held on with leather straps, a belt in its team's color,
+# and a great double-bladed axe held across its front in both fists. General Graardor is an ork in dark armor, grown
+# huge, who has no pot.
 
+BONE_PAD = (214, 206, 182)
+BONE_DARK = (170, 160, 136)
+POT = (118, 120, 126)
+STRAP = (96, 62, 36)
+
+# By kind: skin, eyes, the helmet, the pads' light, middle and dark colors.
 ORK_LOOKS = {
-    "ork": (ORK_SKIN, EYE_YELLOW, plate(STEEL_LIGHT, IRON, STEEL_DARK), tunic(LEATHER, LEATHER_DARK, False)),
-    "graardor": (GRAARDOR_SKIN, EYE, plate(DARK_STEEL_LIGHT, DARK_STEEL, (40, 40, 46)),
-                 plate(DARK_STEEL_LIGHT, DARK_STEEL, (40, 40, 46))),
+    "ork": ((94, 106, 54), GOBLIN_EYE, "pot", (BONE_PAD, BONE_PAD, BONE_DARK)),
+    "graardor": (GRAARDOR_SKIN, GOBLIN_EYE, None, (DARK_STEEL_LIGHT, DARK_STEEL, (40, 40, 46))),
 }
 
 
-def ork(kind="ork"):
-    skin, eye, pads, chest_cover = ORK_LOOKS[kind]
-    m = Model("ork", 128, 64, seed=23)
-    head = m.part("head", pivot=(0, 2, -1.5))
-    head.box(-4, -7, -4, 8, 7, 8, tusked_face(skin, eye))
-    head.box(-3.5, -2, -5.5, 7, 3, 2, flesh(skin))                    # the jutting jaw
-    for side in (-1, 1):
-        head.box(side * 2.5 - 0.5, -4, -6, 1, 2, 1, tooth)
-        head.box(side * 4 + (0 if side > 0 else -1), -6, -1, 1, 2, 2, flesh(skin))
+def pot(face, x, y, w, h):
+    if face == "bottom":
+        return CLEAR
+    if face == "top":
+        return shade(POT, 0.8) if 1 <= x <= w - 2 and 1 <= y <= h - 2 else POT
+    if y == h - 1:
+        return shade(POT, 0.7)                                           # its rim
+    return shade(POT, 1.15) if (x * 3 + y) % 7 == 0 else POT
 
-    body = m.part("body", pivot=(0, 2, 0))
-    body.box(-5.5, 0, -3, 11, 13, 6, flesh(skin))
-    body.box(-5.5, 0, -3, 11, 13, 6, chest_cover, inflate=0.3)
+
+def ork_chest(pads):
+    light, mid, dark = pads
+
+    def fn(face, x, y, w, h):
+        if face == "bottom":
+            return CLEAR
+        if y == h - 2:
+            if face == "front" and abs(x - (w - 1) / 2) < 1:
+                return IRON
+            return (TEAM, 210)                                           # the belt
+        if y == h - 1:
+            return CLEAR
+        # A strap from each shoulder crossing the chest and back, a plate of bone where they cross.
+        if face in ("front", "back"):
+            if 2 <= y <= 5 and abs(x - (w - 1) / 2) < 3:
+                return light if y > 2 else mid
+            if abs((x - y) % w) < 1 or abs((x + y - (w - 1)) % w) < 1:
+                return STRAP
+        return CLEAR
+
+    return fn
+
+
+def ork(kind="ork"):
+    skin, eye, helmet, pads = ORK_LOOKS[kind]
+    light, mid, dark = pads
+    m = Model("ork", 128, 64, seed=23)
+    head = m.part("head", pivot=(0, 5, -4))
+    head.box(-3, -6, -3, 6, 6, 6, goblin_head(skin, eye))
+    head.box(-3, -2, -4.2, 6, 2, 1, flesh(skin))                       # the jutting jaw
+    for side in (-1, 1):
+        head.box(side * 2 - 0.5, -3.5, -4.6, 1, 2, 1, tooth)
+    pot_paint = pot if helmet == "pot" else clear
+    head.box(-3.5, -7, -3.5, 7, 3, 7, pot_paint, inflate=0.2)
+    head.box(3.7, -6, -0.5, 2, 1, 1, pot_paint)                         # the pot's handle
+
+    body = m.part("body", pivot=(0, 3, 0))
+    torso = body.child("torso", pivot=(0, 1, 0), rotation=(0.35, 0, 0))
+    torso.box(-6, 0, -3.5, 12, 11, 7, flesh(skin))
+    torso.box(-6, 0, -3.5, 12, 11, 7, ork_chest(pads), inflate=0.3)
+    torso.box(-5.5, 10, -3, 11, 3, 6, plain(LEATHER), inflate=0.3)    # a leather kilt over the hips
 
     for side in (-1, 1):
         name = "left" if side > 0 else "right"
-        arm = m.part("%s_arm" % name, pivot=(side * 7.5, 4, 0))
-        arm.box(-2.5, -1.5, -2.5, 5, 12, 5, flesh(skin), mirror=side > 0)
-        arm.box(-3, -2.5, -3, 6, 4, 6, pads, inflate=0.3)
+        # The arms brought forward and in, the fists together in front holding the axe.
+        arm = m.part("%s_arm" % name, pivot=(side * 7.5, 5, -2), rotation=(-0.75, 0, side * 0.35))
+        arm.box(-2.5, -2, -2.5, 5, 13, 5, flesh(skin), mirror=side > 0)
+        arm.box(-3.5, -3.5, -3.5, 7, 4, 7, plate(light, mid, dark, False), inflate=0.2)
+        arm.box(-2.5, 8, -2.5, 5, 2, 5, plain(STRAP), inflate=0.2)
         if side < 0:
-            cleaver = arm.child("weapon", pivot=(0, 9.5, -0.5), rotation=(0.4, 0, 0))
-            cleaver.box(-0.5, -3, -0.5, 1, 6, 1, wood)
-            cleaver.box(-0.5, -13, -3.5, 1, 10, 5, iron)
-        leg = m.part("%s_leg" % name, pivot=(side * 2.8, 15, 0))
+            axe = arm.child("weapon", pivot=(1.5, 10.5, 0), rotation=(0.6, 0, -1.2))
+            axe.box(-0.5, -12, -0.5, 1, 18, 1, wood)
+            axe.box(-0.5, -14, -6, 1, 8, 5, iron)
+            axe.box(-0.5, -14, 1, 1, 8, 5, iron)
+        leg = m.part("%s_leg" % name, pivot=(side * 3, 15, 0))
         leg.box(-2.5, 0, -2.5, 5, 9, 5, feet(skin), mirror=side > 0)
-        leg.box(-2.5, 0, -2.5, 5, 4, 5, ragged(LEATHER, LEATHER_DARK, team_belt=False), inflate=0.3)
+        leg.box(-2.5, 3, -2.5, 5, 2, 5, plain(STRAP), inflate=0.2)
     return m
 
 
 # ---------------------------------------------------------------- the ogre
 #
-# An ogre: huge, fat and slow, with a small bald head, a heavy brow and an underbite, long arms nearly to its knees,
-# a team-colored loincloth and a great spiked club.
+# An ogre as in Old School RuneScape: huge, fat and tan, with a small bald head under a heavy brow, small pale eyes
+# and a wide mouth; a great round belly, broad shoulders and long bare arms ending in fists; an olive loincloth
+# wrapped round the hips on a belt in its team's color, olive bracers on its forearms and olive boots. It fights with
+# its fists.
+
+OGRE_TAN = (206, 180, 136)
+OLIVE = (112, 112, 56)
+OLIVE_DARK = (84, 84, 42)
+
+
+def ogre_head(face, x, y, w, h):
+    if face == "front":
+        if y == 2 and x in (1, w - 2):
+            return EYE_WHITE                                             # small pale eyes
+        if y == h - 2 and 1 <= x <= w - 2:
+            return MOUTH                                                 # the wide mouth
+    return flesh(OGRE_TAN)(face, x, y, w, h)
 
 
 def ogre_belly(face, x, y, w, h):
     if face == "front" and y == h // 2 and x == w // 2:
-        return shade(OGRE_SKIN, 0.6)                                     # the navel
-    return flesh(OGRE_SKIN)(face, x, y, w, h)
+        return shade(OGRE_TAN, 0.6)                                      # the navel
+    return flesh(OGRE_TAN, 0.88)(face, x, y, w, h)
+
+
+def wrap(color, dark, team_belt=False):
+    """Cloth wrapped round, a little darker in bands, its top row a belt in the team's color if asked."""
+
+    def fn(face, x, y, w, h):
+        if face == "bottom":
+            return CLEAR
+        if face == "top":
+            return shade(color, 0.85)
+        if team_belt and y == 0:
+            return (TEAM, 210)
+        return dark if (x * 3 + y * 2) % 7 == 0 or y == h - 1 else color
+
+    return fn
+
+
+def booted(skin, boot, boot_dark, rows):
+    """A bare leg in a boot covering its bottom rows."""
+
+    def fn(face, x, y, w, h):
+        if face == "bottom" or y >= h - rows:
+            if face != "top" and y == h - rows:
+                return boot_dark
+            return boot if face != "bottom" else boot_dark
+        return flesh(skin)(face, x, y, w, h)
+
+    return fn
 
 
 def ogre(kind="ogre"):
-    skin = OGRE_SKIN
+    skin = OGRE_TAN
     m = Model("ogre", 128, 64, seed=24)
-    head = m.part("head", pivot=(0, 1, -2))
-    head.box(-3.5, -6, -3.5, 7, 6, 7, tusked_face(skin, EYE_YELLOW))
-    head.box(-3.5, -5, -4.5, 7, 1, 1, flesh(skin, 0.6))               # the brow
-    head.box(-1, -4, -4.5, 2, 2, 1, nose(skin))
+    head = m.part("head", pivot=(0, 2, -2))
+    head.box(-3, -6, -3, 6, 6, 6, ogre_head)
+    head.box(-3, -5, -3.6, 6, 1, 1, flesh(skin, 0.6))                  # the heavy brow
+    head.box(-1, -4, -3.8, 2, 1, 1, nose(skin))
 
     body = m.part("body", pivot=(0, 0, 0))
-    body.box(-6, 1, -3, 12, 13, 7, flesh(skin))
-    body.box(-5, 6, -5, 10, 8, 2, ogre_belly)
-    body.box(-6, 12, -3, 12, 4, 7, ragged(LEATHER, LEATHER_DARK, rows=1), inflate=0.3)
-    body.box(-3, 14, -3.6, 6, 4, 1, team_cloth)                        # the loincloth's front flap
+    body.box(-7, 1, -3.5, 14, 11, 7, flesh(skin))
+    body.box(-6, 5, -6, 12, 9, 3, ogre_belly)                          # the great belly
+    body.box(-6.5, 11, -3.5, 13, 4, 7, wrap(OLIVE, OLIVE_DARK, team_belt=True), inflate=0.4)
+    body.box(-3, 14, -4.2, 6, 4, 1, wrap(OLIVE, OLIVE_DARK))           # the loincloth's flaps
+    body.box(-3, 14, 3.2, 6, 4, 1, wrap(OLIVE, OLIVE_DARK))
+
+    for side in (-1, 1):
+        name = "left" if side > 0 else "right"
+        arm = m.part("%s_arm" % name, pivot=(side * 8.5, 3, 0))
+        arm.box(-2.5, -1, -2.5, 5, 13, 5, flesh(skin), mirror=side > 0)
+        arm.box(-2.5, 6, -2.5, 5, 5, 5, wrap(OLIVE, OLIVE_DARK), inflate=0.3)   # the bracer
+        arm.box(-3, 12, -3, 6, 3, 6, flesh(skin))                       # the fist
+        leg = m.part("%s_leg" % name, pivot=(side * 3.5, 14, 0))
+        leg.box(-3, 0, -3, 6, 10, 6, booted(skin, OLIVE, OLIVE_DARK, 6), mirror=side > 0)
+        leg.box(-3, 4, -3, 6, 1, 6, plain(OLIVE_DARK), inflate=0.3)    # the boot's turned-down top
+    return m
+
+
+# ---------------------------------------------------------------- the sergeants
+#
+# General Graardor's three sergeants as in Old School RuneScape: big, muscled goblins, a head taller than a goblin and
+# broad as an ork, yellow-green, with pointed ears and a belt in their team's color. Strongstack is bald with a grey
+# beard, grey pauldrons and bracers, brown breeches, bare feet and a spiked flail; Steelwill has a purple crest and
+# beard, grey pauldrons and bracers, grey breeches, dark spiked boots and a clawed staff; Grimspike a red bandana and
+# an eyepatch, one dull pauldron on his left shoulder, black breeches, bare feet and an axe. Each kind's weapon is a
+# part in the right hand, left clear on the others' textures. The model is named for Strongstack, as the ork's is
+# for the ork that Graardor wears too.
+
+PAULDRON_GREY = (184, 184, 196)
+CREST = (106, 30, 112)
+BANDANA = (134, 50, 48)
+PATCH = (34, 30, 30)
+BOOT = (64, 70, 58)
+
+# By kind: skin, crest, bandana, beard, the left and right pauldrons, bracers, breeches, boots (None for bare feet),
+# and the weapon in the right hand.
+SERGEANT_LOOKS = {
+    "strongstack": ((170, 180, 56), None, None, STEEL, PAULDRON_GREY, PAULDRON_GREY, PAULDRON_GREY,
+                    (100, 88, 66), None, "flail"),
+    "steelwill": ((178, 182, 60), CREST, None, CREST, PAULDRON_GREY, PAULDRON_GREY, PAULDRON_GREY,
+                  (112, 106, 110), BOOT, "claw"),
+    "grimspike": ((168, 182, 54), None, BANDANA, None, (114, 114, 92), None, None, (58, 56, 60), None, "axe"),
+}
+
+
+def chest(skin):
+    """A muscled chest: a line under the pecs and down the middle of the belly."""
+    base = flesh(skin)
+
+    def fn(face, x, y, w, h):
+        if face == "front" and (y == 4 and 1 <= x <= w - 2 or y > 4 and x in (w // 2 - 1, w // 2) and y % 2 == 0):
+            return shade(skin, 0.8)
+        return base(face, x, y, w, h)
+
+    return fn
+
+
+def breeches_leg(skin, cloth_color, boot):
+    """Breeches down to the shins, then a boot, or bare feet with nails."""
+
+    def fn(face, x, y, w, h):
+        if y >= h - 3 or face == "bottom":
+            if boot:
+                if face == "front" and y == h - 1 and x % 2 == 1:
+                    return STEEL_LIGHT                                   # spikes on the toes
+                return boot
+            return feet(skin)(face, x, y, w, h)
+        if face == "top":
+            return shade(cloth_color, 0.85)
+        return shade(cloth_color, 0.85) if (x * 5 + y * 3) % 9 == 0 else cloth_color
+
+    return fn
+
+
+def color_or_clear(color, paint=plain):
+    return paint(color) if color else clear
+
+
+def team_belt(face, x, y, w, h):
+    if face == "front" and abs(x - (w - 1) / 2) < 1:
+        return STEEL_LIGHT                                               # the buckle
+    return (TEAM, 210)
+
+
+def sergeant(kind="strongstack"):
+    skin, crest, bandana, beard, left_pad, right_pad, bracer, cloth_color, boot, weapon = SERGEANT_LOOKS[kind]
+    m = Model("strongstack", 128, 64, seed=25)
+    head = m.part("head", pivot=(0, 2, -1.5))
+    head.box(-3, -6, -3, 6, 6, 6, goblin_head(skin, GOBLIN_EYE))
+    head.box(-2.5, -1.5, -3.8, 5, 2, 1, flesh(skin))                  # the jutting jaw
+    head.box(-1, -4, -3.8, 1, 2, 1, nose(skin))
+    head.box(-1, -0.5, -4.2, 2, 2, 1, color_or_clear(beard))            # the beard
+    head.box(-0.5, -9, -2.5, 1, 3, 5, mohawk(crest) if crest else clear)
+    head.box(-3, -6, -3, 6, 2, 6, color_or_clear(bandana), inflate=0.4)
+    eyepatch = plain(PATCH) if bandana else clear
+    head.box(-3, -4, -3, 6, 1, 6, eyepatch, inflate=0.2)               # the eyepatch's strap
+    head.box(-3, -4.5, -3.6, 2, 2, 1, eyepatch)                         # the patch, over the right eye
+    for side in (-1, 1):
+        ear = head.child("%s_ear" % ("left" if side > 0 else "right"), pivot=(side * 3, -4, 0.5),
+                         rotation=(0, side * -0.3, side * -0.6))
+        ear.box(0 if side > 0 else -3, -1, -0.5, 3, 2, 1, flesh(skin), mirror=side > 0)
+
+    body = m.part("body", pivot=(0, 0, 0))
+    body.box(-5.5, 1, -3, 11, 10, 6, chest(skin))
+    body.box(-5, 10, -2.5, 10, 2, 5, team_belt, inflate=0.4)
+    body.box(-5, 11, -2.5, 10, 2, 5, breeches_leg(skin, cloth_color, None))
 
     for side in (-1, 1):
         name = "left" if side > 0 else "right"
         arm = m.part("%s_arm" % name, pivot=(side * 7.5, 3, 0))
-        arm.box(-2.5, -1, -2.5, 5, 15, 5, flesh(skin), mirror=side > 0)
-        arm.box(-2.5, 11, -2.5, 5, 2, 5, team_band, inflate=0.2)
+        arm.box(-2, -1, -2, 4, 13, 4, flesh(skin), mirror=side > 0)
+        pad = left_pad if side > 0 else right_pad
+        arm.box(-3, -2.5, -3, 6, 4, 6, plate(shade(pad, 1.1), pad, shade(pad, 0.75), False) if pad else clear,
+                inflate=0.2)
+        arm.box(-2, 6, -2, 4, 4, 4, color_or_clear(bracer), inflate=0.3)
+        arm.box(-2.5, 11, -2.5, 5, 2, 5, flesh(skin))                   # the fist
         if side < 0:
-            club = arm.child("weapon", pivot=(0, 13, -0.5), rotation=(0.5, 0, 0))
-            club.box(-1, -2, -1, 2, 6, 2, wood)
-            club.box(-2, -11, -2, 4, 9, 4, spiked)
-        leg = m.part("%s_leg" % name, pivot=(side * 3, 14, 0))
-        leg.box(-3, 0, -3, 6, 10, 6, feet(skin), mirror=side > 0)
+            flail = arm.child("flail", pivot=(0, 12, 0))
+            paint = (lambda p: p) if weapon == "flail" else (lambda p: clear)
+            flail.box(-0.5, -1, -0.5, 1, 3, 1, paint(wood))
+            flail.box(-0.5, 2, -0.5, 1, 3, 1, paint(plain(IRON)))       # the chain
+            flail.box(-2, 5, -2, 4, 4, 4, paint(iron))                   # the ball
+            flail.box(-0.5, 4.5, -2.5, 1, 5, 5, paint(plain(STEEL_LIGHT)))   # its spikes
+            claw = arm.child("claw", pivot=(0, 12, 0), rotation=(0.7, 0, 0))
+            paint = (lambda p: p) if weapon == "claw" else (lambda p: clear)
+            claw.box(-0.5, -8, -0.5, 1, 14, 1, paint(plain(STEEL)))
+            claw.box(-2.5, 6, -2.5, 5, 2, 5, paint(iron))
+            for px, pz in ((-2.5, -2.5), (1.5, -2.5), (-2.5, 1.5), (1.5, 1.5)):
+                claw.box(px, 8, pz, 1, 3, 1, paint(plain(STEEL_LIGHT)))  # the claws
+            axe = arm.child("weapon", pivot=(1.5, 10.5, 0), rotation=(0.6, 0, -1.2))
+            axe.box(-0.5, -12, -0.5, 1, 18, 1, wood)
+            axe.box(-0.5, -14, -6, 1, 8, 5, iron)
+            axe.box(-0.5, -14, 1, 1, 8, 5, iron)
+        leg = m.part("%s_leg" % name, pivot=(side * 3, 15, 0))
+        leg.box(-2.5, 0, -2.5, 5, 9, 5, feet(skin), mirror=side > 0)
+        leg.box(-2.5, 3, -2.5, 5, 2, 5, plain(STRAP), inflate=0.2)
+    return m
+
+
+# ---------------------------------------------------------------- the ogre
+#
+# An ogre as in Old School RuneScape: huge, fat and tan, with a small bald head under a heavy brow, small pale eyes
+# and a wide mouth; a great round belly, broad shoulders and long bare arms ending in fists; an olive loincloth
+# wrapped round the hips on a belt in its team's color, olive bracers on its forearms and olive boots. It fights with
+# its fists.
+
+OGRE_TAN = (206, 180, 136)
+OLIVE = (112, 112, 56)
+OLIVE_DARK = (84, 84, 42)
+
+
+def ogre_head(face, x, y, w, h):
+    if face == "front":
+        if y == 2 and x in (1, w - 2):
+            return EYE_WHITE                                             # small pale eyes
+        if y == h - 2 and 1 <= x <= w - 2:
+            return MOUTH                                                 # the wide mouth
+    return flesh(OGRE_TAN)(face, x, y, w, h)
+
+
+def ogre_belly(face, x, y, w, h):
+    if face == "front" and y == h // 2 and x == w // 2:
+        return shade(OGRE_TAN, 0.6)                                      # the navel
+    return flesh(OGRE_TAN, 0.88)(face, x, y, w, h)
+
+
+def wrap(color, dark, team_belt=False):
+    """Cloth wrapped round, a little darker in bands, its top row a belt in the team's color if asked."""
+
+    def fn(face, x, y, w, h):
+        if face == "bottom":
+            return CLEAR
+        if face == "top":
+            return shade(color, 0.85)
+        if team_belt and y == 0:
+            return (TEAM, 210)
+        return dark if (x * 3 + y * 2) % 7 == 0 or y == h - 1 else color
+
+    return fn
+
+
+def booted(skin, boot, boot_dark, rows):
+    """A bare leg in a boot covering its bottom rows."""
+
+    def fn(face, x, y, w, h):
+        if face == "bottom" or y >= h - rows:
+            if face != "top" and y == h - rows:
+                return boot_dark
+            return boot if face != "bottom" else boot_dark
+        return flesh(skin)(face, x, y, w, h)
+
+    return fn
+
+
+def ogre(kind="ogre"):
+    skin = OGRE_TAN
+    m = Model("ogre", 128, 64, seed=24)
+    head = m.part("head", pivot=(0, 2, -2))
+    head.box(-3, -6, -3, 6, 6, 6, ogre_head)
+    head.box(-3, -5, -3.6, 6, 1, 1, flesh(skin, 0.6))                  # the heavy brow
+    head.box(-1, -4, -3.8, 2, 1, 1, nose(skin))
+
+    body = m.part("body", pivot=(0, 0, 0))
+    body.box(-7, 1, -3.5, 14, 11, 7, flesh(skin))
+    body.box(-6, 5, -6, 12, 9, 3, ogre_belly)                          # the great belly
+    body.box(-6.5, 11, -3.5, 13, 4, 7, wrap(OLIVE, OLIVE_DARK, team_belt=True), inflate=0.4)
+    body.box(-3, 14, -4.2, 6, 4, 1, wrap(OLIVE, OLIVE_DARK))           # the loincloth's flaps
+    body.box(-3, 14, 3.2, 6, 4, 1, wrap(OLIVE, OLIVE_DARK))
+
+    for side in (-1, 1):
+        name = "left" if side > 0 else "right"
+        arm = m.part("%s_arm" % name, pivot=(side * 8.5, 3, 0))
+        arm.box(-2.5, -1, -2.5, 5, 13, 5, flesh(skin), mirror=side > 0)
+        arm.box(-2.5, 6, -2.5, 5, 5, 5, wrap(OLIVE, OLIVE_DARK), inflate=0.3)   # the bracer
+        arm.box(-3, 12, -3, 6, 3, 6, flesh(skin))                       # the fist
+        leg = m.part("%s_leg" % name, pivot=(side * 3.5, 14, 0))
+        leg.box(-3, 0, -3, 6, 10, 6, booted(skin, OLIVE, OLIVE_DARK, 6), mirror=side > 0)
+        leg.box(-3, 4, -3, 6, 1, 6, plain(OLIVE_DARK), inflate=0.3)    # the boot's turned-down top
+    return m
+
+
+# ---------------------------------------------------------------- the sergeants
+#
+# General Graardor's three sergeants as in Old School RuneScape: big, muscled goblins, a head taller than a goblin and
+# broad as an ork, yellow-green, with pointed ears and a belt in their team's color. Strongstack is bald with a grey
+# beard, grey pauldrons and bracers, brown breeches, bare feet and a spiked flail; Steelwill has a purple crest and
+# beard, grey pauldrons and bracers, grey breeches, dark spiked boots and a clawed staff; Grimspike a red bandana and
+# an eyepatch, one dull pauldron on his left shoulder, black breeches, bare feet and an axe. Each kind's weapon is a
+# part in the right hand, left clear on the others' textures. The model is named for Strongstack, as the ork's is
+# for the ork that Graardor wears too.
+
+PAULDRON_GREY = (184, 184, 196)
+CREST = (106, 30, 112)
+BANDANA = (134, 50, 48)
+PATCH = (34, 30, 30)
+BOOT = (64, 70, 58)
+
+# By kind: skin, crest, bandana, beard, the left and right pauldrons, bracers, breeches, boots (None for bare feet),
+# and the weapon in the right hand.
+SERGEANT_LOOKS = {
+    "strongstack": ((170, 180, 56), None, None, STEEL, PAULDRON_GREY, PAULDRON_GREY, PAULDRON_GREY,
+                    (100, 88, 66), None, "flail"),
+    "steelwill": ((178, 182, 60), CREST, None, CREST, PAULDRON_GREY, PAULDRON_GREY, PAULDRON_GREY,
+                  (112, 106, 110), BOOT, "claw"),
+    "grimspike": ((168, 182, 54), None, BANDANA, None, (114, 114, 92), None, None, (58, 56, 60), None, "axe"),
+}
+
+
+def chest(skin):
+    """A muscled chest: a line under the pecs and down the middle of the belly."""
+    base = flesh(skin)
+
+    def fn(face, x, y, w, h):
+        if face == "front" and (y == 4 and 1 <= x <= w - 2 or y > 4 and x in (w // 2 - 1, w // 2) and y % 2 == 0):
+            return shade(skin, 0.8)
+        return base(face, x, y, w, h)
+
+    return fn
+
+
+def breeches_leg(skin, cloth_color, boot):
+    """Breeches down to the shins, then a boot, or bare feet with nails."""
+
+    def fn(face, x, y, w, h):
+        if y >= h - 3 or face == "bottom":
+            if boot:
+                if face == "front" and y == h - 1 and x % 2 == 1:
+                    return STEEL_LIGHT                                   # spikes on the toes
+                return boot
+            return feet(skin)(face, x, y, w, h)
+        if face == "top":
+            return shade(cloth_color, 0.85)
+        return shade(cloth_color, 0.85) if (x * 5 + y * 3) % 9 == 0 else cloth_color
+
+    return fn
+
+
+def color_or_clear(color, paint=plain):
+    return paint(color) if color else clear
+
+
+def team_belt(face, x, y, w, h):
+    if face == "front" and abs(x - (w - 1) / 2) < 1:
+        return STEEL_LIGHT                                               # the buckle
+    return (TEAM, 210)
+
+
+def sergeant(kind="strongstack"):
+    skin, crest, bandana, beard, left_pad, right_pad, bracer, cloth_color, boot, weapon = SERGEANT_LOOKS[kind]
+    m = Model("strongstack", 128, 64, seed=25)
+    head = m.part("head", pivot=(0, 2, -1.5))
+    head.box(-3, -6, -3, 6, 6, 6, goblin_head(skin, GOBLIN_EYE))
+    head.box(-2.5, -1.5, -3.8, 5, 2, 1, flesh(skin))                  # the jutting jaw
+    head.box(-1, -4, -3.8, 1, 2, 1, nose(skin))
+    head.box(-1, -0.5, -4.2, 2, 2, 1, color_or_clear(beard))            # the beard
+    head.box(-0.5, -9, -2.5, 1, 3, 5, mohawk(crest) if crest else clear)
+    head.box(-3, -6, -3, 6, 2, 6, color_or_clear(bandana), inflate=0.4)
+    eyepatch = plain(PATCH) if bandana else clear
+    head.box(-3, -4, -3, 6, 1, 6, eyepatch, inflate=0.2)               # the eyepatch's strap
+    head.box(-3, -4.5, -3.6, 2, 2, 1, eyepatch)                         # the patch, over the right eye
+    for side in (-1, 1):
+        ear = head.child("%s_ear" % ("left" if side > 0 else "right"), pivot=(side * 3, -4, 0.5),
+                         rotation=(0, side * -0.3, side * -0.6))
+        ear.box(0 if side > 0 else -3, -1, -0.5, 3, 2, 1, flesh(skin), mirror=side > 0)
+
+    body = m.part("body", pivot=(0, 0, 0))
+    body.box(-5.5, 1, -3, 11, 10, 6, chest(skin))
+    body.box(-5, 10, -2.5, 10, 2, 5, team_belt, inflate=0.4)
+    body.box(-5, 11, -2.5, 10, 2, 5, breeches_leg(skin, cloth_color, None))
+
+    for side in (-1, 1):
+        name = "left" if side > 0 else "right"
+        arm = m.part("%s_arm" % name, pivot=(side * 7.5, 3, 0))
+        arm.box(-2, -1, -2, 4, 13, 4, flesh(skin), mirror=side > 0)
+        pad = left_pad if side > 0 else right_pad
+        arm.box(-3, -2.5, -3, 6, 4, 6, plate(shade(pad, 1.1), pad, shade(pad, 0.75), False) if pad else clear,
+                inflate=0.2)
+        arm.box(-2, 6, -2, 4, 4, 4, color_or_clear(bracer), inflate=0.3)
+        arm.box(-2.5, 11, -2.5, 5, 2, 5, flesh(skin))                   # the fist
+        if side < 0:
+            flail = arm.child("flail", pivot=(0, 12, 0))
+            paint = (lambda p: p) if weapon == "flail" else (lambda p: clear)
+            flail.box(-0.5, -1, -0.5, 1, 4, 1, paint(wood))
+            flail.box(-0.5, 3, -0.5, 1, 5, 1, paint(plain(IRON)))       # the chain
+            flail.box(-2, 8, -2, 4, 4, 4, paint(iron))                   # the spiked ball
+            flail.box(-0.5, 7, -3, 1, 6, 6, paint(plain(STEEL_LIGHT)))   # its spikes
+            claw = arm.child("claw", pivot=(0, 12, 0), rotation=(0.3, 0, 0))
+            paint = (lambda p: p) if weapon == "claw" else (lambda p: clear)
+            claw.box(-0.5, -6, -0.5, 1, 15, 1, paint(plain(STEEL)))
+            claw.box(-2.5, 9, -2.5, 5, 2, 5, paint(iron))
+            for px, pz in ((-2.5, -2.5), (1.5, -2.5), (-2.5, 1.5), (1.5, 1.5)):
+                claw.box(px, 11, pz, 1, 4, 1, paint(plain(STEEL_LIGHT)))  # the claws
+            axe = arm.child("axe", pivot=(0, 12, -0.5), rotation=(-1.1, 0, 0))
+            paint = (lambda p: p) if weapon == "axe" else (lambda p: clear)
+            axe.box(-0.5, -2, -0.5, 1, 14, 1, paint(wood))
+            axe.box(-0.5, 8, -5, 1, 5, 4, paint(iron))                   # the blade
+        leg = m.part("%s_leg" % name, pivot=(side * 2.5, 12, 0))
+        leg.box(-2.5, 0, -2.5, 5, 12, 5, breeches_leg(skin, cloth_color, boot), mirror=side > 0)
     return m
 
 
@@ -453,6 +974,7 @@ CREATURES = {
     "hobgoblin": (hobgoblin, ["hobgoblin"]),
     "ork": (ork, list(ORK_LOOKS)),
     "ogre": (ogre, ["ogre"]),
+    "strongstack": (sergeant, list(SERGEANT_LOOKS)),
 }
 
 POSES = {

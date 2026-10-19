@@ -479,23 +479,19 @@ public class EntityUnit extends EntityCreature {
         // Blue wizards hold a staff, Zamorak mages Zamorak's own and dark wizards nothing, casting from bare hands;
         // priests and monks a holy book; a demon its claws, and a centaur the bow its model has in hand.
         if (kind.isCaster()) {
-            // A goblin priest shakes a bone, Steelwill a blaze rod.
+            // A goblin priest shakes a bone; Steelwill has his clawed staff in his model's hand.
             return kind == UnitKind.ZAMORAK_MAGE ? WarOfTheGods.zamorakStaff
-                : kind == UnitKind.DARK_WIZARD ? null
-                    : kind == UnitKind.GOBLIN_PRIEST ? Items.bone
-                        : kind == UnitKind.STEELWILL ? Items.blaze_rod : Items.stick;
+                : kind == UnitKind.DARK_WIZARD || kind == UnitKind.STEELWILL ? null
+                    : kind == UnitKind.GOBLIN_PRIEST ? Items.bone : Items.stick;
         }
         if (kind.worships()) {
             return Items.book;
         }
-        // Hobgoblins, orks, ogres and Graardor carry the spear, cleaver or club their model has in hand.
-        if (kind.hasOwnModel() || kind.creatureModel() != null && !kind.isGoblin()) {
+        // Hobgoblins, orks, ogres, Graardor and his sergeants carry the spear, axe, flail or fists their model has.
+        if (kind.hasOwnModel() || kind.creatureModel() != null && !"goblin".equals(kind.creatureModel())) {
             return null;
         }
-        // Goblins fight with axes, which their axe-throwers throw too; Strongstack's is diamond.
-        if (kind == UnitKind.STRONGSTACK) {
-            return Items.diamond_axe;
-        }
+        // Goblins fight with axes, which their axe-throwers throw too.
         if (kind == UnitKind.GOBLIN || kind == UnitKind.GOBLIN_THROWER || kind == UnitKind.SPIRITUAL_WARRIOR) {
             return AXES[tier(team, Upgrade.FORGED_BLADES, Upgrade.TEMPERED_STEEL)];
         }

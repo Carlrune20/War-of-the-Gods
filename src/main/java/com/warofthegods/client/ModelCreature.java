@@ -10,8 +10,9 @@ import net.minecraft.util.MathHelper;
 import com.warofthegods.client.model.JsonModel;
 
 /**
- * Bandos's creatures: the goblin, the hobgoblin, the ork and the ogre, each a model of its own from models/goblin.json,
- * hobgoblin.json, ork.json and ogre.json (made by tools/models/generate.py, see tools/models/creatures.py). Their
+ * Bandos's creatures: the goblin, the hobgoblin, the ork, the ogre and Graardor's sergeants, each a model of its own
+ * from models/goblin.json, hobgoblin.json, ork.json, ogre.json and strongstack.json (made by tools/models/generate.py,
+ * see tools/models/creatures.py). Their
  * head, body, arms and legs move as the player model's do, from where they are on each creature, and the player
  * model's arms are moved to the creature's shoulders so what a goblin holds is in its hand. Goblins' ears twitch, and
  * the big ones sway a little from side to side as they walk.
@@ -22,17 +23,21 @@ public class ModelCreature extends ModelBiped {
     private static final float ARM_X = 5, ARM_Y = 2;
 
     private final Map<String, JsonModel> models = new HashMap<>();
-    /** By model, where its right shoulder is: x, y and z. */
+    /**
+     * By model, where the player model's right arm goes for what it holds to be in the creature's hand: x, y and z; a
+     * goblin's long arms put it lower than its shoulder.
+     */
     private final Map<String, float[]> shoulders = new HashMap<>();
     private JsonModel model;
     private float[] shoulder;
 
     public ModelCreature() {
         super(0, 0, 64, 64);
-        add("goblin", 5.5F, 11, 0);
+        add("goblin", 4, 11, -1);
         add("hobgoblin", 6.5F, 3, 0);
         add("ork", 7.5F, 4, 0);
-        add("ogre", 7.5F, 3, 0);
+        add("ogre", 8.5F, 3, 0);
+        add("strongstack", 7.5F, 3, 0);
         setModel("goblin");
     }
 
@@ -41,7 +46,7 @@ public class ModelCreature extends ModelBiped {
         shoulders.put(name, new float[] { x, y, z });
     }
 
-    /** Draws it as the named creature from now on: goblin, hobgoblin, ork or ogre. */
+    /** Draws it as the named creature from now on: goblin, hobgoblin, ork, ogre or strongstack. */
     public void setModel(String name) {
         model = models.containsKey(name) ? models.get(name) : models.get("goblin");
         shoulder = shoulders.containsKey(name) ? shoulders.get(name) : shoulders.get("goblin");

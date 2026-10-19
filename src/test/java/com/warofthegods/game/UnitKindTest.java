@@ -113,6 +113,8 @@ class UnitKindTest {
             }
         }
         assertEquals("ork", UnitKind.GRAARDOR.creatureModel());
+        assertEquals("strongstack", UnitKind.STEELWILL.creatureModel());
+        assertTrue(UnitKind.STEELWILL.isGoblin());
         assertEquals(null, UnitKind.SOLDIER.creatureModel());
         // Slaves are men, worn out and in rags.
         assertEquals(null, UnitKind.SLAVE.creatureModel());

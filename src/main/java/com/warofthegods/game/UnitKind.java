@@ -237,12 +237,18 @@ public enum UnitKind {
 
     /** Whether it is one of Bandos's goblins, slaves and spirits and the three sergeants among them. */
     public boolean isGoblin() {
-        return "goblin".equals(creatureModel());
+        return "goblin".equals(creatureModel()) || isSergeant();
+    }
+
+    /** Whether it is one of General Graardor's three sergeants, big goblins with a model of their own. */
+    public boolean isSergeant() {
+        return this == STRONGSTACK || this == STEELWILL || this == GRIMSPIKE;
     }
 
     /**
      * The name of the creature model it is drawn with, made by tools/models/generate.py, or null for the player model
-     * or a model of its own: goblin, hobgoblin, ork or ogre. General Graardor is a giant ork.
+     * or a model of its own: goblin, hobgoblin, ork, ogre or the sergeants' (named for Strongstack). General Graardor
+     * is a giant ork.
      */
     public String creatureModel() {
         switch (this) {
@@ -252,10 +258,11 @@ public enum UnitKind {
             case SPIRITUAL_WARRIOR:
             case SPIRITUAL_RANGER:
             case SPIRITUAL_MAGE:
+                return "goblin";
             case STRONGSTACK:
             case STEELWILL:
             case GRIMSPIKE:
-                return "goblin";
+                return "strongstack";
             case HOBGOBLIN:
                 return "hobgoblin";
             case ORK:

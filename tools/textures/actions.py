@@ -49,7 +49,8 @@ UNITS = ("worker", "soldier", "archer", "white_knight", "black_knight", "tradige
 BANDOS_UNITS = ("slave", "goblin", "goblin_thrower", "hobgoblin", "ork", "ogre", "goblin_priest", "spiritual_warrior",
                 "spiritual_ranger", "spiritual_mage", "strongstack", "steelwill", "grimspike", "graardor")
 # The model each of them wears.
-CREATURES = {"hobgoblin": "hobgoblin", "ork": "ork", "graardor": "ork", "ogre": "ogre"}
+CREATURES = {"hobgoblin": "hobgoblin", "ork": "ork", "graardor": "ork", "ogre": "ogre", "strongstack": "strongstack",
+             "steelwill": "strongstack", "grimspike": "strongstack"}
 
 # Upgrades and other actions: an item picture, ("block", top, side) for a block drawn as the inventory draws it, or
 # ("face", skin) for the face of a skin, such as the knights the knights' upgrades make, or ("head", model) for the
