@@ -2,7 +2,7 @@
 # Boots the dev dedicated server five times. The first boot sets up a game through /rts and saves it; the second
 # boot checks the game and its map came back from the save intact, then starts a new game to check numbering
 # continues and the old map is replaced by a fresh one. The third checks the web map, units and buildings: town
-# centers, a worker building a farm, working it and carrying the harvest home, a barracks training warriors and
+# centers, a worker building a farm and working it, a barracks training warriors and
 # archers, a storehouse and building health down to 0, a house, a tower, levels, upgrades, mining gold, an explosion
 # and the chop and torch orders. One worker builds the farm and one carries gold home; the other buildings are
 # finished with /rts finish, so the test does not sit waiting on build timers. The fourth checks that units and buildings come back after a restart, then that a team losing its
