@@ -1,11 +1,14 @@
 package com.warofthegods.client.rts;
 
+import java.lang.reflect.Field;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import net.minecraft.block.Block;
@@ -13,7 +16,9 @@ import net.minecraft.block.material.Material;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GLAllocation;
 import net.minecraft.client.renderer.OpenGlHelper;
+import net.minecraft.client.renderer.RenderGlobal;
 import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.culling.ClippingHelperImpl;
 import net.minecraft.client.renderer.culling.Frustrum;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -25,9 +30,12 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 
 import com.warofthegods.Config;
+import com.warofthegods.WarOfTheGods;
 import com.warofthegods.block.ModBlocks;
 import com.warofthegods.rts.TerrainMessage;
 import com.warofthegods.web.MapTiles;
+
+import cpw.mods.fml.relauncher.ReflectionHelper;
 
 /**
  * The map's surface beyond the chunks the client has, drawn in the RTS view so the whole map can be seen at once.
@@ -42,15 +50,22 @@ import com.warofthegods.web.MapTiles;
  *
  * <p>
  * It is drawn before the world, right after the sky, with a far plane of its own, and the depth buffer is cleared
- * after: the chunks Minecraft draws then always cover it. Chunks Minecraft is going to draw are left out. Fog of war
- * darkens it as it darkens the world, through a texture with a texel per fog cell laid over it.
+ * after: the chunks Minecraft draws then always cover it. Chunk columns Minecraft has built and draws are left out;
+ * until then the surface stands in for them. A chunk's mesh is only replaced once its new one is made, so no chunk
+ * ever shows the sky through it. Fog of war darkens it as it darkens the world, through a texture with a texel per fog
+ * cell laid over it.
  */
 final class LodTerrain {
 
     /** Detail levels: cells of 1 << level blocks. */
     private static final int LEVELS = 5;
-    /** Chunk meshes made per frame at most, so a new view fills in over a few frames rather than stalling one. */
-    private static final int BUILDS_PER_FRAME = 24;
+    /**
+     * Time a frame may spend making chunk meshes at the detail they want, so a new view fills in over a few frames
+     * rather than stalling one. A chunk with no mesh at all always gets its coarsest, which is quick.
+     */
+    private static final long BUILD_NANOS = 3_000_000;
+    /** How far past a level's bounds a chunk's distance must go before it changes level, so it does not flip. */
+    private static final double LEVEL_SLACK = 1.25;
     private static final float NEAR = 0.5F;
     private static final float FAR = 8192;
     /** How sides are shaded by the way they face, as Minecraft shades blocks: north and south, then east and west. */
@@ -75,6 +90,12 @@ final class LodTerrain {
         int maxTop;
         /** Display list for each level, 0 where none has been made. */
         final int[] lists = new int[LEVELS];
+        /** Lists made before the chunk or a neighbour changed: still drawn, and made again when there is time. */
+        final boolean[] stale = new boolean[LEVELS];
+        /** The level drawn last, or -1. */
+        int level = -1;
+        /** The lowest y any of its lists reaches, cliff sides included. */
+        int bottom;
 
         LodChunk(int x, int z) {
             this.x = x;
@@ -100,6 +121,12 @@ final class LodTerrain {
     /** The map the chunks are of, or null before any came. */
     private String mapId;
     private World world;
+
+    /** Chunk columns Minecraft draws this frame, so their surface is left out. */
+    private final Set<Long> covered = new HashSet<>();
+    private boolean lookedUp;
+    private Field renderersField;
+    private Field isInitialized;
 
     private final FloatBuffer matrix = BufferUtils.createFloatBuffer(16);
     private final FloatBuffer plane = BufferUtils.createFloatBuffer(4);
@@ -190,6 +217,7 @@ final class LodTerrain {
         if (chunk.maxTop == 0) {
             chunk.minTop = 0;
         }
+        chunk.bottom = Math.max(0, chunk.minTop - 1);
         return chunk;
     }
 
@@ -221,13 +249,17 @@ final class LodTerrain {
             for (LodChunk chunk : received.chunks) {
                 LodChunk old = chunks.put(key(chunk.x, chunk.z), chunk);
                 if (old != null) {
-                    deleteLists(old);
+                    // The old meshes stay on show until new ones are made, so nothing blinks out meanwhile.
+                    System.arraycopy(old.lists, 0, chunk.lists, 0, LEVELS);
+                    chunk.level = old.level;
+                    chunk.bottom = Math.min(chunk.bottom, old.bottom);
+                    markStale(chunk);
                 }
                 // The neighbours' sides reach down to this chunk's edge.
-                deleteLists(chunks.get(key(chunk.x + 1, chunk.z)));
-                deleteLists(chunks.get(key(chunk.x - 1, chunk.z)));
-                deleteLists(chunks.get(key(chunk.x, chunk.z + 1)));
-                deleteLists(chunks.get(key(chunk.x, chunk.z - 1)));
+                markStale(chunks.get(key(chunk.x + 1, chunk.z)));
+                markStale(chunks.get(key(chunk.x - 1, chunk.z)));
+                markStale(chunks.get(key(chunk.x, chunk.z + 1)));
+                markStale(chunks.get(key(chunk.x, chunk.z - 1)));
             }
         }
     }
@@ -238,6 +270,14 @@ final class LodTerrain {
         }
         chunks.clear();
         mapId = null;
+    }
+
+    private static void markStale(LodChunk chunk) {
+        if (chunk != null) {
+            for (int i = 0; i < LEVELS; i++) {
+                chunk.stale[i] = chunk.lists[i] != 0;
+            }
+        }
     }
 
     private static void deleteLists(LodChunk chunk) {
@@ -346,38 +386,43 @@ final class LodTerrain {
         double vanillaFar = renderChunks * 16 * 2;
         double blocksPerPixel = 2 * Math.tan(Math.toRadians(camera.fov) / 2) / Math.max(1, mc.displayHeight);
         double cellPixels = Config.rtsFarTerrainCellPixels;
-        int builds = BUILDS_PER_FRAME;
+        long buildUntil = System.nanoTime() + BUILD_NANOS;
+        coveredColumns(ex, ey, ez, vanillaFar);
         for (LodChunk chunk : chunks.values()) {
             if (chunk.maxTop == 0) {
                 continue;
             }
             double x0 = chunk.x * 16;
             double z0 = chunk.z * 16;
-            if (!frustum.isBoxInFrustum(x0, chunk.minTop - 1, z0, x0 + 16, chunk.maxTop, z0 + 16)
-                || drawnByMinecraft(chunk, ex, ey, ez, renderChunks, vanillaFar)) {
+            if (!frustum.isBoxInFrustum(x0, chunk.bottom, z0, x0 + 16, chunk.maxTop, z0 + 16)
+                || covered.contains(key(chunk.x, chunk.z))) {
                 continue;
             }
             double dx = x0 + 8 - ex;
             double dy = (chunk.minTop + chunk.maxTop) / 2.0 - ey;
             double dz = z0 + 8 - ez;
             double pixelBlocks = Math.sqrt(dx * dx + dy * dy + dz * dz) * blocksPerPixel * cellPixels;
-            int level = 0;
-            while (level < LEVELS - 1 && (2 << level) <= pixelBlocks) {
-                level++;
-            }
+            int level = levelFor(chunk.level, pixelBlocks);
             int list = chunk.lists[level];
-            if (list == 0 && builds > 0) {
-                builds--;
+            boolean time = System.nanoTime() < buildUntil;
+            if ((list == 0 || chunk.stale[level]) && time) {
                 list = build(chunk, level);
             }
             if (list == 0) {
-                // Not made yet: whichever level there is will do for now.
-                for (int other = 0; other < LEVELS && list == 0; other++) {
-                    list = chunk.lists[other];
+                // Not made yet: the nearest level there is will do for now, else the coarsest, made now.
+                for (int step = 1; step < LEVELS && list == 0; step++) {
+                    if (level + step < LEVELS) {
+                        list = chunk.lists[level + step];
+                    }
+                    if (list == 0 && level - step >= 0) {
+                        list = chunk.lists[level - step];
+                    }
                 }
                 if (list == 0) {
-                    continue;
+                    list = build(chunk, LEVELS - 1);
                 }
+            } else {
+                chunk.level = level;
             }
             if (fogged) {
                 fogPlanes(fog, chunk);
@@ -406,25 +451,105 @@ final class LodTerrain {
     }
 
     /**
-     * Whether Minecraft draws the chunk itself: the client has it and its neighbours, it is within the render distance
-     * of the camera and all of it lies before Minecraft's far plane.
+     * The level a chunk is drawn at, from how many blocks its cells may span and the level it had: each level is for
+     * cells spanning up to twice its size, and a chunk only leaves its level once well past that.
      */
-    private boolean drawnByMinecraft(LodChunk chunk, double ex, double ey, double ez, int renderChunks, double far) {
+    static int levelFor(int current, double pixelBlocks) {
+        int level = 0;
+        while (level < LEVELS - 1 && (2 << level) <= pixelBlocks) {
+            level++;
+        }
+        if (current >= 0 && current < LEVELS && level != current) {
+            double low = current == 0 ? 0 : (1 << current) / LEVEL_SLACK;
+            double high = current == LEVELS - 1 ? Double.MAX_VALUE : (2 << current) * LEVEL_SLACK;
+            if (pixelBlocks >= low && pixelBlocks < high) {
+                return current;
+            }
+        }
+        return level;
+    }
+
+    /**
+     * Works out {@link #covered}: the chunk columns Minecraft really draws this frame. Each section of the column
+     * has been built since it last changed, and each that holds anything is in Minecraft's view and before its far
+     * plane. A column whose blocks are still on their way, or are being built again after the camera moved, keeps its
+     * surface until then. If Minecraft's renderers cannot be read, a column counts as drawn once the client has it and
+     * it is in range, as near as can be told without them.
+     */
+    private void coveredColumns(double ex, double ey, double ez, double far) {
+        covered.clear();
+        WorldRenderer[] renderers = renderers();
+        Map<Long, Boolean> columns = new HashMap<>();
+        if (renderers != null) {
+            try {
+                for (WorldRenderer renderer : renderers) {
+                    if (renderer == null) {
+                        continue;
+                    }
+                    long key = key(renderer.posX >> 4, renderer.posZ >> 4);
+                    boolean drawn = isInitialized.getBoolean(renderer) && !renderer.needsUpdate
+                        && (renderer.skipAllRenderPasses() || renderer.isInFrustum);
+                    Boolean before = columns.get(key);
+                    columns.put(key, (before == null || before) && drawn);
+                }
+            } catch (IllegalAccessException e) {
+                renderersField = null;
+                columns.clear();
+            }
+        }
         int cameraX = (int) Math.floor(ex) >> 4;
         int cameraZ = (int) Math.floor(ez) >> 4;
-        if (Math.abs(chunk.x - cameraX) > renderChunks - 1 || Math.abs(chunk.z - cameraZ) > renderChunks - 1) {
-            return false;
+        int range = mc.gameSettings.renderDistanceChunks;
+        for (int x = cameraX - range; x <= cameraX + range; x++) {
+            for (int z = cameraZ - range; z <= cameraZ + range; z++) {
+                long key = key(x, z);
+                LodChunk chunk = chunks.get(key);
+                if (chunk == null || !loaded(x, z)) {
+                    continue;
+                }
+                if (renderersField != null) {
+                    if (!Boolean.TRUE.equals(columns.get(key))) {
+                        continue;
+                    }
+                } else if (Math.abs(x - cameraX) > range - 1 || Math.abs(z - cameraZ) > range - 1
+                    || !loaded(x + 1, z)
+                    || !loaded(x - 1, z)
+                    || !loaded(x, z + 1)
+                    || !loaded(x, z - 1)) {
+                        continue;
+                    }
+                // Minecraft's view of the section is from the frame before; past its far plane it draws nothing.
+                double dx = Math.max(Math.abs(x * 16 - ex), Math.abs(x * 16 + 16 - ex));
+                double dz = Math.max(Math.abs(z * 16 - ez), Math.abs(z * 16 + 16 - ez));
+                double dy = Math.max(Math.abs(chunk.bottom - ey), Math.abs(chunk.maxTop - ey));
+                if (dx * dx + dy * dy + dz * dz < far * far * 0.81) {
+                    covered.add(key);
+                }
+            }
         }
-        if (!loaded(chunk.x, chunk.z) || !loaded(chunk.x + 1, chunk.z)
-            || !loaded(chunk.x - 1, chunk.z)
-            || !loaded(chunk.x, chunk.z + 1)
-            || !loaded(chunk.x, chunk.z - 1)) {
-            return false;
+    }
+
+    /** Minecraft's chunk section renderers, or null if they cannot be read. */
+    private WorldRenderer[] renderers() {
+        if (!lookedUp) {
+            lookedUp = true;
+            try {
+                renderersField = ReflectionHelper.findField(RenderGlobal.class, "worldRenderers", "field_72765_l");
+                isInitialized = ReflectionHelper.findField(WorldRenderer.class, "isInitialized", "field_78915_A");
+            } catch (RuntimeException e) {
+                WarOfTheGods.LOG.warn("Cannot read Minecraft's chunk renderers; the far terrain may blink", e);
+                renderersField = null;
+            }
         }
-        double dx = Math.max(Math.abs(chunk.x * 16 - ex), Math.abs(chunk.x * 16 + 16 - ex));
-        double dz = Math.max(Math.abs(chunk.z * 16 - ez), Math.abs(chunk.z * 16 + 16 - ez));
-        double dy = Math.max(Math.abs(chunk.minTop - ey), Math.abs(chunk.maxTop - ey));
-        return dx * dx + dy * dy + dz * dz < far * far * 0.81;
+        if (renderersField == null) {
+            return null;
+        }
+        try {
+            return (WorldRenderer[]) renderersField.get(mc.renderGlobal);
+        } catch (IllegalAccessException | ClassCastException e) {
+            renderersField = null;
+            return null;
+        }
     }
 
     private boolean loaded(int chunkX, int chunkZ) {
@@ -470,10 +595,11 @@ final class LodTerrain {
         LodChunk south = chunks.get(key(chunk.x, chunk.z + 1));
         LodChunk north = chunks.get(key(chunk.x, chunk.z - 1));
 
-        int list = GLAllocation.generateDisplayLists(1);
+        int list = chunk.lists[level] != 0 ? chunk.lists[level] : GLAllocation.generateDisplayLists(1);
         GL11.glNewList(list, GL11.GL_COMPILE);
         Tessellator t = Tessellator.instance;
         t.startDrawingQuads();
+        int bottom = chunk.minTop - 1;
         for (int j = 0; j < cells; j++) {
             for (int i = 0; i < cells; i++) {
                 int h = heights[i + j * cells];
@@ -496,6 +622,7 @@ final class LodTerrain {
                 // South and north.
                 int hSouth = j + 1 < cells ? heights[i + (j + 1) * cells] : edgeLow(south, x0, 0, size, 0);
                 int hNorth = j > 0 ? heights[i + (j - 1) * cells] : edgeLow(north, x0, 15, size, 0);
+                bottom = Math.min(bottom, Math.min(Math.min(hEast, hWest), Math.min(hSouth, hNorth)));
                 if (hEast < h || hWest < h) {
                     t.setColorOpaque_I(BlockColors.shade(color, SHADE_EW));
                     if (hEast < h) {
@@ -531,6 +658,8 @@ final class LodTerrain {
         t.draw();
         GL11.glEndList();
         chunk.lists[level] = list;
+        chunk.stale[level] = false;
+        chunk.bottom = Math.max(0, Math.min(chunk.bottom, bottom));
         return list;
     }
 
