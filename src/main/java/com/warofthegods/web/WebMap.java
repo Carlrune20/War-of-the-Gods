@@ -1,5 +1,6 @@
 package com.warofthegods.web;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -117,10 +118,11 @@ public final class WebMap {
         commanders.tick();
 
         ticks++;
-        boolean toBrowsers = server != null && ticks % Config.webStateTicks == 0;
+        // Built only when someone is watching, as it holds every unit, mob and building, and written out once for both.
+        boolean toBrowsers = server != null && server.hasViewers() && ticks % Config.webStateTicks == 0;
         boolean toCommanders = commanders.any() && ticks % Config.rtsStateTicks == 0;
         if (toBrowsers || toCommanders) {
-            JsonObject state = stateMessage(game, world);
+            String state = stateMessage(game, world).toString();
             if (toBrowsers) {
                 server.setState(state);
             }
@@ -448,7 +450,7 @@ public final class WebMap {
         message.add("players", players);
         message.add("units", game == null ? new JsonArray() : unitsJson());
         message.add("mobs", game == null || world == null ? new JsonArray() : mobsJson(game, world));
-        message.add("buildings", game == null ? new JsonArray() : buildingsJson(game));
+        message.add("buildings", game == null ? new JsonArray() : buildingsJson(game, unitsAt()));
         message.add("trees", game == null ? new JsonArray() : treesJson(game));
         message.add("settlements", game == null ? new JsonArray() : settlementsJson(game));
         message.add("mines", game == null ? new JsonArray() : minesJson(game));
@@ -511,8 +513,27 @@ public final class WebMap {
         return mines;
     }
 
+    /**
+     * How many units build at, and how many work at, each building, by its id, as {builders, workers}: counted in one
+     * pass over the units rather than one per building.
+     */
+    private static Map<Integer, int[]> unitsAt() {
+        Map<Integer, int[]> counts = new HashMap<>();
+        for (EntityUnit unit : Units.get()
+            .getLoaded()) {
+            int id = unit.getBuildingId();
+            boolean building = unit.isBuildingAt(id);
+            boolean working = unit.isWorkingAt(id);
+            if (building || working) {
+                int[] count = counts.computeIfAbsent(id, key -> new int[2]);
+                count[building ? 0 : 1]++;
+            }
+        }
+        return counts;
+    }
+
     /** Every building and building site, with what it is training. */
-    private static JsonArray buildingsJson(Game game) {
+    private static JsonArray buildingsJson(Game game, Map<Integer, int[]> unitsAt) {
         JsonArray buildings = new JsonArray();
         for (Building building : game.getBuildings()) {
             JsonObject json = new JsonObject();
@@ -546,7 +567,8 @@ public final class WebMap {
             }
             if (!building.isComplete()) {
                 json.addProperty("built", Math.round(building.getBuildProgress() * 100) / 100.0);
-                json.addProperty("builders", Buildings.countBuilders(building));
+                int[] count = unitsAt.get(building.id);
+                json.addProperty("builders", count == null ? 0 : count[0]);
             }
             if (!building.getQueue()
                 .isEmpty()) {
@@ -561,7 +583,8 @@ public final class WebMap {
                 json.addProperty("progress", round(Math.min(1, building.getTrainingTicks() / ticksPerUnit)));
             }
             if (building.type.isWorkplace() && building.isComplete()) {
-                json.addProperty("workers", Buildings.countWorkers(building));
+                int[] count = unitsAt.get(building.id);
+                json.addProperty("workers", Math.min(count == null ? 0 : count[1], building.type.maxWorkers()));
             }
             if (building.getAutoTrain() != null) {
                 json.addProperty("autoTrain", building.getAutoTrain().id);

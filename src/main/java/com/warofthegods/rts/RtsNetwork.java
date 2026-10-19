@@ -28,7 +28,12 @@ public final class RtsNetwork {
     }
 
     public static void sendTo(EntityPlayerMP player, String json) {
-        channel.sendTo(new RtsMessage(json), player);
+        sendTo(player, new RtsMessage(json));
+    }
+
+    /** Sends a message already made, which may go to several players and is compressed only the first time. */
+    public static void sendTo(EntityPlayerMP player, RtsMessage message) {
+        channel.sendTo(message, player);
     }
 
     public static void sendToServer(String json) {

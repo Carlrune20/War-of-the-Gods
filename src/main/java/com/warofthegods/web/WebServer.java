@@ -161,9 +161,14 @@ public final class WebServer {
         broadcast(this.gameMessage);
     }
 
-    public void setState(JsonObject stateMessage) {
-        this.stateMessage = stateMessage.toString();
-        broadcast(this.stateMessage);
+    public void setState(String stateMessage) {
+        this.stateMessage = stateMessage;
+        broadcast(stateMessage);
+    }
+
+    /** Whether any browser has the map open. */
+    public boolean hasViewers() {
+        return !sockets.isEmpty();
     }
 
     public void tilesChanged(Map<String, Integer> versions) {

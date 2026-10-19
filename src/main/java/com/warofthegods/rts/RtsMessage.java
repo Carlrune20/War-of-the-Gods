@@ -24,6 +24,8 @@ public final class RtsMessage implements IMessage {
     private static final int MAX_JSON = 32 * 1024 * 1024;
 
     public String json;
+    /** The json deflated, kept from the first send for the rest when one message goes to several players. */
+    private byte[] compressed;
 
     public RtsMessage() {}
 
@@ -65,6 +67,14 @@ public final class RtsMessage implements IMessage {
 
     @Override
     public void toBytes(ByteBuf buf) {
+        if (compressed == null) {
+            compressed = deflate(json);
+        }
+        buf.writeInt(compressed.length);
+        buf.writeBytes(compressed);
+    }
+
+    private static byte[] deflate(String json) {
         byte[] raw = json.getBytes(StandardCharsets.UTF_8);
         Deflater deflater = new Deflater(Deflater.BEST_SPEED);
         try {
@@ -75,8 +85,7 @@ public final class RtsMessage implements IMessage {
             while (!deflater.finished()) {
                 out.write(chunk, 0, deflater.deflate(chunk));
             }
-            buf.writeInt(out.size());
-            buf.writeBytes(out.toByteArray());
+            return out.toByteArray();
         } finally {
             deflater.end();
         }

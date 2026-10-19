@@ -450,7 +450,10 @@ public class EntityUnit extends EntityCreature {
         super.applyEntityAttributes();
         getEntityAttribute(SharedMonsterAttributes.maxHealth).setBaseValue(Config.unitHealth);
         getEntityAttribute(SharedMonsterAttributes.movementSpeed).setBaseValue(MOVEMENT_SPEED);
-        getEntityAttribute(SharedMonsterAttributes.followRange).setBaseValue(48);
+        // How far round a path may stray from where it leads. Paths go at most one LEG at a time, longer ways being
+        // planned by Routes, and a path that cannot be found searches everything within this of its end, so it is kept
+        // to a leg and a bit.
+        getEntityAttribute(SharedMonsterAttributes.followRange).setBaseValue(LEG + 8);
         getAttributeMap().registerAttribute(SharedMonsterAttributes.attackDamage)
             .setBaseValue(1);
     }
