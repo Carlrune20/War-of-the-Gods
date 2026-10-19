@@ -1023,6 +1023,12 @@ public class CommandRts extends CommandBase {
                 "Workers can build a farm, quarry, house, barracks, archery range, stables, storehouse, armory, tower,"
                     + " town center, White Knights' castle or Kinshra fortress");
         }
+        if (type.shunnedBy(team.getFaction())) {
+            throw new CommandException(
+                "%s's teams build no %s",
+                team.getFaction().displayName,
+                type.displayName.toLowerCase());
+        }
         if (!type.buildableBy(team.getFaction())) {
             throw new CommandException("Only %s's teams can build a %s", type.faction().displayName, type.displayName);
         }

@@ -61,7 +61,68 @@ class UnitKindTest {
         assertEquals(Faction.ZAMORAK, Faction.forColor(EnumChatFormatting.RED));
         assertEquals(Faction.ZAMORAK, Faction.forColor(EnumChatFormatting.DARK_GRAY));
         assertEquals(Faction.SARADOMIN, Faction.forColor(EnumChatFormatting.BLUE));
-        assertEquals(Faction.SARADOMIN, Faction.forColor(EnumChatFormatting.GREEN));
+        assertEquals(Faction.BANDOS, Faction.forColor(EnumChatFormatting.GREEN));
+    }
+
+    @Test
+    void factionsTakeTurnsAndComeBackRound() {
+        assertEquals(Faction.ZAMORAK, Faction.SARADOMIN.next());
+        assertEquals(Faction.BANDOS, Faction.ZAMORAK.next());
+        assertEquals(Faction.SARADOMIN, Faction.BANDOS.next());
+    }
+
+    @Test
+    void bandosTrainsSlavesRatherThanWorkers() {
+        assertFalse(UnitKind.WORKER.trainableBy(Faction.BANDOS));
+        assertTrue(UnitKind.WORKER.trainableBy(Faction.ZAMORAK));
+        assertTrue(UnitKind.SLAVE.trainableBy(Faction.BANDOS));
+        assertFalse(UnitKind.SLAVE.trainableBy(Faction.SARADOMIN));
+        assertFalse(UnitKind.GOBLIN.trainableBy(Faction.ZAMORAK));
+    }
+
+    @Test
+    void slavesGatherAndGoblinsBuildAndFight() {
+        assertTrue(UnitKind.SLAVE.gathers());
+        assertFalse(UnitKind.SLAVE.fights());
+        assertTrue(UnitKind.GOBLIN.builds());
+        assertTrue(UnitKind.GOBLIN.fights());
+        assertFalse(UnitKind.GOBLIN.gathers());
+        assertTrue(UnitKind.GOBLIN_THROWER.builds());
+        assertFalse(UnitKind.ORK.builds());
+    }
+
+    @Test
+    void goblinPriestsFightAndPrayButDoNotWorshipLikeMonks() {
+        assertTrue(UnitKind.GOBLIN_PRIEST.fights());
+        assertTrue(UnitKind.GOBLIN_PRIEST.praysAtTemple());
+        assertFalse(UnitKind.GOBLIN_PRIEST.worships());
+    }
+
+    @Test
+    void goblinsAreWeakerThanWarriorsAndOgresTougherThanOrks() {
+        assertTrue(UnitKind.GOBLIN.healthFactor < UnitKind.SOLDIER.healthFactor);
+        assertTrue(UnitKind.OGRE.healthFactor > UnitKind.ORK.healthFactor);
+        assertTrue(UnitKind.ORK.speedFactor() < 1);
+    }
+
+    @Test
+    void everyBandosKindWearsACreatureModel() {
+        for (UnitKind kind : UnitKind.values()) {
+            if (kind.faction() == Faction.BANDOS) {
+                assertTrue(kind.creatureModel() != null, kind + " has no model");
+            }
+        }
+        assertEquals("ork", UnitKind.GRAARDOR.creatureModel());
+        assertEquals(null, UnitKind.SOLDIER.creatureModel());
+    }
+
+    @Test
+    void bandosHasFourHeroes() {
+        assertEquals(
+            4,
+            Arrays.stream(UnitKind.values())
+                .filter(kind -> kind.hero && kind.faction() == Faction.BANDOS)
+                .count());
     }
 
     @Test

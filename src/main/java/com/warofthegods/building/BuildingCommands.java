@@ -223,6 +223,10 @@ public final class BuildingCommands {
             request.replyError("Lay a bridge out from one bank to the other");
             return;
         }
+        if (type.shunnedBy(team.getFaction())) {
+            request.replyError(team.getFaction().displayName + "'s teams build no " + type.displayName.toLowerCase());
+            return;
+        }
         if (!type.buildableBy(team.getFaction())) {
             request.replyError("Only " + type.faction().displayName + "'s teams can build a " + type.displayName);
             return;
