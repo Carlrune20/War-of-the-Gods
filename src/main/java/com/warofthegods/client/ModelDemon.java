@@ -11,7 +11,7 @@ import com.warofthegods.client.model.JsonModel;
  * beast's, with a long tail; a greater demon is the same with bat wings, and a black demon a black greater demon. Their
  * parts come from models/lesser_demon.json, greater_demon.json and black_demon.json (edited in Blockbench, see
  * tools/models/blockbench.py); this only moves them. It walks with a heavy swing of its arms, its tail swaying behind
- * it and its wings beating slowly; it opens its jaw and rakes with its right claw when it strikes, and throws up its
+ * it and its wings stirring slowly; it opens its jaw and rakes with its right claw when it strikes, and throws up its
  * arm when it hurls a fireball.
  */
 public class ModelDemon extends ModelBiped {
@@ -87,11 +87,14 @@ public class ModelDemon extends ModelBiped {
             float walk = MathHelper.cos(stride - i * 0.4F) * 0.18F * swingAmount;
             model.turn("tail" + i, MathHelper.sin(age * 0.05F - i * 0.3F) * 0.03F, wave + walk, 0);
         }
-        // A greater or black demon's wings beat slowly, faster as it walks, the tips following the beat.
-        float beat = MathHelper.sin(age * (0.12F + swingAmount * 0.1F)) * (0.18F + swingAmount * 0.12F);
-        model.turn("left_wing", 0, 0, beat);
-        model.turn("right_wing", 0, 0, -beat);
-        model.turn("left_wing_tip", 0, 0, beat * 0.6F);
-        model.turn("right_wing_tip", 0, 0, -beat * 0.6F);
+        // A greater or black demon's wings stir slowly whether it stands or walks, the tips following; walking, they
+        // only rock a little with its body, folded wings carried rather than flown with.
+        float beat = MathHelper.sin(age * 0.12F) * 0.18F;
+        float rock = step * 0.08F;
+        float bob = Math.abs(step) * 0.05F;
+        model.turn("left_wing", bob, rock, beat + bob);
+        model.turn("right_wing", bob, rock, -beat - bob);
+        model.turn("left_wing_tip", 0, 0, beat * 0.6F + bob * 0.5F);
+        model.turn("right_wing_tip", 0, 0, -beat * 0.6F - bob * 0.5F);
     }
 }
