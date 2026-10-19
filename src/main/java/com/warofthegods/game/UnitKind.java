@@ -59,8 +59,7 @@ public enum UnitKind {
     SLAVE("slave", "Slave", "slave", 1, 0, 0, 0, 1, false, false),
     /**
      * Bandos's goblin, cheap and a little weaker than a man, with an axe: fights and builds, trained at the town center
-     * and goblin caves
-     * from Age I.
+     * and goblin caves from Age I.
      */
     GOBLIN("goblin", "Goblin", "goblin", 0.8, 0, 0, 0, 1, false, false),
     /** A goblin who throws axes from a little closer than an archer shoots; builds too; trained at the war pit. */
