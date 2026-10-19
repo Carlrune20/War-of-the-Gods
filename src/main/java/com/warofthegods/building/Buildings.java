@@ -1572,21 +1572,35 @@ public final class Buildings {
             // A fortress shoots its whole volley, sharing its arrows out over the enemies it sees.
             for (int i = 0; i < building.type.arrowsPerVolley(); i++) {
                 EntityLivingBase target = targets.get(i % targets.size());
-                // From the side facing the target, so the arrow clears the building's own walls.
-                double dx = target.posX - building.getCenterX();
-                double dz = target.posZ - building.getCenterZ();
-                double length = Math.max(0.01, Math.sqrt(dx * dx + dz * dz));
-                double out = Math.min(building.sizeX, building.sizeZ) / 2.0 + 0.6;
-                EntityTeamArrow arrow = new EntityTeamArrow(
-                    world,
-                    building.getCenterX() + dx / length * out,
-                    y,
-                    building.getCenterZ() + dz / length * out,
-                    team.getId());
+                double[] from = shotFrom(building, target.posX, target.posZ);
+                EntityTeamArrow arrow = new EntityTeamArrow(world, from[0], y, from[1], team.getId());
                 arrow.aim(target, Config.towerDamage + (team.has(Upgrade.FLETCHING) ? 1 : 0));
                 world.spawnEntityInWorld(arrow);
             }
         }
+    }
+
+    /**
+     * Where a building's arrow at x, z sets off, as x, z: just outside the footprint, where the line from its center
+     * towards the target leaves it, so the arrow clears the building's own walls whichever side or corner the target
+     * is at. On the way from there the arrow stays clear of the footprint, so even an enemy right up against the walls
+     * is hit.
+     */
+    static double[] shotFrom(Building building, double x, double z) {
+        double dx = x - building.getCenterX();
+        double dz = z - building.getCenterZ();
+        double length = Math.sqrt(dx * dx + dz * dz);
+        if (length < 0.01) {
+            dx = 1;
+            dz = 0;
+            length = 1;
+        }
+        double ux = dx / length;
+        double uz = dz / length;
+        double outX = Math.abs(ux) < 1.0E-6 ? Double.MAX_VALUE : (building.sizeX / 2.0 + 0.6) / Math.abs(ux);
+        double outZ = Math.abs(uz) < 1.0E-6 ? Double.MAX_VALUE : (building.sizeZ / 2.0 + 0.6) / Math.abs(uz);
+        double out = Math.min(outX, outZ);
+        return new double[] { building.getCenterX() + ux * out, building.getCenterZ() + uz * out };
     }
 
     /**
