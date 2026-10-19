@@ -241,7 +241,7 @@ public class Config {
     public static int rtsFarTerrainCellPixels = 6;
 
     /** Bumped when defaults change in a way that should replace what older config files hold. */
-    private static final int CONFIG_VERSION = 11;
+    private static final int CONFIG_VERSION = 12;
 
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
@@ -314,6 +314,13 @@ public class Config {
         if (oldVersion < 11) {
             // Quarries became a late, costly building.
             forget(configuration, "buildings", "quarryCostWood");
+        }
+        if (oldVersion < 12) {
+            // Goblins and their axe-throwers became cheaper.
+            for (String resource : new String[] { "Food", "Wood", "Gold" }) {
+                forget(configuration, "units", "goblinCost" + resource);
+                forget(configuration, "units", "goblinThrowerCost" + resource);
+            }
         }
         version.set(CONFIG_VERSION);
 
