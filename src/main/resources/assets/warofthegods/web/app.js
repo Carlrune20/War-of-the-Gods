@@ -1091,14 +1091,17 @@
                     continue;
                 }
                 const aged = (team.age || 1) >= (type.age || 1);
+                const needed = type.requires && !(team.upgrades || []).includes(type.requires)
+                    ? (state.game.upgrades || {})[type.requires] || {name: type.requires} : null;
                 const title = type.name + " (" + costText(type.cost)
                     + (id === "wall" ? " a piece)" : id === "bridge" ? " a block)" : ")") + "\n"
                     + (!aged ? "Needs " + ageName(type.age) + ": take your town center up a level"
+                        : needed ? "Needs " + needed.name + ": research it first"
                         : id === "wall" ? "Build a wall: click where it starts and where it ends, or on two of your towers"
                             : id === "bridge" ? "Build a wooden bridge: click one bank, then the other"
                                 : "Build a " + type.name.toLowerCase() + ", then click on the map where it goes");
                 const b = squareButton("building/" + team.faction + "/" + id, id, title, () => startPlacing(id));
-                b.disabled = !aged || !canAfford(team, type.cost);
+                b.disabled = !aged || Boolean(needed) || !canAfford(team, type.cost);
                 actions.append(b);
             }
             if (!wizards) {

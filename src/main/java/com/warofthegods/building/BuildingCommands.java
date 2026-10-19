@@ -234,6 +234,15 @@ public final class BuildingCommands {
                     + " first: take the town center up a level");
             return;
         }
+        Upgrade needed = type.requiredUpgrade();
+        if (needed != null && !team.has(needed)) {
+            request.replyError(
+                "Research " + needed.displayName.toLowerCase()
+                    + " at the "
+                    + needed.at.displayName.toLowerCase()
+                    + " first");
+            return;
+        }
         Double x = UnitCommands.doubleField(request.body, "x");
         Double z = UnitCommands.doubleField(request.body, "z");
         if (x == null || z == null) {

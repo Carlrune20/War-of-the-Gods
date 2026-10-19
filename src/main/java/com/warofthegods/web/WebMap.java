@@ -268,6 +268,9 @@ public final class WebMap {
             }
             typeJson.addProperty("levels", type.levels);
             typeJson.addProperty("age", type.age());
+            if (type.requiredUpgrade() != null) {
+                typeJson.addProperty("requires", type.requiredUpgrade().id);
+            }
             JsonObject upgradeCosts = new JsonObject();
             JsonArray population = new JsonArray();
             JsonArray ranges = new JsonArray();

@@ -75,7 +75,7 @@ public class Config {
         defaults(BuildingType.STONE_CIRCLE, new long[] { 0, 0, 100 }, 600, 20);
         // Bridges cost wood for every block of their length.
         defaults(BuildingType.BRIDGE, new long[] { 0, 6, 0 }, 150, 3);
-        defaults(BuildingType.QUARRY, new long[] { 0, 100, 0 }, 500, 20);
+        defaults(BuildingType.QUARRY, new long[] { 0, 500, 0 }, 500, 20);
     }
 
     /** Food, Wood and Gold the town center costs to go up to level 2, and to level 3. */
@@ -206,7 +206,7 @@ public class Config {
     public static boolean rtsEdgeScroll = true;
 
     /** Bumped when defaults change in a way that should replace what older config files hold. */
-    private static final int CONFIG_VERSION = 10;
+    private static final int CONFIG_VERSION = 11;
 
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
@@ -275,6 +275,10 @@ public class Config {
         if (oldVersion < 10) {
             // Wild gold mines were a little too many.
             forget(configuration, "buildings", "goldMineEvery");
+        }
+        if (oldVersion < 11) {
+            // Quarries became a late, costly building.
+            forget(configuration, "buildings", "quarryCostWood");
         }
         version.set(CONFIG_VERSION);
 

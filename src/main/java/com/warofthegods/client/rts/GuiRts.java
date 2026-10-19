@@ -2150,6 +2150,8 @@ public final class GuiRts extends GuiScreen {
                     }
                     String id = entry.getKey();
                     boolean aged = team.age >= type.age;
+                    RtsState.UpgradeInfo needed = type.requires == null || team.upgrades.contains(type.requires) ? null
+                        : state.game.upgrades.get(type.requires);
                     actions.add(
                         square(
                             ActionIcons.building(team.faction, id),
@@ -2159,13 +2161,14 @@ public final class GuiRts extends GuiScreen {
                                 + (RtsClient.BRIDGE.equals(id) ? " a block)" : RtsClient.isWall(id) ? " a piece)" : ")")
                                 + "\n"
                                 + (!aged ? "Needs " + ageName(type.age) + ": take your town center up a level"
-                                    : RtsClient.BRIDGE.equals(id)
-                                        ? "Build a wooden bridge: click one bank, then the other"
-                                        : RtsClient.isWall(id)
-                                            ? "Build a wall: click where it starts, or a tower, then where it ends"
-                                            : "Build a " + type.name.toLowerCase() + ", then click where it goes"),
+                                    : needed != null ? "Needs " + needed.name + ": research it first"
+                                        : RtsClient.BRIDGE.equals(id)
+                                            ? "Build a wooden bridge: click one bank, then the other"
+                                            : RtsClient.isWall(id)
+                                                ? "Build a wall: click where it starts, or a tower, then where it ends"
+                                                : "Build a " + type.name.toLowerCase() + ", then click where it goes"),
                             shift -> client.startPlacing(id),
-                            aged && RtsState.canAfford(team, type.cost)));
+                            aged && needed == null && RtsState.canAfford(team, type.cost)));
                 }
                 if (!wizards) {
                     actions.add(
