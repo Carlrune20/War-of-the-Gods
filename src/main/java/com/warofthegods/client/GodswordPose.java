@@ -31,15 +31,17 @@ public final class GodswordPose {
 
     private GodswordPose() {}
 
-    /** Draws players with models that take the pose. */
+    /**
+     * Draws players with models that take the pose. Forge calls its listeners from generated code, so the listener is
+     * this public class, not an anonymous one it could not reach.
+     */
     public static void register() {
-        MinecraftForge.EVENT_BUS.register(new Object() {
+        MinecraftForge.EVENT_BUS.register(new GodswordPose());
+    }
 
-            @SubscribeEvent
-            public void onRenderPlayer(RenderPlayerEvent.Pre event) {
-                posePlayers(event.renderer);
-            }
-        });
+    @SubscribeEvent
+    public void onRenderPlayer(RenderPlayerEvent.Pre event) {
+        posePlayers(event.renderer);
     }
 
     /** Swaps a player renderer's models, once, for ones that take the pose. */
