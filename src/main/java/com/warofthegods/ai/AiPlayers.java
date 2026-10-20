@@ -136,7 +136,10 @@ public final class AiPlayers {
     private static final int[] WALL_OFFSETS = { 0, 5, 10, 15, 20, 25 };
     /** Fewest towers its wall runs between, so that it goes all the way round the town. */
     private static final int WALL_TOWERS = 3;
-    /** Ticks between looks at its walls for pieces knocked down, and before it tries again a side it found no room for. */
+    /**
+     * Ticks between looks at its walls for pieces knocked down, and before it tries again a side it found no room
+     * for.
+     */
     private static final int BREACH_CHECK_TICKS = 200;
     private static final int WALL_RETRY_TICKS = 2400;
     /** Blocks a marching army walks toward its target between orders, and how near it gets before it charges. */
@@ -985,8 +988,9 @@ public final class AiPlayers {
             double length = Math.max(1, Math.sqrt(ex * ex + ez * ez));
             double nx = -ez / length;
             double nz = ex / length;
-            if (((from[0] + to[0]) / 2.0 - hall.getCenterX()) * nx + ((from[1] + to[1]) / 2.0 - hall.getCenterZ()) * nz
-                < 0) {
+            double midX = (from[0] + to[0]) / 2.0 - hall.getCenterX();
+            double midZ = (from[1] + to[1]) / 2.0 - hall.getCenterZ();
+            if (midX * nx + midZ * nz < 0) {
                 nx = -nx;
                 nz = -nz;
             }

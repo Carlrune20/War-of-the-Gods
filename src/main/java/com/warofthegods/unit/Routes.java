@@ -34,8 +34,8 @@ import com.warofthegods.world.Misthalin;
  *
  * <p>
  * A unit that may break through walls is routed through an enemy wall only when no way round it, through a gap or
- * one of its own gates, is found within {@link #BREACH_DETOUR} blocks further; its route then ends at the wall, which it
- * knocks down before going on.
+ * one of its own gates, is found within {@link #BREACH_DETOUR} blocks further; its route then ends at the wall, which
+ * it knocks down before going on.
  */
 public final class Routes {
 
