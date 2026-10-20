@@ -1167,6 +1167,8 @@ def stables(p, level):
 
 def storehouse(p, level):
     """Takes in what workers carry: a barn with a wide door, a loft and its goods stacked inside."""
+    if p.name == "bandos":
+        return goblin_storehouse(p, level)
     s = Struct(9, 9, 13, 1)
     foundation(s, p, 0, 0, 8, 8)
     s.fill(1, 0, 1, 7, 0, 7, p.floor)
@@ -1210,6 +1212,8 @@ def storehouse(p, level):
 def farm(p, level):
     """Workers working at it gather food: fields of wheat, carrots and potatoes round a ditch, fenced, with a
     scarecrow; from Age II lamp posts at the corners."""
+    if p.name == "bandos":
+        return goblin_farm(p, level)
     s = Struct(11, 11, 4, 1)
     s.fill(0, -1, 0, 10, -1, 10, (DIRT, 0))
     s.walls(0, 0, 10, 10, 0, 0, p.path)
@@ -1378,6 +1382,8 @@ def armory(p, level):
 def tower(p, level):
     """Watches over the land round it and shoots from its deck: a square stone tower with arrow slits, a ladder up
     the inside and battlements, roofed from Age II, with the god's flag on top."""
+    if p.name == "bandos" and level == 1:
+        return goblin_lookout(p)
     s = Struct(5, 5, 20, 1)
     foundation(s, p, 0, 0, 4, 4)
     deck = 10 if level == 1 else 13
@@ -1412,6 +1418,168 @@ def tower(p, level):
             s.set(x, deck + 2, z, stone)
         cap = hip(s, 0, 0, 4, 4, deck + 3, p.roof, p.roof_full)
         flag(s, p, 2, cap + 1, cap + 2, 2, "east", tall=1)
+    return s
+
+
+def goblin_storehouse(p, level):
+    """Bandos's storehouse: a lean-to of crooked dark oak posts and a sagging roof of odd planks over a low,
+    tumbledown wall of rubble, open in front, with the loot heaped under it and spilling out round it: chests, logs,
+    hay, a cauldron, and bones on the posts. In Age II and III it grows a second heap of loot and a rag awning."""
+    s = Struct(9, 9, 13, 1)
+    rng = random.Random(61 + level)
+    foundation(s, p, 0, 0, 8, 8)
+    s.fill(0, 0, 0, 8, 0, 8, (DIRT, 1))
+    for x in range(1, 8):
+        for z in range(2, 8):
+            if rng.random() < 0.6:
+                s.set(x, 0, z, rng.choice([(GRAVEL, 0), (COBBLE, 0), (DIRT, 1)]))
+    # A low, broken wall of rubble round the back and sides, higher at the back.
+    for x in range(1, 8):
+        s.fill(x, 1, 7, x, rng.choice((1, 2, 2, 3)), 7, rng.choice([(COBBLE, 0), (MOSSY, 0)]))
+    for z in range(3, 7):
+        for x in (1, 7):
+            s.fill(x, 1, z, x, rng.choice((1, 1, 2)), z, rng.choice([(COBBLE, 0), (MOSSY, 0), (DIRT, 0)]))
+    # Crooked posts, not all the same height, and a roof sloping down to the front, one plank short here and there.
+    back, front = 5, 3
+    for x, z, h in ((1, 2, front), (7, 2, front + 1), (1, 7, back), (7, 7, back - 1), (4, 7, back)):
+        s.fill(x, 1, z, x, h, z, (LOG2, 1))
+    for z in range(2, 8):
+        y = front + (z - 2) * (back - front) // 5 + 1
+        for x in range(0, 9):
+            if rng.random() < 0.12:
+                continue
+            s.set(x, y, z, (WOOD_SLAB, 5) if rng.random() < 0.5 else (WOOD_SLAB, 1))
+    # The loot: chests, logs and hay heaped any old way.
+    for x in (2, 3, 5):
+        s.set(x, 1, 6, (CHEST, 2))
+    s.fill(4, 1, 6, 6, 1, 6, (LOG2, 5))
+    s.set(6, 2, 6, (LOG2, 5))
+    s.set(2, 1, 3, (HAY, 0))
+    s.set(2, 2, 3, (HAY, 0))
+    s.set(3, 1, 3, (HAY, 0))
+    s.set(6, 1, 3, (CAULDRON, 0))
+    # Spilling out in front.
+    s.set(0, 1, 1, (HAY, 0))
+    s.set(8, 1, 0, (LOG, 4))
+    s.set(7, 1, 0, (LOG, 4))
+    s.set(1, 1, 0, (CHEST, 2))
+    # Bones on the front posts, a torch on a stick, and the god's pennant on a pole.
+    skull(s, 1, front + 1, 2)
+    torch(s, p, 4, 1, 1, "up")
+    flag(s, p, 8, 1, 5, 4, "north")
+    if level > 1:
+        # A second heap of loot outside and a rag awning over the front.
+        s.set(0, 1, 4, (CHEST, 3))
+        s.set(0, 1, 5, (HAY, 0))
+        s.set(0, 2, 5, (HAY, 0))
+        s.set(0, 1, 6, (LOG2, 9))
+        for x in range(2, 7):
+            if x != 4:
+                s.set(x, front + 1, 1, p.cloth if x % 2 else p.cloth2)
+        skull(s, 7, front + 2, 2)
+        s.set(5, 2, 6, (CHEST, 2))
+    return s
+
+
+def goblin_farm(p, level):
+    """Bandos's farm: crooked plots scratched out of the dirt, potatoes and carrots in uneven patches with bare and
+    weedy ground between, a muddy ditch, a fence of odd posts and rubble with gaps in it, a heap of dung, and a skull
+    on a pole for a scarecrow. From Age II more of it is planted and a cauldron stews by the gate."""
+    s = Struct(11, 11, 4, 1)
+    rng = random.Random(71 + level)
+    s.fill(0, -1, 0, 10, -1, 10, (DIRT, 0))
+    s.fill(0, 0, 0, 10, 0, 10, (DIRT, 1))
+    # A ditch winding down the middle.
+    x = 5
+    for z in range(1, 10):
+        s.set(x, 0, z, (WATER, 0))
+        if z % 3 == 0:
+            x += rng.choice((-1, 1))
+            x = max(4, min(6, x))
+            s.set(x, 0, z, (WATER, 0))
+    # Patches of crops, unevenly grown, with bare and weedy ground between.
+    planted = 0.55 if level == 1 else 0.75
+    for z in range(1, 10):
+        for x in range(1, 10):
+            if s.get(x, 0, z)[0] == WATER:
+                continue
+            patch = (x // 3 + z // 3 * 2) % 3
+            if rng.random() < planted:
+                s.set(x, 0, z, (FARMLAND, 7))
+                crop = (POTATOES, CARROTS, WHEAT)[patch]
+                s.set(x, 1, z, (crop, rng.choice((3, 5, 7, 7))))
+            elif rng.random() < 0.3:
+                s.set(x, 1, z, rng.choice([(TALL_GRASS, 1), (DEAD_BUSH, 0)]))
+    # A fence of odd posts and rubble, with gaps in it, and a gap for a gate in front.
+    for i in range(11):
+        for x, z in ((i, 0), (i, 10), (0, i), (10, i)):
+            r = rng.random()
+            if r < 0.15:
+                s.set(x, 1, z, AIR)
+            elif r < 0.35:
+                s.set(x, 1, z, rng.choice([(COBBLE, 0), (MOSSY, 0), (COBBLE_WALL, 1)]))
+            else:
+                s.set(x, 1, z, p.fence)
+    for x in (4, 5, 6):
+        s.set(x, 1, 0, AIR)
+        s.set(x, 0, 0, (GRAVEL, 0))
+    s.set(4, 1, 0, (LOG2, 1))
+    s.set(6, 1, 0, (LOG2, 1))
+    # A heap of dung in the corner, and a skull on a pole with a rag for a scarecrow.
+    s.set(1, 1, 9, (DIRT, 1))
+    s.set(2, 1, 9, (DIRT, 1))
+    s.set(1, 1, 8, (DIRT, 1))
+    s.set(1, 2, 9, (DIRT, 1))
+    s.set(8, 1, 8, p.fence)
+    s.set(8, 2, 8, p.cloth2)
+    skull(s, 8, 3, 8)
+    if level > 1:
+        s.set(3, 1, 1, AIR)
+        s.set(3, 0, 1, (COBBLE, 0))
+        s.set(3, 1, 1, (CAULDRON, 3))
+        s.set(2, 1, 1, (FENCE, 0))
+        torch(s, p, 2, 2, 1, "up")
+        s.set(9, 1, 1, (HAY, 0))
+    return s
+
+
+def goblin_lookout(p):
+    """Bandos's Age I tower: a rickety lookout of crooked dark oak logs, its sides boarded with odd planks full of
+    gaps, a ladder up the middle, and a deck with a railing of sticks, a skull on a stake and a tattered pennant."""
+    s = Struct(5, 5, 20, 1)
+    rng = random.Random(81)
+    deck = 10
+    foundation(s, p, 0, 0, 4, 4)
+    s.fill(0, 0, 0, 4, 0, 4, (DIRT, 1))
+    s.pillars(0, 0, 4, 4, 1, deck, (LOG2, 1))
+    # Boards nailed on any old way, more of them low down, with gaps to shoot through.
+    for y in range(1, deck):
+        for x, z in [(x, 0) for x in (1, 2, 3)] + [(x, 4) for x in (1, 2, 3)] + \
+                    [(0, z) for z in (1, 2, 3)] + [(4, z) for z in (1, 2, 3)]:
+            if rng.random() < (0.8 if y < 4 else 0.45):
+                s.set(x, y, z, rng.choice([(PLANKS, 1), (PLANKS, 5), (PLANKS, 1)]))
+    # Cross braces of logs.
+    for y in (4, 7):
+        s.fill(1, y, 0, 3, y, 0, (LOG2, 5))
+        s.fill(1, y, 4, 3, y, 4, (LOG2, 5))
+        s.fill(0, y, 1, 0, y, 3, (LOG2, 9))
+        s.fill(4, y, 1, 4, y, 3, (LOG2, 9))
+    s.clear(2, 1, 0, 2, 2, 0)
+    door(s, p, 2, 1, 0)
+    for y in range(1, deck):
+        s.set(2, y, 3, (LADDER, 2))
+        s.set(2, y, 2, AIR)
+    # The deck, a plank short here and there, with a railing of sticks round it.
+    for x in range(5):
+        for z in range(5):
+            s.set(x, deck, z, (PLANKS, 5) if (x * 7 + z * 3) % 5 else (PLANKS, 1))
+    s.set(2, deck, 3, (LADDER, 2))
+    for x, z in ((0, 0), (1, 0), (3, 0), (4, 0), (0, 2), (4, 1), (4, 3), (0, 4), (2, 4), (4, 4), (0, 1)):
+        s.set(x, deck + 1, z, p.fence)
+    s.set(0, deck + 2, 0, p.fence)
+    skull(s, 0, deck + 3, 0)
+    torch(s, p, 4, deck + 2, 4, "up")
+    flag(s, p, 4, deck + 1, deck + 3, 0, "south")
     return s
 
 
