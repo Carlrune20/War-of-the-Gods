@@ -82,7 +82,9 @@ public class EntityUnit extends EntityCreature {
         /** Keeping its place in formation behind a player. */
         FOLLOW,
         /** A worker mining a gold mine, or carrying the gold to a store. */
-        MINE
+        MINE,
+        /** A trebuchet rolling in range of a spot to throw a stone at it, once. */
+        BOMBARD
     }
 
     /** How a unit fights when it has no orders to: how far it looks for enemies and how far it chases them. */
@@ -332,6 +334,8 @@ public class EntityUnit extends EntityCreature {
     private double stoneX;
     private double stoneY;
     private double stoneZ;
+    /** How high the ground is where a trebuchet ordered to throw at a spot is to throw; the spot is its goal. */
+    private double bombardY;
     private int planTicks;
     private int scanTicks;
     private int progressTicks;
@@ -828,6 +832,8 @@ public class EntityUnit extends EntityCreature {
         switch (order) {
             case MOVE:
                 return new double[] { goalX, goalZ };
+            case BOMBARD:
+                return distanceTo(goalX, goalZ) <= archerRange() ? null : new double[] { goalX, goalZ };
             case ATTACK:
                 return target == null ? null : new double[] { target.posX, target.posZ };
             case BUILD:
@@ -1032,6 +1038,22 @@ public class EntityUnit extends EntityCreature {
     /** How many torches the worker still has to put up. */
     public int getTorchesLeft() {
         return order == Order.LIGHT ? torches.size() : 0;
+    }
+
+    /** Sends a trebuchet in range of a spot, to throw a stone at it there and then stand. */
+    void orderBombard(double x, double y, double z) {
+        if (!kind.isSiege()) {
+            return;
+        }
+        dropPlans();
+        order = Order.BOMBARD;
+        goalX = x;
+        goalZ = z;
+        bombardY = y;
+        target = null;
+        targetId = null;
+        defending = false;
+        startOrder();
     }
 
     void orderAttackBuilding(Building building) {
@@ -1554,6 +1576,9 @@ public class EntityUnit extends EntityCreature {
             case FOLLOW:
                 tickFollow();
                 break;
+            case BOMBARD:
+                tickBombard();
+                break;
             default:
                 tickGuard();
         }
@@ -1577,6 +1602,27 @@ public class EntityUnit extends EntityCreature {
             walkToward(goalX, goalZ);
         }
         if (!madeProgress() && !nextMove()) {
+            guardHere();
+        }
+    }
+
+    /** Rolls in range of the spot, takes aim and throws, then stands where it threw from. */
+    private void tickBombard() {
+        if (distanceTo(goalX, goalZ) > archerRange()) {
+            if (getNavigator().noPath() && --planTicks <= 0) {
+                planTicks = 20;
+                walkToward(goalX, goalZ);
+            }
+            if (!madeProgress()) {
+                guardHere();
+            }
+            return;
+        }
+        getNavigator().clearPathEntity();
+        getLookHelper().setLookPosition(goalX, bombardY, goalZ, 30, 30);
+        progressTicks = 0;
+        if (drawBow()) {
+            throwStone(goalX, bombardY, goalZ);
             guardHere();
         }
     }
@@ -2772,7 +2818,10 @@ public class EntityUnit extends EntityCreature {
         tag.setString("Stance", stance.id);
         tag.setString("Prayer", prayer.id);
         // Nor is following someone, who may not be online when the server starts again.
-        tag.setString("Order", defending || order == Order.FOLLOW ? Order.IDLE.name() : order.name());
+        // Nor is one throw at a spot.
+        tag.setString(
+            "Order",
+            defending || order == Order.FOLLOW || order == Order.BOMBARD ? Order.IDLE.name() : order.name());
         tag.setInteger("TrainedAt", trainedAt);
         tag.setBoolean("AiControlled", aiControlled);
         tag.setDouble("GoalX", goalX);

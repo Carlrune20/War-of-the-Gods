@@ -211,6 +211,8 @@ eight times as long as a warrior to train.
   the blocks within 2 of one, and map features such as gold mines are never broken. An enemy building it lands on or
   beside loses up to 250 health instead. Enemy units within 3 blocks take up to 16 damage, less toward the edge of the burst. Its own
   team and allies are never hurt.
+- In the in-game command view, ctrl and right-click on the ground has the selected trebuchets throw a stone at that
+  spot, rolling in range first if need be.
 - It is drawn full size from the trebuchet structure, its arm swinging with each throw and a pennant in its team's
   colour over each tower.
 

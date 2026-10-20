@@ -105,6 +105,7 @@ panels, buttons and tooltips as on the web map are drawn over the real world. No
 | 1 … 0, Ctrl/Shift + number | Control groups, as on the web map (Ctrl + number makes a group). |
 | Right-click with buildings selected / a player of your team | Rally point / follow them, as on the web map. |
 | Right-click | Move, attack (enemies and mobs), build or work, as on the web map. Shift-right-click enemies to attack them in turn. |
+| Ctrl + right-click, with trebuchets selected | They roll in range of the ground clicked and throw a stone at it, then stand. |
 | Right-drag / Space then click | With warriors or archers selected: a red box of enemies to attack, shared out by their health / an attack move, as on the web map. |
 | Click one of your buildings | Its controls in the bar, such as Train. |
 | H / Space | Go to your town center / to the selected units. Space starts an attack move instead when warriors or archers are selected. |

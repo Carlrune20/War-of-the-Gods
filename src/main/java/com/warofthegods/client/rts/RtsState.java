@@ -180,6 +180,10 @@ public final class RtsState {
             return isWorker() || "goblin".equals(kind) || "goblin_thrower".equals(kind);
         }
 
+        public boolean isTrebuchet() {
+            return "trebuchet".equals(kind);
+        }
+
         public boolean isDarkWizard() {
             return "dark_wizard".equals(kind);
         }

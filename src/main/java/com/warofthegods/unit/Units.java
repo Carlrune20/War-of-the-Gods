@@ -904,6 +904,19 @@ public final class Units {
         return sent;
     }
 
+    /** Sends the trebuchets among the units to throw a stone at a spot; returns how many went. */
+    public int orderBombard(List<EntityUnit> units, double x, double y, double z) {
+        int sent = 0;
+        for (EntityUnit unit : units) {
+            if (unit.getKind()
+                .isSiege()) {
+                unit.orderBombard(x, y, z);
+                sent++;
+            }
+        }
+        return sent;
+    }
+
     /** Sends soldiers to attack an enemy building; returns how many went. */
     public int orderAttackBuilding(List<EntityUnit> units, Building building) {
         int sent = 0;
