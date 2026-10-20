@@ -3,7 +3,9 @@ package com.warofthegods.client;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.ModelBase;
 import net.minecraft.client.renderer.texture.TextureMap;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.MathHelper;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.client.IItemRenderer;
 
@@ -30,12 +32,22 @@ public class RenderModelItem implements IItemRenderer {
     private final float scale;
     /** How far along y the model's middle is from where it is held, in units. */
     private final float middle;
+    private final boolean heavy;
 
     /**
      * The model in models/name.json with its texture, drawn so a unit of the model is scale of the square an item is
      * drawn in, and its middle middle units along from where it is held.
      */
     public RenderModelItem(String name, float scale, float middle) {
+        this(name, scale, middle, false);
+    }
+
+    /**
+     * As above; a heavy item, a godsword, is drawn in the player's own view held up before them, swaying a little,
+     * and swung in a great chop.
+     */
+    public RenderModelItem(String name, float scale, float middle, boolean heavy) {
+        this.heavy = heavy;
         model = new JsonModel(new ModelBase() {}, name);
         texture = new ResourceLocation(WarOfTheGods.MODID, "textures/models/" + name + ".png");
         this.scale = scale;
@@ -54,6 +66,20 @@ public class RenderModelItem implements IItemRenderer {
             && (helper == ItemRendererHelper.ENTITY_ROTATION || helper == ItemRendererHelper.ENTITY_BOBBING);
     }
 
+    /** A heavy item in the player's own view: raised and swaying as they breathe, chopped down hard as they swing. */
+    private static void heavyInView() {
+        EntityPlayer player = Minecraft.getMinecraft().thePlayer;
+        if (player == null) {
+            return;
+        }
+        float swing = player.getSwingProgress(1.0F);
+        float sway = MathHelper.sin(player.ticksExisted * 0.07F) * 2.5F;
+        // About the hand: leaning back over the shoulder at rest, the chop sweeping it forward and down.
+        float chop = swing > 0 ? MathHelper.sin(swing * (float) Math.PI) * 70 : 0;
+        float lift = swing > 0 && swing < 0.35F ? swing / 0.35F * 25 : 0;
+        GL11.glRotatef(15 + sway + lift - chop, 0, 0, 1);
+    }
+
     @Override
     public void renderItem(ItemRenderType type, ItemStack item, Object... data) {
         GL11.glPushMatrix();
@@ -67,6 +93,9 @@ public class RenderModelItem implements IItemRenderer {
             // Across the square from its bottom right to its top left, as a sword is drawn, held near the bottom.
             GL11.glTranslatef(GRIP, GRIP_UP, -0.03125F);
             GL11.glRotatef(45, 0, 0, 1);
+            if (heavy && type == ItemRenderType.EQUIPPED_FIRST_PERSON) {
+                heavyInView();
+            }
         }
         // Models are drawn upside down; turned over, top is up.
         GL11.glRotatef(180, 1, 0, 0);

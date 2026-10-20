@@ -22,6 +22,7 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import armor  # noqa: E402
+import artifacts  # noqa: E402
 import blockbench  # noqa: E402
 import boxmodel  # noqa: E402
 import creatures  # noqa: E402
@@ -897,7 +898,8 @@ def silverlight():
 
 # ---------------------------------------------------------------- output
 
-MODELS_BUILT = {"lesser_demon": lesser_demon, "centaur": centaur, "zamorak_staff": zamorak_staff, "silverlight": silverlight}
+MODELS_BUILT = {"lesser_demon": lesser_demon, "centaur": centaur, "zamorak_staff": zamorak_staff, "silverlight": silverlight,
+                **artifacts.ARTIFACTS}
 ICONS = {"zamorak_staff", "silverlight"}
 ICON_SIZE = 32
 

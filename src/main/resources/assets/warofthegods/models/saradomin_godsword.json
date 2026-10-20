@@ -1,0 +1,904 @@
+{
+ "texture": [
+  128,
+  128
+ ],
+ "parts": [
+  {
+   "name": "sword",
+   "parent": null,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      14,
+      0
+     ],
+     "from": [
+      -1,
+      -7,
+      -1
+     ],
+     "size": [
+      2,
+      16,
+      2
+     ],
+     "inflate": 0.1,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "pommel",
+   "parent": "sword",
+   "pivot": [
+    0.0,
+    10.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      78,
+      0
+     ],
+     "from": [
+      -1.5,
+      -1.5,
+      -1.5
+     ],
+     "size": [
+      3,
+      3,
+      3
+     ],
+     "inflate": 0.2,
+     "mirror": false
+    },
+    {
+     "uv": [
+      10,
+      61
+     ],
+     "from": [
+      -0.5,
+      1.5,
+      -0.5
+     ],
+     "size": [
+      1,
+      3,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "ray0",
+   "parent": "pommel",
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.7854
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      46,
+      0
+     ],
+     "from": [
+      -1,
+      -6,
+      -1
+     ],
+     "size": [
+      2,
+      5,
+      2
+     ],
+     "inflate": -0.1,
+     "mirror": false
+    },
+    {
+     "uv": [
+      52,
+      61
+     ],
+     "from": [
+      -0.5,
+      -8,
+      -0.5
+     ],
+     "size": [
+      1,
+      2,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "ray1",
+   "parent": "pommel",
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    2.35619
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      54,
+      0
+     ],
+     "from": [
+      -1,
+      -6,
+      -1
+     ],
+     "size": [
+      2,
+      5,
+      2
+     ],
+     "inflate": -0.1,
+     "mirror": false
+    },
+    {
+     "uv": [
+      56,
+      61
+     ],
+     "from": [
+      -0.5,
+      -8,
+      -0.5
+     ],
+     "size": [
+      1,
+      2,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "ray2",
+   "parent": "pommel",
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    3.92699
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      62,
+      0
+     ],
+     "from": [
+      -1,
+      -6,
+      -1
+     ],
+     "size": [
+      2,
+      5,
+      2
+     ],
+     "inflate": -0.1,
+     "mirror": false
+    },
+    {
+     "uv": [
+      60,
+      61
+     ],
+     "from": [
+      -0.5,
+      -8,
+      -0.5
+     ],
+     "size": [
+      1,
+      2,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "ray3",
+   "parent": "pommel",
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    5.49779
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      70,
+      0
+     ],
+     "from": [
+      -1,
+      -6,
+      -1
+     ],
+     "size": [
+      2,
+      5,
+      2
+     ],
+     "inflate": -0.1,
+     "mirror": false
+    },
+    {
+     "uv": [
+      64,
+      61
+     ],
+     "from": [
+      -0.5,
+      -8,
+      -0.5
+     ],
+     "size": [
+      1,
+      2,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "guard",
+   "parent": "sword",
+   "pivot": [
+    0.0,
+    -9.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      22,
+      0
+     ],
+     "from": [
+      -4,
+      -2,
+      -2
+     ],
+     "size": [
+      8,
+      4,
+      4
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "claw_up_-1",
+   "parent": "guard",
+   "pivot": [
+    -3.5,
+    -1.5,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.7
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      90,
+      0
+     ],
+     "from": [
+      -1,
+      -3.75,
+      -1
+     ],
+     "size": [
+      2,
+      4,
+      2
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "claw_up_-1_tip",
+   "parent": "claw_up_-1",
+   "pivot": [
+    0.0,
+    -3.7,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    1.1
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      14,
+      61
+     ],
+     "from": [
+      -0.5,
+      -2.75,
+      -0.5
+     ],
+     "size": [
+      1,
+      3,
+      1
+     ],
+     "inflate": -0.05,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "claw_down_-1",
+   "parent": "guard",
+   "pivot": [
+    -3.5,
+    1.5,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -2.4
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      98,
+      0
+     ],
+     "from": [
+      -1,
+      -3.25,
+      -1
+     ],
+     "size": [
+      2,
+      4,
+      2
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "claw_down_-1_tip",
+   "parent": "claw_down_-1",
+   "pivot": [
+    0.0,
+    -2.7,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.9
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      68,
+      61
+     ],
+     "from": [
+      -0.5,
+      -1.9,
+      -0.5
+     ],
+     "size": [
+      1,
+      2,
+      1
+     ],
+     "inflate": -0.05,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "claw_up_1",
+   "parent": "guard",
+   "pivot": [
+    3.5,
+    -1.5,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.7
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      106,
+      0
+     ],
+     "from": [
+      -1,
+      -3.75,
+      -1
+     ],
+     "size": [
+      2,
+      4,
+      2
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "claw_up_1_tip",
+   "parent": "claw_up_1",
+   "pivot": [
+    0.0,
+    -3.7,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -1.1
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      18,
+      61
+     ],
+     "from": [
+      -0.5,
+      -2.75,
+      -0.5
+     ],
+     "size": [
+      1,
+      3,
+      1
+     ],
+     "inflate": -0.05,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "claw_down_1",
+   "parent": "guard",
+   "pivot": [
+    3.5,
+    1.5,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    2.4
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      114,
+      0
+     ],
+     "from": [
+      -1,
+      -3.25,
+      -1
+     ],
+     "size": [
+      2,
+      4,
+      2
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "claw_down_1_tip",
+   "parent": "claw_down_1",
+   "pivot": [
+    0.0,
+    -2.7,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.9
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      72,
+      61
+     ],
+     "from": [
+      -0.5,
+      -1.9,
+      -0.5
+     ],
+     "size": [
+      1,
+      2,
+      1
+     ],
+     "inflate": -0.05,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "blade",
+   "parent": "sword",
+   "pivot": [
+    0.0,
+    -11.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      0,
+      0
+     ],
+     "from": [
+      -3,
+      -60,
+      -0.5
+     ],
+     "size": [
+      6,
+      60,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      0,
+      61
+     ],
+     "from": [
+      -2,
+      -63,
+      -0.5
+     ],
+     "size": [
+      4,
+      3,
+      1
+     ],
+     "inflate": -0.05,
+     "mirror": false
+    },
+    {
+     "uv": [
+      46,
+      61
+     ],
+     "from": [
+      -1,
+      -65,
+      -0.5
+     ],
+     "size": [
+      2,
+      2,
+      1
+     ],
+     "inflate": -0.1,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "tooth_-1_0",
+   "parent": "blade",
+   "pivot": [
+    -3.0,
+    -3.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.8
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      22,
+      61
+     ],
+     "from": [
+      -0.5,
+      -3,
+      -0.5
+     ],
+     "size": [
+      1,
+      3,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "tooth_-1_1",
+   "parent": "blade",
+   "pivot": [
+    -3.0,
+    -6.5,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.8
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      26,
+      61
+     ],
+     "from": [
+      -0.5,
+      -3,
+      -0.5
+     ],
+     "size": [
+      1,
+      3,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "tooth_-1_2",
+   "parent": "blade",
+   "pivot": [
+    -3.0,
+    -10.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    -0.8
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      30,
+      61
+     ],
+     "from": [
+      -0.5,
+      -3,
+      -0.5
+     ],
+     "size": [
+      1,
+      3,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "tooth_1_0",
+   "parent": "blade",
+   "pivot": [
+    3.0,
+    -3.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.8
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      34,
+      61
+     ],
+     "from": [
+      -0.5,
+      -3,
+      -0.5
+     ],
+     "size": [
+      1,
+      3,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "tooth_1_1",
+   "parent": "blade",
+   "pivot": [
+    3.0,
+    -6.5,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.8
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      38,
+      61
+     ],
+     "from": [
+      -0.5,
+      -3,
+      -0.5
+     ],
+     "size": [
+      1,
+      3,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "tooth_1_2",
+   "parent": "blade",
+   "pivot": [
+    3.0,
+    -10.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.8
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      42,
+      61
+     ],
+     "from": [
+      -0.5,
+      -3,
+      -0.5
+     ],
+     "size": [
+      1,
+      3,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  }
+ ]
+}

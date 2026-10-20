@@ -13,13 +13,13 @@ import net.minecraftforge.common.util.EnumHelper;
 import com.warofthegods.WarOfTheGods;
 
 /**
- * The dragon scimitar, found now and then in the chests of old ruins: a half heart keener than a runite sword, and it
+ * The dragon scimitar, found now and then in the chests of old ruins: a heart keener than a runite sword, and it
  * never wears out.
  */
 public class ItemDragonScimitar extends ItemSword {
 
-    /** 8 damage, to a runite sword's 7. */
-    private static final ToolMaterial DRAGON = EnumHelper.addToolMaterial("DRAGON_SCIMITAR", 0, 0, 8, 4, 15);
+    /** 9 damage, to a runite sword's 7. */
+    private static final ToolMaterial DRAGON = EnumHelper.addToolMaterial("DRAGON_SCIMITAR", 0, 0, 8, 5, 15);
 
     public ItemDragonScimitar() {
         super(DRAGON);

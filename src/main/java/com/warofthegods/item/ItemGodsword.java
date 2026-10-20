@@ -25,10 +25,10 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
  */
 public class ItemGodsword extends ItemSword {
 
-    /** Two hearts harder than a runite sword: 9 damage. */
-    private static final ToolMaterial GODSWORD = EnumHelper.addToolMaterial("GODSWORD", 0, 0, 8, 5, 15);
-    /** Bandos's a half heart harder again: 10 damage. */
-    private static final ToolMaterial BANDOS = EnumHelper.addToolMaterial("BANDOS_GODSWORD", 0, 0, 8, 6, 15);
+    /** 12 damage, to a runite sword's 7. */
+    private static final ToolMaterial GODSWORD = EnumHelper.addToolMaterial("GODSWORD", 0, 0, 8, 8, 15);
+    /** Bandos's a heart harder again: 14 damage. */
+    private static final ToolMaterial BANDOS = EnumHelper.addToolMaterial("BANDOS_GODSWORD", 0, 0, 8, 10, 15);
 
     /** Seconds Zamorak's godsword sets whoever it hits alight for. */
     public static final int FIRE_SECONDS = 4;

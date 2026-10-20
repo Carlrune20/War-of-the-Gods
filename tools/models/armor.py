@@ -34,6 +34,7 @@ METALS = {
 LOOKS = tuple(METALS)
 BELT = (92, 20, 16)
 BOOT_LEATHER = (104, 76, 46)
+HORN = (232, 228, 218)
 
 
 def metal(base):
@@ -89,6 +90,12 @@ def full_helm(look):
     head.box(-5, -7, -5, 10, 1, 10, band, inflate=0.25)
     # The nose guard, standing out of the opening between the eyes.
     head.box(-1, -6, -5.6, 2, 3, 1, metal(shade(base, 1.08)))
+    if look == "_dragon":
+        # Dragon's helm has two plain white horns, rising up and out from either side of the crown.
+        for side in (-1, 1):
+            horn = head.child("horn_%d" % side, pivot=(side * 4, -8, 0), rotation=(0, 0, side * 0.55))
+            horn.box(-1, -4, -1, 2, 4, 2, metal(HORN))
+            horn.box(-0.5, -7, -0.5, 1, 3, 1, metal(HORN), inflate=-0.05)
     return m
 
 
@@ -205,7 +212,9 @@ def leather_cowl():
 # Each look by texture name, and the model it goes on.
 ARMOR = {"leather_cowl": (leather_cowl, "leather_cowl")}
 for _look in LOOKS:
-    ARMOR["full_helm" + _look] = (lambda look=_look: full_helm(look), "full_helm")
+    # The dragon helm's horns make it a model of its own.
+    ARMOR["full_helm" + _look] = (lambda look=_look: full_helm(look),
+                                  "full_helm_dragon" if _look == "_dragon" else "full_helm")
     ARMOR["plate" + _look] = (lambda look=_look: plate(look), "plate")
 
 
