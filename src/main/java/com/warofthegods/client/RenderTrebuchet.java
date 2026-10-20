@@ -112,10 +112,7 @@ final class RenderTrebuchet {
 
         // The counterweight hangs straight down from the short end, wherever the arm has it.
         GL11.glPushMatrix();
-        GL11.glTranslated(
-            AXLE_X - HINGE_X,
-            AXLE_Y + SHORT_ARM * sin - HINGE_Y,
-            AXLE_Z - SHORT_ARM * cos - HINGE_Z);
+        GL11.glTranslated(AXLE_X - HINGE_X, AXLE_Y + SHORT_ARM * sin - HINGE_Y, AXLE_Z - SHORT_ARM * cos - HINGE_Z);
         draw(weight, brightness);
         GL11.glPopMatrix();
 

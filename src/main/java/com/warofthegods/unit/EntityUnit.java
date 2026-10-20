@@ -1408,12 +1408,11 @@ public class EntityUnit extends EntityCreature {
      */
     private void fitSize(UnitKind kind, int tier) {
         float scale = kind.scale(tier);
-        float wide = kind.isMounted() || kind.hasOwnModel() || kind.isSiege() || scale >= 1.25F ? MOUNTED_WIDTH
-            : 0.6F;
+        float wide = kind.isMounted() || kind.hasOwnModel() || kind.isSiege() || scale >= 1.25F ? MOUNTED_WIDTH : 0.6F;
         // Heroes stand taller in look only; goblins stand shorter, and Bandos's brutes taller.
         float tall = kind.isSiege() ? TREBUCHET_HEIGHT
             : kind == UnitKind.CENTAUR ? CENTAUR_HEIGHT
-            : 1.8F * (kind == UnitKind.LESSER_DEMON || kind.creatureModel() != null ? scale : 1);
+                : 1.8F * (kind == UnitKind.LESSER_DEMON || kind.creatureModel() != null ? scale : 1);
         if (width != wide || height != tall) {
             setSize(wide, tall);
         }

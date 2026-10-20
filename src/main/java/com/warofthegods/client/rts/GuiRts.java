@@ -2546,14 +2546,15 @@ public final class GuiRts extends GuiScreen {
                     + ")\n"
                     + (needed != null ? "Needs " + needed.name + ": research it first"
                         : heroTaken ? kind.name + " is already with your team; train him again once he falls"
-                        : full
-                            ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
-                                : "Your team has the most units it can have")
-                            : kind.hero ? "Train " + kind.name + ", a hero; your team has one at a time"
-                                : "Train a " + kind.name.toLowerCase()
-                                    + "; shift-click for 5"
-                                    + (trainers.size() > 1 ? ", shared out over the " + trainers.size() + " selected"
-                                        : "")),
+                            : full
+                                ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
+                                    : "Your team has the most units it can have")
+                                : kind.hero ? "Train " + kind.name + ", a hero; your team has one at a time"
+                                    : "Train a " + kind.name.toLowerCase()
+                                        + "; shift-click for 5"
+                                        + (trainers.size() > 1
+                                            ? ", shared out over the " + trainers.size() + " selected"
+                                            : "")),
                 shift -> trainSpread(
                     trainers,
                     kindId,
