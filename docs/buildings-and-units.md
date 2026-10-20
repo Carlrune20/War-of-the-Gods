@@ -260,7 +260,7 @@ differently from Saradomin's and Zamorak's:
 - **Sergeant Strongstack**, with a diamond axe: goblins near him hit harder.
 - **Sergeant Steelwill**, a caster: goblins near him take a quarter less from spells.
 - **Sergeant Grimspike**, an archer with long range.
-- **General Graardor**, a huge ork who costs 20 favor and hits much harder while one of his sergeants is near.
+- **General Graardor**, a huge ork who costs 20 favor, has 1000 health and hits much harder while one of his sergeants is near.
 
 Goblins, hobgoblins, orks and ogres have models of their own rather than a man's. Bandos's buildings are heaps of
 cobblestone and mossy stone propped up with dark wood, hung with his green and brown banners.

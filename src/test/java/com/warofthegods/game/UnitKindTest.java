@@ -106,6 +106,11 @@ class UnitKindTest {
     }
 
     @Test
+    void graardorHasAThousandHealthAtTheDefaultUnitHealth() {
+        assertEquals(1000, 20 * UnitKind.GRAARDOR.healthFactor);
+    }
+
+    @Test
     void everyBandosKindWearsACreatureModel() {
         for (UnitKind kind : UnitKind.values()) {
             if (kind.faction() == Faction.BANDOS && kind != UnitKind.SLAVE) {

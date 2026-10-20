@@ -88,10 +88,10 @@ public enum UnitKind {
     /** A goblin hero of the God Wars who shoots a bow farther than any archer. At the Bandos bastion. */
     GRIMSPIKE("grimspike", "Sergeant Grimspike", "grimspike", 5, 0, 5, 8, 4, true, true),
     /**
-     * Bandos's general in the God Wars, a giant for favor: nothing knocks him back, and he hits harder while one of
-     * his three sergeants fights near him. At the Bandos bastion.
+     * Bandos's general in the God Wars, a giant for favor with 1000 health: nothing knocks him back, and he hits
+     * harder while one of his three sergeants fights near him. At the Bandos bastion.
      */
-    GRAARDOR("graardor", "General Graardor", "graardor", 12, 12, 0, 0, 4, false, true);
+    GRAARDOR("graardor", "General Graardor", "graardor", 50, 12, 0, 0, 4, false, true);
 
     public final String id;
     public final String displayName;
