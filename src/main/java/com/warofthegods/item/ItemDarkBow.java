@@ -21,6 +21,7 @@ import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.event.entity.player.ArrowLooseEvent;
 
 import com.warofthegods.WarOfTheGods;
+import com.warofthegods.unit.Combat;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.relauncher.Side;
@@ -137,13 +138,24 @@ public class ItemDarkBow extends ItemBow {
         return count;
     }
 
-    /** The dark bow's second arrow lands though the first has only just hit. */
+    /**
+     * The dark bow's second arrow lands though the first has only just hit. If the first killed, the second flies on
+     * past the falling body rather than bouncing off it.
+     */
     @SubscribeEvent
     public void onLivingAttack(LivingAttackEvent event) {
         Entity arrow = event.source.getSourceOfDamage();
-        if (arrow instanceof EntityArrow && arrow.getEntityData()
+        if (!(arrow instanceof EntityArrow) || !arrow.getEntityData()
             .getBoolean(ARROW_TAG)) {
-            event.entityLiving.hurtResistantTime = 0;
+            return;
         }
+        if (event.entityLiving.getHealth() <= 0) {
+            event.setCanceled(true);
+            if (!event.entityLiving.worldObj.isRemote) {
+                Combat.passThrough((EntityArrow) arrow, event.entityLiving);
+            }
+            return;
+        }
+        event.entityLiving.hurtResistantTime = 0;
     }
 }

@@ -19,6 +19,7 @@ import org.lwjgl.opengl.GL11;
 
 import com.warofthegods.WarOfTheGods;
 import com.warofthegods.item.ItemPrayerBook;
+import com.warofthegods.rts.EntityCommanderBody;
 import com.warofthegods.rts.PrayerMessage;
 import com.warofthegods.unit.PlayerPrayers;
 import com.warofthegods.unit.Prayer;
@@ -62,13 +63,14 @@ public final class PrayerHud {
         up = message.up;
     }
 
-    /** Over the head of a player who has a prayer up, as over a hero's. */
+    /** Over the head of a player who has a prayer up, as over a hero's, and over the body they leave to command. */
     @SubscribeEvent
     public void onRenderSpecials(RenderLivingEvent.Specials.Post event) {
-        if (!(event.entity instanceof EntityPlayer) || event.entity.isInvisible()) {
+        if (!(event.entity instanceof EntityPlayer || event.entity instanceof EntityCommanderBody)
+            || event.entity.isInvisible()) {
             return;
         }
-        Prayer up = PlayerPrayers.watchedOn((EntityPlayer) event.entity);
+        Prayer up = PlayerPrayers.watchedOn(event.entity);
         if (up != Prayer.NONE) {
             RenderUnit.drawOverhead(RenderManager.instance, up, event.x, event.y + event.entity.height + 0.9, event.z);
         }
