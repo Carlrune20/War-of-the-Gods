@@ -966,8 +966,104 @@ def bridge_piece():
     return s
 
 
+def trebuchet_frame():
+    """The standing part of the counterweight trebuchet, the siege engine a fortress builds: a spruce sled on four
+    spoked wheels and an A-frame tower either side holding the axle, with a winch at the back. The arm and the
+    counterweight turn, so they are parts of their own; the frame leaves room for both to swing between the towers.
+    It throws to the front, the z = 0 side, which faces north at rotation 0."""
+    s = Struct(7, 11, 12, 0)
+    log_x, log_z, log_up = (LOG, 1 | 4), (LOG, 1 | 8), (LOG, 1)
+    dark = (PLANKS, 5)
+    s.fill(0, 0, 0, 6, 0, 10, (GRASS, 0))
+    # Wheels either side, front and back: a hub of log end on, ringed by dark planks.
+    for x in (0, 6):
+        for z in (2, 8):
+            s.set(x, 2, z, log_x)
+            for dy, dz in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                s.set(x, 2 + dy, z + dz, dark)
+    # The sled: two long beams on the axles, cross beams between, and a trough down the middle for the sling.
+    for x in (1, 5):
+        s.fill(x, 2, 0, x, 2, 10, log_z)
+    for z in (1, 5, 9):
+        s.fill(2, 2, z, 4, 2, z, log_x)
+    s.fill(3, 2, 6, 3, 2, 10, (WOOD_SLAB, 1 | 8))
+    s.set(3, 2, 9, log_x)
+    # The A-frames: legs climbing from the front and the back to meet under the axle, braced where they meet.
+    for x in (1, 5):
+        for i in range(3):
+            s.fill(x, 3 + 2 * i, 3 + i, x, 4 + 2 * i, 3 + i, log_up)
+            s.fill(x, 3 + 2 * i, 7 - i, x, 4 + 2 * i, 7 - i, log_up)
+        s.set(x, 3, 2, (SPRUCE_STAIRS, UP_SOUTH))
+        s.set(x, 3, 8, (SPRUCE_STAIRS, UP_NORTH))
+        s.set(x, 5, 3, (SPRUCE_STAIRS, UP_SOUTH))
+        s.set(x, 5, 7, (SPRUCE_STAIRS, UP_NORTH))
+        s.set(x, 7, 4, (SPRUCE_STAIRS, UP_SOUTH))
+        s.set(x, 7, 6, (SPRUCE_STAIRS, UP_NORTH))
+        s.fill(x, 3, 5, x, 6, 5, (FENCE, 0))
+    # The axle across the tops, but for the middle, where the arm's own piece of it turns.
+    for x in (1, 2, 4, 5):
+        s.set(x, 9, 5, log_x)
+    # The winch at the back that drew the arm down.
+    s.set(2, 3, 9, log_x)
+    s.set(4, 3, 9, log_x)
+    s.set(1, 3, 9, (FENCE, 0))
+    s.set(5, 3, 9, (FENCE, 0))
+    return s
+
+
+# Where the arm turns on the axle, in the frame, and how far along the arm the axle passes.
+TREBUCHET_AXLE = (3, 9, 5)
+TREBUCHET_PIVOT = 3
+
+
+def trebuchet_arm():
+    """The trebuchet's throwing arm, a part of its own that the siege engine turns about the axle: a straight oak beam
+    lying along z, the short end at z = 0 where the counterweight hangs, the axle through z = TREBUCHET_PIVOT, and
+    the long end, twice as long, at the back with the sling and its cobblestone hanging under the tip."""
+    s = Struct(1, 3 * TREBUCHET_PIVOT + 1, 0, 1)
+    tip = 3 * TREBUCHET_PIVOT
+    s.fill(0, 0, 0, 0, 0, tip, (LOG, 8))
+    s.set(0, 0, TREBUCHET_PIVOT, (LOG, 4))
+    s.set(0, -1, tip, (COBBLE, 0))
+    return s
+
+
+def trebuchet_counterweight():
+    """The trebuchet's counterweight, a part of its own that hangs from the arm's short end and stays upright as the
+    arm swings: a box of stones bound in logs, on a chain whose top, at x = 1, z = 1, y = 3, is the hinge. It is low
+    enough to swing under the axle and clear the sled."""
+    s = Struct(3, 3, 2, 0)
+    s.fill(0, 0, 0, 2, 1, 2, (COBBLE, 0))
+    s.walls(0, 0, 2, 2, 1, 1, (PLANKS, 1))
+    for x, z in ((0, 0), (2, 0), (0, 2), (2, 2)):
+        s.fill(x, 0, z, x, 1, z, (LOG, 1))
+    s.set(1, 2, 1, (FENCE, 0))
+    return s
+
+
+def trebuchet():
+    """The whole counterweight trebuchet as it stands cocked, for looking at: the frame, the arm drawn down with its
+    long end at the back and the cobblestone in the sling, and the counterweight hung high at the front. The arm's
+    slant is drawn in steps here; the siege engine turns the straight part smoothly."""
+    s = trebuchet_frame()
+    ax, ay, az = TREBUCHET_AXLE
+    arm = (LOG, 0)
+    for i in range(-TREBUCHET_PIVOT, 6):
+        s.set(ax, ay - i, az + i, arm)
+    s.set(ax, ay - 6, az + 5, (COBBLE, 0))
+    tip_y, tip_z = ay + TREBUCHET_PIVOT, az - TREBUCHET_PIVOT
+    weight = trebuchet_counterweight()
+    for (x, y, z), block in weight.blocks.items():
+        s.set(ax - 1 + x, tip_y - 3 + y, tip_z - 1 + z, block)
+    return s
+
+
 NEUTRAL = {
     "silverlight_shrine": silverlight_shrine,
+    "trebuchet": trebuchet,
+    "trebuchet_frame": trebuchet_frame,
+    "trebuchet_arm": trebuchet_arm,
+    "trebuchet_counterweight": trebuchet_counterweight,
     "bridge": bridge,
     "bridge_piece": bridge_piece,
     "settlement": settlement,

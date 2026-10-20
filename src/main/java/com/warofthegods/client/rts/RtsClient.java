@@ -445,6 +445,18 @@ public final class RtsClient {
         return fighters;
     }
 
+    /** The selected trebuchets. */
+    public Set<String> selectedTrebuchets() {
+        Set<String> trebuchets = new LinkedHashSet<>();
+        for (String id : selected) {
+            RtsState.UnitInfo unit = state.units.get(id);
+            if (unit != null && unit.isTrebuchet()) {
+                trebuchets.add(id);
+            }
+        }
+        return trebuchets;
+    }
+
     public Set<String> selectedWorkers() {
         Set<String> workers = new LinkedHashSet<>();
         for (String id : selected) {

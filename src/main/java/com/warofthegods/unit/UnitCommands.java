@@ -42,6 +42,7 @@ import com.warofthegods.world.GameWorld;
  *   {type: "units.gather", units: [id...], x, y, z}  workers chop the tree at or near that block, or mine the gold
  *                                                    mine there
  *   {type: "units.light", units: [id...], x1, z1, x2, z2}  workers put torches in the dark parts of that area
+ *   {type: "units.bombard", units: [id...], x, y, z}  trebuchets roll in range and throw a stone at that spot
  *   {type: "units.prayer", units: [id...], prayer}  melee, missiles, magic or none: Sir Tradigee's protection prayer
  *   {type: "units.stop", units: [id...]}        stop and guard where they stand
  *   {type: "units.follow", units: [id...], target: uuid, formation?}  follow a player of their team in formation
@@ -73,6 +74,7 @@ public final class UnitCommands {
         WebCommand.register("units.prayer", UnitCommands::prayer);
         WebCommand.register("units.follow", UnitCommands::follow);
         WebCommand.register("units.kill", UnitCommands::kill);
+        WebCommand.register("units.bombard", UnitCommands::bombard);
     }
 
     /** The viewer's team, or null after replying with why they cannot command units. */
@@ -523,6 +525,36 @@ public final class UnitCommands {
             .orderCarve(units, carcass);
         if (sent == 0) {
             request.replyError("Only workers carve food");
+            return;
+        }
+        ok(request, sent);
+    }
+
+    private static void bombard(WebRequest request) {
+        Team team = commander(request);
+        List<EntityUnit> units = team == null ? null : ownUnits(request, team);
+        if (units == null) {
+            return;
+        }
+        Double x = doubleField(request.body, "x");
+        Double y = doubleField(request.body, "y");
+        Double z = doubleField(request.body, "z");
+        if (x == null || z == null) {
+            request.replyError("Where to?");
+            return;
+        }
+        if (!GameManager.getGame()
+            .isInside((int) Math.floor(x), (int) Math.floor(z))) {
+            request.replyError("That is outside the map");
+            return;
+        }
+        double groundY = y != null ? y
+            : GameWorld.getWorld()
+                .getHeightValue((int) Math.floor(x), (int) Math.floor(z));
+        int sent = Units.get()
+            .orderBombard(units, x, groundY, z);
+        if (sent == 0) {
+            request.replyError("Only trebuchets throw at a spot");
             return;
         }
         ok(request, sent);

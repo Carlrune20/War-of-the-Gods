@@ -733,6 +733,9 @@ public final class GuiRts extends GuiScreen {
             attackMove(px, py, hit);
             return;
         }
+        if (button == 1 && isCtrlKeyDown() && bombard(px, py)) {
+            return;
+        }
         if (button == 1) {
             if (!client.selected.isEmpty()) {
                 order(px, py, hit);
@@ -864,6 +867,26 @@ public final class GuiRts extends GuiScreen {
         // Shift-clicking ground one spot after another lays out waypoints to walk in turn, as for scouting.
         body.addProperty("queue", isShiftKeyDown());
         client.command("units.move", body, null);
+    }
+
+    /** Ctrl and right-click has the selected trebuchets throw a stone at the ground clicked, wherever it is. */
+    private boolean bombard(int px, int py) {
+        Set<String> trebuchets = client.selectedTrebuchets();
+        double[] ground = trebuchets.isEmpty() ? null : groundUnder(px, py);
+        if (ground == null) {
+            return false;
+        }
+        client.mark(ground[0], ground[1], ground[2], true);
+        JsonObject body = unitsBody(trebuchets);
+        body.addProperty("x", ground[0]);
+        body.addProperty("y", ground[1]);
+        body.addProperty("z", ground[2]);
+        int count = trebuchets.size();
+        client.command(
+            "units.bombard",
+            body,
+            reply -> client.showToast(count == 1 ? "Throwing a stone there" : "Throwing stones there", false));
+        return true;
     }
 
     /**
@@ -2528,6 +2551,8 @@ public final class GuiRts extends GuiScreen {
             boolean heroTaken = kind.hero && state.hasUnitOf(team, kindId);
             // A horse is no unit, and needs no room.
             boolean full = !kind.animal && teamFull;
+            RtsState.UpgradeInfo needed = kind.requires == null || team.upgrades.contains(kind.requires) ? null
+                : state.game.upgrades.get(kind.requires);
             int waiting = 0;
             for (RtsState.BuildingInfo trainer : trainers) {
                 for (String queued : trainer.queue) {
@@ -2542,21 +2567,23 @@ public final class GuiRts extends GuiScreen {
                 kind.name + " ("
                     + RtsState.costText(kind.cost)
                     + ")\n"
-                    + (heroTaken ? kind.name + " is already with your team; train him again once he falls"
-                        : full
-                            ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
-                                : "Your team has the most units it can have")
-                            : kind.hero ? "Train " + kind.name + ", a hero; your team has one at a time"
-                                : "Train a " + kind.name.toLowerCase()
-                                    + "; shift-click for 5"
-                                    + (trainers.size() > 1 ? ", shared out over the " + trainers.size() + " selected"
-                                        : "")),
+                    + (needed != null ? "Needs " + needed.name + ": research it first"
+                        : heroTaken ? kind.name + " is already with your team; train him again once he falls"
+                            : full
+                                ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
+                                    : "Your team has the most units it can have")
+                                : kind.hero ? "Train " + kind.name + ", a hero; your team has one at a time"
+                                    : "Train a " + kind.name.toLowerCase()
+                                        + "; shift-click for 5"
+                                        + (trainers.size() > 1
+                                            ? ", shared out over the " + trainers.size() + " selected"
+                                            : "")),
                 shift -> trainSpread(
                     trainers,
                     kindId,
                     kind.hero ? kind.name : kind.name.toLowerCase(),
                     kind.hero ? 1 : shift ? 5 : 1),
-                !heroTaken && !full && RtsState.canAfford(team, kind.cost) && room);
+                needed == null && !heroTaken && !full && RtsState.canAfford(team, kind.cost) && room);
             train.badge = waiting > 0 ? String.valueOf(waiting) : null;
             actions.add(train);
         }

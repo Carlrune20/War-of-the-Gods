@@ -91,7 +91,13 @@ public enum UnitKind {
      * Bandos's general in the God Wars, a giant for favor with 1000 health: nothing knocks him back, and he hits
      * harder while one of his three sergeants fights near him. At the Bandos bastion.
      */
-    GRAARDOR("graardor", "General Graardor", "graardor", 50, 12, 0, 0, 4, false, true);
+    GRAARDOR("graardor", "General Graardor", "graardor", 50, 12, 0, 0, 4, false, true),
+    /**
+     * A counterweight trebuchet, built at any god's stronghold once the armory has researched siege weapons: it rolls
+     * slowly, and from far off hurls stones that burst where they land, smashing buildings and hurting enemies round
+     * them. It is sturdy, but rolls so slowly and fights so poorly up close that it needs guarding.
+     */
+    TREBUCHET("trebuchet", "Trebuchet", "trebuchet", 2.5, 0, 0, 22, 8, true, false);
 
     public final String id;
     public final String displayName;
@@ -154,6 +160,21 @@ public enum UnitKind {
     /** Whether it prays for favor while idle by its god's temple: a chaos priest, or a goblin priest. */
     public boolean praysAtTemple() {
         return this == CHAOS_PRIEST || this == GOBLIN_PRIEST;
+    }
+
+    /** Whether it is a siege engine rather than a living thing: the trebuchet. */
+    public boolean isSiege() {
+        return this == TREBUCHET;
+    }
+
+    /** The upgrade a team has to have before it can train this, or null: a trebuchet needs siege weapons. */
+    public Upgrade requiredUpgrade() {
+        return this == TREBUCHET ? Upgrade.SIEGE_WEAPONS : null;
+    }
+
+    /** Whether the team has researched what training this needs, such as siege weapons for a trebuchet. */
+    public boolean unlockedFor(Team team) {
+        return requiredUpgrade() == null || team.has(requiredUpgrade());
     }
 
     /** Whether it gathers food, wood and gold and carries them home: workers, and Bandos's slaves. */
@@ -276,10 +297,13 @@ public enum UnitKind {
         }
     }
 
-    /** How fast it walks, as a share of a man's pace: orks, ogres and Graardor are slow, riders fast. */
+    /** How fast it walks, as a share of a man's pace: orks, ogres and Graardor are slow, a trebuchet slower still. */
     public double speedFactor() {
         if (isFast()) {
             return 1.5;
+        }
+        if (this == TREBUCHET) {
+            return 0.4;
         }
         return this == ORK ? 0.75 : this == OGRE ? 0.7 : this == GRAARDOR ? 0.8 : 1;
     }
@@ -342,10 +366,11 @@ public enum UnitKind {
 
     /**
      * Whether nothing knocks it back: a lesser demon, knights in their plate, elite or not, Sir Tradigee among them,
-     * and Bandos's orks, ogres and General Graardor.
+     * Bandos's orks, ogres and General Graardor, and a trebuchet.
      */
     public boolean isUnshakable() {
-        return this == LESSER_DEMON || this == WHITE_KNIGHT
+        return this == LESSER_DEMON || this == TREBUCHET
+            || this == WHITE_KNIGHT
             || this == BLACK_KNIGHT
             || this == TRADIGEE
             || this == ORK
