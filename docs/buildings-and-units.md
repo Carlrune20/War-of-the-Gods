@@ -312,7 +312,7 @@ pieces of armor, and arrows. Now and then a chest also holds one of these, none 
   Missiles and Magic, and let go on the one you want. A prayer takes three quarters off hits of its style, as a hero's
   does, and drains a point for every 6 seconds it is up. Stand by your team's chaos temple, monastery or Bandos temple
   to fill your points up again. You come back from death with them full. While your prayer is up, its icon shows
-  over your head for everyone to see, as a hero's does.
+  over your head for everyone to see, as a hero's does, and over your body while you command from the RTS view.
 - **Dragon scimitar.** Hits for 9.
 - **Dragon armor**: full helm (with white horns), platebody, platelegs and boots, drawn red. A full suit guards better
   than runite.

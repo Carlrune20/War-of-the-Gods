@@ -15,6 +15,7 @@ import net.minecraft.world.World;
 
 import com.mojang.authlib.properties.Property;
 import com.warofthegods.unit.Combat;
+import com.warofthegods.unit.PlayerPrayers;
 
 import cpw.mods.fml.common.network.ByteBufUtils;
 import cpw.mods.fml.common.registry.IEntityAdditionalSpawnData;
@@ -88,7 +89,7 @@ public class EntityCommanderBody extends EntityLiving implements IEntityAddition
             .isCommanding(owner.getUniqueID()) ? owner : null;
     }
 
-    /** Takes on the owner's health and gear, so others see how they are and what they hold. */
+    /** Takes on the owner's health, gear and prayer, so others see how they are, what they hold and how they pray. */
     void follow(EntityPlayerMP owner) {
         float max = owner.getMaxHealth();
         if (getEntityAttribute(SharedMonsterAttributes.maxHealth).getBaseValue() != max) {
@@ -100,6 +101,11 @@ public class EntityCommanderBody extends EntityLiving implements IEntityAddition
             if (!ItemStack.areItemStacksEqual(theirs, getEquipmentInSlot(slot))) {
                 setCurrentItemOrArmor(slot, theirs == null ? null : theirs.copy());
             }
+        }
+        byte prayer = owner.getDataWatcher()
+            .getWatchableObjectByte(PlayerPrayers.WATCH_PRAYER);
+        if (getDataWatcher().getWatchableObjectByte(PlayerPrayers.WATCH_PRAYER) != prayer) {
+            getDataWatcher().updateObject(PlayerPrayers.WATCH_PRAYER, prayer);
         }
     }
 

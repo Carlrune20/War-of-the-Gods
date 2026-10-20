@@ -3,6 +3,7 @@ package com.warofthegods.unit;
 import java.util.Map;
 import java.util.WeakHashMap;
 
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
@@ -17,6 +18,7 @@ import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Team;
 import com.warofthegods.item.ItemPrayerBook;
+import com.warofthegods.rts.EntityCommanderBody;
 import com.warofthegods.rts.PrayerMessage;
 import com.warofthegods.rts.RtsNetwork;
 
@@ -49,19 +51,22 @@ public final class PlayerPrayers {
     /** What each player's client was last told, so it is told again only when that changes. */
     private static final Map<EntityPlayer, Integer> SENT = new WeakHashMap<>();
 
-    /** Every player has the slot that shows their prayer, on the server and on each client. */
+    /**
+     * Every player has the slot that shows their prayer, on the server and on each client, and so does the body a
+     * commander leaves standing, to show it while they look down from the RTS view.
+     */
     @SubscribeEvent
     public void onEntityConstructing(EntityEvent.EntityConstructing event) {
-        if (event.entity instanceof EntityPlayer) {
+        if (event.entity instanceof EntityPlayer || event.entity instanceof EntityCommanderBody) {
             event.entity.getDataWatcher()
                 .addObject(WATCH_PRAYER, (byte) 0);
         }
     }
 
-    /** On a client, the prayer a player has up, as their server said. */
-    public static Prayer watchedOn(EntityPlayer player) {
+    /** On a client, the prayer a player, or a commander's body, has up, as their server said. */
+    public static Prayer watchedOn(Entity entity) {
         return Prayer.byOrdinal(
-            player.getDataWatcher()
+            entity.getDataWatcher()
                 .getWatchableObjectByte(WATCH_PRAYER));
     }
 
