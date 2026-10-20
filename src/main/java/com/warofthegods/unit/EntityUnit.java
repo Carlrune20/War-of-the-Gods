@@ -526,14 +526,8 @@ public class EntityUnit extends EntityCreature {
 
     /** Keeps name, skin and strength in step with the team's name, color, faction and upgrades. */
     void updateTeam(Team team) {
-        // A hero goes by his own name, in his team's color.
-        String name = kind.hero ? team.getColor() + kind.displayName
-            : team.getColor() + team.getName()
-                + " "
-                + (eliteTier(kind, team) > 0 ? kind.eliteName(eliteTier(kind, team))
-                    .toLowerCase() : kind.lowerName())
-                + " "
-                + number;
+        // Just the unit's name, such as Goblin; the team color on the tag already says whose it is.
+        String name = team.getColor() + (kind.hero ? kind.displayName : kind.eliteName(eliteTier(kind, team)));
         if (!name.equals(getCustomNameTag())) {
             setCustomNameTag(name);
             setAlwaysRenderNameTag(true);

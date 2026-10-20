@@ -330,7 +330,7 @@ public final class Units {
         horse.setHorseVariant(team.getFaction() == Faction.ZAMORAK ? HORSE_BLACK : HORSE_WHITE);
         horse.setHorseTamed(true);
         horse.setHorseSaddled(true);
-        horse.setCustomNameTag(team.getColor() + team.getName() + " horse");
+        horse.setCustomNameTag(team.getColor() + "Horse");
         world.spawnEntityInWorld(horse);
         return horse;
     }
