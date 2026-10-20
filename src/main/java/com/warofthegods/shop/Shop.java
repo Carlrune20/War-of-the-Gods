@@ -26,6 +26,7 @@ import com.warofthegods.WarOfTheGods;
 import com.warofthegods.building.Buildings;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
+import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Resource;
@@ -37,9 +38,10 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 /**
  * Shop chests, where commanders kit themselves out from their team's stores. The chest in a team's town center sells
  * cooked food for food, building blocks, stone tools and leather armor, and buys ores and ingots for gold, so what
- * players dig out of caves goes to their team. The chest in its armory sells iron tools, iron armor, bows and arrows
- * from Age II and runite (Minecraft's diamond) tools and armor from Age III. Everything is paid for out of the team's
- * resources, and the whole team is told what was bought. Nothing a shop sells can be sold back.
+ * players dig out of caves goes to their team. The chest in its armory sells iron tools, iron armor (dark iron for
+ * Zamorak's teams), bows and arrows from Age II and runite (Minecraft's diamond) tools and armor from Age III.
+ * Everything is paid for out of the team's resources, and the whole team is told what was bought. Nothing a shop sells
+ * can be sold back.
  */
 public final class Shop {
 
@@ -358,16 +360,18 @@ public final class Shop {
     }
 
     /**
-     * What a ware gives: a fresh copy, with leather armor dyed in the team's color and iron armor marked as its god's,
-     * so Zamorak's is drawn black.
+     * What a ware gives: a fresh copy, with leather armor dyed in the team's color, and for Zamorak's teams dark iron
+     * armor in place of iron.
      */
     private static ItemStack goods(Ware ware, Team team) {
         ItemStack stack = ware.item.copy();
-        if (team != null && (stack.getItem() == Items.iron_helmet || stack.getItem() == Items.iron_chestplate
-            || stack.getItem() == Items.iron_leggings
-            || stack.getItem() == Items.iron_boots)) {
-            team.getFaction()
-                .mark(stack);
+        if (team != null && team.getFaction() == Faction.ZAMORAK) {
+            Item[] iron = { Items.iron_helmet, Items.iron_chestplate, Items.iron_leggings, Items.iron_boots };
+            for (int slot = 0; slot < iron.length; slot++) {
+                if (stack.getItem() == iron[slot]) {
+                    stack = new ItemStack(WarOfTheGods.darkIron[slot], stack.stackSize);
+                }
+            }
         }
         if (team != null && (stack.getItem() == Items.leather_helmet || stack.getItem() == Items.leather_chestplate
             || stack.getItem() == Items.leather_leggings

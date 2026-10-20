@@ -1,7 +1,5 @@
 package com.warofthegods.game;
 
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumChatFormatting;
 
 /**
@@ -14,9 +12,6 @@ public enum Faction {
     SARADOMIN("saradomin", "Saradomin"),
     ZAMORAK("zamorak", "Zamorak"),
     BANDOS("bandos", "Bandos");
-
-    /** The tag on armor bought by a team that says whose god's look it is drawn in. */
-    private static final String ARMOR_TAG = "warofthegodsFaction";
 
     public final String id;
     public final String displayName;
@@ -47,23 +42,6 @@ public enum Faction {
     /** The next god in turn after this one, for a lobby button that steps through them. */
     public Faction next() {
         return values()[(ordinal() + 1) % values().length];
-    }
-
-    /** Marks armor as this god's, for its look: Zamorak's iron is black. */
-    public void mark(ItemStack stack) {
-        if (!stack.hasTagCompound()) {
-            stack.setTagCompound(new NBTTagCompound());
-        }
-        stack.getTagCompound()
-            .setString(ARMOR_TAG, id);
-    }
-
-    /** Whose god's armor a stack is, as marked when it was bought; null if it is no one's. */
-    public static Faction of(ItemStack stack) {
-        return stack != null && stack.hasTagCompound() ? byId(
-            stack.getTagCompound()
-                .getString(ARMOR_TAG))
-            : null;
     }
 
     public static Faction byId(String id) {

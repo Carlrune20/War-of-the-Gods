@@ -12,13 +12,11 @@ import net.minecraft.client.model.ModelBiped;
 import net.minecraft.client.renderer.entity.RenderBiped;
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.minecraft.MinecraftProfileTexture;
 import com.mojang.authlib.properties.Property;
-import com.warofthegods.game.Faction;
 import com.warofthegods.rts.EntityCommanderBody;
 
 /**
@@ -38,9 +36,8 @@ public class RenderCommanderBody extends RenderBiped {
 
     @Override
     protected int shouldRenderPass(EntityLiving entity, int pass, float partialTicks) {
-        ItemStack stack = entity.func_130225_q(3 - pass);
         int drawn = ArmorLooks.get()
-            .renderPass(this, entity, stack, pass, Faction.of(stack), modelBipedMain);
+            .renderPass(this, entity, entity.func_130225_q(3 - pass), pass, modelBipedMain);
         return drawn != ArmorLooks.VANILLA ? drawn : super.shouldRenderPass(entity, pass, partialTicks);
     }
 

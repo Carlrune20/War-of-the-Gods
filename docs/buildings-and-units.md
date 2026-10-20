@@ -115,7 +115,7 @@ the team has that one.
 | Runite swords | Armory, Age III, after iron swords | Warriors carry runite swords and hit 2 harder again |
 | Fletching | Armory | Archers and towers shoot 1 harder and 4 farther |
 | Fire arrows | Armory, Age II, after fletching | Archers' arrows set enemies they hit on fire for a few seconds; they never set the team or its allies alight |
-| Padded armor | Armory | Warriors and archers have 6 more health, and wear chainmail |
+| Padded armor | Armory | Warriors and archers have 6 more health, and wear leather in their team's colour |
 | Plate armor | Armory, Age II, after padded armor | Warriors and archers have 8 more health, and wear iron |
 | Bigger baskets | Storehouse | Workers carry 10 more |
 | Iron axes | Storehouse | Workers chop half again as fast |
@@ -179,7 +179,7 @@ as fast as they would build it.
 **Equipment.** Units walk as fast as a player.
 
 - Warriors carry stone swords until the armory researches iron, and then runite ones.
-- Warriors and archers wear the armor upgrades from helmet to boots: chainmail with padded armor, and iron with plate.
+- Warriors and archers wear the armor upgrades from helmet to boots: leather in the team's colour with padded armor, and iron with plate (dark iron for Zamorak).
 - Workers hold the tool for their job: a hoe at a farm, a pickaxe at a gold mine, an axe for building and chopping, and a
   sword for hunting. They swing it as they work. Their tools are stone until the storehouse researches iron ones, and
   runite after that in Age III. They hold what they carry only on the way to a store.

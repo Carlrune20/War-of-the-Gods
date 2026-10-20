@@ -189,7 +189,7 @@ it.
 | Shop | Age | Wares |
 |---|---|---|
 | Town center | I | Cooked beef, porkchops or chicken x8 (25, 25, 20 food), bread or baked potatoes x8 (15 food), apples x8 (10 food); torches x16 (5 wood), planks x32 (15 wood), cobblestone x32 (10 gold), ladders x8 (5 wood), fences x16 (10 wood), crafting table (5 wood), furnace (5 gold); stone sword (10 wood, 5 gold), stone pickaxe, axe and shovel (10 wood each); leather armor dyed in the team's colour, the cap a leather cowl (12, 20, 16 and 12 gold) |
-| Armory | II | Iron sword (40 gold), iron pickaxe, axe and shovel (30 gold each), iron armor, a silver full helm and plate, black for Zamorak's teams (50, 80, 70 and 40 gold), bow (20 wood, 10 gold), arrows x16 (10 wood) |
+| Armory | II | Iron sword (40 gold), iron pickaxe, axe and shovel (30 gold each), iron armor, a silver full helm and plate; Zamorak's teams get dark iron instead (50, 80, 70 and 40 gold), bow (20 wood, 10 gold), arrows x16 (10 wood) |
 | Armory | III | Runite sword (250 gold), runite pickaxe, axe and shovel (200 gold each), runite armor, a blue-green full helm and plate (250, 400, 350 and 200 gold) |
 
 **Selling ores.** The town center buys ores for gold:
