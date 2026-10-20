@@ -1,6 +1,7 @@
 package com.warofthegods.ai;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -145,9 +146,19 @@ public final class AiPlayers {
     private static final int MAX_TOWN_CENTERS = 6;
     /** Blocks from a town center that it looks for a barracks or tower of its own by, and puts one up in. */
     private static final double OUTPOST_RANGE = 32;
-    /** Pieces of wall it builds with at once, and how far out it moves a wall a building is in the way of. */
+    /**
+     * Pieces of wall it builds with at once, and how far out it bends a side of its wall round a building in the way
+     * of it, whole pieces at a time so the bend meets the rest of the wall.
+     */
     private static final int WALL_BUILDERS = 2;
-    private static final int[] WALL_OFFSETS = { 0, 8, 16, 24 };
+    private static final int[] WALL_OFFSETS = { 0, 5, 10, 15, 20, 25 };
+    /** Fewest towers its wall runs between, so that it goes all the way round the town. */
+    private static final int WALL_TOWERS = 3;
+    /**
+     * Ticks between looks at its walls for pieces knocked down, and before it tries again a side it found no room for.
+     */
+    private static final int BREACH_CHECK_TICKS = 200;
+    private static final int WALL_RETRY_TICKS = 2400;
     /** Blocks a marching army walks toward its target between orders, and how near it gets before it charges. */
     private static final double MARCH_LEG = 12;
     private static final double CHARGE_RANGE = 28;
@@ -226,10 +237,23 @@ public final class AiPlayers {
         /** The foot of a tree it found far from home, round which it chops; null when it knows of none. */
         int[] forest;
         int lastFarTreeSearch = -FAR_TREE_TICKS;
-        /** Sides of the town it has walled or found no room to wall, of those between its towers. */
-        int wallSides;
+        /**
+         * The corners of the ring of wall it puts round its town, the middles of its towers in order round the town
+         * center when it started walling; null until then.
+         */
+        int[][] ring;
+        /**
+         * For each side of the ring, how its wall was bent out (x, z) once laid out, to lay out what was knocked down
+         * of it again the same way; null while not yet laid out.
+         */
+        int[][] wallBends;
+        /** For each side of the ring, when it last found no room to wall it. */
+        int[] wallTried;
+        int lastBreachCheck;
         /** Wall segments it makes gates of once they are built, by building id. */
         final List<Integer> gates = new ArrayList<>();
+        /** Where its gates go, as the min x, min z of each, to make a gate again of wall rebuilt there. */
+        final List<int[]> gateSpots = new ArrayList<>();
         /** The fighters marching on an attack in formation, and the formation. */
         final List<EntityUnit> march = new ArrayList<>();
         Units.Formation marchFormation;
@@ -355,9 +379,7 @@ public final class AiPlayers {
             && count(game, team, fortressOf(team), false) == 0
             && fighters.size() >= FORTRESS_FIGHTERS;
         build(game, world, team, state, hall, workers, saving, fighters.size(), false);
-        if (!saving && !savingForFortress) {
-            wall(game, world, team, state, hall, workers);
-        }
+        wall(game, world, team, state, hall, workers, !saving && !savingForFortress, ticks);
         makeGates(game, world, state);
         staffSites(game, team, workers);
         repair(game, world, team, workers);
@@ -1198,12 +1220,13 @@ public final class AiPlayers {
     }
 
     /**
-     * Walls one side of the town at a time once it has an armory and gold to spare: from each of its towers round the
-     * town center to the next, or further out where a building stands in the way, with the middle segment to be made
-     * a gate.
+     * Walls its town in once it has an armory: a ring of wall from tower to tower round the town center, with no gap
+     * but a gate in the middle of each side, laid out one side at a time when it has gold to spare. A side with a
+     * building or water in the way is bent out round it; one it finds no room for it tries again now and then.
+     * Whatever of its wall is knocked down it builds again first, spare or not, gates as gates.
      */
     private static void wall(Game game, WorldServer world, Team team, State state, Building hall,
-        List<EntityUnit> workers) {
+        List<EntityUnit> workers, boolean spare, int now) {
         if (game.getAge(team) < 2 || count(game, team, BuildingType.ARMORY, true) == 0) {
             return;
         }
@@ -1212,77 +1235,153 @@ public final class AiPlayers {
                 return;
             }
         }
+        if (state.ring == null) {
+            state.ring = spare ? ring(game, team, hall) : null;
+            if (state.ring == null) {
+                return;
+            }
+            state.wallBends = new int[state.ring.length][];
+            state.wallTried = new int[state.ring.length];
+            Arrays.fill(state.wallTried, now - WALL_RETRY_TICKS);
+        }
+        int sides = state.ring.length;
+        if (now - state.lastBreachCheck >= BREACH_CHECK_TICKS) {
+            state.lastBreachCheck = now;
+            for (int side = 0; side < sides; side++) {
+                int[] bend = state.wallBends[side];
+                if (bend != null && layWall(game, world, team, state, workers, side, bend[0], bend[1], 0)) {
+                    WarOfTheGods.LOG.info("AI {} is closing a breach in its wall", team.getName());
+                    return;
+                }
+            }
+        }
+        if (!spare) {
+            return;
+        }
+        for (int side = 0; side < sides; side++) {
+            if (state.wallBends[side] != null || now - state.wallTried[side] < WALL_RETRY_TICKS) {
+                continue;
+            }
+            int[] from = state.ring[side];
+            int[] to = state.ring[(side + 1) % sides];
+            // Out is away from the town center, square to the side.
+            double ex = to[0] - from[0];
+            double ez = to[1] - from[1];
+            double length = Math.max(1, Math.sqrt(ex * ex + ez * ez));
+            double nx = -ez / length;
+            double nz = ex / length;
+            double midX = (from[0] + to[0]) / 2.0 - hall.getCenterX();
+            double midZ = (from[1] + to[1]) / 2.0 - hall.getCenterZ();
+            if (midX * nx + midZ * nz < 0) {
+                nx = -nx;
+                nz = -nz;
+            }
+            for (int offset : WALL_OFFSETS) {
+                int ox = (int) Math.round(nx * offset);
+                int oz = (int) Math.round(nz * offset);
+                Buildings.WallPlan plan = Buildings.get()
+                    .planWall(game, world, team, from[0], from[1], to[0], to[1], ox, oz, true);
+                if (Buildings.WALL_THERE.equals(plan.problem)) {
+                    state.wallBends[side] = new int[] { ox, oz };
+                    return;
+                }
+                if (plan.problem != null) {
+                    continue;
+                }
+                if (layWall(game, world, team, state, workers, side, ox, oz, SPARE_MARGIN)) {
+                    state.wallBends[side] = new int[] { ox, oz };
+                    WarOfTheGods.LOG.info("AI {} laid out side {} of its wall", team.getName(), side + 1);
+                }
+                // Laid out, or to be once it has the gold.
+                return;
+            }
+            state.wallTried[side] = now;
+            WarOfTheGods.LOG.info("AI {} found no room to wall side {} of its town", team.getName(), side + 1);
+            return;
+        }
+    }
+
+    /**
+     * Lays out what is missing of one side of its wall, bent out by ox, oz, and sends workers to build it; the
+     * segment in the middle of a new side, and any rebuilt where a gate stood, to be made a gate. False when there is
+     * nothing missing, no room, or not the gold to keep margin of after.
+     */
+    private static boolean layWall(Game game, WorldServer world, Team team, State state, List<EntityUnit> workers,
+        int side, int ox, int oz, long margin) {
+        int[] from = state.ring[side];
+        int[] to = state.ring[(side + 1) % state.ring.length];
+        Buildings.WallPlan plan = Buildings.get()
+            .planWall(game, world, team, from[0], from[1], to[0], to[1], ox, oz, true);
+        if (plan.problem != null) {
+            return false;
+        }
+        Map<Resource, Long> cost = Buildings.wallCost(plan.pieces.size());
+        if (!affords(team, cost, margin)) {
+            return false;
+        }
+        boolean fresh = state.wallBends[side] == null;
+        team.spend(cost);
+        List<Building> sites = Buildings.get()
+            .startWall(game, team, plan);
+        List<Building> segments = new ArrayList<>();
+        for (Building site : sites) {
+            // A gate takes a full segment, not a post or a short one.
+            if (site.type == BuildingType.WALL && site.sizeX >= WallLine.SIZE && site.sizeZ >= WallLine.SIZE) {
+                segments.add(site);
+                for (int[] spot : state.gateSpots) {
+                    if (spot[0] == site.minX && spot[1] == site.minZ) {
+                        state.gates.add(site.id);
+                    }
+                }
+            }
+        }
+        if (fresh && !segments.isEmpty()) {
+            Building gate = segments.get(segments.size() / 2);
+            state.gates.add(gate.id);
+            state.gateSpots.add(new int[] { gate.minX, gate.minZ });
+        }
+        List<EntityUnit> builders = spareWorkers(workers, WALL_BUILDERS);
+        for (int i = 0; i < sites.size(); i++) {
+            Units.get()
+                .orderBuild(builders, sites.get(i), i > 0);
+        }
+        WarOfTheGods.LOG
+            .info("AI {} laid out {} pieces of wall with {} workers", team.getName(), sites.size(), builders.size());
+        return true;
+    }
+
+    /**
+     * The ring to wall its town in along: the middles of its towers by the town center in order round it, or null
+     * while there are too few, or all on one side of the town center so a ring through them would leave it out.
+     */
+    private static int[][] ring(Game game, Team team, Building hall) {
         double cx = hall.getCenterX();
         double cz = hall.getCenterZ();
         List<Building> towers = new ArrayList<>();
         for (Building tower : game.getBuildings(team)) {
-            if (tower.type == BuildingType.TOWER && tower.distanceTo(cx, cz) <= HOME_RANGE) {
+            if (tower.type == BuildingType.TOWER && tower.isComplete() && tower.distanceTo(cx, cz) <= HOME_RANGE) {
                 towers.add(tower);
             }
         }
-        if (towers.size() < 2) {
-            return;
+        if (towers.size() < WALL_TOWERS) {
+            return null;
         }
-        towers.sort(
-            (a, b) -> Double.compare(
-                Math.atan2(a.getCenterZ() - cz, a.getCenterX() - cx),
-                Math.atan2(b.getCenterZ() - cz, b.getCenterX() - cx)));
-        int sides = towers.size() == 2 ? 1 : towers.size();
-        if (state.wallSides >= sides) {
-            return;
+        towers.sort(Comparator.comparingDouble(tower -> Math.atan2(tower.getCenterZ() - cz, tower.getCenterX() - cx)));
+        int[][] ring = new int[towers.size()][];
+        for (int i = 0; i < towers.size(); i++) {
+            Building tower = towers.get(i);
+            Building next = towers.get((i + 1) % towers.size());
+            double turn = Math.atan2(next.getCenterZ() - cz, next.getCenterX() - cx)
+                - Math.atan2(tower.getCenterZ() - cz, tower.getCenterX() - cx);
+            if (turn <= 0) {
+                turn += 2 * Math.PI;
+            }
+            if (turn >= Math.PI) {
+                return null;
+            }
+            ring[i] = new int[] { (int) Math.floor(tower.getCenterX()), (int) Math.floor(tower.getCenterZ()) };
         }
-        Building from = towers.get(state.wallSides);
-        Building to = towers.get((state.wallSides + 1) % towers.size());
-        // Outward is away from the town center, square to the side.
-        double mx = (from.getCenterX() + to.getCenterX()) / 2 - cx;
-        double mz = (from.getCenterZ() + to.getCenterZ()) / 2 - cz;
-        double length = Math.max(1, Math.sqrt(mx * mx + mz * mz));
-        for (int offset : WALL_OFFSETS) {
-            double ox = mx / length * offset;
-            double oz = mz / length * offset;
-            Buildings.WallPlan plan = Buildings.get()
-                .planWall(
-                    game,
-                    world,
-                    team,
-                    (int) Math.floor(from.getCenterX() + ox),
-                    (int) Math.floor(from.getCenterZ() + oz),
-                    (int) Math.floor(to.getCenterX() + ox),
-                    (int) Math.floor(to.getCenterZ() + oz));
-            if (plan.problem != null) {
-                continue;
-            }
-            Map<Resource, Long> cost = Buildings.wallCost(plan.pieces.size());
-            if (!affords(team, cost, SPARE_MARGIN)) {
-                return;
-            }
-            team.spend(cost);
-            List<Building> sites = Buildings.get()
-                .startWall(game, team, plan);
-            List<Building> segments = new ArrayList<>();
-            for (Building site : sites) {
-                // A gate takes a full segment, not a post or a short one.
-                if (site.type == BuildingType.WALL && site.sizeX >= WallLine.SIZE && site.sizeZ >= WallLine.SIZE) {
-                    segments.add(site);
-                }
-            }
-            if (!segments.isEmpty()) {
-                state.gates.add(segments.get(segments.size() / 2).id);
-            }
-            List<EntityUnit> builders = spareWorkers(workers, WALL_BUILDERS);
-            for (int i = 0; i < sites.size(); i++) {
-                Units.get()
-                    .orderBuild(builders, sites.get(i), i > 0);
-            }
-            state.wallSides++;
-            WarOfTheGods.LOG.info(
-                "AI {} laid out a wall of {} pieces with {} workers",
-                team.getName(),
-                sites.size(),
-                builders.size());
-            return;
-        }
-        state.wallSides++;
+        return ring;
     }
 
     /** Makes the wall segments it meant for gates gates once they are built; forgets those that are gone. */

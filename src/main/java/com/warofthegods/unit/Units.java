@@ -1272,8 +1272,11 @@ public final class Units {
         return best;
     }
 
-    /** The nearest building of an enemy team within range of the unit, or null. */
-    Building findEnemyBuildingNear(EntityUnit unit, double range) {
+    /**
+     * The nearest building of an enemy team within range of the unit, or null; a wall or gate only with walls, as the
+     * computer's units go round walls, or through where they are in the way, rather than chip at every one they pass.
+     */
+    Building findEnemyBuildingNear(EntityUnit unit, double range, boolean walls) {
         Game game = GameManager.getGame();
         Team team = game == null ? null : game.getTeam(unit.getTeamId());
         if (team == null) {
@@ -1283,7 +1286,7 @@ public final class Units {
         double bestDistance = range;
         for (Building building : game.getBuildings()) {
             Team owner = game.getTeam(building.team);
-            if (owner == null || !game.areEnemies(team, owner)) {
+            if (owner == null || !game.areEnemies(team, owner) || !walls && building.type.isWall()) {
                 continue;
             }
             double distance = building.distanceTo(unit.posX, unit.posZ);

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -97,6 +98,76 @@ class WallLineTest {
                 .isShort());
         assertEquals(7, pieces.get(2).minX);
         assertEquals(1, pieces.get(2).sizeX);
+    }
+
+    @Test
+    void bentWallRunsOutAcrossAndBackWithoutGapsOrOverlaps() {
+        List<WallLine.Piece> pieces = WallLine.bent(0, 0, 30, 0, 0, 12, NOTHING);
+
+        // Out two pieces, across six, back two: corners shared, nothing put in twice.
+        assertEquals(1 + 2 + 6 + 2, pieces.size());
+        for (int i = 0; i < pieces.size(); i++) {
+            for (int j = i + 1; j < pieces.size(); j++) {
+                assertFalse(overlap(pieces.get(i), pieces.get(j)), "pieces " + i + " and " + j + " overlap");
+            }
+        }
+        for (int i = 1; i < pieces.size(); i++) {
+            assertTrue(touch(pieces.get(i - 1), pieces.get(i)), "gap before piece " + i);
+        }
+        assertEquals(-2, pieces.get(0).minX);
+        assertEquals(-2, pieces.get(0).minZ);
+        WallLine.Piece last = pieces.get(pieces.size() - 1);
+        assertEquals(28, last.minX);
+        assertEquals(-2, last.minZ);
+    }
+
+    @Test
+    void bentWallBetweenPointsOffTheGridStillEndsAtTheSecond() {
+        // The far end is off the first point's grid; the last run comes back in to it.
+        List<WallLine.Piece> pieces = WallLine.bent(0, 0, 23, 17, 9, -11, NOTHING);
+
+        // Where the way back in doubles back over the run across, it is still one wall: every piece joined to the
+        // first.
+        List<WallLine.Piece> joined = new ArrayList<>();
+        joined.add(pieces.get(0));
+        for (int added = 1; added > 0;) {
+            added = 0;
+            for (WallLine.Piece piece : pieces) {
+                if (!joined.contains(piece) && joined.stream()
+                    .anyMatch(other -> touch(other, piece))) {
+                    joined.add(piece);
+                    added++;
+                }
+            }
+        }
+        assertEquals(pieces.size(), joined.size());
+        assertTrue(
+            pieces.stream()
+                .anyMatch(p -> p.minX <= 23 && 23 < p.minX + p.sizeX && p.minZ <= 17 && 17 < p.minZ + p.sizeZ));
+    }
+
+    @Test
+    void bentWallWithNoWayOutIsStraight() {
+        assertEquals(
+            WallLine.pieces(0, 0, 20, 0, NOTHING)
+                .size(),
+            WallLine.bent(0, 0, 20, 0, 1, 2, NOTHING)
+                .size());
+    }
+
+    private static boolean overlap(WallLine.Piece a, WallLine.Piece b) {
+        return a.minX < b.minX + b.sizeX && b.minX < a.minX + a.sizeX
+            && a.minZ < b.minZ + b.sizeZ
+            && b.minZ < a.minZ + a.sizeZ;
+    }
+
+    /** Whether two pieces share a side, so no unit gets between them. */
+    private static boolean touch(WallLine.Piece a, WallLine.Piece b) {
+        boolean alongX = (a.minX + a.sizeX == b.minX || b.minX + b.sizeX == a.minX) && a.minZ < b.minZ + b.sizeZ
+            && b.minZ < a.minZ + a.sizeZ;
+        boolean alongZ = (a.minZ + a.sizeZ == b.minZ || b.minZ + b.sizeZ == a.minZ) && a.minX < b.minX + b.sizeX
+            && b.minX < a.minX + a.sizeX;
+        return alongX || alongZ;
     }
 
     @Test

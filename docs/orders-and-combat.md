@@ -28,6 +28,12 @@ Units sent somewhere line up there in the formation picked on the bar, facing th
 - warriors in front, archers behind them, and workers at the back
 
 Units going far plan their whole way first, around lakes, cliffs, trees and buildings, and walk it a stretch at a time.
+A unit with a wall between it and where it is going plans its way too, however near: round the end of the wall, through
+a gap or through a gate of its own team or an ally.
+
+The computer's fighters on an attack go round enemy walls the same way, through any gap, and leave walls they pass
+alone. Only where there is no way round, or going round is more than about 64 blocks further than going through, do
+they stop at the wall, knock that piece down, and then go on with what they were doing.
 
 A unit that gets stuck, wedged in a block or making no headway for a few seconds, hops out to the nearest open ground
 within 8 blocks, off any building, and carries on.
