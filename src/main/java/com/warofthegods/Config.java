@@ -249,7 +249,7 @@ public class Config {
     public static int rtsFarTerrainCellPixels = 6;
 
     /** Bumped when defaults change in a way that should replace what older config files hold. */
-    private static final int CONFIG_VERSION = 13;
+    private static final int CONFIG_VERSION = 14;
 
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
@@ -329,6 +329,10 @@ public class Config {
                 forget(configuration, "units", "goblinCost" + resource);
                 forget(configuration, "units", "goblinThrowerCost" + resource);
             }
+        }
+        if (oldVersion < 14) {
+            // Centaurs cost more favor.
+            forget(configuration, "units", "centaurCostFavor");
         }
         version.set(CONFIG_VERSION);
 
