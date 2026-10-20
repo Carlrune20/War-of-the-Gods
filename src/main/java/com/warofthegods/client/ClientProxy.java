@@ -38,6 +38,7 @@ public class ClientProxy extends CommonProxy {
             .registerItemRenderer(WarOfTheGods.silverlight, new RenderModelItem("silverlight", SILVERLIGHT_SCALE, -22));
         ArmorLooks.get()
             .register();
+        MobRenderers.register();
         RtsClient.init();
     }
 

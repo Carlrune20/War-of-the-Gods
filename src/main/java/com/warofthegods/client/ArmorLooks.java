@@ -18,9 +18,10 @@ import com.warofthegods.item.ItemDarkIronArmor;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
 /**
- * Armor as Old School RuneScape has it, on players, units and commanders' bodies: iron, Zamorak's dark iron and
+ * Armor as Old School RuneScape has it, on players, units, commanders' bodies, zombies and skeletons: iron, Zamorak's
+ * dark iron and
  * runite (Minecraft's diamond) are a full helm with a red band, a platebody with great pauldrons, platelegs and boots,
- * silver, dark or blue-green; the leather cap is a cowl, dyed as leather is. Mobs keep Minecraft's own look.
+ * silver, dark or blue-green; the leather cap is a cowl, dyed as leather is.
  */
 public final class ArmorLooks {
 
