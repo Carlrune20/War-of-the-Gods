@@ -11,6 +11,7 @@
 - [Favor and magic](#favor-and-magic)
 - [Bandos](#bandos)
 - [Silverlight](#silverlight)
+- [Ruin chests and artifacts](#ruin-chests-and-artifacts)
 
 ## Town centers
 
@@ -292,3 +293,24 @@ lies Silverlight, the sword that slew Delrith.
 
 - It strikes like a runite sword. Against a lesser demon, or any creature of the Nether, it strikes six times as hard.
 - There is only the one. Whoever takes it first has it.
+
+## Ruin chests and artifacts
+
+Most old ruins have a chest on their ground, against a wall where one still stands. It holds what was left behind:
+ores and ingots, food, building materials (planks, cobblestone, stone bricks, logs, torches), a few weapons and
+pieces of armor, and arrows. Now and then a chest also holds one of these, none of which ever wears out:
+
+- **Dark bow.** Looses two arrows at once, using up two (one if that is all you have), and each hits much harder than a
+  bow's. Both land, even on the same target.
+- **Godsword blade.** Useless alone. Buy the hilt of your team's god at your armory (Age III, 300 gold) and put the two
+  together in a crafting grid to make a godsword, which hits harder than a runite sword:
+  - **Zamorak godsword** sets whoever it hits alight.
+  - **Saradomin godsword** heals you by 5% of the damage it deals.
+  - **Bandos godsword** hits a little harder than the other two.
+- **Prayer book.** While you carry it you have 20 prayer points, shown as stars above your hunger bar. Click with the
+  book to put your protection prayer up or take it down; hold the button to switch between Protect from Melee,
+  Missiles and Magic, and let go on the one you want. A prayer takes three quarters off hits of its style, as a hero's
+  does, and drains a point for every 6 seconds it is up. Stand by your team's chaos temple, monastery or Bandos temple
+  to fill your points up again. You come back from death with them full.
+- **Dragon scimitar.** A little keener than a runite sword.
+- **Dragon armor**: full helm, platebody, platelegs and boots, drawn red. A full suit guards better than runite.

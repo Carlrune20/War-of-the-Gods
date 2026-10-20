@@ -993,6 +993,7 @@ def build_armor(preview):
         armor.icon(armor.picture("iron", piece)).save(os.path.join(VANILLA_ITEMS, "iron_%s.png" % item))
         armor.icon(armor.picture("rune", piece)).save(os.path.join(VANILLA_ITEMS, "diamond_%s.png" % item))
         armor.icon(armor.picture("black", piece)).save(os.path.join(ITEMS, "dark_iron_%s.png" % item))
+        armor.icon(armor.picture("dragon", piece)).save(os.path.join(ITEMS, "dragon_%s.png" % item))
 
 
 def main():

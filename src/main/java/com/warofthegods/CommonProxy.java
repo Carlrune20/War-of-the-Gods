@@ -1,5 +1,6 @@
 package com.warofthegods;
 
+import com.warofthegods.rts.PrayerMessage;
 import com.warofthegods.rts.TerrainMessage;
 
 /** Side-specific setup; the dedicated server needs none. See {@link com.warofthegods.client.ClientProxy}. */
@@ -15,4 +16,7 @@ public class CommonProxy {
 
     /** Some of the map's surface for the in-game RTS view arrived from the server; called on a Netty thread. */
     public void receiveTerrain(TerrainMessage message) {}
+
+    /** The player's prayer points and prayer arrived from the server; called on a Netty thread. */
+    public void receivePrayer(PrayerMessage message) {}
 }

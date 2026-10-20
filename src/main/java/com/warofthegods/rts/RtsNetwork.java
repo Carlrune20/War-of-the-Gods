@@ -26,6 +26,7 @@ public final class RtsNetwork {
         channel.registerMessage(ToServer.class, RtsMessage.class, 0, Side.SERVER);
         channel.registerMessage(ToClient.class, RtsMessage.class, 0, Side.CLIENT);
         channel.registerMessage(TerrainToClient.class, TerrainMessage.class, 1, Side.CLIENT);
+        channel.registerMessage(PrayerToClient.class, PrayerMessage.class, 2, Side.CLIENT);
     }
 
     public static void sendTo(EntityPlayerMP player, String json) {
@@ -38,6 +39,10 @@ public final class RtsNetwork {
     }
 
     public static void sendTerrain(EntityPlayerMP player, TerrainMessage message) {
+        channel.sendTo(message, player);
+    }
+
+    public static void sendPrayer(EntityPlayerMP player, PrayerMessage message) {
         channel.sendTo(message, player);
     }
 
@@ -74,6 +79,15 @@ public final class RtsNetwork {
             if (message.chunks.length > 0) {
                 WarOfTheGods.proxy.receiveTerrain(message);
             }
+            return null;
+        }
+    }
+
+    public static final class PrayerToClient implements IMessageHandler<PrayerMessage, IMessage> {
+
+        @Override
+        public IMessage onMessage(PrayerMessage message, MessageContext ctx) {
+            WarOfTheGods.proxy.receivePrayer(message);
             return null;
         }
     }

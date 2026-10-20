@@ -205,6 +205,10 @@ to find a small cave. Towers, chapels, manors, farmsteads, huts, old forts and g
 crypt with a ladder down inside them. Their walls are thick with coal and iron ore, and about one in four also holds a
 diamond or a few, low down. Sell what you dig out, or smelt it and make armor yourself.
 
+**Chests in ruins.** Most ruins also have an old chest of loot: ores, food, building materials, weapons, armor and
+arrows. A few hold something rare: the dark bow, a godsword blade, a prayer book, the dragon scimitar or dragon armor.
+See [Ruin chests and artifacts](buildings-and-units.md#ruin-chests-and-artifacts).
+
 ## Winning and losing
 
 - **Losing a town center.** A team that loses its last town center has 2 minutes to raise a new one, or it is

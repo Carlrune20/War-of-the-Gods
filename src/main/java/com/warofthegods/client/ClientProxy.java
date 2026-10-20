@@ -6,6 +6,7 @@ import com.warofthegods.CommonProxy;
 import com.warofthegods.WarOfTheGods;
 import com.warofthegods.client.rts.RtsClient;
 import com.warofthegods.rts.EntityCommanderBody;
+import com.warofthegods.rts.PrayerMessage;
 import com.warofthegods.rts.TerrainMessage;
 import com.warofthegods.unit.EntityCarcass;
 import com.warofthegods.unit.EntitySpell;
@@ -39,6 +40,7 @@ public class ClientProxy extends CommonProxy {
         ArmorLooks.get()
             .register();
         MobRenderers.register();
+        PrayerHud.register();
         RtsClient.init();
     }
 
@@ -61,5 +63,10 @@ public class ClientProxy extends CommonProxy {
         if (client != null) {
             client.receiveTerrain(message);
         }
+    }
+
+    @Override
+    public void receivePrayer(PrayerMessage message) {
+        PrayerHud.receive(message);
     }
 }
