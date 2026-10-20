@@ -20,7 +20,8 @@ import com.warofthegods.game.Ruin;
 /**
  * The old chests left in ruins: most ruins have one, against a wall where there is one, holding what was left behind
  * there: ores, food, building materials, a few weapons and pieces of armor, and arrows. Now and then one holds
- * something rare: the dark bow, a godsword blade, a prayer book, the dragon scimitar or a piece of dragon armor.
+ * something rare: the dark bow, a godsword blade, a prayer book, the dragon scimitar, Zamorak's staff or a piece of
+ * dragon armor.
  */
 final class RuinLoot {
 
@@ -71,9 +72,9 @@ final class RuinLoot {
     /** The rare things a chest may hold, each with its own chance in a thousand. */
     private static Object[][] rarities() {
         return new Object[][] { { WarOfTheGods.darkBow, 30 }, { WarOfTheGods.godswordBlade, 30 },
-            { WarOfTheGods.prayerBook, 50 }, { WarOfTheGods.dragonScimitar, 30 }, { WarOfTheGods.dragonArmor[0], 20 },
-            { WarOfTheGods.dragonArmor[1], 15 }, { WarOfTheGods.dragonArmor[2], 15 },
-            { WarOfTheGods.dragonArmor[3], 20 }, };
+            { WarOfTheGods.prayerBook, 50 }, { WarOfTheGods.dragonScimitar, 30 }, { WarOfTheGods.zamorakStaff, 30 },
+            { WarOfTheGods.dragonArmor[0], 20 }, { WarOfTheGods.dragonArmor[1], 15 },
+            { WarOfTheGods.dragonArmor[2], 15 }, { WarOfTheGods.dragonArmor[3], 20 }, };
     }
 
     /**

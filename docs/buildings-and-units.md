@@ -237,8 +237,8 @@ and trail their element's particles. Fire sets what it hits alight.
   - **confuse** gives it nausea for 6 seconds
 - Like arrows, spells fly on past friends.
 - Zamorak mages carry a Zamorak staff and know only fire.
-- A player can buy a Zamorak staff at the armory in Age III (50 Wood, 150 Gold). Right-click to cast a fire strike, once
-  a second.
+- A player on a Zamorak team can buy a Zamorak staff at the armory in Age III (50 Wood, 150 Gold); anyone else has to
+  find one in a [ruin chest](#ruin-chests-and-artifacts). Right-click to cast a fire strike, once a second.
 
 **Stone circles and lesser demons.** Dark wizards raise stone circles. Select dark wizards (and no workers), and the
 build menu offers the stone circle. It stands the moment it is placed, and the dark wizards that raised it walk into
@@ -315,6 +315,7 @@ pieces of armor, and arrows. Now and then a chest also holds one of these, none 
   to fill your points up again. You come back from death with them full. While your prayer is up, its icon shows
   over your head for everyone to see, as a hero's does, and over your body while you command from the RTS view.
 - **Dragon scimitar.** Hits for 9.
+- **Zamorak staff.** Right-click to cast a fire strike, once a second. The only way to get one outside a Zamorak team.
 - **Dragon armor**: full helm (with white horns), platebody, platelegs and boots, drawn red. A full suit has 23 points
   of armor, to runite's 20. Each piece also takes a quarter of every knockback away, so a full suit is never knocked
   back; each piece of runite armor takes a tenth.
