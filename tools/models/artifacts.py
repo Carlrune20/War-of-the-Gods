@@ -90,6 +90,21 @@ def claw(part, name, pivot, angle, length, paint, curl=-0.9):
     return root
 
 
+def bandos_mark(face, x, y, w, h):
+    """Bandos's sign on the end of his godsword's pommel: a spearhead pointing down, a bar across its shaft."""
+    if face in ("front", "back"):
+        middle = (w - 1) / 2
+        head = y >= h - 3 and abs(x - middle) <= (h - 1 - y) + 0.5
+        shaft = abs(x - middle) < 0.6 and y >= 1
+        bar = y == 2 and 0 < x < w - 1
+        if head or shaft or bar:
+            return BANDOS_MARK
+    return shade(HILTS["bandos"][2], 0.85)
+
+
+BANDOS_MARK = (176, 150, 92)
+
+
 def godsword(god):
     grip_color, grip_dark, pommel, pommel_dark = HILTS[god]
     m = Model(god + "_godsword", 128, 128, seed=17)
@@ -99,48 +114,51 @@ def godsword(god):
     pom_dark = flat(pommel_dark)
     hilt = sword.child("pommel", pivot=(0, 10, 0))
     if god == "zamorak":
-        # Black claws spread out and down below a black knob.
+        # Great black claws spread out and down below a black knob.
         fbox(hilt, -1.75, -1.5, -1.75, 3.5, 3, 3.5, pom)
-        for i, angle in enumerate((-2.3, -2.9, 2.9, 2.3)):
-            claw(hilt, "claw%d" % i, (0, 0.5, 0), angle, 5 if i in (1, 2) else 6, pom_dark, curl=0.8)
+        for i, angle in enumerate((-2.1, -2.8, 2.8, 2.1)):
+            claw(hilt, "claw%d" % i, (0, 0.5, 0), angle, 6 if i in (1, 2) else 8, pom_dark, curl=0.9)
     elif god == "saradomin":
-        # A gold star of four points across the end of the grip, a short spike below it.
+        # A gold star of four points across the end of the grip: up, down and to either side.
         fbox(hilt, -1.5, -1.5, -1.5, 3, 3, 3, pom, inflate=0.2)
         for i in range(4):
-            ray = hilt.child("ray%d" % i, pivot=(0, 0, 0), rotation=(0, 0, math.pi / 4 + math.pi / 2 * i))
+            ray = hilt.child("ray%d" % i, pivot=(0, 0, 0), rotation=(0, 0, math.pi / 2 * i))
             fbox(ray, -1, -6, -0.75, 2, 5, 1.5, pom, inflate=-0.1)
             fbox(ray, -0.5, -8, -0.5, 1, 2, 1, pom_dark)
-        fbox(hilt, -0.5, 1.5, -0.5, 1, 3, 1, pom_dark)
     else:
-        # A heavy spiked knob of green-black iron.
+        # A heavy spiked knob of green-black iron, Bandos's sign on its end.
         fbox(hilt, -2, -1.5, -2, 4, 4, 4, pom)
-        for i, angle in enumerate((-1.9, -2.6, 2.6, 1.9, math.pi)):
+        for i, angle in enumerate((-1.9, -2.5, 2.5, 1.9)):
             spike = hilt.child("spike%d" % i, pivot=(0, 0.5, 0), rotation=(0, 0, angle))
             fbox(spike, -0.75, -5, -0.75, 1.5, 3.5, 1.5, pom_dark)
             fbox(spike, -0.4, -6.5, -0.4, 0.8, 1.5, 0.8, pom_dark)
-    # The guard: a heavy steel block with claws curling up from either end and hooks hanging below.
+        mark = hilt.child("mark", pivot=(0, 3, 0))
+        fbox(mark, -2.5, 0, -1, 5, 6, 2, bandos_mark)
+    # The guard: a heavy steel block with great claws curling up and out from either end, and hooks hanging below.
     guard = sword.child("guard", pivot=(0, -9, 0))
     guard_paint = flat(GUARD)
     fbox(guard, -4, -2, -1.75, 8, 4, 3.5, guard_paint)
     for side in (-1, 1):
-        claw(guard, "claw_up_%d" % side, (side * 3.5, -1.5, 0), side * 0.7, 4, guard_paint, curl=-1.1)
-        claw(guard, "claw_down_%d" % side, (side * 3.5, 1.5, 0), side * 2.4, 3, guard_paint, curl=0.9)
-    # The blade: broad and long, a point at its end and saw teeth at its foot.
+        claw(guard, "claw_out_%d" % side, (side * 3.5, -1, 0), side * 1.25, 9, guard_paint, curl=-1.2)
+        claw(guard, "claw_up_%d" % side, (side * 3, -2, 0), side * 0.55, 7, guard_paint, curl=-1.0)
+        claw(guard, "claw_down_%d" % side, (side * 3.5, 1.5, 0), side * 2.2, 6, guard_paint, curl=1.0)
+    # The blade: broad and long, a point at its end, great saw teeth up its foot and a hook out of either side.
     blade = sword.child("blade", pivot=(0, -11, 0))
     fbox(blade, -3, -60, -0.6, 6, 60, 1.2, gs_blade)
     fbox(blade, -2, -63, -0.6, 4, 3, 1.2, gs_tip, inflate=-0.05)
     fbox(blade, -1, -65, -0.6, 2, 2, 1.2, gs_tip, inflate=-0.1)
     for side in (-1, 1):
-        for i in range(3):
-            tooth = blade.child("tooth_%d_%d" % (side, i), pivot=(side * 3, -3 - i * 3.5, 0),
-                                rotation=(0, 0, side * 0.8))
-            fbox(tooth, -0.6, -3, -0.6, 1.2, 3, 1.2, gs_tip)
+        for i in range(4):
+            tooth = blade.child("tooth_%d_%d" % (side, i), pivot=(side * 3, -2 - i * 4, 0),
+                                rotation=(0, 0, side * 0.75))
+            fbox(tooth, -0.75, -5 + i * 0.5, -0.6, 1.5, 5 - i * 0.5, 1.2, gs_tip)
+        claw(blade, "hook_%d" % side, (side * 3, -26, 0), side * 1.0, 6, flat(STEEL), curl=-1.1)
     return m
 
 
 # ---------------------------------------------------------------- the dark bow
 #
-# A recurved bow of dark red wood, its two limbs in knotted segments, pale bone spikes standing out of the knots and
+# A recurved bow of dark red wood, its two limbs in knotted segments, short pale bone spikes standing out of some of the knots and
 # black knobs at the ends; a gold grip between them and a pale string. The limbs bow out along +x, the string runs
 # straight between their tips.
 
@@ -181,9 +199,11 @@ def dark_bow():
             # A knot where it meets the next, a bone spike standing out of it.
             knot = bow.child("knot_%d_%d" % (up, i), pivot=(x, y, 0))
             fbox(knot, -1.2, -1.2, -1.2, 2.4, 2.4, 2.4, flat(KNOT), inflate=-0.1 * i)
-            spike = knot.child("spike_%d_%d" % (up, i), pivot=(0, 0, 0),
-                               rotation=(0, 0, (1.2 + 0.3 * (i % 2)) * (1 if up < 0 else -1) + (0 if up < 0 else math.pi)))
-            fbox(spike, -0.5, -4.5, -0.5, 1, 3.5, 1, flat(BONE))
+            # A short bone spike out of every other knot, and the last.
+            if i % 2 == 1 or i == len(LIMB) - 1:
+                spike = knot.child("spike_%d_%d" % (up, i), pivot=(0, 0, 0),
+                                   rotation=(0, 0, 1.3 * (1 if up < 0 else -1) + (0 if up < 0 else math.pi)))
+                fbox(spike, -0.5, -3, -0.5, 1, 2, 1, flat(BONE))
         tips.append((x, y))
     # The string between the tips, standing on the inside of the curve.
     (x0, y0), (x1, y1) = tips
@@ -194,7 +214,8 @@ def dark_bow():
 
 # ---------------------------------------------------------------- the dragon scimitar
 #
-# A curved red blade, broadening toward its end and sweeping back to a point, on a dark iron hilt with a curled guard.
+# A short curved red blade, broadening greatly toward its end, its back jagged, sweeping up to a point; on a dark
+# iron hilt whose pommel and guard curl round the hand in an S.
 
 DRAGON = (176, 34, 30)
 DRAGON_LIGHT = (214, 66, 52)
@@ -215,25 +236,31 @@ def dragon_metal(face, x, y, w, h):
 def dragon_scimitar():
     m = Model("dragon_scimitar", 64, 64, seed=29)
     sword = m.part("sword")
-    fbox(sword, -1, -5, -1, 2, 11, 2, wrapped(HILT_IRON, shade(HILT_IRON, 0.6)), inflate=0.1)
-    fbox(sword, -1.5, 6, -1.5, 3, 2, 3, flat(HILT_IRON), inflate=0.1)
-    # The guard: a bar across, its ends curling back toward the hand.
+    iron = flat(HILT_IRON)
+    fbox(sword, -1, -5, -1, 2, 10, 2, wrapped(HILT_IRON, shade(HILT_IRON, 0.6)), inflate=0.1)
+    # The pommel hooks back the way the blade curves, the guard's ends curl: an S of dark iron round the grip.
+    pommel = sword.child("pommel", pivot=(0, 5, 0), rotation=(0, 0, 0.9))
+    fbox(pommel, -0.75, 0, -0.75, 1.5, 4, 1.5, iron)
+    fbox(pommel, -0.5, 3, -0.5, 3, 1, 1, iron)
     guard = sword.child("guard", pivot=(0, -6, 0))
-    fbox(guard, -3.5, -1, -1.25, 7, 2, 2.5, flat(HILT_IRON))
-    for side in (-1, 1):
-        curl = guard.child("curl_%d" % side, pivot=(side * 3.2, 0, 0), rotation=(0, 0, side * 2.6))
-        fbox(curl, -0.5, -3, -0.5, 1, 3, 1, flat(HILT_IRON))
-    # The blade, in segments each turned a little further, so it curves; each a little broader than the last.
-    part = sword.child("blade_0", pivot=(0, -7, 0), rotation=(0, 0, 0.05))
-    widths = (3, 3.2, 3.5, 3.8, 4.2, 4.6, 4.8)
+    fbox(guard, -3, -1, -1.25, 6, 2, 2.5, iron)
+    curl = guard.child("curl", pivot=(-3, 0, 0), rotation=(0, 0, 2.3))
+    fbox(curl, -0.5, -3, -0.5, 1, 3, 1, iron)
+    fbox(curl, -0.5, -3.5, -0.5, 2, 1, 1, iron)
+    hook = guard.child("hook", pivot=(3, 0, 0), rotation=(0, 0, -0.4))
+    fbox(hook, -0.5, -3, -0.5, 1, 3, 1, iron)
+    # The blade: short, curving back, broadening greatly toward its end. Each step is set to the edge (-x), so its back
+    # (+x) rises in jagged steps, as RuneScape's does; then a long point sweeps up from the broad end.
+    part = sword.child("blade_0", pivot=(0, -7, 0), rotation=(0, 0, 0.1))
+    widths = (3, 4, 5, 6, 7, 8)
     for i, width in enumerate(widths):
         if i:
-            part = part.child("blade_%d" % i, pivot=(0, -6.5, 0), rotation=(0, 0, 0.09))
-        fbox(part, -width / 2, -7, -0.5, width, 7, 1, dragon_metal)
-    # The point sweeps back from the broad end.
-    tip = part.child("tip", pivot=(0, -6.5, 0), rotation=(0, 0, 0.35))
-    fbox(tip, -2, -3, -0.5, 3.5, 3, 1, dragon_metal, inflate=-0.05)
-    fbox(tip, -0.5, -5, -0.5, 1.5, 2, 1, dragon_metal, inflate=-0.1)
+            part = part.child("blade_%d" % i, pivot=(0, -5.5, 0), rotation=(0, 0, 0.07))
+        fbox(part, -1.5, -6, -0.5, width, 6, 1, dragon_metal)
+    tip = part.child("tip", pivot=(-1.5, -5.5, 0), rotation=(0, 0, 0.25))
+    fbox(tip, 0, -5, -0.5, 6, 5, 1, dragon_metal, inflate=-0.05)
+    fbox(tip, 0.5, -9, -0.5, 4, 4, 1, dragon_metal, inflate=-0.05)
+    fbox(tip, 1, -12, -0.5, 2, 3, 1, dragon_metal, inflate=-0.1)
     return m
 
 
