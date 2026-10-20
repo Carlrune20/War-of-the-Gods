@@ -1,6 +1,8 @@
 package com.warofthegods.unit;
 
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.projectile.EntityArrow;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.Vec3;
@@ -61,16 +63,16 @@ public final class Combat {
     /** An arrow that missed what it hit, such as a rider on the move, flies on past it rather than bouncing off. */
     public static void flyPast(DamageSource source, Entity hit) {
         Entity arrow = source.getSourceOfDamage();
-        if (arrow instanceof EntityTeamArrow && !hit.worldObj.isRemote) {
-            passThrough((EntityTeamArrow) arrow, hit);
+        if (arrow instanceof EntityArrow && !hit.worldObj.isRemote) {
+            passThrough((EntityArrow) arrow, hit);
         }
     }
 
     /**
-     * An arrow that hit a friend would bounce off; instead it goes on from just beyond them, as it was flying. The
-     * arrow that hit is removed.
+     * An arrow that hit a friend, or one already dying, would bounce off; instead it goes on from just beyond them, as
+     * it was flying. The arrow that hit is removed.
      */
-    private static void passThrough(EntityTeamArrow arrow, Entity friend) {
+    public static void passThrough(EntityArrow arrow, Entity friend) {
         if (arrow.isDead) {
             return;
         }
@@ -100,6 +102,34 @@ public final class Combat {
             y += dy * 0.25;
             z += dz * 0.25;
         }
-        arrow.worldObj.spawnEntityInWorld(arrow.carryOn(x, y, z));
+        arrow.worldObj.spawnEntityInWorld(
+            arrow instanceof EntityTeamArrow ? ((EntityTeamArrow) arrow).carryOn(x, y, z) : carryOn(arrow, x, y, z));
+    }
+
+    /** A copy of a player's arrow flying on from x, y, z. */
+    private static EntityArrow carryOn(EntityArrow from, double x, double y, double z) {
+        EntityArrow arrow = new EntityArrow(from.worldObj);
+        arrow.shootingEntity = from.shootingEntity;
+        arrow.canBePickedUp = from.canBePickedUp;
+        arrow.setLocationAndAngles(x, y, z, from.rotationYaw, from.rotationPitch);
+        arrow.yOffset = 0;
+        arrow.motionX = from.motionX;
+        arrow.motionY = from.motionY;
+        arrow.motionZ = from.motionZ;
+        arrow.setDamage(from.getDamage());
+        arrow.setIsCritical(from.getIsCritical());
+        if (from.isBurning()) {
+            arrow.setFire(100);
+        }
+        // Marks such as the dark bow's go with it.
+        NBTTagCompound tags = from.getEntityData();
+        for (Object key : tags.func_150296_c()) {
+            arrow.getEntityData()
+                .setTag(
+                    (String) key,
+                    tags.getTag((String) key)
+                        .copy());
+        }
+        return arrow;
     }
 }
