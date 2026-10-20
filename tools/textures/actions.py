@@ -82,6 +82,7 @@ ITEMS = {
     "upgrade/greater_demons": ("head", "greater_demon"),
     "upgrade/black_demons": ("head", "black_demon"),
     "upgrade/siege_weapons": ("block", "blocks/tnt_top.png", "blocks/tnt_side.png"),
+    "upgrade/armed_goblins": "items/stone_axe.png",
     # Taking a building up a level, or the town into the next age.
     "level": "items/experience_bottle.png",
     "gate": "items/door_wood.png",

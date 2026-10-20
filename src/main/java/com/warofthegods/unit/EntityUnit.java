@@ -228,6 +228,10 @@ public class EntityUnit extends EntityCreature {
     /** Health and damage an Elite Black Knight or a Justiciar has over a plain knight. */
     private static final int ELITE_HEALTH = 20;
     private static final int ELITE_DAMAGE = 3;
+    /** What an unarmed goblin's punch does to a unit, half a warrior's blow before upgrades. */
+    private static final double PUNCH_DAMAGE = 0.5;
+    /** Times less an unarmed goblin's punch does to a building than an armed goblin's axe. */
+    private static final int PUNCH_BUILDING_DIVISOR = 3;
     /** Health and damage a greater demon, then a black demon, has over a lesser demon. */
     private static final int[] DEMON_HEALTH = { 0, 40, 100 };
     private static final int[] DEMON_DAMAGE = { 0, 3, 6 };
@@ -523,7 +527,10 @@ public class EntityUnit extends EntityCreature {
         if (kind.hasOwnModel() || kind.creatureModel() != null && !"goblin".equals(kind.creatureModel())) {
             return null;
         }
-        // Goblins fight with axes, which their axe-throwers throw too.
+        // Goblins fight with axes, which their axe-throwers throw too; until their team arms them, bare fists.
+        if (unarmed(kind, team)) {
+            return null;
+        }
         if (kind == UnitKind.GOBLIN || kind == UnitKind.GOBLIN_THROWER || kind == UnitKind.SPIRITUAL_WARRIOR) {
             return AXES[tier(team, Upgrade.FORGED_BLADES, Upgrade.TEMPERED_STEEL)];
         }
@@ -549,6 +556,11 @@ public class EntityUnit extends EntityCreature {
             }
         }
         return AXES[tier(team, Upgrade.SHARP_AXES, Upgrade.DIAMOND_AXES)];
+    }
+
+    /** Whether it is a goblin whose team has not researched armed goblins yet, and so punches with bare fists. */
+    private static boolean unarmed(UnitKind kind, Team team) {
+        return kind == UnitKind.GOBLIN && (team == null || !team.has(Upgrade.ARMED_GOBLINS));
     }
 
     /** 0 for stone, 1 once the team has the iron upgrade and 2 with the diamond one. */
@@ -595,9 +607,16 @@ public class EntityUnit extends EntityCreature {
         if (kind.fights() && !kind.isSiege()) {
             health += (team.has(Upgrade.PADDED_ARMOR) ? 6 : 0) + (team.has(Upgrade.PLATE_ARMOR) ? 8 : 0);
         }
-        if (kind.fights() && !kind.ranged) {
+        if (unarmed(kind, team)) {
+            // A goblin's punch, which the swords upgrades do nothing for.
+            damage = PUNCH_DAMAGE;
+        } else if (kind.fights() && !kind.ranged) {
             damage += kind.extraDamage + (team.has(Upgrade.FORGED_BLADES) ? 2 : 0)
                 + (team.has(Upgrade.TEMPERED_STEEL) ? 2 : 0);
+            // An axe never hits softer than a fist.
+            if (kind == UnitKind.GOBLIN) {
+                damage = Math.max(damage, PUNCH_DAMAGE);
+            }
         }
         int tier = eliteTier(kind, team);
         if (kind == UnitKind.LESSER_DEMON) {
@@ -2151,6 +2170,10 @@ public class EntityUnit extends EntityCreature {
             // Orks and ogres smash them harder still.
             int damage = (int) (Config.unitBuildingDamage * (1 + (kind.extraDamage + kind.extraArrowDamage) / 3)
                 * kind.buildingDamageFactor());
+            // Bare fists barely dent a wall: unarmed goblins hit buildings a third as hard.
+            if (unarmed(kind, team())) {
+                damage = Math.max(1, damage / PUNCH_BUILDING_DIVISOR);
+            }
             if (kind.ranged) {
                 if (drawBow()) {
                     // A trebuchet's stone does its damage where it bursts.

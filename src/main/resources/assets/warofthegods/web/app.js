@@ -1369,6 +1369,7 @@
             const upgrade = state.game.upgrades[upgradeId];
             // Ones that need another upgrade first only show up once the team has it.
             if (!upgrade || (team.upgrades || []).includes(upgradeId)
+                || (upgrade.faction && upgrade.faction !== team.faction)
                 || (upgrade.requires && !(team.upgrades || []).includes(upgrade.requires))) {
                 continue;
             }

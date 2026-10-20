@@ -2706,6 +2706,7 @@ public final class GuiRts extends GuiScreen {
             RtsState.UpgradeInfo upgrade = state.upgrade(upgradeId);
             // Ones that need another upgrade first only show up once the team has it.
             if (upgrade == null || team.upgrades.contains(upgradeId)
+                || upgrade.faction != null && !upgrade.faction.equals(team.faction)
                 || !upgrade.requires.isEmpty() && !team.upgrades.contains(upgrade.requires)) {
                 continue;
             }

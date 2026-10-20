@@ -348,6 +348,9 @@ public final class WebMap {
             upgradeJson.addProperty("description", upgrade.description);
             upgradeJson.addProperty("at", upgrade.at.id);
             upgradeJson.addProperty("level", upgrade.level);
+            if (upgrade.faction() != null) {
+                upgradeJson.addProperty("faction", upgrade.faction().id);
+            }
             if (upgrade.requires() != null) {
                 upgradeJson.addProperty("requires", upgrade.requires().id);
             }
