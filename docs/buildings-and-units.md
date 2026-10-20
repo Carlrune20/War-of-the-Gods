@@ -203,7 +203,7 @@ Black Knights elite and White Knights justiciars.
 the White Knights' castle, the Kinshra fortress or the Bandos bastion, builds **trebuchets** for 400 Wood each, taking
 eight times as long as a warrior to train.
 
-- A trebuchet rolls at under half a man's pace and has three quarters of a warrior's health. Armor upgrades do not
+- A trebuchet rolls at under half a man's pace and has 50 health, two and a half times a warrior's. Armor upgrades do not
   help it, and it cannot fight up close, so it needs guarding.
 - It throws from up to 36 blocks: it takes aim for a second and a half, swings its arm up over the top and lets go of
   a cobblestone, then winds the arm back down and loads again, a throw every 9 seconds or so.

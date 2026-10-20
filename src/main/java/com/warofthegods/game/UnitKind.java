@@ -95,9 +95,9 @@ public enum UnitKind {
     /**
      * A counterweight trebuchet, built at any god's stronghold once the armory has researched siege weapons: it rolls
      * slowly, and from far off hurls stones that burst where they land, smashing buildings and hurting enemies round
-     * them. Built of wood, it has little health and cannot fight up close, so it needs guarding.
+     * them. It is sturdy, but rolls so slowly and fights so poorly up close that it needs guarding.
      */
-    TREBUCHET("trebuchet", "Trebuchet", "trebuchet", 0.75, 0, 0, 22, 8, true, false);
+    TREBUCHET("trebuchet", "Trebuchet", "trebuchet", 2.5, 0, 0, 22, 8, true, false);
 
     public final String id;
     public final String displayName;

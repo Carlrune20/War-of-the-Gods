@@ -143,7 +143,7 @@ class UnitKindTest {
             assertEquals(type.isFortress(), type.trains.contains(UnitKind.TREBUCHET), type.id);
         }
         assertEquals(java.util.Collections.singletonMap(Resource.WOOD, 400L), UnitKind.TREBUCHET.cost());
-        assertTrue(UnitKind.TREBUCHET.healthFactor < UnitKind.SOLDIER.healthFactor);
+        assertEquals(2.5, UnitKind.TREBUCHET.healthFactor);
         assertTrue(UnitKind.TREBUCHET.speedFactor() < UnitKind.OGRE.speedFactor());
         assertTrue(UnitKind.TREBUCHET.ranged && UnitKind.TREBUCHET.isSiege());
     }
