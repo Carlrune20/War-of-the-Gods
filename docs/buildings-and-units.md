@@ -314,5 +314,6 @@ pieces of armor, and arrows. Now and then a chest also holds one of these, none 
   to fill your points up again. You come back from death with them full. While your prayer is up, its icon shows
   over your head for everyone to see, as a hero's does, and over your body while you command from the RTS view.
 - **Dragon scimitar.** Hits for 9.
-- **Dragon armor**: full helm (with white horns), platebody, platelegs and boots, drawn red. A full suit guards better
-  than runite.
+- **Dragon armor**: full helm (with white horns), platebody, platelegs and boots, drawn red. A full suit has 23 points
+  of armor, to runite's 20. Each piece also takes a quarter of every knockback away, so a full suit is never knocked
+  back; each piece of runite armor takes a tenth.

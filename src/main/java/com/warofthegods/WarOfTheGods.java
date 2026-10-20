@@ -17,6 +17,7 @@ import com.warofthegods.command.TeamCommands;
 import com.warofthegods.game.Faction;
 import com.warofthegods.game.PlayerEvents;
 import com.warofthegods.game.WinConditions;
+import com.warofthegods.item.ArmorKnockback;
 import com.warofthegods.item.ItemArtifact;
 import com.warofthegods.item.ItemDarkBow;
 import com.warofthegods.item.ItemDarkIronArmor;
@@ -166,6 +167,7 @@ public class WarOfTheGods {
         MinecraftForge.EVENT_BUS.register(new Combat());
         MinecraftForge.EVENT_BUS.register(silverlight);
         MinecraftForge.EVENT_BUS.register(darkBow);
+        MinecraftForge.EVENT_BUS.register(new ArmorKnockback());
         MinecraftForge.EVENT_BUS.register(godswords[Faction.SARADOMIN.ordinal()]);
         PlayerPrayers prayers = new PlayerPrayers();
         FMLCommonHandler.instance()
