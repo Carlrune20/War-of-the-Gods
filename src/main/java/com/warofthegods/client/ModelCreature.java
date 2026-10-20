@@ -10,10 +10,10 @@ import net.minecraft.util.MathHelper;
 import com.warofthegods.client.model.JsonModel;
 
 /**
- * Bandos's creatures: the goblin, the hobgoblin, the ork, the ogre and Graardor's sergeants, each a model of its own
- * from models/goblin.json, hobgoblin.json, ork.json, ogre.json and strongstack.json (made by tools/models/generate.py,
- * see tools/models/creatures.py). Their
- * head, body, arms and legs move as the player model's do, from where they are on each creature, and the player
+ * Bandos's creatures: the goblin, the hobgoblin, the ork, the ogre, Graardor's sergeants and General Graardor, each a
+ * model of its own from models/goblin.json, hobgoblin.json, ork.json, ogre.json, strongstack.json and graardor.json
+ * (made by tools/models/generate.py, see tools/models/creatures.py). Their head, body, arms and legs move as the player
+ * model's do, from where they are on each creature, and the player
  * model's arms are moved to the creature's shoulders so what a goblin holds is in its hand. Goblins' ears twitch, and
  * the big ones sway a little from side to side as they walk.
  */
@@ -38,6 +38,7 @@ public class ModelCreature extends ModelBiped {
         add("ork", 7.5F, 4, 0);
         add("ogre", 8.5F, 3, 0);
         add("strongstack", 7.5F, 3, 0);
+        add("graardor", 9, 3, 0);
         setModel("goblin");
     }
 
@@ -46,7 +47,7 @@ public class ModelCreature extends ModelBiped {
         shoulders.put(name, new float[] { x, y, z });
     }
 
-    /** Draws it as the named creature from now on: goblin, hobgoblin, ork, ogre or strongstack. */
+    /** Draws it as the named creature from now on: goblin, hobgoblin, ork, ogre, strongstack or graardor. */
     public void setModel(String name) {
         model = models.containsKey(name) ? models.get(name) : models.get("goblin");
         shoulder = shoulders.containsKey(name) ? shoulders.get(name) : shoulders.get("goblin");
