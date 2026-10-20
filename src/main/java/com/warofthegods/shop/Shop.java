@@ -39,7 +39,8 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
  * Shop chests, where commanders kit themselves out from their team's stores. The chest in a team's town center sells
  * cooked food for food, building blocks, stone tools and leather armor, and buys ores and ingots for gold, so what
  * players dig out of caves goes to their team. The chest in its armory sells iron tools, iron armor (dark iron for
- * Zamorak's teams), bows and arrows from Age II and runite (Minecraft's diamond) tools and armor from Age III.
+ * Zamorak's teams), bows and arrows from Age II and runite (Minecraft's diamond) tools and armor, and the hilt of the
+ * team's god for a godsword, from Age III.
  * Everything is paid for out of the team's resources, and the whole team is told what was bought. Nothing a shop sells
  * can be sold back.
  */
@@ -137,6 +138,8 @@ public final class Shop {
         ARMORY.put(1, 1, new Ware(new ItemStack(Items.arrow, 16), 0, 10, 0, 2));
         // Zamorak's staff casts fire strikes.
         ARMORY.put(1, 3, new Ware(new ItemStack(WarOfTheGods.zamorakStaff), 0, 50, 150, 3));
+        // The hilt of the team's own god, to fit to a godsword blade found in a ruin.
+        ARMORY.put(1, 5, new Ware(new ItemStack(WarOfTheGods.hilts[Faction.SARADOMIN.ordinal()]), 0, 0, 300, 3));
 
         ARMORY.put(3, 0, new Ware(new ItemStack(Items.diamond_sword), 0, 0, 250, 3));
         ARMORY.put(3, 1, new Ware(new ItemStack(Items.diamond_pickaxe), 0, 0, 200, 3));
@@ -360,11 +363,16 @@ public final class Shop {
     }
 
     /**
-     * What a ware gives: a fresh copy, with leather armor dyed in the team's color, and for Zamorak's teams dark iron
-     * armor in place of iron.
+     * What a ware gives: a fresh copy, with leather armor dyed in the team's color, for Zamorak's teams dark iron
+     * armor in place of iron, and a godsword hilt of the team's own god.
      */
     private static ItemStack goods(Ware ware, Team team) {
         ItemStack stack = ware.item.copy();
+        if (team != null && stack.getItem() == WarOfTheGods.hilts[Faction.SARADOMIN.ordinal()]) {
+            stack = new ItemStack(
+                WarOfTheGods.hilts[team.getFaction()
+                    .ordinal()]);
+        }
         if (team != null && team.getFaction() == Faction.ZAMORAK) {
             Item[] iron = { Items.iron_helmet, Items.iron_chestplate, Items.iron_leggings, Items.iron_boots };
             for (int slot = 0; slot < iron.length; slot++) {

@@ -14,14 +14,14 @@ import org.lwjgl.opengl.GL11;
 
 import com.warofthegods.WarOfTheGods;
 import com.warofthegods.item.ItemDarkIronArmor;
+import com.warofthegods.item.ItemDragonArmor;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
 /**
  * Armor as Old School RuneScape has it, on players, units, commanders' bodies, zombies and skeletons: iron, Zamorak's
- * dark iron and
- * runite (Minecraft's diamond) are a full helm with a red band, a platebody with great pauldrons, platelegs and boots,
- * silver, dark or blue-green; the leather cap is a cowl, dyed as leather is.
+ * dark iron, runite (Minecraft's diamond) and dragon are a full helm with a red band, a platebody with great
+ * pauldrons, platelegs and boots, silver, dark, blue-green or red; the leather cap is a cowl, dyed as leather is.
  */
 public final class ArmorLooks {
 
@@ -36,10 +36,11 @@ public final class ArmorLooks {
     private final ModelArmor cowl = new ModelArmor("leather_cowl");
     private final ModelArmor plate = new ModelArmor("plate");
     private final ResourceLocation cowlTexture = texture("leather_cowl");
-    /** By look: silver iron, dark iron and runite. */
+    /** By look: silver iron, dark iron, runite and dragon. */
     private final ResourceLocation[] helms = { texture("full_helm"), texture("full_helm_dark"),
-        texture("full_helm_runite") };
-    private final ResourceLocation[] plates = { texture("plate"), texture("plate_dark"), texture("plate_runite") };
+        texture("full_helm_runite"), texture("full_helm_dragon") };
+    private final ResourceLocation[] plates = { texture("plate"), texture("plate_dark"), texture("plate_runite"),
+        texture("plate_dragon") };
 
     private ArmorLooks() {}
 
@@ -73,10 +74,13 @@ public final class ArmorLooks {
         }
     }
 
-    /** Which plate a piece of armor is: 0 for iron, 1 dark iron, 2 runite; -1 if it is none of them. */
+    /** Which plate a piece of armor is: 0 for iron, 1 dark iron, 2 runite, 3 dragon; -1 if it is none of them. */
     private static int look(ItemArmor item) {
         if (item instanceof ItemDarkIronArmor) {
             return 1;
+        }
+        if (item instanceof ItemDragonArmor) {
+            return 3;
         }
         if (item.getArmorMaterial() == ItemArmor.ArmorMaterial.IRON) {
             return 0;

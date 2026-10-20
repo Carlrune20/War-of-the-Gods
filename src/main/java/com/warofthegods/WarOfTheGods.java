@@ -1,5 +1,6 @@
 package com.warofthegods;
 
+import net.minecraft.item.ItemStack;
 import net.minecraftforge.common.ForgeChunkManager;
 import net.minecraftforge.common.MinecraftForge;
 
@@ -13,9 +14,16 @@ import com.warofthegods.building.Buildings;
 import com.warofthegods.command.CommandRts;
 import com.warofthegods.command.Lobby;
 import com.warofthegods.command.TeamCommands;
+import com.warofthegods.game.Faction;
 import com.warofthegods.game.PlayerEvents;
 import com.warofthegods.game.WinConditions;
+import com.warofthegods.item.ItemArtifact;
+import com.warofthegods.item.ItemDarkBow;
 import com.warofthegods.item.ItemDarkIronArmor;
+import com.warofthegods.item.ItemDragonArmor;
+import com.warofthegods.item.ItemDragonScimitar;
+import com.warofthegods.item.ItemGodsword;
+import com.warofthegods.item.ItemPrayerBook;
 import com.warofthegods.item.ItemSilverlight;
 import com.warofthegods.item.ItemZamorakStaff;
 import com.warofthegods.rts.Commanders;
@@ -29,6 +37,7 @@ import com.warofthegods.unit.EntityTeamArrow;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Hunting;
 import com.warofthegods.unit.Mobs;
+import com.warofthegods.unit.PlayerPrayers;
 import com.warofthegods.unit.UnitCommands;
 import com.warofthegods.unit.Units;
 import com.warofthegods.unit.WarFavor;
@@ -70,6 +79,16 @@ public class WarOfTheGods {
     public static ItemSilverlight silverlight;
     /** Zamorak's dark iron armor, from the helmet (0) to the boots (3). */
     public static final ItemDarkIronArmor[] darkIron = new ItemDarkIronArmor[4];
+    /** The artifacts found in old ruins' chests: the dark bow, the godsword blade and the prayer book. */
+    public static ItemDarkBow darkBow;
+    public static ItemArtifact godswordBlade;
+    public static ItemPrayerBook prayerBook;
+    /** The dragon scimitar and dragon armor, from the helmet (0) to the boots (3), also found in ruins' chests. */
+    public static ItemDragonScimitar dragonScimitar;
+    public static final ItemDragonArmor[] dragonArmor = new ItemDragonArmor[4];
+    /** By the god's ordinal: the hilts armories sell, and the godswords made with them and a blade. */
+    public static final ItemArtifact[] hilts = new ItemArtifact[Faction.values().length];
+    public static final ItemGodsword[] godswords = new ItemGodsword[Faction.values().length];
 
     @SidedProxy(clientSide = "com.warofthegods.client.ClientProxy", serverSide = "com.warofthegods.CommonProxy")
     public static CommonProxy proxy;
@@ -93,7 +112,32 @@ public class WarOfTheGods {
             darkIron[slot] = new ItemDarkIronArmor(slot);
             GameRegistry.registerItem(darkIron[slot], darkIron[slot].registryName());
         }
+        registerArtifacts();
         RtsNetwork.register();
+    }
+
+    /** The things found in ruins' chests, the hilts and the godswords, and the recipes that make a godsword. */
+    private static void registerArtifacts() {
+        darkBow = new ItemDarkBow();
+        GameRegistry.registerItem(darkBow, "dark_bow");
+        godswordBlade = new ItemArtifact("godsword_blade", "Fit a god's hilt to it to make a godsword");
+        GameRegistry.registerItem(godswordBlade, "godsword_blade");
+        prayerBook = new ItemPrayerBook();
+        GameRegistry.registerItem(prayerBook, "prayer_book");
+        dragonScimitar = new ItemDragonScimitar();
+        GameRegistry.registerItem(dragonScimitar, "dragon_scimitar");
+        for (int slot = 0; slot < dragonArmor.length; slot++) {
+            dragonArmor[slot] = new ItemDragonArmor(slot);
+            GameRegistry.registerItem(dragonArmor[slot], dragonArmor[slot].registryName());
+        }
+        for (Faction god : Faction.values()) {
+            hilts[god.ordinal()] = new ItemArtifact(god.id + "_hilt", "Fit it to a godsword blade to make a godsword");
+            GameRegistry.registerItem(hilts[god.ordinal()], god.id + "_hilt");
+            godswords[god.ordinal()] = new ItemGodsword(god);
+            GameRegistry.registerItem(godswords[god.ordinal()], ItemGodsword.registryName(god));
+            GameRegistry
+                .addShapelessRecipe(new ItemStack(godswords[god.ordinal()]), godswordBlade, hilts[god.ordinal()]);
+        }
     }
 
     @Mod.EventHandler
@@ -121,6 +165,13 @@ public class WarOfTheGods {
         ForgeChunkManager.setForcedChunkLoadingCallback(this, units.chunkLoadingCallback());
         MinecraftForge.EVENT_BUS.register(new Combat());
         MinecraftForge.EVENT_BUS.register(silverlight);
+        MinecraftForge.EVENT_BUS.register(darkBow);
+        MinecraftForge.EVENT_BUS.register(godswords[Faction.SARADOMIN.ordinal()]);
+        PlayerPrayers prayers = new PlayerPrayers();
+        FMLCommonHandler.instance()
+            .bus()
+            .register(prayers);
+        MinecraftForge.EVENT_BUS.register(prayers);
         Mobs mobs = new Mobs();
         FMLCommonHandler.instance()
             .bus()

@@ -1,5 +1,5 @@
 """Armor as Old School RuneScape has it, drawn in place of Minecraft's own: the full helm with a red band, and the
-platebody, platelegs and boots, each in three looks (silver iron, dark iron and blue-green runite) that share one
+platebody, platelegs and boots, each in four looks (silver iron, dark iron, blue-green runite and red dragon) that share one
 model, so only their textures differ; and the leather cowl, a hood with a mantle over the shoulders, tinted with the
 leather's dye as Minecraft's leather is.
 
@@ -29,6 +29,7 @@ METALS = {
     "": ((184, 180, 178), (122, 118, 118)),
     "_dark": ((70, 68, 70), (44, 42, 44)),
     "_runite": ((86, 128, 142), (50, 84, 100)),
+    "_dragon": ((150, 30, 26), (92, 16, 14)),
 }
 LOOKS = tuple(METALS)
 BELT = (92, 20, 16)

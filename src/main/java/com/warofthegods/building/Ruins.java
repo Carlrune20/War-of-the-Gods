@@ -27,7 +27,7 @@ import com.warofthegods.world.Misthalin;
  * mossy and cracked or in rotten wood, low and full of gaps, so units walk through and round them, and keep away from
  * where teams start, town centers, settlements, gold mines, the river and its bridges. Some are haunted: cobwebs hang
  * in them and spiders lurk there, or zombies and skeletons walk round them (see {@code Mobs}) until someone builds
- * nearby. Players can break them down and build over them.
+ * nearby. Most hold an old chest of loot (see {@link RuinLoot}). Players can break them down and build over them.
  */
 public final class Ruins {
 
@@ -156,6 +156,7 @@ public final class Ruins {
                 Ruin ruin = game.addRuin(minX, minZ, sizeX, sizeZ, site.groundY, design.name, haunt);
                 build(world, ruin, design, rotation, random);
                 Cellars.dig(world, ruin, design, random, baseX, baseZ);
+                RuinLoot.stock(world, ruin, new Random(random.nextLong()));
                 return;
             }
         }
