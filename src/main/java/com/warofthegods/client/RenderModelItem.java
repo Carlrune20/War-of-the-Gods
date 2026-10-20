@@ -43,14 +43,17 @@ public class RenderModelItem implements IItemRenderer {
         ONE_HAND,
         /** A godsword: held up before them, swaying a little, and swung in a great chop. */
         HEAVY,
-        /** A bow held out in the middle of the grip: drawn smaller and further up, so the whole of it shows. */
+        /** A bow held out in the middle of the grip: drawn further up, so the whole of it shows. */
         BOW
     }
 
-    /** How much smaller a bow is drawn in the player's own view, and how far up it is moved, in the item's square. */
-    private static final float BOW_IN_VIEW = 0.6F, BOW_LIFT = 0.45F;
-    /** Where a bow's picture is held, in its square, and how much smaller the model is drawn to fit it. */
-    private static final float BOW_GRIP_X = 0.78F, BOW_GRIP_Y = 0.53F, BOW_IN_HAND = 0.85F;
+    /** How big a bow is drawn in the player's own view, and how far up it is moved, in the item's square. */
+    private static final float BOW_IN_VIEW = 1.0F, BOW_LIFT = 0.3F;
+    /**
+     * Where a bow's picture is held, in its square, how much bigger the model is drawn than it, and how far up the arm
+     * it is held, in blocks.
+     */
+    private static final float BOW_GRIP_X = 0.78F, BOW_GRIP_Y = 0.53F, BOW_IN_HAND = 1.35F, BOW_UP_ARM = 0.15F;
     /** Ticks a bow has been drawn for to reach each stage of pulling, as the bow's own pictures go. */
     private static final int[] PULL_TICKS = { 1, 14, 18 };
 
@@ -136,6 +139,7 @@ public class RenderModelItem implements IItemRenderer {
         GL11.glRotatef(100, 1, 0, 0);
         GL11.glScalef(1 / f, -1 / f, 1 / f);
         GL11.glTranslatef(0, -0.1875F, 0);
+        GL11.glTranslatef(0, -BOW_UP_ARM, 0);
         // ...and turn it as the bow's.
         GL11.glTranslatef(0, 0.125F, 0.3125F);
         GL11.glRotatef(-20, 0, 1, 0);
@@ -169,6 +173,8 @@ public class RenderModelItem implements IItemRenderer {
             } else if (hold == Hold.BOW && type == ItemRenderType.EQUIPPED_FIRST_PERSON) {
                 GL11.glTranslatef(0, BOW_LIFT, 0);
                 GL11.glScalef(BOW_IN_VIEW, BOW_IN_VIEW, BOW_IN_VIEW);
+                // The bow's picture has its string on the far side from where the model has it.
+                GL11.glRotatef(180, 0, 1, 0);
             }
         }
         // Models are drawn upside down; turned over, top is up.
