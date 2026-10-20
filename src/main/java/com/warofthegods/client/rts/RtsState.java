@@ -55,6 +55,8 @@ public final class RtsState {
         /** The building type it is researched at. */
         public String at;
         public int level;
+        /** The only faction whose teams research it, or null when every team can. */
+        public String faction;
         /** The upgrade the team needs first, or "" for none; until then this one is not offered. */
         public String requires;
         public Map<String, Long> cost;
@@ -398,6 +400,7 @@ public final class RtsState {
             upgradeInfo.description = string(upgrade, "description");
             upgradeInfo.at = string(upgrade, "at");
             upgradeInfo.level = integer(upgrade, "level");
+            upgradeInfo.faction = upgrade.has("faction") ? string(upgrade, "faction") : null;
             upgradeInfo.requires = string(upgrade, "requires");
             upgradeInfo.cost = amounts(object(upgrade, "cost"));
             upgradeInfo.seconds = integer(upgrade, "seconds");

@@ -129,6 +129,7 @@ the team has that one.
 | Guard towers | Tower, Age III, after watch towers, for 150 Wood and 200 Gold | Towers see and shoot 8 farther |
 | Stone walls | Town center, Age II, for 100 Wood and 150 Gold | Walls and gates are rebuilt in stone, with twice the health |
 | Citadel walls | Town center, Age III, after stone walls, for 150 Wood and 300 Gold | Walls and gates are rebuilt in stone brick, or graystone, with three times the health |
+| Armed goblins | Bandos's town center, Age II, for 50 Food and 75 Wood (25 s) | Goblins take up axes: they hit as hard as the swords upgrades let them and hit buildings three times as hard as with their fists |
 | Elite Black Knights | Kinshra fortress, for 400 Food and 600 Gold | Black Knights have 20 more health and hit 3 harder, and wear gold-trimmed black plate and a red cape with Zamorak's sign |
 | Justiciars | White Knights' castle, for 400 Food and 600 Gold | White Knights become justiciars, with 20 more health and hitting 3 harder, in gold-trimmed silver plate with a crowned helm and a blue tabard |
 | Greater demons | Chaos temple, Age II, for 300 Food, 400 Gold and 20 Favor | Lesser demons become greater demons: bat-winged and a head taller, with 40 more health and hitting 3 harder |
@@ -262,7 +263,7 @@ differently from Saradomin's and Zamorak's:
 | Unit | Health | Notes |
 |---|---|---|
 | Slave | as a worker | a worn-out man in rags; gathers and builds |
-| Goblin | 0.6× | fights with an axe, builds |
+| Goblin | 0.6× | builds; fights bare-handed, punching for half a warrior's blow and hitting buildings a third as hard, until the town center researches armed goblins in Age II and they take up axes |
 | Goblin axe-thrower | 0.6× | throws axes, short range; builds |
 | Hobgoblin | 1.5× | a spearman: double damage against cavalry and other fast units |
 | Ork | 3× | heavy and slow, hits buildings hard, cannot be knocked back |

@@ -137,7 +137,7 @@ public final class AiPlayers {
     /** Workers it lays a knights' fortress out with; other buildings get two. */
     private static final int FORTRESS_BUILDERS = 3;
     /** The upgrades it researches, in the order it wants them; the wall upgrades only once it has walls. */
-    private static final Upgrade[] RESEARCH_ORDER = { Upgrade.BASKETS, Upgrade.SHARP_AXES, Upgrade.PLOUGHS,
+    private static final Upgrade[] RESEARCH_ORDER = { Upgrade.ARMED_GOBLINS, Upgrade.BASKETS, Upgrade.SHARP_AXES, Upgrade.PLOUGHS,
         Upgrade.PICKAXES, Upgrade.FORGED_BLADES, Upgrade.PADDED_ARMOR, Upgrade.FLETCHING, Upgrade.WATCH_TOWER,
         Upgrade.MASONRY, Upgrade.PLATE_ARMOR, Upgrade.FIRE_ARROWS, Upgrade.FORTIFIED_WALLS, Upgrade.STONE_WALLS,
         Upgrade.DIAMOND_HOES, Upgrade.DIAMOND_AXES, Upgrade.DIAMOND_PICKAXES, Upgrade.TEMPERED_STEEL,

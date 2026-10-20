@@ -1060,6 +1060,9 @@ public final class Buildings {
         if (!building.isComplete()) {
             return "It is not built yet";
         }
+        if (team != null && upgrade.faction() != null && upgrade.faction() != team.getFaction()) {
+            return "Only " + upgrade.faction().displayName + "'s teams research that";
+        }
         if (team != null && team.has(upgrade)) {
             return "Already researched";
         }

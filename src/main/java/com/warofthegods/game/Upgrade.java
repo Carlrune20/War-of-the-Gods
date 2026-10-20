@@ -5,7 +5,7 @@ import java.util.Map;
 
 /**
  * Team-wide improvements researched at a building: military ones at the armory, economic ones at the storehouse,
- * fortified, stone and citadel walls at the town center, watch and guard towers at a tower, the knights' own at
+ * fortified, stone and citadel walls at the town center, and for Bandos armed goblins there too, watch and guard towers at a tower, the knights' own at
  * their fortress, and greater and black demons, for favor too, at Zamorak's chaos temple. Some need another
  * first: runite tools
  * and swords their iron ones, plate armor padded armor, fire arrows fletching, guard towers watch towers and tunnel
@@ -71,7 +71,10 @@ public enum Upgrade {
         BuildingType.ARMORY, 3, "diamond_pickaxes", 400, 400, 0, 60),
     SIEGE_WEAPONS("siege_weapons", "Siege weapons",
         "Your stronghold builds trebuchets, which hurl stones that burst where they land, smashing buildings from afar",
-        BuildingType.ARMORY, 3, null, 300, 600, 600, 90);
+        BuildingType.ARMORY, 3, null, 300, 600, 600, 90),
+    ARMED_GOBLINS("armed_goblins", "Armed goblins",
+        "Goblins carry axes: they hit as hard as their swords upgrades let them, and hit buildings three times as hard",
+        BuildingType.TOWN_HALL, 2, null, 50, 75, 0, 25);
 
     public final String id;
     public final String displayName;
@@ -110,6 +113,11 @@ public enum Upgrade {
             }
         }
         return result;
+    }
+
+    /** The only faction whose teams research it, or null when every team can. */
+    public Faction faction() {
+        return this == ARMED_GOBLINS ? Faction.BANDOS : at.faction();
     }
 
     /** The upgrade the team has to have first, or null. */
