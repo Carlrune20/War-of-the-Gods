@@ -966,57 +966,68 @@ def bridge_piece():
     return s
 
 
-def catapult():
-    """A catapult, for the siege units to come: a spruce cart on four spoked wheels, a rope bundle across the front of
-    its bed, and two uprights holding a padded stop bar. The throwing arm is wound into the bundle and drawn back along
-    the bed by a winch at the back, a cauldron for its bucket with a boulder in it; more boulders of cobble wait beside
-    it. It throws to the front, the z = 0 side, which faces north at rotation 0."""
-    s = Struct(7, 9, 5, 0)
+def trebuchet():
+    """A counterweight trebuchet, the siege engine a fortress builds: a spruce sled on four spoked wheels, an A-frame
+    tower either side holding the axle, and the long oak arm on it, drawn down and cocked. Its short end stands up at
+    the front with the counterweight, a box of stones bound in logs, hanging from it; its long end lies at the back with a
+    cobblestone in the sling, held by a winch. It throws to the front, the z = 0 side, which faces north at rotation
+    0."""
+    s = Struct(7, 11, 11, 0)
     log_x, log_z, log_up = (LOG, 1 | 4), (LOG, 1 | 8), (LOG, 1)
-    spruce = (PLANKS, 1)
-    dark = (PLANKS, 5)
-    rope = (HAY, 4)
-    s.fill(0, 0, 0, 6, 0, 8, (GRASS, 0))
+    arm = (LOG, 0)
+    spruce, dark = (PLANKS, 1), (PLANKS, 5)
+    s.fill(0, 0, 0, 6, 0, 10, (GRASS, 0))
     # Wheels either side, front and back: a hub of log end on, ringed by dark planks.
     for x in (0, 6):
-        for z in (1, 7):
+        for z in (2, 8):
             s.set(x, 2, z, log_x)
             for dy, dz in ((-1, 0), (1, 0), (0, -1), (0, 1)):
                 s.set(x, 2 + dy, z + dz, dark)
-    # The cart: two long beams on the axles, cross beams at the ends and a slatted bed between.
+    # The sled: two long beams on the axles, cross beams between, and a trough down the middle for the sling.
     for x in (1, 5):
-        s.fill(x, 2, 0, x, 2, 8, log_z)
-    for z in (1, 7):
+        s.fill(x, 2, 0, x, 2, 10, log_z)
+    for z in (1, 5, 9):
         s.fill(2, 2, z, 4, 2, z, log_x)
-    for z in range(2, 7):
-        s.fill(2, 2, z, 4, 2, z, spruce if z % 2 else (WOOD_SLAB, 1 | 8))
-    # The torsion bundle across the front of the bed, with the arm's foot wound into it.
-    s.fill(1, 3, 3, 5, 3, 3, log_x)
-    s.set(2, 3, 3, rope)
-    s.set(4, 3, 3, rope)
-    # The uprights in front of it and the stop bar they hold up, braced to the front, padded where the arm strikes.
+    s.fill(3, 2, 6, 3, 2, 10, (WOOD_SLAB, 1 | 8))
+    s.set(3, 2, 9, log_x)
+    # The A-frames: legs climbing from the front and the back to meet under the axle, braced where they meet.
     for x in (1, 5):
-        s.fill(x, 3, 2, x, 4, 2, log_up)
-        s.set(x, 3, 1, (SPRUCE_STAIRS, UP_SOUTH))
-    s.fill(1, 5, 2, 5, 5, 2, log_x)
-    s.set(3, 5, 2, (WOOL, BROWN))
-    # The arm, drawn back along the bed, the bucket at its end loaded with a boulder.
-    s.fill(3, 3, 4, 3, 3, 6, (LOG, 8))
-    s.set(3, 3, 7, (CAULDRON, 0))
-    s.set(3, 4, 7, (COBBLE_WALL, 0))
-    # The winch at the back that draws the arm down.
-    s.set(1, 3, 8, (FENCE, 0))
-    s.set(5, 3, 8, (FENCE, 0))
-    s.fill(2, 3, 8, 4, 3, 8, log_x)
-    # Boulders on the bed, ready to throw.
-    s.set(2, 3, 5, (COBBLE_WALL, 0))
-    s.set(2, 3, 6, (COBBLE_WALL, 0))
+        for i in range(3):
+            s.fill(x, 3 + 2 * i, 3 + i, x, 4 + 2 * i, 3 + i, log_up)
+            s.fill(x, 3 + 2 * i, 7 - i, x, 4 + 2 * i, 7 - i, log_up)
+        s.set(x, 3, 2, (SPRUCE_STAIRS, UP_SOUTH))
+        s.set(x, 3, 8, (SPRUCE_STAIRS, UP_NORTH))
+        s.set(x, 5, 3, (SPRUCE_STAIRS, UP_SOUTH))
+        s.set(x, 5, 7, (SPRUCE_STAIRS, UP_NORTH))
+        s.set(x, 7, 4, (SPRUCE_STAIRS, UP_SOUTH))
+        s.set(x, 7, 6, (SPRUCE_STAIRS, UP_NORTH))
+        s.fill(x, 3, 5, x, 6, 5, (FENCE, 0))
+    # The axle across the tops, the arm turning on it.
+    s.fill(1, 9, 5, 5, 9, 5, log_x)
+    s.set(3, 9, 5, arm)
+    # The long end of the arm, drawn down to the back, the sling under its tip with a cobblestone in it.
+    for i in range(1, 6):
+        s.set(3, 9 - i, 5 + i, arm)
+    s.set(3, 3, 10, (COBBLE, 0))
+    # The short end up at the front, and the counterweight hung from it on a chain.
+    s.set(3, 10, 4, arm)
+    s.set(3, 11, 3, arm)
+    s.set(3, 10, 3, (FENCE, 0))
+    s.fill(2, 7, 2, 4, 9, 4, (COBBLE, 0))
+    s.walls(2, 2, 4, 4, 9, 9, spruce)
+    for x, z in ((2, 2), (4, 2), (2, 4), (4, 4)):
+        s.fill(x, 7, z, x, 9, z, log_up)
+    # The winch at the back that drew the arm down.
+    s.set(2, 3, 9, log_x)
+    s.set(4, 3, 9, log_x)
+    s.set(1, 3, 9, (FENCE, 0))
+    s.set(5, 3, 9, (FENCE, 0))
     return s
 
 
 NEUTRAL = {
     "silverlight_shrine": silverlight_shrine,
-    "catapult": catapult,
+    "trebuchet": trebuchet,
     "bridge": bridge,
     "bridge_piece": bridge_piece,
     "settlement": settlement,
