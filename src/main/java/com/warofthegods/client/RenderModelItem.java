@@ -23,8 +23,8 @@ import com.warofthegods.client.model.JsonModel;
 public class RenderModelItem implements IItemRenderer {
 
     /** Where the hand holds an item, from its bottom corner, in the square a held item is drawn in. */
-    private static final float GRIP = 0.82F;
-    private static final float GRIP_UP = 0.2F;
+    private static final float GRIP = 0.75F;
+    private static final float GRIP_UP = 0.3F;
 
     private final JsonModel model;
     private final ResourceLocation texture;
@@ -48,12 +48,12 @@ public class RenderModelItem implements IItemRenderer {
     }
 
     /** How big a bow is drawn in the player's own view, and how far up it is moved, in the item's square. */
-    private static final float BOW_IN_VIEW = 1.0F, BOW_LIFT = 0.3F;
+    private static final float BOW_IN_VIEW = 1.3F, BOW_LIFT = 0.6F;
     /**
      * Where a bow's picture is held, in its square, how much bigger the model is drawn than it, and how far up the arm
      * it is held, in blocks.
      */
-    private static final float BOW_GRIP_X = 0.78F, BOW_GRIP_Y = 0.53F, BOW_IN_HAND = 1.35F, BOW_UP_ARM = 0.15F;
+    private static final float BOW_GRIP_X = 0.4F, BOW_GRIP_Y = 0.8F, BOW_IN_HAND = 1.5F, BOW_UP_ARM = -0.15F;
     /** Ticks a bow has been drawn for to reach each stage of pulling, as the bow's own pictures go. */
     private static final int[] PULL_TICKS = { 1, 14, 18 };
 
@@ -106,7 +106,7 @@ public class RenderModelItem implements IItemRenderer {
         // About the hand: leaning back over the shoulder at rest, the chop sweeping it forward and down.
         float chop = swing > 0 ? MathHelper.sin(swing * (float) Math.PI) * 70 : 0;
         float lift = swing > 0 && swing < 0.35F ? swing / 0.35F * 25 : 0;
-        GL11.glRotatef(15 + sway + lift - chop, 0, 0, 1);
+        GL11.glRotatef(-5 + sway + lift - chop, 0, 0, 1);
     }
 
     /** How far the holder has drawn this bow, from 0 to the last stage, or -1 if they are not drawing it. */
