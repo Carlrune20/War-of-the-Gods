@@ -299,7 +299,9 @@ lies Silverlight, the sword that slew Delrith.
 
 Most old ruins have a chest on their ground, against a wall where one still stands. It holds what was left behind:
 ores and ingots, food, building materials (planks, cobblestone, stone bricks, logs, torches), a few weapons and
-pieces of armor, and arrows. Now and then a chest also holds one of these, none of which ever wears out:
+pieces of armor, and arrows. Fairly often it also holds runite gear: a helmet or boots in 6% of chests, platelegs in
+4.5%, a platebody in 4%, a sword in 6% and an axe in 4%. More rarely it holds one of these, none of which ever wears
+out:
 
 - **Dark bow.** Looses two arrows at once, using up two (one if that is all you have), and each hits much harder than a
   bow's. Both land, even on the same target.
