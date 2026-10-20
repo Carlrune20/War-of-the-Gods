@@ -160,7 +160,7 @@ def godsword(god):
 #
 # A recurved bow of dark red wood, its two limbs in knotted segments, short pale bone spikes standing out of some of the knots and
 # black knobs at the ends; a gold grip between them and a pale string. The limbs bow out along +x, the string runs
-# straight between their tips.
+# straight between their tips; drawn back, in three stages as Minecraft's bow is, two arrows lie on it.
 
 WOOD = (138, 48, 40)
 WOOD_DARK = (88, 26, 24)
@@ -179,18 +179,48 @@ def dark_wood(face, x, y, w, h):
     return WOOD_DARK if x == 0 or (y + x) % 5 == 0 else WOOD
 
 
-def dark_bow():
-    m = Model("dark_bow", 128, 128, seed=23)
+ARROW_WOOD = (150, 118, 72)
+ARROW_HEAD = (96, 96, 104)
+FLETCH = (226, 222, 214)
+
+# How far back the string is drawn at each of the three stages of pulling, in units, and how much more the limbs bend.
+DRAWS = (5, 9, 13)
+BEND = 0.06
+
+
+def segment(part, name, start, end, paint, inflate=-0.3):
+    """A thin box from start to end in x, y: a stretch of string."""
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    length = math.hypot(dx, dy)
+    # Turned about z, the box's +y runs to (-sin a, cos a).
+    angle = math.atan2(-dx, dy)
+    child = part.child(name, pivot=(start[0], start[1], 0), rotation=(0, 0, angle))
+    fbox(child, -0.5, 0, -0.5, 1, length, 1, paint, inflate=inflate)
+
+
+def arrow(part, name, nock_x, y, z):
+    """An arrow lying along -x from its nock on the string, past the grip: a shaft, a grey head, white fletching."""
+    shaft = 32
+    fbox(part, nock_x - shaft, y - 0.5, z - 0.5, shaft, 1, 1, flat(ARROW_WOOD), inflate=-0.2)
+    fbox(part, nock_x - shaft - 3, y - 1, z - 0.5, 3, 2, 1, flat(ARROW_HEAD), inflate=-0.15)
+    fbox(part, nock_x - 6, y - 1.5, z - 0.5, 5, 3, 1, flat(FLETCH), inflate=-0.35)
+
+
+def dark_bow(stage=None):
+    """The dark bow at rest, or drawn back to a stage of pulling (0 to 2) with two arrows on the string."""
+    name = "dark_bow" if stage is None else "dark_bow_pulling_%d" % stage
+    m = Model(name, 128, 128, seed=23)
     bow = m.part("bow")
     fbox(bow, -1.25, -3.5, -1.25, 2.5, 7, 2.5, wrapped(GRIP, shade(GRIP, 0.7)), inflate=0.1)
+    bend = 0 if stage is None else BEND * (stage + 1)
     tips = []
     for up in (-1, 1):
         # Walk out along the limb, placing each segment where the one before ended.
         x, y = 0.0, up * 3.0
         for i, (length, turn) in enumerate(LIMB):
             # Turned about z: a segment running along -y (up) leans toward +x for a positive turn; the lower limb
-            # mirrors it.
-            angle = turn * -up
+            # mirrors it. Drawn back, each bends a little further toward the string.
+            angle = (turn + bend) * -up
             seg = bow.child("limb_%d_%d" % (up, i), pivot=(x, y, 0), rotation=(0, 0, angle))
             thick = 2.2 - i * 0.25
             fbox(seg, -thick / 2, -length if up < 0 else 0, -thick / 2, thick, length, thick, dark_wood)
@@ -205,10 +235,18 @@ def dark_bow():
                                    rotation=(0, 0, 1.3 * (1 if up < 0 else -1) + (0 if up < 0 else math.pi)))
                 fbox(spike, -0.5, -3, -0.5, 1, 2, 1, flat(BONE))
         tips.append((x, y))
-    # The string between the tips, standing on the inside of the curve.
     (x0, y0), (x1, y1) = tips
-    sx = (x0 + x1) / 2
-    fbox(bow, sx - 0.25, y0, -0.25, 0.5, y1 - y0, 0.5, flat(STRING), inflate=-0.3)
+    if stage is None:
+        # The string between the tips, standing on the inside of the curve.
+        sx = (x0 + x1) / 2
+        fbox(bow, sx - 0.25, y0, -0.25, 0.5, y1 - y0, 0.5, flat(STRING), inflate=-0.3)
+        return m
+    # Drawn back to a point behind the grip, two arrows nocked there one above the other, lying beside the grip.
+    nock = ((x0 + x1) / 2 + DRAWS[stage], (y0 + y1) / 2)
+    segment(bow, "string_top", (x0, y0), nock, flat(STRING))
+    segment(bow, "string_bottom", (x1, y1), nock, flat(STRING))
+    arrow(bow, "arrow_high", nock[0], nock[1] - 1.2, -1.8)
+    arrow(bow, "arrow_low", nock[0], nock[1] + 1.2, -1.8)
     return m
 
 
@@ -265,4 +303,6 @@ def dragon_scimitar():
 
 
 ARTIFACTS = {"zamorak_godsword": lambda: godsword("zamorak"), "saradomin_godsword": lambda: godsword("saradomin"),
-             "bandos_godsword": lambda: godsword("bandos"), "dark_bow": dark_bow, "dragon_scimitar": dragon_scimitar}
+             "bandos_godsword": lambda: godsword("bandos"), "dark_bow": dark_bow,
+             "dark_bow_pulling_0": lambda: dark_bow(0), "dark_bow_pulling_1": lambda: dark_bow(1),
+             "dark_bow_pulling_2": lambda: dark_bow(2), "dragon_scimitar": dragon_scimitar}
