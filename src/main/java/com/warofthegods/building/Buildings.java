@@ -823,8 +823,7 @@ public final class Buildings {
                     "{} trained {}",
                     building.describe(game),
                     spawned.get(0)
-                        .getCommandSenderName()
-                        .replaceAll("\u00a7.", ""));
+                        .getLabel());
             }
         }
     }

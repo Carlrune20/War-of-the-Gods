@@ -1471,7 +1471,7 @@ public class CommandRts extends CommandBase {
         for (EntityUnit unit : units) {
             send(
                 sender,
-                unit.getCommandSenderName() + " at "
+                unit.getLabel() + " at "
                     + MathHelper.floor_double(unit.posX)
                     + ","
                     + MathHelper.floor_double(unit.posY)
