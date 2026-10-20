@@ -15,10 +15,15 @@ public final class ModBlocks {
 
     /** Ids of the mod's blocks in schematics, as tools/structures/generate.py writes them. */
     public static final int GRAYSTONE_ID = 200, GRAYSTONE_SLAB_ID = 201, GRAYSTONE_DOUBLE_SLAB_ID = 202,
-        GRAYSTONE_STAIRS_ID = 203, WOOD_DOOR_ID = 204, BANNER_ID = 205, STATIC_FIRE_ID = 209;
+        GRAYSTONE_STAIRS_ID = 203, WOOD_DOOR_ID = 204, BANNER_ID = 205, STATIC_FIRE_ID = 209, BANDOS_BANNER_ID = 210,
+        LAST_ID = 211;
 
-    /** The banners' kinds, in the order of their ids from {@link #BANNER_ID}. */
-    public static final String[] BANNER_KINDS = { "saradomin", "saradomin_inverted", "zamorak", "zamorak_inverted" };
+    /**
+     * The banners' kinds, in the order of their ids: Saradomin's and Zamorak's from {@link #BANNER_ID}, Bandos's, which
+     * came after the fire, from {@link #BANDOS_BANNER_ID}.
+     */
+    public static final String[] BANNER_KINDS = { "saradomin", "saradomin_inverted", "zamorak", "zamorak_inverted",
+        "bandos", "bandos_inverted" };
 
     public static Block graystoneBricks;
     public static BlockGraystoneSlab graystoneSlab;
@@ -50,7 +55,7 @@ public final class ModBlocks {
         for (int i = 0; i < banners.length; i++) {
             banners[i] = new BlockBanner(BANNER_KINDS[i]);
             GameRegistry.registerBlock(banners[i], ItemBlock.class, "banner_" + BANNER_KINDS[i]);
-            STORED[BANNER_ID + i] = banners[i];
+            STORED[i < 4 ? BANNER_ID + i : BANDOS_BANNER_ID + i - 4] = banners[i];
         }
         staticFire = new BlockStaticFire();
         GameRegistry.registerBlock(staticFire, "static_fire");
@@ -71,7 +76,7 @@ public final class ModBlocks {
 
     /** The id a block has in schematics and on the web map: its stored id if it is one of the mod's, else its own. */
     public static int storedId(Block block) {
-        for (int id = GRAYSTONE_ID; id <= STATIC_FIRE_ID; id++) {
+        for (int id = GRAYSTONE_ID; id <= LAST_ID; id++) {
             if (STORED[id] == block && block != null) {
                 return id;
             }

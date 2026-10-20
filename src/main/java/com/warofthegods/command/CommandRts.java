@@ -248,7 +248,9 @@ public class CommandRts extends CommandBase {
         send(sender, "/rts team create <name> [color] (op)");
         send(sender, "/rts team remove <name> (op)");
         send(sender, "/rts team color <name> <color> (op)");
-        send(sender, "/rts team faction <name> <saradomin|zamorak> - how the team's buildings and units look (op)");
+        send(
+            sender,
+            "/rts team faction <name> <saradomin|zamorak|bandos> - how the team's buildings and units look (op)");
         send(sender, "/rts team join <team> [player]");
         send(sender, "/rts team leave [player]");
         send(sender, "/rts team base <team> [x z] - move a team's base and raise a new town center there (op)");
@@ -567,11 +569,11 @@ public class CommandRts extends CommandBase {
             }
             case "faction": {
                 requireOp(sender);
-                requireArgs(args, 3, "/rts team faction <name> <saradomin|zamorak>");
+                requireArgs(args, 3, "/rts team faction <name> <saradomin|zamorak|bandos>");
                 Team team = requireTeam(game, args[1]);
                 Faction faction = Faction.byId(args[2]);
                 if (faction == null) {
-                    throw new CommandException("Factions are saradomin and zamorak");
+                    throw new CommandException("Factions are saradomin, zamorak and bandos");
                 }
                 team.setFaction(faction);
                 // Buildings take on the new look at once.
@@ -1021,6 +1023,12 @@ public class CommandRts extends CommandBase {
                 "Workers can build a farm, quarry, house, barracks, archery range, stables, storehouse, armory, tower,"
                     + " town center, White Knights' castle or Kinshra fortress");
         }
+        if (type.shunnedBy(team.getFaction())) {
+            throw new CommandException(
+                "%s's teams build no %s",
+                team.getFaction().displayName,
+                type.displayName.toLowerCase());
+        }
         if (!type.buildableBy(team.getFaction())) {
             throw new CommandException("Only %s's teams can build a %s", type.faction().displayName, type.displayName);
         }
@@ -1119,7 +1127,8 @@ public class CommandRts extends CommandBase {
         }
         count = Math.min(count, game.heroRoom(team, kind));
         for (Building building : game.getBuildings(team)) {
-            if (building.type.trains.contains(kind) && building.isComplete()) {
+            if (building.type.trainsFor(team.getFaction())
+                .contains(kind) && building.isComplete()) {
                 if (!kind.isAnimal()) {
                     count = Math.min(count, Buildings.room(game, team));
                 }

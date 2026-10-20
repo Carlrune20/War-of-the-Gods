@@ -1,0 +1,539 @@
+{
+ "texture": [
+  128,
+  64
+ ],
+ "parts": [
+  {
+   "name": "head",
+   "parent": null,
+   "pivot": [
+    0.0,
+    5.0,
+    -4.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      64,
+      19
+     ],
+     "from": [
+      -3,
+      -6,
+      -3
+     ],
+     "size": [
+      6,
+      6,
+      6
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      60,
+      44
+     ],
+     "from": [
+      -3,
+      -2,
+      -4.2
+     ],
+     "size": [
+      6,
+      2,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      74,
+      44
+     ],
+     "from": [
+      -2.5,
+      -3.5,
+      -4.6
+     ],
+     "size": [
+      1,
+      2,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      78,
+      44
+     ],
+     "from": [
+      1.5,
+      -3.5,
+      -4.6
+     ],
+     "size": [
+      1,
+      2,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      28,
+      33
+     ],
+     "from": [
+      -3.5,
+      -7,
+      -3.5
+     ],
+     "size": [
+      7,
+      3,
+      7
+     ],
+     "inflate": 0.2,
+     "mirror": false
+    },
+    {
+     "uv": [
+      82,
+      44
+     ],
+     "from": [
+      3.7,
+      -6,
+      -0.5
+     ],
+     "size": [
+      2,
+      1,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "body",
+   "parent": null,
+   "pivot": [
+    0.0,
+    3.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": []
+  },
+  {
+   "name": "torso",
+   "parent": "body",
+   "pivot": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "rotation": [
+    0.35,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      4,
+      0
+     ],
+     "from": [
+      -6,
+      0,
+      -3.5
+     ],
+     "size": [
+      12,
+      11,
+      7
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      42,
+      0
+     ],
+     "from": [
+      -6,
+      0,
+      -3.5
+     ],
+     "size": [
+      12,
+      11,
+      7
+     ],
+     "inflate": 0.3,
+     "mirror": false
+    },
+    {
+     "uv": [
+      56,
+      33
+     ],
+     "from": [
+      -5.5,
+      10,
+      -3
+     ],
+     "size": [
+      11,
+      3,
+      6
+     ],
+     "inflate": 0.3,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "right_arm",
+   "parent": null,
+   "pivot": [
+    -7.5,
+    5.0,
+    -2.0
+   ],
+   "rotation": [
+    -0.75,
+    0.0,
+    -0.35
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      80,
+      0
+     ],
+     "from": [
+      -2.5,
+      -2,
+      -2.5
+     ],
+     "size": [
+      5,
+      13,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      88,
+      19
+     ],
+     "from": [
+      -3.5,
+      -3.5,
+      -3.5
+     ],
+     "size": [
+      7,
+      4,
+      7
+     ],
+     "inflate": 0.2,
+     "mirror": false
+    },
+    {
+     "uv": [
+      90,
+      33
+     ],
+     "from": [
+      -2.5,
+      8,
+      -2.5
+     ],
+     "size": [
+      5,
+      2,
+      5
+     ],
+     "inflate": 0.2,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "weapon",
+   "parent": "right_arm",
+   "pivot": [
+    1.5,
+    10.5,
+    0.0
+   ],
+   "rotation": [
+    0.6,
+    0.0,
+    -1.2
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      0,
+      0
+     ],
+     "from": [
+      -0.5,
+      -12,
+      -0.5
+     ],
+     "size": [
+      1,
+      18,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      40,
+      19
+     ],
+     "from": [
+      -0.5,
+      -14,
+      -6
+     ],
+     "size": [
+      1,
+      8,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      52,
+      19
+     ],
+     "from": [
+      -0.5,
+      -14,
+      1
+     ],
+     "size": [
+      1,
+      8,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "right_leg",
+   "parent": null,
+   "pivot": [
+    -3.0,
+    15.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      0,
+      19
+     ],
+     "from": [
+      -2.5,
+      0,
+      -2.5
+     ],
+     "size": [
+      5,
+      9,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      0,
+      44
+     ],
+     "from": [
+      -2.5,
+      3,
+      -2.5
+     ],
+     "size": [
+      5,
+      2,
+      5
+     ],
+     "inflate": 0.2,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "left_arm",
+   "parent": null,
+   "pivot": [
+    7.5,
+    5.0,
+    -2.0
+   ],
+   "rotation": [
+    -0.75,
+    0.0,
+    0.35
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      100,
+      0
+     ],
+     "from": [
+      -2.5,
+      -2,
+      -2.5
+     ],
+     "size": [
+      5,
+      13,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": true
+    },
+    {
+     "uv": [
+      0,
+      33
+     ],
+     "from": [
+      -3.5,
+      -3.5,
+      -3.5
+     ],
+     "size": [
+      7,
+      4,
+      7
+     ],
+     "inflate": 0.2,
+     "mirror": false
+    },
+    {
+     "uv": [
+      20,
+      44
+     ],
+     "from": [
+      -2.5,
+      8,
+      -2.5
+     ],
+     "size": [
+      5,
+      2,
+      5
+     ],
+     "inflate": 0.2,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "left_leg",
+   "parent": null,
+   "pivot": [
+    3.0,
+    15.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      20,
+      19
+     ],
+     "from": [
+      -2.5,
+      0,
+      -2.5
+     ],
+     "size": [
+      5,
+      9,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": true
+    },
+    {
+     "uv": [
+      40,
+      44
+     ],
+     "from": [
+      -2.5,
+      3,
+      -2.5
+     ],
+     "size": [
+      5,
+      2,
+      5
+     ],
+     "inflate": 0.2,
+     "mirror": false
+    }
+   ]
+  }
+ ]
+}

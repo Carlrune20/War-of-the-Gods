@@ -456,9 +456,21 @@ public final class RtsClient {
         return workers;
     }
 
-    /** The selected workers, or with none of them, the selected dark wizards, who raise stone circles. */
+    /** The selected units that build: workers, slaves and goblins. */
+    public Set<String> selectedConstructors() {
+        Set<String> builders = new LinkedHashSet<>();
+        for (String id : selected) {
+            RtsState.UnitInfo unit = state.units.get(id);
+            if (unit != null && unit.canBuild()) {
+                builders.add(id);
+            }
+        }
+        return builders;
+    }
+
+    /** The selected units that build, or with none of them, the selected dark wizards, who raise stone circles. */
     public Set<String> selectedBuilders() {
-        Set<String> builders = selectedWorkers();
+        Set<String> builders = selectedConstructors();
         if (builders.isEmpty()) {
             for (String id : selected) {
                 RtsState.UnitInfo unit = state.units.get(id);

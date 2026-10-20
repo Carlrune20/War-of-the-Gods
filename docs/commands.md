@@ -29,7 +29,7 @@ Everyone can use `/rts`. Commands marked **(op)** need operator rights.
 | `/rts team create <name> [color]` | (op) Add a team. |
 | `/rts team remove <name>` | (op) Remove a team and its alliances. |
 | `/rts team color <name> <color>` | (op) Change a team's color. |
-| `/rts team faction <name> <saradomin\|zamorak>` | (op) Change which god a team follows, and so how its buildings and units look. |
+| `/rts team faction <name> <saradomin\|zamorak\|bandos>` | (op) Change which god a team follows, and so how its buildings and units look. |
 | `/rts team join <team> [player]` | Join a team (moving someone else needs op). |
 | `/rts team leave [player]` | Leave your team (removing someone else needs op). |
 | `/rts team auto [all]` | (op) Put everyone online who is on no team on the team with the fewest players; with `all`, share everyone out afresh. |

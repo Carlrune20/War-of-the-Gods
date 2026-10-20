@@ -37,13 +37,20 @@ MINECRAFT_JAR = os.path.expanduser("~/.gradle/caches/retro_futura_gradle/mc-vani
 
 SIZE = 64
 COLUMNS = 16
-FACTIONS = ("saradomin", "zamorak")
+FACTIONS = ("saradomin", "zamorak", "bandos")
 BUILDINGS = ("town_hall", "house", "farm", "quarry", "barracks", "storehouse", "armory", "tower", "wall", "gate",
              "white_knights_fortress", "black_knights_fortress", "archery_range", "stables", "chaos_temple",
-             "monastery", "wizards_tower", "stone_circle")
+             "monastery", "wizards_tower", "stone_circle", "goblin_cave", "war_pit", "bandos_temple",
+             "bandos_bastion")
 UNITS = ("worker", "soldier", "archer", "white_knight", "black_knight", "tradigee", "sagittare", "cavalry",
          "chaos_priest", "monk", "dark_wizard", "zamorak_mage", "blue_wizard", "lesser_demon",
          "centaur")
+# Bandos's units, which only his teams train, so only his icons have them.
+BANDOS_UNITS = ("slave", "goblin", "goblin_thrower", "hobgoblin", "ork", "ogre", "goblin_priest", "spiritual_warrior",
+                "spiritual_ranger", "spiritual_mage", "strongstack", "steelwill", "grimspike", "graardor")
+# The model each of them wears.
+CREATURES = {"hobgoblin": "hobgoblin", "ork": "ork", "graardor": "ork", "ogre": "ogre", "strongstack": "strongstack",
+             "steelwill": "strongstack", "grimspike": "strongstack"}
 
 # Upgrades and other actions: an item picture, ("block", top, side) for a block drawn as the inventory draws it, or
 # ("face", skin) for the face of a skin, such as the knights the knights' upgrades make, or ("head", model) for the
@@ -108,7 +115,7 @@ def block_faces(kind, meta):
     color = COLORS.get(meta, "white")
     planks = {0: "oak", 1: "spruce", 2: "birch", 3: "jungle", 4: "acacia", 5: "big_oak"}
     table = {
-        1: "stone", 3: "dirt", 4: "cobblestone", 13: "gravel", 41: "gold_block", 42: "iron_block", 49: "obsidian",
+        1: "stone", 3: "dirt", 4: "cobblestone", 12: "sand", 13: "gravel", 48: "cobblestone_mossy", 41: "gold_block", 42: "iron_block", 49: "obsidian",
         87: "netherrack", 88: "soul_sand", 89: "glowstone", 112: "nether_brick", 113: "nether_brick",
         114: "nether_brick", 152: "redstone_block", 173: "coal_block", 101: "iron_bars", 102: "glass",
         139: "cobblestone", 145: "anvil_base", 118: "cauldron_side",
@@ -189,13 +196,14 @@ def block_faces(kind, meta):
     if kind == 204:
         return "planks_big_oak", ("mod:wood_door_upper" if meta & 8 else "mod:wood_door_lower")
     if kind in BANNERS:
-        name = "mod:banner_" + BANNER_KINDS[kind - 205] + "_" + ("top", "emblem", "bottom", "pennant")[meta >> 2 & 3]
+        name = "mod:banner_" + BANNER_KINDS[kind] + "_" + ("top", "emblem", "bottom", "pennant")[meta >> 2 & 3]
         return name, name
     return None
 
 
-BANNERS = {205, 206, 207, 208}
-BANNER_KINDS = ("saradomin", "saradomin_inverted", "zamorak", "zamorak_inverted")
+BANNERS = {205, 206, 207, 208, 210, 211}
+BANNER_KINDS = {205: "saradomin", 206: "saradomin_inverted", 207: "zamorak", 208: "zamorak_inverted", 210: "bandos",
+                211: "bandos_inverted"}
 
 
 # Block shapes: posts are thin, slabs and crops low, torches small; everything else is a whole cube, stairs too.
@@ -339,6 +347,8 @@ def face_icon(faction, kind):
     """A unit's face: the front of its head with its hat layer over it, as large as the icon."""
     if kind in HEADS:
         return model_head(HEADS[kind])
+    if kind in BANDOS_UNITS and kind != "slave":
+        return creature_head(CREATURES.get(kind, "goblin"), kind)
     return skin_face("%s_%s" % (faction, kind))
 
 
@@ -375,6 +385,28 @@ def model_head(name):
     half = max(right - left, bottom - top) * 1.15
     square = picture.crop((int(middle_x - half), int(middle_y - half), int(middle_x + half), int(middle_y + half)))
     return square.resize((SIZE, SIZE), Image.LANCZOS)
+
+
+def creature_head(model_name, kind):
+    """The head of one of Bandos's creatures, in the kind's own texture, seen a little from the left and above."""
+    import blockbench
+    import boxmodel
+    with open(os.path.join(MODELS, model_name + ".json")) as f:
+        model = json.load(f)
+    texture = Image.open(os.path.join(MODEL_TEXTURES, kind + ".png")).convert("RGBA")
+    team = Image.open(os.path.join(MODEL_TEXTURES, kind + "_team.png")).convert("RGBA")
+    keep = {"head"}
+    parts = []
+    for part in model["parts"]:
+        if part["name"] in keep or part["parent"] in keep:
+            parts.append(dict(part, rotation=[0.0, 0.0, 0.0]) if part["name"] == "head" else part)
+            keep.add(part["name"])
+    # Weapons stay out of the picture.
+    parts = [part for part in parts if part["name"] not in ("spear", "weapon")]
+    bust = blockbench.built({"texture": model["texture"], "parts": parts})
+    picture = boxmodel.render(bust, texture, size=512, yaw=-12, pitch=18, margin=0.06, mask=team,
+                              team=(150, 150, 150))
+    return picture.crop(picture.getbbox() or (0, 0, 512, 512)).resize((SIZE, SIZE), Image.LANCZOS)
 
 
 def skin_face(name):
@@ -422,7 +454,7 @@ def main():
             if os.path.exists(path):
                 icons.append(("building/%s/%s" % (faction, name), building(faces, path)))
     for faction in FACTIONS:
-        for name in UNITS:
+        for name in UNITS + (BANDOS_UNITS if faction == "bandos" else ()):
             icons.append(("face/%s/%s" % (faction, name), face_icon(faction, name)))
     for name, spec in ITEMS.items():
         icons.append((name, item_icon(jar, spec)))

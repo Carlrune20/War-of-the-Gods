@@ -241,9 +241,11 @@ public final class AiPlayers {
         List<EntityUnit> all = Units.get()
             .getUnits(team);
         for (EntityUnit unit : all) {
-            // Priests and monks only pray, and are left where they are.
+            // Priests and monks only pray, and are left where they are; goblin priests too, though they can fight.
             if ((!alongsidePlayers || unit.isAiControlled()) && (unit.isWorker() || unit.getKind()
-                .fights())) {
+                .fights()
+                && !unit.getKind()
+                    .praysAtTemple())) {
                 (unit.isWorker() ? workers : fighters).add(unit);
             }
         }
@@ -626,9 +628,10 @@ public final class AiPlayers {
 
     private static void trainWorkers(Game game, Team team, Building hall, int workers) {
         int wanted = WORKERS_WANTED[game.getAge(team)];
-        if (workers + queued(game, team, UnitKind.WORKER) < wanted && hall.getQueue()
-            .size() < QUEUE && Buildings.room(game, team) > 0 && team.spend(UnitKind.WORKER.cost())) {
-            hall.enqueue(UnitKind.WORKER, true);
+        UnitKind worker = team.getFaction() == Faction.BANDOS ? UnitKind.SLAVE : UnitKind.WORKER;
+        if (workers + queued(game, team, worker) < wanted && hall.getQueue()
+            .size() < QUEUE && Buildings.room(game, team) > 0 && team.spend(worker.cost())) {
+            hall.enqueue(worker, true);
         }
     }
 
@@ -642,7 +645,7 @@ public final class AiPlayers {
             return false;
         }
         boolean ready = age == 1 ? workers >= 10
-            : workers >= 16 && fighters >= 4 && count(game, team, BuildingType.BARRACKS, true) > 0;
+            : workers >= 16 && fighters >= 4 && count(game, team, own(team, BuildingType.BARRACKS), true) > 0;
         if (!ready || Buildings.levelUpProblem(game, hall) != null) {
             return false;
         }
@@ -717,7 +720,7 @@ public final class AiPlayers {
     private static BuildingType neededBuilding(Game game, Team team, State state, int workers, boolean saving) {
         int age = game.getAge(team);
         if (Buildings.room(game, team) <= 3 && game.getPopulationCap(team) < Config.unitsPerTeam) {
-            return BuildingType.HOUSE;
+            return own(team, BuildingType.HOUSE);
         }
         if (saving) {
             return null;
@@ -729,22 +732,23 @@ public final class AiPlayers {
             return null;
         }
         int foodWorkers = (int) Math.round(WORKERS_WANTED[age] * SHARE_LATER[0]);
-        if (count(game, team, BuildingType.BARRACKS, false) == 0) {
-            return BuildingType.BARRACKS;
+        BuildingType barracks = own(team, BuildingType.BARRACKS);
+        if (count(game, team, barracks, false) == 0) {
+            return barracks;
         }
         if (count(game, team, BuildingType.FARM, false) * BuildingType.FARM.maxWorkers() < foodWorkers) {
             return BuildingType.FARM;
         }
-        if (count(game, team, BuildingType.ARCHERY_RANGE, false) == 0) {
+        if (wants(team, BuildingType.ARCHERY_RANGE) && count(game, team, BuildingType.ARCHERY_RANGE, false) == 0) {
             return BuildingType.ARCHERY_RANGE;
         }
         if (count(game, team, BuildingType.ARMORY, false) == 0) {
             return BuildingType.ARMORY;
         }
-        if (count(game, team, BuildingType.STABLES, false) == 0) {
+        if (wants(team, BuildingType.STABLES) && count(game, team, BuildingType.STABLES, false) == 0) {
             return BuildingType.STABLES;
         }
-        // Its god's houses: Zamorak's chaos temple, or Saradomin's monastery and wizards' tower.
+        // Its god's houses: Zamorak's chaos temple, Bandos's temple, or Saradomin's monastery and wizards' tower.
         for (BuildingType godly : godsBuildings(team)) {
             if (count(game, team, godly, false) == 0) {
                 return godly;
@@ -753,8 +757,8 @@ public final class AiPlayers {
         if (age >= 3 && !state.noFortressSpot && count(game, team, fortressOf(team), false) == 0) {
             return fortressOf(team);
         }
-        if (age >= 3 && count(game, team, BuildingType.BARRACKS, false) < 2) {
-            return BuildingType.BARRACKS;
+        if (age >= 3 && count(game, team, barracks, false) < 2) {
+            return barracks;
         }
         return null;
     }
@@ -763,7 +767,7 @@ public final class AiPlayers {
     private static BuildingType neededEconomyBuilding(Game game, Team team, int workers) {
         int age = game.getAge(team);
         if (Buildings.room(game, team) <= 3 && game.getPopulationCap(team) < Config.unitsPerTeam) {
-            return BuildingType.HOUSE;
+            return own(team, BuildingType.HOUSE);
         }
         if (count(game, team, BuildingType.STOREHOUSE, false) == 0 && (workers >= STOREHOUSE_WORKERS || age >= 2)) {
             return BuildingType.STOREHOUSE;
@@ -785,8 +789,8 @@ public final class AiPlayers {
         if (age >= 3 && !state.noFortressSpot && count(game, team, fortressOf(team), false) < MAX_FORTRESSES) {
             wanted.add(fortressOf(team));
         }
-        if (age >= 2 && count(game, team, BuildingType.BARRACKS, false) < MAX_EXTRA_BARRACKS) {
-            wanted.add(BuildingType.BARRACKS);
+        if (age >= 2 && count(game, team, own(team, BuildingType.BARRACKS), false) < MAX_EXTRA_BARRACKS) {
+            wanted.add(own(team, BuildingType.BARRACKS));
         }
         if (age >= 2 && count(game, team, BuildingType.TOWER, false) < MAX_TOWERS) {
             wanted.add(BuildingType.TOWER);
@@ -794,7 +798,7 @@ public final class AiPlayers {
         // Room for the army it means to train.
         if (Buildings.room(game, team) <= 8 && fighters < MAX_FIGHTERS
             && game.getPopulationCap(team) < Config.unitsPerTeam) {
-            wanted.add(BuildingType.HOUSE);
+            wanted.add(own(team, BuildingType.HOUSE));
         }
         for (BuildingType type : wanted) {
             if (affords(team, type.cost(), SPARE_MARGIN)) {
@@ -866,7 +870,7 @@ public final class AiPlayers {
                 continue;
             }
             double[] middle = { center.getCenterX(), center.getCenterZ() };
-            for (BuildingType type : new BuildingType[] { BuildingType.BARRACKS, BuildingType.TOWER }) {
+            for (BuildingType type : new BuildingType[] { own(team, BuildingType.BARRACKS), BuildingType.TOWER }) {
                 if (nearestOwn(game, team, middle[0], middle[1], type) > OUTPOST_RANGE) {
                     return new Object[] { type, middle };
                 }
@@ -1011,15 +1015,46 @@ public final class AiPlayers {
         }
     }
 
-    /** The knights' fortress of the team's god. */
+    /** The houses of the team's god. */
     private static BuildingType[] godsBuildings(Team team) {
-        return team.getFaction() == Faction.ZAMORAK ? new BuildingType[] { BuildingType.CHAOS_TEMPLE }
-            : new BuildingType[] { BuildingType.MONASTERY, BuildingType.WIZARDS_TOWER };
+        switch (team.getFaction()) {
+            case ZAMORAK:
+                return new BuildingType[] { BuildingType.CHAOS_TEMPLE };
+            case BANDOS:
+                return new BuildingType[] { BuildingType.BANDOS_TEMPLE };
+            default:
+                return new BuildingType[] { BuildingType.MONASTERY, BuildingType.WIZARDS_TOWER };
+        }
     }
 
+    /** The fortress of the team's god. */
     private static BuildingType fortressOf(Team team) {
-        return team.getFaction() == Faction.ZAMORAK ? BuildingType.BLACK_KNIGHTS_FORTRESS
-            : BuildingType.WHITE_KNIGHTS_FORTRESS;
+        switch (team.getFaction()) {
+            case ZAMORAK:
+                return BuildingType.BLACK_KNIGHTS_FORTRESS;
+            case BANDOS:
+                return BuildingType.BANDOS_BASTION;
+            default:
+                return BuildingType.WHITE_KNIGHTS_FORTRESS;
+        }
+    }
+
+    /** What the team builds for a house or a barracks: Bandos's goblin caves and war pits. */
+    private static BuildingType own(Team team, BuildingType type) {
+        if (team.getFaction() == Faction.BANDOS) {
+            if (type == BuildingType.HOUSE) {
+                return BuildingType.GOBLIN_CAVE;
+            }
+            if (type == BuildingType.BARRACKS) {
+                return BuildingType.WAR_PIT;
+            }
+        }
+        return type;
+    }
+
+    /** Whether the team's god lets it build the type at all. */
+    private static boolean wants(Team team, BuildingType type) {
+        return !type.shunnedBy(team.getFaction());
     }
 
     /** Whether the team can pay the cost and keep the margin of each resource it costs. */
@@ -1348,20 +1383,22 @@ public final class AiPlayers {
     private static final int PRIESTS_WANTED = Buildings.PRIESTS_PER_TEMPLE;
     private static final int MONKS_WANTED = 4;
 
-    /** Trains chaos priests to pray at its chaos temples, or monks at its monastery, for its god's favor. */
+    /**
+     * Trains chaos priests to pray at its chaos temples, goblin priests at its Bandos temples, or monks at its
+     * monastery, for its god's favor.
+     */
     private static void trainWorshippers(Game game, Team team) {
         for (Building building : game.getBuildings(team)) {
             UnitKind kind = building.type == BuildingType.CHAOS_TEMPLE ? UnitKind.CHAOS_PRIEST
-                : building.type == BuildingType.MONASTERY ? UnitKind.MONK : null;
+                : building.type == BuildingType.BANDOS_TEMPLE ? UnitKind.GOBLIN_PRIEST
+                    : building.type == BuildingType.MONASTERY ? UnitKind.MONK : null;
             if (kind == null || !building.isComplete()
                 || building.getQueue()
                     .size() >= QUEUE
                 || Buildings.room(game, team) <= 0) {
                 continue;
             }
-            int wanted = kind == UnitKind.CHAOS_PRIEST
-                ? PRIESTS_WANTED * count(game, team, BuildingType.CHAOS_TEMPLE, true)
-                : MONKS_WANTED;
+            int wanted = kind == UnitKind.MONK ? MONKS_WANTED : PRIESTS_WANTED * count(game, team, building.type, true);
             int have = queued(game, team, kind);
             for (EntityUnit unit : Units.get()
                 .getUnits(team)) {
@@ -1378,7 +1415,8 @@ public final class AiPlayers {
     /**
      * Trains warriors at its barracks, archers at its archery range, cavalry at its stables, dark wizards and now and
      * then a Zamorak mage at a chaos temple, blue wizards at a wizards' tower, centaurs at a monastery whenever its
-     * monks have earned the favor, and at a knights' fortress its hero when it has none, and knights otherwise.
+     * monks have earned the favor, goblins at a goblin cave, hobgoblins, axe-throwers and orks at a war pit, and at a
+     * fortress its heroes when it lacks one, and its own fighters otherwise.
      */
     private static void trainFighters(Game game, Team team, State state, int fighters) {
         int planned = fighters;
@@ -1398,7 +1436,9 @@ public final class AiPlayers {
                     : building.type == BuildingType.STABLES ? UnitKind.CAVALRY
                         : building.type == BuildingType.CHAOS_TEMPLE ? (ThreadLocalRandom.current()
                             .nextInt(3) == 0 ? UnitKind.ZAMORAK_MAGE : UnitKind.DARK_WIZARD)
-                            : building.type == BuildingType.WIZARDS_TOWER ? UnitKind.BLUE_WIZARD : null;
+                            : building.type == BuildingType.WIZARDS_TOWER ? UnitKind.BLUE_WIZARD
+                                : building.type == BuildingType.GOBLIN_CAVE ? UnitKind.GOBLIN
+                                    : building.type == BuildingType.WAR_PIT ? warPitFighter() : null;
             if (trains != null) {
                 if (team.spend(trains.cost())) {
                     building.enqueue(trains, true);
@@ -1426,6 +1466,13 @@ public final class AiPlayers {
                 }
             }
         }
+    }
+
+    /** Mostly hobgoblins and goblin axe-throwers from a war pit, and now and then an ork. */
+    private static UnitKind warPitFighter() {
+        int roll = ThreadLocalRandom.current()
+            .nextInt(5);
+        return roll < 2 ? UnitKind.HOBGOBLIN : roll < 4 ? UnitKind.GOBLIN_THROWER : UnitKind.ORK;
     }
 
     /**

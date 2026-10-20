@@ -610,6 +610,44 @@ wait_for_log "AI Red put idle workers to work" 60
 echo "rts ai red off" >&3
 wait_for_log "Team Red is no longer played by the computer" 30
 echo "ok: the computer ran Red's workers in economy mode"
+# Bandos: Red turns to him. It builds no houses or barracks but goblin caves and war pits, trains slaves and
+# goblins at its town center, orks at a war pit, a goblin priest at his temple and Sergeant Strongstack at his bastion.
+echo "rts team faction red bandos" >&3
+wait_for_log "Team Red now follows Bandos" 30
+echo "rts units spawn red 2 slave" >&3
+wait_for_log "Spawned 2 units for Red" 30
+echo "rts build red house" >&3
+wait_for_log "Bandos's teams build no house" 30
+echo "rts build red goblin_cave" >&3
+wait_for_log "Laid out Red goblin cave #" 30
+echo "rts build red war_pit" >&3
+wait_for_log "Laid out Red war pit #" 30
+echo "rts build red bandos_temple" >&3
+wait_for_log "Laid out Red bandos temple #" 30
+echo "rts build red bandos_bastion" >&3
+wait_for_log "Laid out Red bandos bastion #" 30
+echo "rts finish red" >&3
+wait_for_log "Built Red goblin cave #" 60
+wait_for_log "Built Red war pit #" 60
+wait_for_log "Built Red bandos temple #" 60
+wait_for_log "Built Red bandos bastion #" 60
+echo "ok: Red raised a goblin cave, a war pit, a Bandos temple and a bastion"
+echo "rts resources set red food 5000" >&3
+echo "rts resources set red gold 5000" >&3
+echo "rts resources set red wood 5000" >&3
+echo "rts train red worker 1" >&3
+wait_for_log "Team Red has no building that trains workers" 30
+echo "rts train red slave 1" >&3
+wait_for_log "trained Red slave " 60
+echo "rts train red goblin 1" >&3
+wait_for_log "trained Red goblin " 60
+echo "rts train red ork 1" >&3
+wait_for_log "trained Red ork " 90
+echo "rts train red goblin_priest 1" >&3
+wait_for_log "trained Red goblin priest " 60
+echo "rts train red strongstack 1" >&3
+wait_for_log "trained Sergeant Strongstack" 120
+echo "ok: Bandos's buildings trained a slave, a goblin, an ork, a goblin priest and Sergeant Strongstack"
 # The lobby ends the game and starts the next with the same teams, the computer still on Blue.
 echo "rts newgame" >&3
 wait_for_log "opened the lobby for a new game" 30

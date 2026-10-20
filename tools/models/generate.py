@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Builds War of the Gods' own box models: the lesser demon, the centaur, Zamorak's staff and Silverlight.
+"""Builds War of the Gods' own box models: the lesser demon, the centaur, Zamorak's staff, Silverlight, and Bandos's
+goblin, hobgoblin, ork and ogre (see creatures.py).
 
     python3 tools/models/generate.py [--preview DIR]
 
@@ -22,6 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import blockbench  # noqa: E402
 import boxmodel  # noqa: E402
+import creatures  # noqa: E402
 from boxmodel import TEAM, Model, mix, shade  # noqa: E402
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "src", "main", "resources", "assets",
@@ -914,6 +916,34 @@ def icon(model, texture):
     return small
 
 
+def build_creatures(preview):
+    """Bandos's creatures: one model each, and a texture and team mask for each kind that wears it."""
+    for name, (build, kinds) in creatures.CREATURES.items():
+        model = build(kinds[0])
+        texture, mask = model.paint()
+        if blockbench.edited(name, json.loads(model.to_json()), {name + ".png": texture, name + "_team.png": mask}):
+            print("%s: edited in Blockbench (tools/models/blockbench/%s.bbmodel), so left as it is; make it from here "
+                  "again by deleting that file" % (name, name))
+            continue
+        with open(os.path.join(MODELS, name + ".json"), "w") as file:
+            file.write(model.to_json() + "\n")
+        for kind in kinds:
+            looked = build(kind)
+            texture, mask = looked.paint()
+            texture.save(os.path.join(TEXTURES, kind + ".png"))
+            mask.save(os.path.join(TEXTURES, kind + "_team.png"))
+            if preview:
+                os.makedirs(preview, exist_ok=True)
+                for pose, extra in creatures.POSES.items():
+                    image = boxmodel.render(looked, texture, size=480, yaw=30, pitch=10, pose=extra, mask=mask,
+                                            team=(60, 160, 60), background=(54, 62, 74))
+                    image.save(os.path.join(preview, "%s_%s.png" % (kind, pose)))
+        blockbench.export([name])
+        lo, hi = boxmodel.bounds(model)
+        print("%s: %d parts, %d looks, from %s to %s" % (name, len(list(model.parts())), len(kinds), lo.round(1),
+                                                          hi.round(1)))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--preview", help="also draw each model into this folder")
@@ -960,6 +990,8 @@ def main():
                     image.save(os.path.join(args.preview, "%s_%d.png" % (name, yaw)))
                 icon(model, texture).resize((256, 256), Image.NEAREST).save(
                     os.path.join(args.preview, name + "_icon.png"))
+
+    build_creatures(args.preview)
 
 
 if __name__ == "__main__":

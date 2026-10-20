@@ -12,6 +12,8 @@ import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.passive.EntityHorse;
+import net.minecraft.init.Items;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 
 import org.lwjgl.opengl.GL11;
@@ -49,6 +51,45 @@ public class RenderUnit extends RenderBiped {
         WarOfTheGods.MODID,
         "textures/models/centaur_team.png");
     private static final Map<String, ResourceLocation> SKINS = new HashMap<>();
+    /**
+     * Bandos's creatures' textures, and where on them their team's color goes, by texture name: the unit kind's id,
+     * and for goblins and hobgoblins that show their team's armor that with _padded or _plate after it.
+     */
+    private static final Map<String, ResourceLocation> CREATURE = new HashMap<>();
+    private static final Map<String, ResourceLocation> CREATURE_TEAM = new HashMap<>();
+
+    static {
+        for (UnitKind kind : UnitKind.values()) {
+            if (kind.creatureModel() != null) {
+                String[] looks = kind.showsArmor() ? new String[] { "", "_padded", "_plate" } : new String[] { "" };
+                for (String look : looks) {
+                    String name = kind.id + look;
+                    CREATURE.put(name, new ResourceLocation(WarOfTheGods.MODID, "textures/models/" + name + ".png"));
+                    CREATURE_TEAM
+                        .put(name, new ResourceLocation(WarOfTheGods.MODID, "textures/models/" + name + "_team.png"));
+                }
+            }
+        }
+    }
+
+    /**
+     * The name of the texture one of Bandos's creatures is drawn with: a goblin or hobgoblin wearing its team's armor,
+     * which the server puts on it as it does on a warrior, is drawn in padded or plate armor of its own instead.
+     */
+    private static String creatureTexture(EntityUnit unit) {
+        UnitKind kind = unit.getWatchedKind();
+        ItemStack chest = kind.showsArmor() ? unit.getEquipmentInSlot(3) : null;
+        if (chest != null && chest.getItem() == Items.iron_chestplate) {
+            return kind.id + "_plate";
+        }
+        if (chest != null && chest.getItem() == Items.chainmail_chestplate) {
+            return kind.id + "_padded";
+        }
+        return kind.id;
+    }
+
+    /** How much of a spiritual warrior, ranger or mage shows; the rest is see-through. */
+    private static final float SPIRIT_ALPHA = 0.6F;
 
     private static ResourceLocation[] demonTextures(String suffix) {
         String[] names = { "lesser_demon", "greater_demon", "black_demon" };
@@ -112,6 +153,7 @@ public class RenderUnit extends RenderBiped {
     private final ModelDemon demonModel = new ModelDemon();
     private final ModelCentaur centaurModel = new ModelCentaur();
     private final ModelKnight knightModel = new ModelKnight();
+    private final ModelCreature creatureModel = new ModelCreature();
     /** The horse drawn under each rider, kept only to be drawn; it is in no world's entity list. */
     private final Map<EntityUnit, EntityHorse> horses = new WeakHashMap<>();
 
@@ -120,10 +162,14 @@ public class RenderUnit extends RenderBiped {
         manModel = modelBipedMain;
     }
 
-    /** An archer drawing its bow holds it up in both hands, as a player does. */
+    /**
+     * An archer drawing its bow holds it up in both hands, as a player does; a goblin axe-thrower swings its axe
+     * instead.
+     */
     @Override
     public void doRender(EntityLiving entity, double x, double y, double z, float yaw, float partialTicks) {
-        boolean aiming = ((EntityUnit) entity).getDrawTicks() > 0;
+        boolean aiming = ((EntityUnit) entity).getDrawTicks() > 0 && !((EntityUnit) entity).getWatchedKind()
+            .throwsAxes();
         modelBipedMain.aimedBow = aiming;
         field_82423_g.aimedBow = aiming;
         field_82425_h.aimedBow = aiming;
@@ -135,6 +181,9 @@ public class RenderUnit extends RenderBiped {
             modelBipedMain = demonModel;
         } else if (kind == UnitKind.CENTAUR) {
             modelBipedMain = centaurModel;
+        } else if (kind.creatureModel() != null) {
+            creatureModel.setModel(kind.creatureModel());
+            modelBipedMain = creatureModel;
         } else if (kind.eliteUpgrade() != null) {
             boolean elite = unit.isWatchedElite();
             knightModel.setStyle(kind, elite);
@@ -157,8 +206,8 @@ public class RenderUnit extends RenderBiped {
      */
     @Override
     protected void renderArrowsStuckInEntity(EntityLivingBase entity, float partialTicks) {
-        if (!((EntityUnit) entity).getWatchedKind()
-            .hasOwnModel()) {
+        UnitKind kind = ((EntityUnit) entity).getWatchedKind();
+        if (!kind.hasOwnModel() && kind.creatureModel() == null) {
             super.renderArrowsStuckInEntity(entity, partialTicks);
         }
     }
@@ -266,8 +315,25 @@ public class RenderUnit extends RenderBiped {
         if (unit.getWatchedKind() == UnitKind.CENTAUR) {
             return CENTAUR;
         }
+        if (unit.getWatchedKind()
+            .creatureModel() != null) {
+            return CREATURE.get(creatureTexture(unit));
+        }
         String key = unit.getWatchedFaction().id + "_" + unit.getWatchedKind().id;
         return unit.isWatchedElite() && ELITE_SKINS.containsKey(key) ? ELITE_SKINS.get(key) : SKINS.get(key);
+    }
+
+    /**
+     * Bandos's creatures wear no player armor over their models: an armored goblin's or hobgoblin's texture shows its
+     * armor.
+     */
+    @Override
+    protected int shouldRenderPass(EntityLiving entity, int pass, float partialTicks) {
+        if (((EntityUnit) entity).getWatchedKind()
+            .creatureModel() != null) {
+            return -1;
+        }
+        return super.shouldRenderPass(entity, pass, partialTicks);
     }
 
     /**
@@ -277,6 +343,11 @@ public class RenderUnit extends RenderBiped {
     @Override
     protected void renderModel(EntityLivingBase entity, float swing, float swingAmount, float age, float yaw,
         float pitch, float scale) {
+        UnitKind kind = ((EntityUnit) entity).getWatchedKind();
+        if (mainModel == creatureModel) {
+            renderCreature(entity, kind, swing, swingAmount, age, yaw, pitch, scale);
+            return;
+        }
         super.renderModel(entity, swing, swingAmount, age, yaw, pitch, scale);
         if (entity.isInvisible()) {
             return;
@@ -316,5 +387,36 @@ public class RenderUnit extends RenderBiped {
         overlayModel.render(entity, swing, swingAmount, age, yaw, pitch, scale);
         // The tint would otherwise carry over to the armor and the item in its hand.
         GL11.glColor4f(1, 1, 1, 1);
+    }
+
+    /**
+     * One of Bandos's creatures, its tunic, belt or bands drawn again over themselves in the team's color; the spirits
+     * of the bastion are half see-through.
+     */
+    private void renderCreature(EntityLivingBase entity, UnitKind kind, float swing, float swingAmount, float age,
+        float yaw, float pitch, float scale) {
+        boolean spirit = kind.isSpirit();
+        if (spirit) {
+            GL11.glEnable(GL11.GL_BLEND);
+            OpenGlHelper.glBlendFunc(770, 771, 1, 0);
+            GL11.glColor4f(1, 1, 1, SPIRIT_ALPHA);
+        }
+        super.renderModel(entity, swing, swingAmount, age, yaw, pitch, scale);
+        if (!entity.isInvisible()) {
+            int color = ((EntityUnit) entity).getTeamColor();
+            bindTexture(CREATURE_TEAM.get(creatureTexture((EntityUnit) entity)));
+            GL11.glColor4f(
+                (color >> 16 & 255) / 255F,
+                (color >> 8 & 255) / 255F,
+                (color & 255) / 255F,
+                spirit ? SPIRIT_ALPHA : 1);
+            GL11.glDepthFunc(GL11.GL_EQUAL);
+            creatureModel.renderAgain(scale);
+            GL11.glDepthFunc(GL11.GL_LEQUAL);
+        }
+        GL11.glColor4f(1, 1, 1, 1);
+        if (spirit) {
+            GL11.glDisable(GL11.GL_BLEND);
+        }
     }
 }

@@ -818,6 +818,23 @@
         return state.game && state.game.unitKinds ? state.game.unitKinds[id] : null;
     }
 
+    // Whether the unit gathers and carries resources home: a worker, or Bandos's slave.
+    function gathers(u) {
+        const kind = unitKind(u.kind);
+        return kind ? Boolean(kind.gathers) : u.kind === "worker";
+    }
+
+    // Whether the unit builds: a worker or slave, or one of Bandos's goblins, who fight too.
+    function builds(u) {
+        const kind = unitKind(u.kind);
+        return kind ? Boolean(kind.builds) : u.kind === "worker";
+    }
+
+    // Whether a team of the god can train the kind: Bandos's teams train slaves rather than workers.
+    function trainableBy(kind, faction) {
+        return !kind.factions || kind.factions.includes(faction);
+    }
+
     function townHallOf(teamId) {
         for (const b of state.buildings.values()) {
             if (b.team === teamId && b.type === "town_hall") {
@@ -836,7 +853,7 @@
     function selectedFighters() {
         return [...state.selected].filter((id) => {
             const u = state.units.get(id);
-            return u && u.kind !== "worker";
+            return u && !gathers(u);
         });
     }
 
@@ -927,14 +944,22 @@
     function selectedWorkers() {
         return [...state.selected].filter((id) => {
             const u = state.units.get(id);
-            return u && u.kind === "worker";
+            return u && gathers(u);
         });
     }
 
-    // Who builds what is placed: the selected workers, or with none, the selected dark wizards, who raise stone
-    // circles and nothing else.
+    // The selected units that build: workers, slaves and goblins.
+    function selectedConstructors() {
+        return [...state.selected].filter((id) => {
+            const u = state.units.get(id);
+            return u && builds(u);
+        });
+    }
+
+    // Who builds what is placed: the selected workers, slaves or goblins, or with none, the selected dark wizards,
+    // who raise stone circles and nothing else.
     function selectedBuilders() {
-        const workers = selectedWorkers();
+        const workers = selectedConstructors();
         return workers.length ? workers : [...state.selected].filter((id) => {
             const u = state.units.get(id);
             return u && u.kind === "dark_wizard";
@@ -1084,10 +1109,11 @@
         } else if (building) {
             renderBuildingActions(actions, team, building);
         } else if (selectedBuilders().length) {
-            const wizards = !selectedWorkers().length;
+            const wizards = !selectedConstructors().length;
             for (const [id, type] of Object.entries(state.game.buildingTypes || {})) {
                 // Each god's buildings belong to its own teams; dark wizards raise stone circles, workers the rest.
-                if (!type.buildable || (type.faction && type.faction !== team.faction) || Boolean(type.wizards) !== wizards) {
+                if (!type.buildable || (type.faction && type.faction !== team.faction) || Boolean(type.wizards) !== wizards
+                    || (type.shunnedBy || []).includes(team.faction)) {
                     continue;
                 }
                 const aged = (team.age || 1) >= (type.age || 1);
@@ -1180,7 +1206,7 @@
 
     // With warriors or archers selected: how they line up when sent somewhere, and how they fight.
     function fighterActions(actions) {
-        const fighters = [...state.selected].map((id) => state.units.get(id)).filter((u) => u && u.kind !== "worker");
+        const fighters = [...state.selected].map((id) => state.units.get(id)).filter((u) => u && !gathers(u));
         if (!fighters.length) {
             return;
         }
@@ -1257,7 +1283,7 @@
         const teamFull = teamUnitCount(team) >= (team.population || 0);
         for (const kindId of type.trains || []) {
             const kind = unitKind(kindId);
-            if (!kind) {
+            if (!kind || !trainableBy(kind, team.faction)) {
                 continue;
             }
             // A horse is no unit, and needs no room.
@@ -1414,7 +1440,7 @@
 
     // Workers with nothing to do.
     function idleWorkers() {
-        return [...state.units.values()].filter((u) => isMine(u) && u.kind === "worker" && doingText(u) === "idle")
+        return [...state.units.values()].filter((u) => isMine(u) && gathers(u) && doingText(u) === "idle")
             .sort((a, b) => a.number - b.number);
     }
 
@@ -1917,7 +1943,7 @@
                 : wall && wall.dry ? "A bridge has to cross water" : "The bridge does not fit there", true);
             return;
         }
-        const workers = selectedWorkers();
+        const workers = selectedConstructors();
         if (!workers.length) {
             showToast("Select a worker to build with", true);
             stopPlacing();
@@ -2393,7 +2419,7 @@
         const building = buildingAt(px, py);
         const fighters = [...state.selected].filter((id) => {
             const u = state.units.get(id);
-            return u && u.kind !== "worker";
+            return u && !gathers(u);
         });
         if (!building || !fighters.length || !isEnemyTeam(building.team)) {
             return false;
@@ -2419,7 +2445,7 @@
         // A whole building needs no building or repair; only workers go to work a farm.
         const builders = !whole || (!wizards && type && type.workers) ? [...state.selected].filter((id) => {
             const u = state.units.get(id);
-            return u && u.kind === (wizards ? "dark_wizard" : "worker");
+            return u && (wizards ? u.kind === "dark_wizard" : whole ? gathers(u) : builds(u));
         }) : [];
         if (!builders.length) {
             return false;
@@ -2758,7 +2784,7 @@
                 }
                 return u.carving ? "carving a carcass" : u.target ? "hunting" : "on the way to a carcass";
             default:
-                return u.kind === "worker" ? "idle" : "on guard";
+                return gathers(u) ? "idle" : "on guard";
         }
     }
 
@@ -2801,7 +2827,7 @@
         }
         const team = myTeam();
         const selected = [...state.selected].map((id) => state.units.get(id)).filter(Boolean);
-        const fighters = selected.filter((u) => u.kind !== "worker").length;
+        const fighters = selected.filter((u) => !gathers(u)).length;
         const workers = selected.length - fighters;
         const hit = entityAt(px, py);
         if (hit && selected.length && hit.kind === "player" && team && hit.thing.team === team.id) {
@@ -3113,7 +3139,7 @@
             figure(p.drawX, p.drawY, p.drawZ, teamColor(p.team), SKIN);
         }
         for (const u of dots ? [] : state.units.values()) {
-            if (u.kind === "worker") {
+            if (gathers(u)) {
                 figure(u.drawX, u.drawY, u.drawZ, teamColor(u.team), SKIN);
                 const hw = 0.8 * s;
                 boxes.push({min: [u.drawX - hw / 2, u.drawY + 1.8 * s, u.drawZ - hw / 2], size: [hw, 0.12 * s, hw], color: STRAW});

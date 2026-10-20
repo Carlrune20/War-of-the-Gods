@@ -223,6 +223,10 @@ public final class BuildingCommands {
             request.replyError("Lay a bridge out from one bank to the other");
             return;
         }
+        if (type.shunnedBy(team.getFaction())) {
+            request.replyError(team.getFaction().displayName + "'s teams build no " + type.displayName.toLowerCase());
+            return;
+        }
         if (!type.buildableBy(team.getFaction())) {
             request.replyError("Only " + type.faction().displayName + "'s teams can build a " + type.displayName);
             return;
@@ -302,7 +306,7 @@ public final class BuildingCommands {
         if (units == null) {
             return;
         }
-        units.removeIf(unit -> !unit.isWorker());
+        units.removeIf(unit -> !unit.canBuild());
         if (units.isEmpty()) {
             request.replyError("Select a worker to build with");
             return;
@@ -354,7 +358,7 @@ public final class BuildingCommands {
         if (units == null) {
             return;
         }
-        units.removeIf(unit -> !unit.isWorker());
+        units.removeIf(unit -> !unit.canBuild());
         if (units.isEmpty()) {
             request.replyError("Select a worker to build with");
             return;
@@ -459,7 +463,9 @@ public final class BuildingCommands {
             for (JsonElement id : ids.getAsJsonArray()) {
                 Building building = id.isJsonPrimitive() ? game.getBuilding(id.getAsInt()) : null;
                 if (building != null && building.team.equals(team.getId())
-                    && (kind == null ? !building.type.trains.isEmpty() : building.type.trains.contains(kind))) {
+                    && (kind == null ? !building.type.trains.isEmpty()
+                        : building.type.trainsFor(team.getFaction())
+                            .contains(kind))) {
                     building.setAutoTrain(kind);
                     count++;
                 }
@@ -491,8 +497,10 @@ public final class BuildingCommands {
         }
         JsonElement unitField = request.body.get("unit");
         UnitKind kind = unitField != null && unitField.isJsonPrimitive() ? UnitKind.byId(unitField.getAsString())
-            : building.type.trains.get(0);
-        if (kind == null || !building.type.trains.contains(kind)) {
+            : building.type.trainsFor(team.getFaction())
+                .get(0);
+        if (kind == null || !building.type.trainsFor(team.getFaction())
+            .contains(kind)) {
             request.replyError("A " + building.type.displayName.toLowerCase() + " does not train those");
             return;
         }

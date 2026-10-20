@@ -62,14 +62,15 @@ QUARTZ_STAIRS = 156
 # and never spreads, in place of Minecraft's.
 GRAYSTONE, GRAYSTONE_SLAB, GRAYSTONE_DOUBLE_SLAB, GRAYSTONE_STAIRS, WOOD_DOOR = 200, 201, 202, 203, 204
 BANNER_SARADOMIN, BANNER_ZAMORAK = 205, 207    # each followed by its inverted kind
-BANNERS = {205, 206, 207, 208}
 FIRE = 209
+BANNER_BANDOS = 210                              # after the fire, as it came later; followed by its inverted kind
+BANNERS = {205, 206, 207, 208, 210, 211}
 # Banner metadata: the way its face looks in the low two bits, its piece in the high two.
 BANNER_NORTH, BANNER_EAST, BANNER_SOUTH, BANNER_WEST = 0, 1, 2, 3
 BANNER_TOP, BANNER_EMBLEM, BANNER_BOTTOM, BANNER_PENNANT = 0, 1, 2, 3
 
 # Wool and stained clay colours.
-WHITE, ORANGE, LIGHT_GRAY, GRAY, BLUE, BROWN, RED, BLACK = 0, 1, 8, 7, 11, 12, 14, 15
+WHITE, ORANGE, LIGHT_GRAY, GRAY, BLUE, BROWN, GREEN, RED, BLACK = 0, 1, 8, 7, 11, 12, 13, 14, 15
 
 # Stairs metadata: which way the stairs climb.
 UP_EAST, UP_WEST, UP_SOUTH, UP_NORTH = 0, 1, 2, 3
@@ -196,6 +197,73 @@ def zamorak(level, stone_age=True):
         window=(IRON_BARS, 0), stairs=GRAYSTONE_STAIRS, **common)
 
 
+def bandos(level):
+    """Bandos's goblins build ugly and in a hurry: heaps of cobblestone and mossy cobble, propped up with spruce and
+    dark oak, under roofs of crooked dark oak, with brown and green rags hung about. Age II adds stone brick, cracked
+    and mossy, Age III more of it, but never anything neat; every finished building is roughed up further by
+    chaotic()."""
+    common = dict(
+        window=(FENCE, 0),
+        window2=(IRON_BARS, 0),
+        fence=(FENCE, 0),
+        low_wall=(COBBLE_WALL, 1),
+        light=TORCH,
+        lamp=(GLOWSTONE, 0),
+        door=WOOD_DOOR,
+        trim=(WOOL, GREEN),
+        shutter=(PLANKS, 5),
+        tent=(WOOL, BROWN),
+        tent2=(WOOL, GREEN),
+        quarry_stone=(STONE, 0),
+        topper=(COBBLE_WALL, 1),
+        emblem=(MOSSY, 0),
+        banner=BANNER_BANDOS,
+        banner_inv=BANNER_BANDOS + 1,
+        cloth=(WOOL, GREEN),
+        cloth2=(WOOL, BROWN),
+        roof=DARK_OAK_STAIRS, roof_full=(PLANKS, 5), roof_slab=(WOOD_SLAB, 5),
+        house_roof=DARK_OAK_STAIRS, house_roof_full=(PLANKS, 5),
+        frame=(LOG2, 1), frame_x=(LOG2, 5), frame_z=(LOG2, 9),
+        planks=(PLANKS, 1), floor=(DIRT, 1), path=(GRAVEL, 0),
+    )
+    if level == 1:
+        return Palette(
+            "bandos", 1,
+            found=(COBBLE, 0), base=(MOSSY, 0), wall=(COBBLE, 0), plaza=(DIRT, 1),
+            stairs=COBBLE_STAIRS, **common)
+    if level == 2:
+        return Palette(
+            "bandos", 2,
+            found=(COBBLE, 0), base=(MOSSY, 0), lower=(STONE_BRICK, 2), wall=(COBBLE, 0), plaza=(GRAVEL, 0),
+            stairs=COBBLE_STAIRS, **common)
+    return Palette(
+        "bandos", 3,
+        found=(STONE_BRICK, 0), base=(MOSSY, 0), lower=(STONE_BRICK, 1), wall=(COBBLE, 0), stone=True,
+        plaza=(COBBLE, 0), stairs=STONE_BRICK_STAIRS, **common)
+
+
+# What chaotic() swaps a block for, now and then, on a Bandos building.
+CHAOS = {
+    (COBBLE, 0): [(MOSSY, 0), (MOSSY, 0), (GRAVEL, 0), (STONE_BRICK, 2)],
+    (STONE_BRICK, 0): [(STONE_BRICK, 1), (STONE_BRICK, 2), (COBBLE, 0)],
+    (MOSSY, 0): [(COBBLE, 0)],
+    (PLANKS, 5): [(PLANKS, 1), (LOG2, 1)],
+    (PLANKS, 1): [(PLANKS, 5)],
+}
+
+
+def chaotic(s, seed, share=0.3):
+    """Roughs a Bandos building up: stone swapped for mossy or cracked or for rubble, planks for odd planks, so no
+    wall is one thing; gravel only where something solid is under it."""
+    rng = random.Random(seed)
+    for (x, y, z), block in sorted(s.blocks.items()):
+        if block in CHAOS and rng.random() < share:
+            choice = rng.choice(CHAOS[block])
+            if choice[0] == GRAVEL and (y <= 0 or s.get(x, y - 1, z) == AIR):
+                continue
+            s.set(x, y, z, choice)
+
+
 # Buildings that go up in graystone in Zamorak's Age III; the rest keep their Age II look.
 ZAMORAK_STONE = {"town_hall", "barracks", "archery_range", "stables", "armory", "tower", "chaos_temple", "wall",
                  "wall_post", "gate"}
@@ -204,12 +272,15 @@ ZAMORAK_STONE = {"town_hall", "barracks", "archery_range", "stables", "armory", 
 def palette(faction, level, type_id=None):
     if faction == "saradomin":
         return saradomin(level)
+    if faction == "bandos":
+        return bandos(level)
     return zamorak(level, type_id is None or type_id in ZAMORAK_STONE)
 
 
 SARADOMIN = saradomin(1)
 ZAMORAK = zamorak(1)
-FACTIONS = ["saradomin", "zamorak"]
+BANDOS = bandos(1)
+FACTIONS = ["saradomin", "zamorak", "bandos"]
 
 
 def zam(p):
@@ -1096,6 +1167,8 @@ def stables(p, level):
 
 def storehouse(p, level):
     """Takes in what workers carry: a barn with a wide door, a loft and its goods stacked inside."""
+    if p.name == "bandos":
+        return goblin_storehouse(p, level)
     s = Struct(9, 9, 13, 1)
     foundation(s, p, 0, 0, 8, 8)
     s.fill(1, 0, 1, 7, 0, 7, p.floor)
@@ -1139,6 +1212,8 @@ def storehouse(p, level):
 def farm(p, level):
     """Workers working at it gather food: fields of wheat, carrots and potatoes round a ditch, fenced, with a
     scarecrow; from Age II lamp posts at the corners."""
+    if p.name == "bandos":
+        return goblin_farm(p, level)
     s = Struct(11, 11, 4, 1)
     s.fill(0, -1, 0, 10, -1, 10, (DIRT, 0))
     s.walls(0, 0, 10, 10, 0, 0, p.path)
@@ -1307,6 +1382,8 @@ def armory(p, level):
 def tower(p, level):
     """Watches over the land round it and shoots from its deck: a square stone tower with arrow slits, a ladder up
     the inside and battlements, roofed from Age II, with the god's flag on top."""
+    if p.name == "bandos" and level == 1:
+        return goblin_lookout(p)
     s = Struct(5, 5, 20, 1)
     foundation(s, p, 0, 0, 4, 4)
     deck = 10 if level == 1 else 13
@@ -1341,6 +1418,168 @@ def tower(p, level):
             s.set(x, deck + 2, z, stone)
         cap = hip(s, 0, 0, 4, 4, deck + 3, p.roof, p.roof_full)
         flag(s, p, 2, cap + 1, cap + 2, 2, "east", tall=1)
+    return s
+
+
+def goblin_storehouse(p, level):
+    """Bandos's storehouse: a lean-to of crooked dark oak posts and a sagging roof of odd planks over a low,
+    tumbledown wall of rubble, open in front, with the loot heaped under it and spilling out round it: chests, logs,
+    hay, a cauldron, and bones on the posts. In Age II and III it grows a second heap of loot and a rag awning."""
+    s = Struct(9, 9, 13, 1)
+    rng = random.Random(61 + level)
+    foundation(s, p, 0, 0, 8, 8)
+    s.fill(0, 0, 0, 8, 0, 8, (DIRT, 1))
+    for x in range(1, 8):
+        for z in range(2, 8):
+            if rng.random() < 0.6:
+                s.set(x, 0, z, rng.choice([(GRAVEL, 0), (COBBLE, 0), (DIRT, 1)]))
+    # A low, broken wall of rubble round the back and sides, higher at the back.
+    for x in range(1, 8):
+        s.fill(x, 1, 7, x, rng.choice((1, 2, 2, 3)), 7, rng.choice([(COBBLE, 0), (MOSSY, 0)]))
+    for z in range(3, 7):
+        for x in (1, 7):
+            s.fill(x, 1, z, x, rng.choice((1, 1, 2)), z, rng.choice([(COBBLE, 0), (MOSSY, 0), (DIRT, 0)]))
+    # Crooked posts, not all the same height, and a roof sloping down to the front, one plank short here and there.
+    back, front = 5, 3
+    for x, z, h in ((1, 2, front), (7, 2, front + 1), (1, 7, back), (7, 7, back - 1), (4, 7, back)):
+        s.fill(x, 1, z, x, h, z, (LOG2, 1))
+    for z in range(2, 8):
+        y = front + (z - 2) * (back - front) // 5 + 1
+        for x in range(0, 9):
+            if rng.random() < 0.12:
+                continue
+            s.set(x, y, z, (WOOD_SLAB, 5) if rng.random() < 0.5 else (WOOD_SLAB, 1))
+    # The loot: chests, logs and hay heaped any old way.
+    for x in (2, 3, 5):
+        s.set(x, 1, 6, (CHEST, 2))
+    s.fill(4, 1, 6, 6, 1, 6, (LOG2, 5))
+    s.set(6, 2, 6, (LOG2, 5))
+    s.set(2, 1, 3, (HAY, 0))
+    s.set(2, 2, 3, (HAY, 0))
+    s.set(3, 1, 3, (HAY, 0))
+    s.set(6, 1, 3, (CAULDRON, 0))
+    # Spilling out in front.
+    s.set(0, 1, 1, (HAY, 0))
+    s.set(8, 1, 0, (LOG, 4))
+    s.set(7, 1, 0, (LOG, 4))
+    s.set(1, 1, 0, (CHEST, 2))
+    # Bones on the front posts, a torch on a stick, and the god's pennant on a pole.
+    skull(s, 1, front + 1, 2)
+    torch(s, p, 4, 1, 1, "up")
+    flag(s, p, 8, 1, 5, 4, "north")
+    if level > 1:
+        # A second heap of loot outside and a rag awning over the front.
+        s.set(0, 1, 4, (CHEST, 3))
+        s.set(0, 1, 5, (HAY, 0))
+        s.set(0, 2, 5, (HAY, 0))
+        s.set(0, 1, 6, (LOG2, 9))
+        for x in range(2, 7):
+            if x != 4:
+                s.set(x, front + 1, 1, p.cloth if x % 2 else p.cloth2)
+        skull(s, 7, front + 2, 2)
+        s.set(5, 2, 6, (CHEST, 2))
+    return s
+
+
+def goblin_farm(p, level):
+    """Bandos's farm: crooked plots scratched out of the dirt, potatoes and carrots in uneven patches with bare and
+    weedy ground between, a muddy ditch, a fence of odd posts and rubble with gaps in it, a heap of dung, and a skull
+    on a pole for a scarecrow. From Age II more of it is planted and a cauldron stews by the gate."""
+    s = Struct(11, 11, 4, 1)
+    rng = random.Random(71 + level)
+    s.fill(0, -1, 0, 10, -1, 10, (DIRT, 0))
+    s.fill(0, 0, 0, 10, 0, 10, (DIRT, 1))
+    # A ditch winding down the middle.
+    x = 5
+    for z in range(1, 10):
+        s.set(x, 0, z, (WATER, 0))
+        if z % 3 == 0:
+            x += rng.choice((-1, 1))
+            x = max(4, min(6, x))
+            s.set(x, 0, z, (WATER, 0))
+    # Patches of crops, unevenly grown, with bare and weedy ground between.
+    planted = 0.55 if level == 1 else 0.75
+    for z in range(1, 10):
+        for x in range(1, 10):
+            if s.get(x, 0, z)[0] == WATER:
+                continue
+            patch = (x // 3 + z // 3 * 2) % 3
+            if rng.random() < planted:
+                s.set(x, 0, z, (FARMLAND, 7))
+                crop = (POTATOES, CARROTS, WHEAT)[patch]
+                s.set(x, 1, z, (crop, rng.choice((3, 5, 7, 7))))
+            elif rng.random() < 0.3:
+                s.set(x, 1, z, rng.choice([(TALL_GRASS, 1), (DEAD_BUSH, 0)]))
+    # A fence of odd posts and rubble, with gaps in it, and a gap for a gate in front.
+    for i in range(11):
+        for x, z in ((i, 0), (i, 10), (0, i), (10, i)):
+            r = rng.random()
+            if r < 0.15:
+                s.set(x, 1, z, AIR)
+            elif r < 0.35:
+                s.set(x, 1, z, rng.choice([(COBBLE, 0), (MOSSY, 0), (COBBLE_WALL, 1)]))
+            else:
+                s.set(x, 1, z, p.fence)
+    for x in (4, 5, 6):
+        s.set(x, 1, 0, AIR)
+        s.set(x, 0, 0, (GRAVEL, 0))
+    s.set(4, 1, 0, (LOG2, 1))
+    s.set(6, 1, 0, (LOG2, 1))
+    # A heap of dung in the corner, and a skull on a pole with a rag for a scarecrow.
+    s.set(1, 1, 9, (DIRT, 1))
+    s.set(2, 1, 9, (DIRT, 1))
+    s.set(1, 1, 8, (DIRT, 1))
+    s.set(1, 2, 9, (DIRT, 1))
+    s.set(8, 1, 8, p.fence)
+    s.set(8, 2, 8, p.cloth2)
+    skull(s, 8, 3, 8)
+    if level > 1:
+        s.set(3, 1, 1, AIR)
+        s.set(3, 0, 1, (COBBLE, 0))
+        s.set(3, 1, 1, (CAULDRON, 3))
+        s.set(2, 1, 1, (FENCE, 0))
+        torch(s, p, 2, 2, 1, "up")
+        s.set(9, 1, 1, (HAY, 0))
+    return s
+
+
+def goblin_lookout(p):
+    """Bandos's Age I tower: a rickety lookout of crooked dark oak logs, its sides boarded with odd planks full of
+    gaps, a ladder up the middle, and a deck with a railing of sticks, a skull on a stake and a tattered pennant."""
+    s = Struct(5, 5, 20, 1)
+    rng = random.Random(81)
+    deck = 10
+    foundation(s, p, 0, 0, 4, 4)
+    s.fill(0, 0, 0, 4, 0, 4, (DIRT, 1))
+    s.pillars(0, 0, 4, 4, 1, deck, (LOG2, 1))
+    # Boards nailed on any old way, more of them low down, with gaps to shoot through.
+    for y in range(1, deck):
+        for x, z in [(x, 0) for x in (1, 2, 3)] + [(x, 4) for x in (1, 2, 3)] + \
+                    [(0, z) for z in (1, 2, 3)] + [(4, z) for z in (1, 2, 3)]:
+            if rng.random() < (0.8 if y < 4 else 0.45):
+                s.set(x, y, z, rng.choice([(PLANKS, 1), (PLANKS, 5), (PLANKS, 1)]))
+    # Cross braces of logs.
+    for y in (4, 7):
+        s.fill(1, y, 0, 3, y, 0, (LOG2, 5))
+        s.fill(1, y, 4, 3, y, 4, (LOG2, 5))
+        s.fill(0, y, 1, 0, y, 3, (LOG2, 9))
+        s.fill(4, y, 1, 4, y, 3, (LOG2, 9))
+    s.clear(2, 1, 0, 2, 2, 0)
+    door(s, p, 2, 1, 0)
+    for y in range(1, deck):
+        s.set(2, y, 3, (LADDER, 2))
+        s.set(2, y, 2, AIR)
+    # The deck, a plank short here and there, with a railing of sticks round it.
+    for x in range(5):
+        for z in range(5):
+            s.set(x, deck, z, (PLANKS, 5) if (x * 7 + z * 3) % 5 else (PLANKS, 1))
+    s.set(2, deck, 3, (LADDER, 2))
+    for x, z in ((0, 0), (1, 0), (3, 0), (4, 0), (0, 2), (4, 1), (4, 3), (0, 4), (2, 4), (4, 4), (0, 1)):
+        s.set(x, deck + 1, z, p.fence)
+    s.set(0, deck + 2, 0, p.fence)
+    skull(s, 0, deck + 3, 0)
+    torch(s, p, 4, deck + 2, 4, "up")
+    flag(s, p, 4, deck + 1, deck + 3, 0, "south")
     return s
 
 
@@ -1653,6 +1892,12 @@ FORTRESS_TOP = 18
 
 
 def fortress_style(black):
+    """The look of a fortress: True for the Kinshra's, False for the White Knights', "bandos" for Bandos's bastion."""
+    if black == "bandos":
+        return dict(wall=(COBBLE, 0), pillar=(MOSSY, 0), base=(COBBLE, 0), floor=(GRAVEL, 0),
+                    accent=(LOG2, 5), palette=bandos(3), slit=(IRON_BARS, 0), light=TORCH,
+                    lamp=(GLOWSTONE, 0), door=WOOD_DOOR, stairs=COBBLE_STAIRS, slab=(SLAB, 3),
+                    fence=(FENCE, 0))
     if black:
         return dict(wall=(GRAYSTONE, 0), pillar=(STONE_BRICK, 3), base=(GRAYSTONE, 0), floor=(COBBLE, 0),
                     accent=(COAL_BLOCK, 0), palette=zamorak(3), slit=(IRON_BARS, 0), light=TORCH,
@@ -1755,6 +2000,229 @@ def fortress(black):
         s.set(x, 2, 3, f["lamp"])
     return s
 
+# ---------------------------------------------------------------- Bandos's own buildings
+#
+# Goblins dig and heap rather than build: a cave under a mound of rubble, a pit to fight in, a heaped temple and a
+# bastion of rough stone. Whichever folder they are written into, they look the same.
+
+
+def mound(s, rng, cx, cz, radius, peak, blocks, y0=1):
+    """A heap of the blocks round cx, cz, highest in the middle, falling off unevenly to its edge."""
+    for x in range(s.w):
+        for z in range(s.l):
+            d = ((x - cx) ** 2 + (z - cz) ** 2) ** 0.5
+            if d > radius + 0.3:
+                continue
+            height = int(round(peak * (1 - (d / (radius + 1)) ** 2) + rng.choice((-1, 0, 0, 1))))
+            for y in range(y0, y0 + max(0, height)):
+                s.set(x, y, z, rng.choice(blocks))
+
+
+def goblin_cave(p, level):
+    """Goblins' home: a hole dug under a heap of rubble and earth, its mouth propped open with logs and lit by a
+    torch on a post, a pennant on a pole stuck in the top. It grows into a bigger heap with a second entrance, and in
+    Age III its mouth is walled with stone and a fire burns outside it."""
+    s = Struct(7, 7, 10, 1)
+    rng = random.Random(41 + level)
+    foundation(s, p, 0, 0, 6, 6)
+    s.fill(0, 0, 0, 6, 0, 6, (DIRT, 1))
+    stuff = [(COBBLE, 0), (MOSSY, 0), (DIRT, 0), (GRAVEL, 0), (COBBLE, 0)]
+    if level == 3:
+        stuff += [(STONE_BRICK, 2), (STONE_BRICK, 1)]
+    peak = 4 + level
+    mound(s, rng, 3, 3.5, 3.4, peak, stuff)
+    # Gravel needs something under it.
+    for (x, y, z), block in sorted(s.blocks.items()):
+        if block[0] == GRAVEL and s.get(x, y - 1, z) == AIR:
+            s.set(x, y, z, (COBBLE, 0))
+    # The hollow inside, and its mouth in front.
+    s.clear(2, 1, 2, 4, 2, 5)
+    s.clear(3, 1, 0, 3, 2, 2)
+    s.fill(2, 0, 2, 4, 0, 5, (DIRT, 1))
+    for x in (2, 4):
+        s.fill(x, 1, 0, x, 2, 0, (LOG2, 1))
+    s.set(2, 3, 0, (LOG2, 5))
+    s.set(3, 3, 0, (LOG2, 5))
+    s.set(4, 3, 0, (LOG2, 5))
+    s.set(1, 1, 0, p.fence)
+    torch(s, p, 1, 2, 0, "up")
+    # Inside: straw to sleep on and a chest.
+    s.set(2, 1, 5, (HAY, 0))
+    s.set(4, 1, 5, (CHEST, 2))
+    torch(s, p, 3, 2, 5, "north")
+    if level >= 2:
+        # A back way out on the side.
+        s.clear(5, 1, 3, 6, 2, 3)
+        s.set(6, 3, 3, (LOG2, 9))
+    if level == 3:
+        s.set(3, 3, 0, p.lower)
+        s.set(5, 1, 0, (COBBLE, 0))
+        s.set(5, 2, 0, (FIRE, 0))
+    top = max(y for (x, y, z) in s.blocks if (x, z) == (3, 3))
+    flag(s, p, 3, top + 1, top + 2, 3, "north")
+    return s
+
+
+def war_pit(p, level):
+    """Where goblins and their kin learn to fight: a pit dug into the ground behind a palisade of rough logs, rocks
+    round its edge to sit on and watch, weapon racks, a fire, and a lean-to at the back where the trainers drink. From
+    Age II the palisade stands on rubble walls with towers of stone at its front corners, and in Age III fires burn on
+    them."""
+    s = Struct(11, 11, 10, 2)
+    rng = random.Random(53 + level)
+    s.fill(0, -2, 0, 10, -1, 10, (DIRT, 0))
+    s.fill(0, 0, 0, 10, 0, 10, (DIRT, 1))
+    # The pit, a block down, with sand and gravel to fight on.
+    for x in range(3, 8):
+        for z in range(3, 8):
+            s.set(x, 0, z, None)
+            s.set(x, -1, z, (SAND, 0) if rng.random() < 0.6 else (GRAVEL, 0))
+    # Rocks round its edge.
+    for i in range(2, 9):
+        for x, z in ((i, 2), (i, 8), (2, i), (8, i)):
+            if rng.random() < 0.6:
+                s.set(x, 1, z, (COBBLE, 0) if rng.random() < 0.5 else (MOSSY, 0))
+    s.clear(5, 1, 2, 5, 1, 2)
+    # The palisade, with a gap for a gate in front.
+    for i in range(11):
+        for x, z in ((i, 0), (i, 10), (0, i), (10, i)):
+            if z == 0 and 4 <= x <= 6:
+                continue
+            high = 2 + (x * 7 + z * 3) % 3
+            y0 = 1
+            if level >= 2:
+                s.set(x, 1, z, p.wall)
+                y0 = 2
+            for y in range(y0, y0 + high):
+                s.set(x, y, z, (LOG2, 1) if (x + z) % 2 == 0 else (LOG, 1))
+            s.set(x, y0 + high, z, p.fence)
+    # Gateposts with skulls on them.
+    for x in (3, 7):
+        s.fill(x, 1, 0, x, 4, 0, (LOG2, 1))
+        skull(s, x, 5, 0)
+    hang(s, p, 4, 4, 1, "north", tall=1)
+    hang(s, p, 6, 4, 1, "north", tall=1, inverted=True)
+    # Weapon racks along the sides: fences topped with an anvil and a chest.
+    for z in (3, 5, 7):
+        s.set(1, 1, z, p.fence)
+    s.set(1, 1, 4, (ANVIL, 0))
+    s.set(9, 1, 3, (CHEST, 3))
+    s.set(9, 1, 4, (CAULDRON, 0))
+    # The fire.
+    s.set(9, 1, 6, (COBBLE, 0))
+    s.set(9, 2, 6, (FIRE, 0))
+    # The lean-to at the back.
+    for x in (2, 8):
+        s.fill(x, 1, 9, x, 3, 9, (LOG2, 1))
+    s.fill(1, 4, 8, 9, 4, 9, p.roof_slab)
+    s.set(4, 1, 9, (HAY, 0))
+    s.set(6, 1, 9, (WORKBENCH, 0))
+    torch(s, p, 5, 2, 9, "north")
+    if level >= 2:
+        # Towers of rubble at the front corners, with a lookout on top.
+        for x0 in (0, 8):
+            s.fill(x0, 1, 0, x0 + 2, 5, 2, p.wall)
+            s.clear(x0 + 1, 1, 1, x0 + 1, 5, 1)
+            s.fill(x0, 6, 0, x0 + 2, 6, 2, p.roof_full)
+            for x, z in ((x0, 0), (x0 + 2, 0), (x0, 2), (x0 + 2, 2)):
+                s.set(x, 7, z, p.fence)
+            s.set(x0 + 1, 3, 0, p.window2)
+        flag(s, p, 1, 7, 9, 1, "north", tall=3)
+    if level == 3:
+        for x0 in (0, 8):
+            s.set(x0 + 1, 7, 1, p.lower)
+            s.set(x0 + 1, 8, 1, (FIRE, 0))
+    return s
+
+
+def bandos_temple(p, level):
+    """Bandos's temple, where goblin priests pray to the Big High War God: a heap of a ziggurat, each step rougher
+    than the one under it, a dark doorway in front between two spiked posts, and on top an altar of mossy stone
+    under his banner between fires. It climbs a step higher in each age."""
+    s = Struct(11, 13, 16, 1)
+    rng = random.Random(67 + level)
+    foundation(s, p, 0, 0, 10, 12)
+    s.fill(0, 0, 0, 10, 0, 12, (DIRT, 1))
+    stuff = [(COBBLE, 0), (MOSSY, 0), (COBBLE, 0)]
+    if level >= 2:
+        stuff.append(p.lower)
+    steps = 2 + level
+    y = 1
+    for i in range(steps):
+        x0, x1, z0, z1 = i, 10 - i, i + 1, 12 - i
+        if x0 >= x1 - 1 or z0 >= z1 - 1:
+            break
+        for x in range(x0, x1 + 1):
+            for z in range(z0, z1 + 1):
+                for yy in (y, y + 1):
+                    s.set(x, yy, z, rng.choice(stuff))
+        y += 2
+    summit = y
+    # The hall inside the first steps, and its door.
+    s.clear(3, 1, 4, 7, 2, 10)
+    s.fill(3, 0, 4, 7, 0, 10, (GRAVEL, 0))
+    s.clear(5, 1, 1, 5, 2, 4)
+    s.set(5, 3, 1, (LOG2, 5))
+    for x in (3, 7):
+        s.fill(x, 1, 0, x, 3, 0, (LOG2, 1))
+        s.set(x, 4, 0, p.fence)
+        skull(s, x, 5, 0)
+    torch(s, p, 3, 2, 4, "south")
+    s.set(5, 1, 10, (MOSSY, 0))
+    s.set(5, 2, 10, (CARPET, GREEN))
+    for x in (4, 6):
+        s.set(x, 1, 9, (COBBLE_WALL, 1))
+        s.set(x, 2, 9, (FIRE, 0))
+    # The altar on top, between fires, under the banner.
+    cz = 7
+    s.set(5, summit, cz, (MOSSY, 0))
+    s.set(5, summit + 1, cz, (CARPET, BROWN))
+    for x in (3, 7):
+        s.set(x, summit, cz, (COBBLE, 0))
+        s.set(x, summit + 1, cz, (FIRE, 0))
+    s.fill(5, summit, cz + 2, 5, summit + 4, cz + 2, (LOG2, 1))
+    hang(s, p, 5, summit + 3, cz + 1, "south")
+    s.set(5, summit + 5, cz + 2, p.fence)
+    hang(s, p, 5, summit + 5, cz + 3, "north", tall=1, inverted=True)
+    # Spikes stuck in the steps.
+    for x, z in ((1, 2), (9, 2), (1, 11), (9, 11)):
+        top = max(yy for (xx, yy, zz) in s.blocks if (xx, zz) == (x, z))
+        s.fill(x, top + 1, z, x, top + 2, z, p.fence)
+    return s
+
+
+def bandos_bastion(p, level):
+    """Bandos's bastion, where his goblin generals muster his spirits and the ogres: the knights' fortress built by
+    goblins, of rough cobble and mossy stone, its towers of no two heights, its battlements broken, spikes on its
+    walls and fires burning on them."""
+    s = fortress("bandos")
+    rng = random.Random(71)
+    last = FORTRESS - 1
+    # Towers of no two heights: knock some off, heap some up.
+    for (x0, z0), change in zip(((0, 0), (last - 3, 0), (0, last - 3), (last - 3, last - 3)), (0, 2, -2, 1)):
+        if change < 0:
+            s.clear(x0, 11 + change + 1, z0, x0 + 3, FORTRESS_TOP, z0 + 3)
+            for x, z in ((x0, z0), (x0 + 3, z0 + 3)):
+                if s.get(x, 11 + change, z) != AIR:
+                    s.set(x, 11 + change + 1, z, (FIRE, 0))
+        elif change > 0:
+            for x in range(x0, x0 + 4):
+                for z in range(z0, z0 + 4):
+                    if s.get(x, 12, z) != AIR or (x in (x0, x0 + 3) or z in (z0, z0 + 3)):
+                        top = max(yy for (xx, yy, zz) in s.blocks if (xx, zz) == (x, z))
+                        for y in range(top + 1, min(FORTRESS_TOP, top + 1 + change)):
+                            s.set(x, y, z, (COBBLE, 0))
+    # Broken battlements, and spikes along the walls.
+    for (x, y, z), block in sorted(s.blocks.items()):
+        if y == 9 and block[0] in (COBBLE, MOSSY) and rng.random() < 0.3:
+            s.set(x, y, z, p.fence)
+    # Fires on the walls by the gate.
+    gate = FORTRESS // 2
+    for x in (gate - 2, gate + 2):
+        if s.get(x, 9, 0) == AIR:
+            s.set(x, 9, 0, (FIRE, 0))
+    return s
+
 
 FIXED_STYLE_BUILDINGS = {
     "white_knights_fortress": lambda p, level: fortress(False),
@@ -1763,6 +2231,10 @@ FIXED_STYLE_BUILDINGS = {
     "stone_circle": lambda p, level: stone_circle(ZAMORAK, level),
     "monastery": lambda p, level: monastery(saradomin(level), level),
     "wizards_tower": lambda p, level: wizards_tower(saradomin(level), level),
+    "goblin_cave": lambda p, level: goblin_cave(bandos(level), level),
+    "war_pit": lambda p, level: war_pit(bandos(level), level),
+    "bandos_temple": lambda p, level: bandos_temple(bandos(level), level),
+    "bandos_bastion": lambda p, level: bandos_bastion(bandos(3), level),
 }
 
 
@@ -1786,11 +2258,16 @@ BUILDINGS = {
     "monastery": (FIXED_STYLE_BUILDINGS["monastery"], 3),
     "wizards_tower": (FIXED_STYLE_BUILDINGS["wizards_tower"], 3),
     "stone_circle": (FIXED_STYLE_BUILDINGS["stone_circle"], 1),
+    "goblin_cave": (FIXED_STYLE_BUILDINGS["goblin_cave"], 3),
+    "war_pit": (FIXED_STYLE_BUILDINGS["war_pit"], 3),
+    "bandos_temple": (FIXED_STYLE_BUILDINGS["bandos_temple"], 3),
+    "bandos_bastion": (FIXED_STYLE_BUILDINGS["bandos_bastion"], 1),
 }
 
 # The palette each fortress's building site and ruin are drawn in, whichever folder it is written into.
 FIXED_PALETTE = {"white_knights_fortress": "saradomin", "black_knights_fortress": "zamorak", "chaos_temple": "zamorak",
-                 "stone_circle": "zamorak", "monastery": "saradomin", "wizards_tower": "saradomin"}
+                 "stone_circle": "zamorak", "monastery": "saradomin", "wizards_tower": "saradomin",
+                 "goblin_cave": "bandos", "war_pit": "bandos", "bandos_temple": "bandos", "bandos_bastion": "bandos"}
 
 # ---------------------------------------------------------------- building sites, damage and ruins
 
@@ -1991,6 +2468,8 @@ def generate(preview_dir=None):
             variants = {}
             for level in range(1, levels + 1):
                 finished = build(palette(style, level, type_id), level)
+                if style == "bandos":
+                    chaotic(finished, seed + level)
                 tidy(finished)
                 variants["%s_l%d" % (type_id, level)] = finished
                 for d in (1, 2, 3):

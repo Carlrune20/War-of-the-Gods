@@ -852,16 +852,18 @@ public final class Buildings {
             double seconds;
             if (unit.getKind() == UnitKind.MONK) {
                 seconds = Config.monkFavorSeconds;
-            } else if (unit.getKind() == UnitKind.CHAOS_PRIEST) {
-                Building temple = templeOf(game, unit);
-                if (temple == null || praying.merge(temple.id, 1, Integer::sum) > PRIESTS_PER_TEMPLE) {
+            } else if (unit.getKind()
+                .praysAtTemple()) {
+                    Building temple = templeOf(game, unit);
+                    if (temple == null || praying.merge(temple.id, 1, Integer::sum) > PRIESTS_PER_TEMPLE) {
+                        continue;
+                    }
+                    unit.pray(temple);
+                    seconds = unit.getKind() == UnitKind.GOBLIN_PRIEST ? Config.goblinPriestFavorSeconds
+                        : Config.priestFavorSeconds;
+                } else {
                     continue;
                 }
-                unit.pray(temple);
-                seconds = Config.priestFavorSeconds;
-            } else {
-                continue;
-            }
             favorDue.merge(unit.getTeamId(), INTERVAL / (seconds * 20), Double::sum);
         }
         for (Map.Entry<String, Double> due : favorDue.entrySet()) {
@@ -876,13 +878,15 @@ public final class Buildings {
         }
     }
 
-    /** The finished chaos temple of its team a priest stands idle by, or null. */
+    /** The finished temple of its team and god a priest stands idle by, chaos or Bandos, or null. */
     private static Building templeOf(Game game, EntityUnit priest) {
         if (priest.getOrder() != EntityUnit.Order.IDLE) {
             return null;
         }
+        BuildingType temple = priest.getKind() == UnitKind.GOBLIN_PRIEST ? BuildingType.BANDOS_TEMPLE
+            : BuildingType.CHAOS_TEMPLE;
         for (Building building : game.getBuildings()) {
-            if (building.type == BuildingType.CHAOS_TEMPLE && building.isComplete()
+            if (building.type == temple && building.isComplete()
                 && building.team.equals(priest.getTeamId())
                 && building.distanceTo(priest.posX, priest.posZ) <= TEMPLE_RANGE) {
                 return building;

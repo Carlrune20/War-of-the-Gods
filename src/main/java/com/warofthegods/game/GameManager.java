@@ -51,8 +51,8 @@ public final class GameManager {
         List<TeamSetup> teams = new ArrayList<>();
         for (int i = 0; i < teamCount; i++) {
             TeamSetup setup = new TeamSetup(Team.COLORS[i % Team.COLORS.length]);
-            // The gods take turns, so each follows half the teams: Red Zamorak, Blue Saradomin, Green Zamorak...
-            setup.faction = i % 2 == 0 ? Faction.ZAMORAK : Faction.SARADOMIN;
+            // The gods take turns, so each follows a third of the teams: Red Zamorak, Blue Saradomin, Green Bandos...
+            setup.faction = new Faction[] { Faction.ZAMORAK, Faction.SARADOMIN, Faction.BANDOS }[i % 3];
             teams.add(setup);
         }
         return newGame(size, teams, seed);

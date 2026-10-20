@@ -30,6 +30,7 @@ import com.warofthegods.unit.Hunting;
 import com.warofthegods.unit.Mobs;
 import com.warofthegods.unit.UnitCommands;
 import com.warofthegods.unit.Units;
+import com.warofthegods.unit.WarFavor;
 import com.warofthegods.web.WebMap;
 import com.warofthegods.web.WebServer;
 import com.warofthegods.world.DimensionSync;
@@ -119,6 +120,7 @@ public class WarOfTheGods {
             .register(mobs);
         MinecraftForge.EVENT_BUS.register(mobs);
         MinecraftForge.EVENT_BUS.register(new Hunting());
+        MinecraftForge.EVENT_BUS.register(new WarFavor());
         UnitCommands.register();
         Buildings buildings = new Buildings();
         FMLCommonHandler.instance()

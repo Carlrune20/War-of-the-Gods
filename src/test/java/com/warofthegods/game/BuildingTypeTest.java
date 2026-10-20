@@ -10,6 +10,40 @@ import org.junit.jupiter.api.Test;
 class BuildingTypeTest {
 
     @Test
+    void bandosBuildsCavesAndWarPitsInsteadOfHousesAndBarracks() {
+        assertFalse(BuildingType.HOUSE.buildableBy(Faction.BANDOS));
+        assertFalse(BuildingType.BARRACKS.buildableBy(Faction.BANDOS));
+        assertFalse(BuildingType.STABLES.buildableBy(Faction.BANDOS));
+        assertTrue(BuildingType.GOBLIN_CAVE.buildableBy(Faction.BANDOS));
+        assertTrue(BuildingType.WAR_PIT.buildableBy(Faction.BANDOS));
+        assertFalse(BuildingType.WAR_PIT.buildableBy(Faction.SARADOMIN));
+        assertTrue(BuildingType.HOUSE.buildableBy(Faction.ZAMORAK));
+    }
+
+    @Test
+    void goblinCavesAreFreeAndHouseUnitsFromAgeOne() {
+        assertEquals(1, BuildingType.GOBLIN_CAVE.age());
+        assertTrue(
+            BuildingType.GOBLIN_CAVE.cost()
+                .isEmpty());
+    }
+
+    @Test
+    void bandosTownCenterTrainsSlavesAndGoblinsButNotWorkers() {
+        assertEquals(
+            java.util.Arrays.asList(UnitKind.SLAVE, UnitKind.GOBLIN),
+            BuildingType.TOWN_HALL.trainsFor(Faction.BANDOS));
+        assertEquals(java.util.Arrays.asList(UnitKind.WORKER), BuildingType.TOWN_HALL.trainsFor(Faction.SARADOMIN));
+    }
+
+    @Test
+    void theBastionIsBandossFortress() {
+        assertTrue(BuildingType.BANDOS_BASTION.isFortress());
+        assertEquals(Faction.BANDOS, BuildingType.BANDOS_BASTION.faction());
+        assertEquals(3, BuildingType.BANDOS_BASTION.age());
+    }
+
+    @Test
     void idsResolveCaseInsensitively() {
         assertEquals(BuildingType.FARM, BuildingType.byId("farm"));
         assertEquals(BuildingType.FARM, BuildingType.byId("FARM"));

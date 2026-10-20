@@ -95,6 +95,81 @@ def face_fn(hair, eyes=(60, 80, 150), mouth=(140, 80, 70), beard=None):
     return fn
 
 
+def slave(faction):
+    """Bandos's slaves: worn-out men, bare to the waist and barefoot, in ragged sackcloth breeches, iron cuffs on their
+    wrists, with unkempt hair, a dirty face and dark rings under heavy-lidded eyes."""
+    skin = (186, 142, 108)
+    skin_dark = (150, 110, 80)
+    dirt = (132, 104, 78)
+    sack = (138, 120, 88)
+    sack_dark = (104, 88, 62)
+    iron = (92, 92, 98)
+    hair = (64, 50, 38)
+
+    def head(face, x, y, w, h):
+        if face == "top":
+            return hair if (x + y) % 3 else (82, 64, 48)
+        if face == "bottom":
+            return skin_dark
+        if face == "back":
+            return hair if y < 6 or x % 3 == 0 else skin_dark
+        if face in ("left", "right"):
+            return hair if y < 3 or y < 5 and x % 2 == 0 else skin
+        if y < 2 or y == 2 and x in (0, 3, 7):
+            return hair
+        if y == 3 and x in (1, 2, 5, 6):
+            return skin_dark                                          # heavy lids
+        if y == 4 and x in (1, 2, 5, 6):
+            return (220, 214, 204) if x in (1, 6) else (70, 60, 50)
+        if y == 5 and x in (1, 2, 5, 6):
+            return (122, 92, 80)                                      # dark rings under the eyes
+        if y == 6 and x in (3, 4):
+            return skin_dark
+        if y == 7 and x in (2, 3, 4, 5):
+            return (110, 74, 62) if x in (3, 4) else skin
+        return dirt if (x * 5 + y * 3) % 19 == 0 else skin
+
+    def body(face, x, y, w, h):
+        if face == "top":
+            return skin
+        if face == "bottom":
+            return sack_dark
+        if y >= 9:
+            # Ragged breeches from the waist, held up with a rope.
+            if y == 9:
+                return (150, 132, 90)
+            return sack if (x + y) % 4 else sack_dark
+        if face == "front" and y in (4, 6) and x in (1, 2, 5, 6):
+            return skin_dark                                          # ribs showing
+        if face == "back" and y in (2, 5) and 1 <= x <= 6 and (x + y) % 2 == 0:
+            return (150, 96, 80)                                      # weals across his back
+        return dirt if (x * 7 + y * 5) % 23 == 0 else skin
+
+    def arm(face, x, y, w, h):
+        if face == "bottom":
+            return skin_dark
+        if y in (9, 10):
+            return iron if y == 9 or x % 2 == 0 else (66, 66, 72)
+        return dirt if (x + y * 3) % 17 == 0 else skin
+
+    def leg(face, x, y, w, h):
+        if face == "bottom":
+            return skin_dark
+        if y < 6:
+            # Breeches torn off ragged above the knee.
+            if y == 5 and (x + (1 if face == "front" else 0)) % 2 == 0:
+                return skin
+            return sack if (x + y) % 4 else sack_dark
+        if y == 11:
+            return dirt
+        return skin
+
+    def hat(face, x, y, w, h):
+        return None
+
+    return {"head": head, "hat": hat, "body": body, "arm": arm, "leg": leg}
+
+
 def worker(faction):
     def tunic_color():
         return (196, 176, 136) if faction == "saradomin" else (88, 74, 64)
@@ -1607,7 +1682,7 @@ def main():
     written = []
     for faction in FACTIONS:
         # Knights and heroes look the same whichever team trains them; both factions get a copy.
-        for kind, name in ((worker, "worker"), (warrior, "soldier"), (archer, "archer"),
+        for kind, name in ((worker, "worker"), (slave, "slave"), (warrior, "soldier"), (archer, "archer"),
                            (white_knight, "white_knight"), (black_knight, "black_knight"), (tradigee, "tradigee"),
                            (sagittare, "sagittare"), (cavalry, "cavalry"), (chaos_priest, "chaos_priest"),
                            (monk, "monk"), (dark_wizard, "dark_wizard"), (zamorak_mage, "zamorak_mage"),

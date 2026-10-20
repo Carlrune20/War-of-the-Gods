@@ -935,7 +935,7 @@ public final class GuiRts extends GuiScreen {
         if (!whole || (!wizards && type != null && type.workers > 0)) {
             for (String id : client.selected) {
                 RtsState.UnitInfo unit = state().units.get(id);
-                if (unit != null && (wizards ? unit.isDarkWizard() : unit.isWorker())) {
+                if (unit != null && (wizards ? unit.isDarkWizard() : whole ? unit.isWorker() : unit.canBuild())) {
                     builders.add(id);
                 }
             }
@@ -1383,7 +1383,7 @@ public final class GuiRts extends GuiScreen {
             client.showToast(!bridge ? "The wall does not fit there" : "The bridge does not fit there", true);
             return;
         }
-        Set<String> workers = client.selectedWorkers();
+        Set<String> workers = client.selectedConstructors();
         if (workers.isEmpty()) {
             client.showToast("Select a worker to build with", true);
             client.stopPlacing();
@@ -2188,13 +2188,14 @@ public final class GuiRts extends GuiScreen {
         } else if (!client.selectedBuilders()
             .isEmpty()) {
                 // Workers build all but the stone circle, which only dark wizards raise.
-                boolean wizards = client.selectedWorkers()
+                boolean wizards = client.selectedConstructors()
                     .isEmpty();
                 for (Map.Entry<String, RtsState.BuildingTypeInfo> entry : state.game.buildingTypes.entrySet()) {
                     RtsState.BuildingTypeInfo type = entry.getValue();
                     // Each god's buildings belong to its own teams.
                     if (!type.buildable || type.wizards != wizards
-                        || (type.faction != null && !type.faction.equals(team.faction))) {
+                        || (type.faction != null && !type.faction.equals(team.faction))
+                        || type.shunnedBy.contains(team.faction)) {
                         continue;
                     }
                     String id = entry.getKey();
@@ -2511,7 +2512,7 @@ public final class GuiRts extends GuiScreen {
         // several buildings selected it is shared out among those that train that kind.
         for (String kindId : type.trains) {
             RtsState.UnitKindInfo kind = state.unitKind(kindId);
-            if (kind == null) {
+            if (kind == null || !kind.trainableBy(team.faction)) {
                 continue;
             }
             List<RtsState.BuildingInfo> trainers = new ArrayList<>();
@@ -2571,7 +2572,7 @@ public final class GuiRts extends GuiScreen {
             List<String> repeatable = new ArrayList<>();
             for (String kindId : type.trains) {
                 RtsState.UnitKindInfo kind = state.unitKind(kindId);
-                if (kind != null && !kind.hero) {
+                if (kind != null && !kind.hero && kind.trainableBy(team.faction)) {
                     repeatable.add(kindId);
                 }
             }

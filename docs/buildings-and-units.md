@@ -9,6 +9,7 @@
 - [Units](#units)
 - [Knights, heroes and cavalry](#knights-heroes-and-cavalry)
 - [Favor and magic](#favor-and-magic)
+- [Bandos](#bandos)
 - [Silverlight](#silverlight)
 
 ## Town centers
@@ -223,6 +224,46 @@ it.
 
 Gather four dark wizards inside it and train a lesser demon there. The wizards summon it in a swirl of portal sparks,
 and it rises amid lava and smoke with a wither's roar. Training waits while fewer than four stand in the circle.
+
+## Bandos
+
+Bandos, the Big High War God, is the third god, his armies goblins and their kin. His teams build and train
+differently from Saradomin's and Zamorak's:
+
+- **No houses, barracks, archery ranges or stables.** In their place:
+  - the **goblin cave** (free, slow to build, 150 health, Age I) houses as many units as a house and trains goblins
+  - the **war pit** (Age II) trains goblin axe-throwers, hobgoblins and orks
+  - the **Bandos temple** (Age II) trains goblin priests
+  - the **Bandos bastion**, his fortress (Age III), trains ogres, the spiritual warrior, ranger and mage, and his heroes
+- **Slaves** gather instead of workers. The town center trains slaves and goblins, and no workers. Slaves build too.
+- **Goblins and axe-throwers build** as well as fight, but take no part in gathering.
+
+| Unit | Health | Notes |
+|---|---|---|
+| Slave | as a worker | a worn-out man in rags; gathers and builds |
+| Goblin | 0.6× | fights with an axe, builds |
+| Goblin axe-thrower | 0.6× | throws axes, short range; builds |
+| Hobgoblin | 1.5× | a spearman: double damage against cavalry and other fast units |
+| Ork | 3× | heavy and slow, hits buildings hard, cannot be knocked back |
+| Ogre | 5× | the heaviest and slowest, hits buildings twice as hard |
+| Goblin priest | as a worker | prays at the temple for favor, and casts air, weaken and confuse |
+| Spiritual warrior, ranger, mage | 2–3× | the bastion's favor units, half see-through |
+
+**Favor from war.** Bandos grants favor for fighting:
+
+- One favor for every 3 enemy units his team kills, or 6 wild mobs, within 16 blocks of one of its goblin priests.
+- 3 favor for every enemy building it brings down.
+- A slow trickle from goblin priests praying idle at a Bandos temple: one every 90 seconds each.
+
+**Heroes.** The bastion trains Bandos's goblin generals, one of each at a time:
+
+- **Sergeant Strongstack**, with a diamond axe: goblins near him hit harder.
+- **Sergeant Steelwill**, a caster: goblins near him take a quarter less from spells.
+- **Sergeant Grimspike**, an archer with long range.
+- **General Graardor**, a huge ork who costs 20 favor and hits much harder while one of his sergeants is near.
+
+Goblins, hobgoblins, orks and ogres have models of their own rather than a man's. Bandos's buildings are heaps of
+cobblestone and mossy stone propped up with dark wood, hung with his green and brown banners.
 
 ## Silverlight
 
