@@ -224,6 +224,8 @@ public class EntityUnit extends EntityCreature {
     private String teamId = "";
     private UnitKind kind = UnitKind.SOLDIER;
     private int number;
+    /** Its name in logs and admin commands, with team and number: Red goblin 82. */
+    private String label = "";
     /** The foot of the trunk of the tree a worker chops. */
     private int treeX;
     private int treeY;
@@ -526,10 +528,11 @@ public class EntityUnit extends EntityCreature {
 
     /** Keeps name, skin and strength in step with the team's name, color, faction and upgrades. */
     void updateTeam(Team team) {
-        // A hero goes by his own name, in his team's color.
-        String name = kind.hero ? team.getColor() + kind.displayName
-            : team.getColor() + team.getName()
-                + " "
+        // Just the unit's name, such as Goblin; the team color on the tag already says whose it is.
+        String name = team.getColor() + (kind.hero ? kind.displayName : kind.eliteName(eliteTier(kind, team)));
+        // Logs and admin commands still tell units apart by team and number, as Red goblin 82.
+        label = kind.hero ? kind.displayName
+            : team.getName() + " "
                 + (eliteTier(kind, team) > 0 ? kind.eliteName(eliteTier(kind, team))
                     .toLowerCase() : kind.lowerName())
                 + " "
@@ -647,6 +650,11 @@ public class EntityUnit extends EntityCreature {
 
     public int getNumber() {
         return number;
+    }
+
+    /** Its name in logs and admin commands, with team and number, such as Red goblin 82. */
+    public String getLabel() {
+        return label;
     }
 
     public UnitKind getKind() {
@@ -2047,13 +2055,13 @@ public class EntityUnit extends EntityCreature {
                         playSound("random.bow", 1.0F, 1.0F / (rand.nextFloat() * 0.4F + 0.8F));
                     }
                     Buildings.get()
-                        .damage(building, damage / 2, getCommandSenderName().replaceAll("\u00a7.", ""));
+                        .damage(building, damage / 2, getLabel());
                 }
             } else if (attackCooldown <= 0) {
                 attackCooldown = 20;
                 swingItem();
                 Buildings.get()
-                    .damage(building, damage, getCommandSenderName().replaceAll("\u00a7.", ""));
+                    .damage(building, damage, getLabel());
             }
             if (GameManager.getGame() != null && GameManager.getGame()
                 .getBuilding(building.id) == null) {
