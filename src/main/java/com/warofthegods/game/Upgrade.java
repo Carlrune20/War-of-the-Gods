@@ -5,7 +5,8 @@ import java.util.Map;
 
 /**
  * Team-wide improvements researched at a building: military ones at the armory, economic ones at the storehouse,
- * fortified, stone and citadel walls at the town center, and for Bandos armed goblins there too, watch and guard towers at a tower, the knights' own at
+ * fortified, stone and citadel walls at the town center, and for Bandos armed goblins there too, watch and guard towers
+ * at a tower, the knights' own at
  * their fortress, and greater and black demons, for favor too, at Zamorak's chaos temple. Some need another
  * first: runite tools
  * and swords their iron ones, plate armor padded armor, fire arrows fletching, guard towers watch towers and tunnel
