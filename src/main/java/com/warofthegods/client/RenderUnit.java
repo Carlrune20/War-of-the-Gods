@@ -33,7 +33,8 @@ import com.warofthegods.unit.Prayer;
  * hero's protection
  * prayer shows above his name while it is up. Knights wear full plate with a plume in their team's color, and their
  * elite upgrades change their armor. Cavalry sit on a horse, white for Saradomin and black for Zamorak, drawn
- * with the horse's own model; it is part of the unit, not a horse of its own.
+ * with the horse's own model; it is part of the unit, not a horse of its own. A trebuchet is drawn by
+ * {@link RenderTrebuchet}.
  */
 public class RenderUnit extends RenderBiped {
 
@@ -144,6 +145,8 @@ public class RenderUnit extends RenderBiped {
 
     /** How far up a rider sits, in blocks, to be in the saddle. */
     private static final float RIDER_LIFT = 0.7F;
+    /** How far above a trebuchet's standing height its name goes, to clear its arm and pennants. */
+    private static final float TREBUCHET_LIFT = 4.0F;
     /** Horse coats: the low byte of a horse's variant. */
     private static final int HORSE_WHITE = 0;
     private static final int HORSE_BLACK = 4;
@@ -154,6 +157,7 @@ public class RenderUnit extends RenderBiped {
     private final ModelCentaur centaurModel = new ModelCentaur();
     private final ModelKnight knightModel = new ModelKnight();
     private final ModelCreature creatureModel = new ModelCreature();
+    private final RenderTrebuchet trebuchet = new RenderTrebuchet();
     /** The horse drawn under each rider, kept only to be drawn; it is in no world's entity list. */
     private final Map<EntityUnit, EntityHorse> horses = new WeakHashMap<>();
 
@@ -168,6 +172,13 @@ public class RenderUnit extends RenderBiped {
      */
     @Override
     public void doRender(EntityLiving entity, double x, double y, double z, float yaw, float partialTicks) {
+        // A trebuchet is no creature: it is drawn from its structures, its arm swinging as it throws.
+        if (((EntityUnit) entity).getWatchedKind()
+            .isSiege()) {
+            trebuchet.render((EntityUnit) entity, x, y, z, partialTicks);
+            passSpecialRender((EntityUnit) entity, x, y, z);
+            return;
+        }
         boolean aiming = ((EntityUnit) entity).getDrawTicks() > 0 && !((EntityUnit) entity).getWatchedKind()
             .throwsAxes();
         modelBipedMain.aimedBow = aiming;
@@ -272,11 +283,14 @@ public class RenderUnit extends RenderBiped {
     /** The name above its head, and above that the protection prayer it has up, facing the camera. */
     @Override
     protected void passSpecialRender(EntityLivingBase entity, double x, double y, double z) {
-        // Above a rider's head, not where a man on foot would have it.
+        // Above a rider's head, not where a man on foot would have it, and over the top of a trebuchet.
         if (((EntityUnit) entity).getWatchedKind()
             .isMounted()) {
             y += RIDER_LIFT;
-        }
+        } else if (((EntityUnit) entity).getWatchedKind()
+            .isSiege()) {
+                y += TREBUCHET_LIFT;
+            }
         super.passSpecialRender(entity, x, y, z);
         Prayer prayer = ((EntityUnit) entity).getWatchedPrayer();
         if (prayer == Prayer.NONE || entity.isInvisible()) {

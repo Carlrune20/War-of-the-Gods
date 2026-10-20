@@ -135,6 +135,20 @@ class UnitKindTest {
     }
 
     @Test
+    void trebuchetsAreBuiltAtStrongholdsWithSiegeWeaponsForWood() {
+        assertEquals(Upgrade.SIEGE_WEAPONS, UnitKind.TREBUCHET.requiredUpgrade());
+        assertEquals(BuildingType.ARMORY, Upgrade.SIEGE_WEAPONS.at);
+        assertEquals(null, UnitKind.SOLDIER.requiredUpgrade());
+        for (BuildingType type : BuildingType.values()) {
+            assertEquals(type.isFortress(), type.trains.contains(UnitKind.TREBUCHET), type.id);
+        }
+        assertEquals(java.util.Collections.singletonMap(Resource.WOOD, 400L), UnitKind.TREBUCHET.cost());
+        assertTrue(UnitKind.TREBUCHET.healthFactor < UnitKind.SOLDIER.healthFactor);
+        assertTrue(UnitKind.TREBUCHET.speedFactor() < UnitKind.OGRE.speedFactor());
+        assertTrue(UnitKind.TREBUCHET.ranged && UnitKind.TREBUCHET.isSiege());
+    }
+
+    @Test
     void upgradeIdsResolve() {
         assertEquals(Upgrade.FORGED_BLADES, Upgrade.byId("forged_blades"));
         assertEquals(Upgrade.FORGED_BLADES, Upgrade.byId("FORGED_BLADES"));

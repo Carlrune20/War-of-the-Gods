@@ -971,7 +971,7 @@ def trebuchet_frame():
     spoked wheels and an A-frame tower either side holding the axle, with a winch at the back. The arm and the
     counterweight turn, so they are parts of their own; the frame leaves room for both to swing between the towers.
     It throws to the front, the z = 0 side, which faces north at rotation 0."""
-    s = Struct(7, 11, 11, 0)
+    s = Struct(7, 11, 12, 0)
     log_x, log_z, log_up = (LOG, 1 | 4), (LOG, 1 | 8), (LOG, 1)
     dark = (PLANKS, 5)
     s.fill(0, 0, 0, 6, 0, 10, (GRASS, 0))
@@ -1000,8 +1000,9 @@ def trebuchet_frame():
         s.set(x, 7, 4, (SPRUCE_STAIRS, UP_SOUTH))
         s.set(x, 7, 6, (SPRUCE_STAIRS, UP_NORTH))
         s.fill(x, 3, 5, x, 6, 5, (FENCE, 0))
-    # The axle across the tops.
-    s.fill(1, 9, 5, 5, 9, 5, log_x)
+    # The axle across the tops, but for the middle, where the arm's own piece of it turns.
+    for x in (1, 2, 4, 5):
+        s.set(x, 9, 5, log_x)
     # The winch at the back that drew the arm down.
     s.set(2, 3, 9, log_x)
     s.set(4, 3, 9, log_x)
@@ -1012,29 +1013,31 @@ def trebuchet_frame():
 
 # Where the arm turns on the axle, in the frame, and how far along the arm the axle passes.
 TREBUCHET_AXLE = (3, 9, 5)
-TREBUCHET_PIVOT = 2
+TREBUCHET_PIVOT = 3
 
 
 def trebuchet_arm():
     """The trebuchet's throwing arm, a part of its own that the siege engine turns about the axle: a straight oak beam
     lying along z, the short end at z = 0 where the counterweight hangs, the axle through z = TREBUCHET_PIVOT, and
-    the long end at the back with the sling and its cobblestone hanging under the tip."""
-    s = Struct(1, 8, 0, 1)
-    s.fill(0, 0, 0, 0, 0, 7, (LOG, 8))
+    the long end, twice as long, at the back with the sling and its cobblestone hanging under the tip."""
+    s = Struct(1, 3 * TREBUCHET_PIVOT + 1, 0, 1)
+    tip = 3 * TREBUCHET_PIVOT
+    s.fill(0, 0, 0, 0, 0, tip, (LOG, 8))
     s.set(0, 0, TREBUCHET_PIVOT, (LOG, 4))
-    s.set(0, -1, 7, (COBBLE, 0))
+    s.set(0, -1, tip, (COBBLE, 0))
     return s
 
 
 def trebuchet_counterweight():
     """The trebuchet's counterweight, a part of its own that hangs from the arm's short end and stays upright as the
-    arm swings: a box of stones bound in logs, on a chain whose top, at x = 1, z = 1, y = 3, is the hinge."""
-    s = Struct(3, 3, 3, 0)
-    s.fill(0, 0, 0, 2, 2, 2, (COBBLE, 0))
-    s.walls(0, 0, 2, 2, 2, 2, (PLANKS, 1))
+    arm swings: a box of stones bound in logs, on a chain whose top, at x = 1, z = 1, y = 3, is the hinge. It is low
+    enough to swing under the axle and clear the sled."""
+    s = Struct(3, 3, 2, 0)
+    s.fill(0, 0, 0, 2, 1, 2, (COBBLE, 0))
+    s.walls(0, 0, 2, 2, 1, 1, (PLANKS, 1))
     for x, z in ((0, 0), (2, 0), (0, 2), (2, 2)):
-        s.fill(x, 0, z, x, 2, z, (LOG, 1))
-    s.set(1, 3, 1, (FENCE, 0))
+        s.fill(x, 0, z, x, 1, z, (LOG, 1))
+    s.set(1, 2, 1, (FENCE, 0))
     return s
 
 
@@ -1051,7 +1054,7 @@ def trebuchet():
     tip_y, tip_z = ay + TREBUCHET_PIVOT, az - TREBUCHET_PIVOT
     weight = trebuchet_counterweight()
     for (x, y, z), block in weight.blocks.items():
-        s.set(ax - 1 + x, tip_y - 4 + y, tip_z - 1 + z, block)
+        s.set(ax - 1 + x, tip_y - 3 + y, tip_z - 1 + z, block)
     return s
 
 

@@ -40,17 +40,18 @@ public enum BuildingType {
     /**
      * Saradomin's stronghold in Age III, the White Knights' castle: a white stone keep with much health that shoots
      * many
-     * arrows, training White Knights and Sir Tradigee. Its id is from when it was called a fortress.
+     * arrows, training White Knights and Sir Tradigee, and trebuchets once the armory has researched siege weapons.
+     * Its id is from when it was called a fortress.
      */
     WHITE_KNIGHTS_FORTRESS("white_knights_fortress", "White Knights' castle", "whiteKnightsFortress", 1, true, false,
-        UnitKind.WHITE_KNIGHT, UnitKind.TRADIGEE),
+        UnitKind.WHITE_KNIGHT, UnitKind.TRADIGEE, UnitKind.TREBUCHET),
     /**
      * Zamorak's stronghold in Age III, the Kinshra fortress where the Black Knights muster: a keep of graystone with
-     * much health that shoots many arrows, training Black Knights and Sagittare. Its id is from before it was named
-     * for the Kinshra.
+     * much health that shoots many arrows, training Black Knights and Sagittare, and trebuchets with siege weapons.
+     * Its id is from before it was named for the Kinshra.
      */
     BLACK_KNIGHTS_FORTRESS("black_knights_fortress", "Kinshra fortress", "blackKnightsFortress", 1, true, false,
-        UnitKind.BLACK_KNIGHT, UnitKind.SAGITTARE),
+        UnitKind.BLACK_KNIGHT, UnitKind.SAGITTARE, UnitKind.TREBUCHET),
     /** Trains archers: a shooting shed with lanes of targets in front. */
     ARCHERY_RANGE("archery_range", "Archery range", "archeryRange", 3, true, false, UnitKind.ARCHER),
     /** Trains cavalry, and tame horses for players to ride: stalls at the back, a paddock in front. */
@@ -100,12 +101,12 @@ public enum BuildingType {
     BANDOS_TEMPLE("bandos_temple", "Bandos temple", "bandosTemple", 3, true, false, UnitKind.GOBLIN_PRIEST),
     /**
      * Bandos's stronghold in Age III: a rough cobblestone keep with much health that shoots many arrows, training
-     * ogres, the spiritual warrior, ranger and mage, the three goblin sergeants and General Graardor. Bandos's teams
-     * only.
+     * ogres, the spiritual warrior, ranger and mage, the three goblin sergeants, General Graardor and trebuchets.
+     * Bandos's teams only.
      */
     BANDOS_BASTION("bandos_bastion", "Bandos bastion", "bandosBastion", 1, true, false, UnitKind.OGRE,
         UnitKind.SPIRITUAL_WARRIOR, UnitKind.SPIRITUAL_RANGER, UnitKind.SPIRITUAL_MAGE, UnitKind.STRONGSTACK,
-        UnitKind.STEELWILL, UnitKind.GRIMSPIKE, UnitKind.GRAARDOR);
+        UnitKind.STEELWILL, UnitKind.GRIMSPIKE, UnitKind.GRAARDOR, UnitKind.TREBUCHET);
 
     public final String id;
     public final String displayName;

@@ -241,6 +241,9 @@ public final class WebMap {
             if (kind.isAnimal()) {
                 kindJson.addProperty("animal", true);
             }
+            if (kind.requiredUpgrade() != null) {
+                kindJson.addProperty("requires", kind.requiredUpgrade().id);
+            }
             unitKinds.add(kind.id, kindJson);
         }
         json.add("unitKinds", unitKinds);

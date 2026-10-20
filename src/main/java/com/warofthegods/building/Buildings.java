@@ -746,6 +746,7 @@ public final class Buildings {
             }
             Team team = game.getTeam(building.team);
             if (team == null || team.isDefeated()
+                || !kind.unlockedFor(team)
                 || !kind.isAnimal() && room(game, team) <= 0
                 || game.heroRoom(team, kind) <= 0) {
                 continue;

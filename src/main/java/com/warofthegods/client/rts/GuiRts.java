@@ -2528,6 +2528,8 @@ public final class GuiRts extends GuiScreen {
             boolean heroTaken = kind.hero && state.hasUnitOf(team, kindId);
             // A horse is no unit, and needs no room.
             boolean full = !kind.animal && teamFull;
+            RtsState.UpgradeInfo needed = kind.requires == null || team.upgrades.contains(kind.requires) ? null
+                : state.game.upgrades.get(kind.requires);
             int waiting = 0;
             for (RtsState.BuildingInfo trainer : trainers) {
                 for (String queued : trainer.queue) {
@@ -2542,7 +2544,8 @@ public final class GuiRts extends GuiScreen {
                 kind.name + " ("
                     + RtsState.costText(kind.cost)
                     + ")\n"
-                    + (heroTaken ? kind.name + " is already with your team; train him again once he falls"
+                    + (needed != null ? "Needs " + needed.name + ": research it first"
+                        : heroTaken ? kind.name + " is already with your team; train him again once he falls"
                         : full
                             ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
                                 : "Your team has the most units it can have")
@@ -2556,7 +2559,7 @@ public final class GuiRts extends GuiScreen {
                     kindId,
                     kind.hero ? kind.name : kind.name.toLowerCase(),
                     kind.hero ? 1 : shift ? 5 : 1),
-                !heroTaken && !full && RtsState.canAfford(team, kind.cost) && room);
+                needed == null && !heroTaken && !full && RtsState.canAfford(team, kind.cost) && room);
             train.badge = waiting > 0 ? String.valueOf(waiting) : null;
             actions.add(train);
         }

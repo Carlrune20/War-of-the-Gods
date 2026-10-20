@@ -164,6 +164,18 @@ public class EntityUnit extends EntityCreature {
     private static final int FIREBALL_WINDUP = 12;
     /** Ticks an archer waits after a shot before drawing again. */
     private static final int ARCHER_REST = 10;
+    /**
+     * A trebuchet takes aim for so many ticks, lets the arm swing, lets the stone go so many ticks into the swing, and
+     * winds the arm back down for so many ticks after a throw before it can aim again.
+     */
+    private static final int TREBUCHET_AIM = 30;
+    public static final int TREBUCHET_RELEASE = 8;
+    public static final int TREBUCHET_RELOAD = 160;
+    /**
+     * How tall a trebuchet is to bump into and find its way under; it is only as wide as a rider, to fit through the
+     * gaps a rider does, though it is drawn much bigger.
+     */
+    private static final float TREBUCHET_HEIGHT = 2.5F;
     /** Damage a worker's hit does to an animal it hunts. */
     private static final float HUNT_DAMAGE = 5;
     /** How far a worker looks for another animal once a carcass is eaten up. */
@@ -204,6 +216,8 @@ public class EntityUnit extends EntityCreature {
     private static final int WATCH_FACTION = 22;
     private static final int WATCH_DRAWING = 23;
     private static final int WATCH_PRAYER = 24;
+    /** How many stones a trebuchet has thrown, counting round past 127, so clients see each throw and swing its arm. */
+    private static final int WATCH_THROWS = 25;
     /**
      * How far its team has made it elite, for its look: 0 not, 1 elite (an Elite Black Knight, a Justiciar, a greater
      * demon), 2 a black demon; well clear of the ids above for others to add to.
@@ -313,6 +327,11 @@ public class EntityUnit extends EntityCreature {
     /** Ticks until a lesser demon may hurl its next fireball, and ticks left of the throw it is winding up. */
     private int fireballTicks = FIREBALL_MIN_TICKS;
     private int hurlTicks;
+    /** Ticks until a trebuchet's swinging arm lets its stone go, and where the stone is to come down. */
+    private int stoneTicks;
+    private double stoneX;
+    private double stoneY;
+    private double stoneZ;
     private int planTicks;
     private int scanTicks;
     private int progressTicks;
@@ -359,6 +378,12 @@ public class EntityUnit extends EntityCreature {
         dataWatcher.addObject(WATCH_DRAWING, (byte) 0);
         dataWatcher.addObject(WATCH_PRAYER, (byte) 0);
         dataWatcher.addObject(WATCH_ELITE, (byte) 0);
+        dataWatcher.addObject(WATCH_THROWS, (byte) 0);
+    }
+
+    /** On a client, how many stones a trebuchet has thrown, counting round; it changes as each throw begins. */
+    public int getWatchedThrows() {
+        return dataWatcher.getWatchableObjectByte(WATCH_THROWS);
     }
 
     /** On a client, whether its team has made it elite: an Elite Black Knight, a Justiciar or a greater demon. */
@@ -562,7 +587,8 @@ public class EntityUnit extends EntityCreature {
     public void applyUpgrades(Team team) {
         double health = Config.unitHealth * kind.healthFactor;
         double damage = 1;
-        if (kind.fights()) {
+        // Armor is for men and beasts; a trebuchet is timber.
+        if (kind.fights() && !kind.isSiege()) {
             health += (team.has(Upgrade.PADDED_ARMOR) ? 6 : 0) + (team.has(Upgrade.PLATE_ARMOR) ? 8 : 0);
         }
         if (kind.fights() && !kind.ranged) {
@@ -1382,9 +1408,11 @@ public class EntityUnit extends EntityCreature {
      */
     private void fitSize(UnitKind kind, int tier) {
         float scale = kind.scale(tier);
-        float wide = kind.isMounted() || kind.hasOwnModel() || scale >= 1.25F ? MOUNTED_WIDTH : 0.6F;
+        float wide = kind.isMounted() || kind.hasOwnModel() || kind.isSiege() || scale >= 1.25F ? MOUNTED_WIDTH
+            : 0.6F;
         // Heroes stand taller in look only; goblins stand shorter, and Bandos's brutes taller.
-        float tall = kind == UnitKind.CENTAUR ? CENTAUR_HEIGHT
+        float tall = kind.isSiege() ? TREBUCHET_HEIGHT
+            : kind == UnitKind.CENTAUR ? CENTAUR_HEIGHT
             : 1.8F * (kind == UnitKind.LESSER_DEMON || kind.creatureModel() != null ? scale : 1);
         if (width != wide || height != tall) {
             setSize(wide, tall);
@@ -1416,6 +1444,9 @@ public class EntityUnit extends EntityCreature {
         }
         if (fireballTicks > 0) {
             fireballTicks--;
+        }
+        if (stoneTicks > 0 && --stoneTicks == 0) {
+            letStoneGo();
         }
         if (hurlTicks > 0 && order != Order.ATTACK) {
             // Called off before the throw.
@@ -1455,14 +1486,41 @@ public class EntityUnit extends EntityCreature {
         if (drawTicks == 0) {
             setDrawing(true);
         }
-        if (++drawTicks < DRAW_TICKS) {
+        if (++drawTicks < (kind.isSiege() ? TREBUCHET_AIM : DRAW_TICKS)) {
             return false;
         }
         drawTicks = 0;
         drewThisTick = false;
         setDrawing(false);
-        attackCooldown = ARCHER_REST;
+        attackCooldown = kind.isSiege() ? TREBUCHET_RELOAD : ARCHER_REST;
         return true;
+    }
+
+    /**
+     * Swings a trebuchet's arm to throw a stone at a spot: clients see the swing begin, and the stone goes a few ticks
+     * into it, when the arm comes up over the top.
+     */
+    private void throwStone(double x, double y, double z) {
+        stoneX = x;
+        stoneY = y;
+        stoneZ = z;
+        stoneTicks = TREBUCHET_RELEASE;
+        dataWatcher.updateObject(WATCH_THROWS, (byte) ((getWatchedThrows() + 1) & 0x7F));
+        playSound("random.door_open", 1.5F, 0.5F);
+    }
+
+    /** Lets a trebuchet's stone go from the top of its arm, lobbed high to come down where it was aimed. */
+    private void letStoneGo() {
+        double dx = stoneX - posX;
+        double dz = stoneZ - posZ;
+        double distance = Math.max(0.01, Math.hypot(dx, dz));
+        // From above the axle, a little forward of it toward the target.
+        double fromX = posX + dx / distance;
+        double fromZ = posZ + dz / distance;
+        double fromY = posY + EntityTrebuchetStone.RELEASE_HEIGHT;
+        worldObj.spawnEntityInWorld(
+            new EntityTrebuchetStone(worldObj, this, teamId, fromX, fromY, fromZ, stoneX, stoneY, stoneZ));
+        playSound("random.bow", 2.0F, 0.4F);
     }
 
     private void tickOrder() {
@@ -2050,6 +2108,12 @@ public class EntityUnit extends EntityCreature {
                 * kind.buildingDamageFactor());
             if (kind.ranged) {
                 if (drawBow()) {
+                    // A trebuchet's stone does its damage where it bursts.
+                    if (kind.isSiege()) {
+                        throwStone(building.getCenterX(), building.groundY + 1, building.getCenterZ());
+                        progressTicks = 0;
+                        return;
+                    }
                     // A wizard's spell, or an archer's arrow; either way the building takes the same.
                     if (kind.isCaster()) {
                         EntitySpell spell = new EntitySpell(worldObj, this, teamId, pickSpell(null), 0);
@@ -2081,6 +2145,9 @@ public class EntityUnit extends EntityCreature {
     }
 
     private double buildingReach() {
+        if (kind.isSiege()) {
+            return archerRange();
+        }
         return kind.ranged ? ARCHER_BUILDING_RANGE : Buildings.REACH;
     }
 
@@ -2106,6 +2173,10 @@ public class EntityUnit extends EntityCreature {
     }
 
     private void shoot(EntityLivingBase victim) {
+        if (kind.isSiege()) {
+            throwStone(victim.posX, victim.boundingBox.minY, victim.posZ);
+            return;
+        }
         if (kind.isCaster()) {
             cast(victim);
             return;
@@ -2548,6 +2619,17 @@ public class EntityUnit extends EntityCreature {
         }
         damage += WarFavor.heroBonus(this);
         return victim.attackEntityFrom(DamageSource.causeMobDamage(this), damage);
+    }
+
+    /** A trebuchet creaks as timber when hit and breaks apart when destroyed, rather than crying out. */
+    @Override
+    protected String getHurtSound() {
+        return kind.isSiege() ? "dig.wood" : super.getHurtSound();
+    }
+
+    @Override
+    protected String getDeathSound() {
+        return kind.isSiege() ? "random.break" : super.getDeathSound();
     }
 
     @Override

@@ -504,6 +504,15 @@ public final class BuildingCommands {
             request.replyError("A " + building.type.displayName.toLowerCase() + " does not train those");
             return;
         }
+        if (!kind.unlockedFor(team)) {
+            Upgrade needed = kind.requiredUpgrade();
+            request.replyError(
+                "Research " + needed.displayName.toLowerCase()
+                    + " at the "
+                    + needed.at.displayName.toLowerCase()
+                    + " first");
+            return;
+        }
         if (!building.isComplete()) {
             request.replyError("It is not built yet");
             return;

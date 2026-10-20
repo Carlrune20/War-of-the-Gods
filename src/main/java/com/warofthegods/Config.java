@@ -55,6 +55,7 @@ public class Config {
         unitCosts.put(UnitKind.STEELWILL, new long[] { 200, 0, 300, 0 });
         unitCosts.put(UnitKind.GRIMSPIKE, new long[] { 200, 0, 300, 0 });
         unitCosts.put(UnitKind.GRAARDOR, new long[] { 400, 0, 600, 20 });
+        unitCosts.put(UnitKind.TREBUCHET, new long[] { 0, 400, 0, 0 });
     }
 
     public static int unitsPerTeam = 100;
@@ -187,6 +188,13 @@ public class Config {
     public static int explosionBuildingDamage = 120;
     /** Blocks around a building that explosions leave standing. */
     public static int explosionProtection = 2;
+    /**
+     * Health an enemy building loses to a trebuchet's stone bursting on it, and damage an enemy unit takes from one
+     * bursting at its feet; both less toward the edge of the burst, which reaches trebuchetBlast blocks.
+     */
+    public static int trebuchetBuildingDamage = 250;
+    public static int trebuchetUnitDamage = 16;
+    public static int trebuchetBlast = 3;
     /** Wood each torch a worker puts up costs. */
     public static int torchWood = 1;
     /** Food a cow, pig, sheep or chicken leaves for workers to carve off once killed. */
@@ -749,6 +757,13 @@ public class Config {
             0,
             16,
             "Blocks around a building where explosions break nothing; the building only loses health.");
+        trebuchetBuildingDamage = configuration.getInt(
+            "trebuchetDamage",
+            buildings,
+            trebuchetBuildingDamage,
+            0,
+            100000,
+            "Health an enemy building loses to a trebuchet's stone bursting on it; less toward the edge of the burst.");
         torchWood = configuration
             .getInt("torchWood", buildings, torchWood, 0, 100000, "Wood each torch a worker puts up costs.");
 

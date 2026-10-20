@@ -1458,7 +1458,7 @@ public final class AiPlayers {
                 List<UnitKind> kinds = new ArrayList<>(building.type.trains);
                 kinds.sort((a, b) -> Boolean.compare(b.hero, a.hero));
                 for (UnitKind kind : kinds) {
-                    if (game.heroRoom(team, kind) > 0 && team.spend(kind.cost())) {
+                    if (game.heroRoom(team, kind) > 0 && kind.unlockedFor(team) && team.spend(kind.cost())) {
                         building.enqueue(kind, true);
                         WarOfTheGods.LOG.info("AI {} is training {}", team.getName(), kind.displayName);
                         break;

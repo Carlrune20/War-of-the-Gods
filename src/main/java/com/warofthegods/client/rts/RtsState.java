@@ -32,6 +32,8 @@ public final class RtsState {
         public boolean animal;
         /** The gods whose teams can train it. */
         public final List<String> factions = new ArrayList<>();
+        /** The upgrade a team has to research before training it, or null. */
+        public String requires;
 
         public boolean trainableBy(String faction) {
             return factions.isEmpty() || factions.contains(faction);
@@ -322,6 +324,7 @@ public final class RtsState {
             kindInfo.fights = bool(kind, "fights");
             kindInfo.hero = bool(kind, "hero");
             kindInfo.animal = bool(kind, "animal");
+            kindInfo.requires = kind.has("requires") ? string(kind, "requires") : null;
             for (JsonElement faction : array(kind, "factions")) {
                 kindInfo.factions.add(faction.getAsString());
             }

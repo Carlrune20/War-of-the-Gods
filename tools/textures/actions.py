@@ -4,7 +4,8 @@
 
 Buildings are their own level 1 structure, read from the .schematic files and drawn isometrically with Minecraft's
 block textures on black, so the icons look like what goes up; run this again after changing a structure. Units are
-their face, taken from their skin. Upgrades and the other actions are a Minecraft item or block that fits.
+their face, taken from their skin, but for the trebuchet, drawn whole as a building is. Upgrades and the other
+actions are a Minecraft item or block that fits.
 
 Writes src/main/resources/assets/warofthegods/textures/gui/actions.png, one 64 pixel square per icon, and
 actions.json beside it with the icons' names in the order they are in the picture. The RTS view and the web map both
@@ -80,6 +81,7 @@ ITEMS = {
     "upgrade/justiciars": ("face", "saradomin_white_knight_elite"),
     "upgrade/greater_demons": ("head", "greater_demon"),
     "upgrade/black_demons": ("head", "black_demon"),
+    "upgrade/siege_weapons": ("block", "blocks/tnt_top.png", "blocks/tnt_side.png"),
     # Taking a building up a level, or the town into the next age.
     "level": "items/experience_bottle.png",
     "gate": "items/door_wood.png",
@@ -456,6 +458,9 @@ def main():
     for faction in FACTIONS:
         for name in UNITS + (BANDOS_UNITS if faction == "bandos" else ()):
             icons.append(("face/%s/%s" % (faction, name), face_icon(faction, name)))
+        # A trebuchet has no face: it is drawn whole, as a building is.
+        icons.append(("face/%s/trebuchet" % faction,
+                      building(faces, os.path.join(STRUCTURES, "neutral", "trebuchet.schematic"))))
     for name, spec in ITEMS.items():
         icons.append((name, item_icon(jar, spec)))
 

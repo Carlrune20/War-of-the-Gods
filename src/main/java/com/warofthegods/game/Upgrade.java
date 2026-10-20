@@ -9,7 +9,8 @@ import java.util.Map;
  * their fortress, and greater and black demons, for favor too, at Zamorak's chaos temple. Some need another
  * first: runite tools
  * and swords their iron ones, plate armor padded armor, fire arrows fletching, guard towers watch towers and tunnel
- * mining, which lets workers dig quarries, runite pickaxes. Each is
+ * mining, which lets workers dig quarries, runite pickaxes. Siege weapons at the armory let a stronghold build
+ * trebuchets. Each is
  * researched once and lasts the game. Ids are stored in save data, so only add new values.
  */
 public enum Upgrade {
@@ -67,7 +68,10 @@ public enum Upgrade {
             + "lesser demon, hitting 6 harder",
         BuildingType.CHAOS_TEMPLE, 3, "greater_demons", 500, 0, 700, 40, 90),
     TUNNEL_MINING("tunnel_mining", "Tunnel mining", "Workers can dig quarries into mined out gold mines",
-        BuildingType.ARMORY, 3, "diamond_pickaxes", 400, 400, 0, 60);
+        BuildingType.ARMORY, 3, "diamond_pickaxes", 400, 400, 0, 60),
+    SIEGE_WEAPONS("siege_weapons", "Siege weapons",
+        "Your stronghold builds trebuchets, which hurl stones that burst where they land, smashing buildings from afar",
+        BuildingType.ARMORY, 3, null, 300, 600, 600, 90);
 
     public final String id;
     public final String displayName;

@@ -175,6 +175,7 @@ as fast as they would build it.
 | Black Knight | 60 Food, 75 Gold | Zamorak's knight in black plate: twice a warrior's health, hits 3 harder; trained at the Kinshra fortress |
 | Sir Tradigee | 200 Food, 350 Gold | A justiciar hero who fights up close with a runite sword: eight times a warrior's health, hits 6 harder; trained at the White Knights' castle |
 | Sagittare | 200 Food, 350 Gold | A ranger hero, the boss of Daemonheim: six times a warrior's health, arrows 6 harder and 14 blocks farther than an archer's (28 blocks to their 14); trained at the Kinshra fortress |
+| Trebuchet | 400 Wood | A counterweight trebuchet, built at any god's stronghold once the armory has researched siege weapons; see [Siege](#siege) |
 
 **Equipment.** Units walk as fast as a player.
 
@@ -195,6 +196,22 @@ wear. Knights wear full plate, with a plume on the helm in their team's colour. 
 Black Knights elite and White Knights justiciars.
 
 **Cavalry.** Cavalry ride into battle. For more on how this works in a fight, see [Orders and combat](orders-and-combat.md#cavalry).
+
+## Siege
+
+**Siege weapons** is an Age III armory upgrade (300 Food, 600 Wood, 600 Gold, 90 s). After it, each god's stronghold,
+the White Knights' castle, the Kinshra fortress or the Bandos bastion, builds **trebuchets** for 400 Wood each, taking
+eight times as long as a warrior to train.
+
+- A trebuchet rolls at under half a man's pace and has three quarters of a warrior's health. Armor upgrades do not
+  help it, and it cannot fight up close, so it needs guarding.
+- It throws from up to 36 blocks: it takes aim for a second and a half, swings its arm up over the top and lets go of
+  a cobblestone, then winds the arm back down and loads again, a throw every 9 seconds or so.
+- The stone flies in a high arc and bursts where it lands, breaking no blocks. An enemy building it lands on or beside
+  loses up to 250 health. Enemy units within 3 blocks take up to 16 damage, less toward the edge of the burst. Its own
+  team and allies are never hurt.
+- It is drawn at half size from the trebuchet structure, its arm swinging with each throw and a pennant in its team's
+  colour over each tower.
 
 ## Favor and magic
 

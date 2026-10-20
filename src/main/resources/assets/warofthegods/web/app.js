@@ -1293,9 +1293,13 @@
                 && (buildingType(b.type).trains || []).includes(kindId));
             // A team has one of each hero at a time, and may train him again once he falls.
             const heroTaken = kind.hero && hasUnitOf(team, kindId);
+            // Some need an upgrade first, as a trebuchet needs siege weapons.
+            const needed = kind.requires && !(team.upgrades || []).includes(kind.requires)
+                ? (state.game.upgrades || {})[kind.requires] || {name: kind.requires} : null;
             const train = squareButton("face/" + team.faction + "/" + kindId, kindId,
                 kind.name + " (" + costText(kind.cost) + ")\n"
-                + (heroTaken ? kind.name + " is already with your team; train him again once he falls"
+                + (needed ? "Needs " + needed.name + ": research it first"
+                    : heroTaken ? kind.name + " is already with your team; train him again once he falls"
                     : full ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
                         : "Your team has the most units it can have")
                         : kind.hero ? "Train " + kind.name + ", a hero; your team has one at a time"
@@ -1310,7 +1314,7 @@
                             + (buildings > 1 ? " at " + buildings + " buildings" : ""));
                     }
                 });
-            train.disabled = heroTaken || full || !canAfford(team, kind.cost)
+            train.disabled = !!needed || heroTaken || full || !canAfford(team, kind.cost)
                 || !trainers.some((b) => (b.queue || []).length < 10);
             const waiting = trainers.reduce((n, b) => n + (b.queue || []).filter((k) => k === kindId).length, 0);
             actions.append(withBadge(train, waiting ? String(waiting) : ""));
