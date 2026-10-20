@@ -17,6 +17,7 @@ import java.util.function.Consumer;
 
 import net.minecraft.block.material.Material;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.client.gui.GuiChat;
 import net.minecraft.client.multiplayer.WorldClient;
 import net.minecraft.client.renderer.OpenGlHelper;
@@ -32,6 +33,7 @@ import net.minecraft.potion.PotionEffect;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MathHelper;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.client.IRenderHandler;
 import net.minecraftforge.client.event.EntityViewRenderEvent;
 import net.minecraftforge.client.event.FOVUpdateEvent;
@@ -100,6 +102,12 @@ public final class RtsClient {
     private static final int NIGHT_VISION_TICKS = 1000000;
 
     private boolean active;
+    /** The pitch of the bell that warns of an attack, and how long the attack stays marked on the minimap. */
+    private static final float ALERT_PITCH = 0.6F;
+    private static final long ALERT_MILLIS = 6000;
+    private double alertX;
+    private double alertZ;
+    private long alertTime = -ALERT_MILLIS;
     private JsonObject lobby;
     private boolean nightVision;
     /** Whether the world is drawn lit by the fog of war, rather than as it is. */
@@ -313,6 +321,9 @@ public final class RtsClient {
             case "lobby":
                 onLobby(message);
                 break;
+            case "alert":
+                onAlert(message);
+                break;
             case "rts.commanders":
                 commanders.clear();
                 for (JsonElement id : message.getAsJsonArray("ids")) {
@@ -321,6 +332,37 @@ public final class RtsClient {
                 break;
             default:
         }
+    }
+
+    /**
+     * Something of the player's team is under attack: a warning bell, and in the RTS view a line and a mark on the
+     * minimap where, else a line in chat.
+     */
+    private void onAlert(JsonObject message) {
+        String text = message.get("text")
+            .getAsString();
+        mc.getSoundHandler()
+            .playSound(PositionedSoundRecord.func_147674_a(new ResourceLocation("note.pling"), ALERT_PITCH));
+        if (active) {
+            showToast(text, true);
+            alertX = message.get("x")
+                .getAsDouble();
+            alertZ = message.get("z")
+                .getAsDouble();
+            alertTime = System.currentTimeMillis();
+        } else if (mc.thePlayer != null) {
+            mc.thePlayer.addChatMessage(new ChatComponentText(EnumChatFormatting.RED + text));
+        }
+    }
+
+    /** Where the latest attack on the player's team was, while it is still marked on the minimap; else null. */
+    public double[] getAlert() {
+        return System.currentTimeMillis() - alertTime < ALERT_MILLIS ? new double[] { alertX, alertZ } : null;
+    }
+
+    /** How far through its mark on the minimap the latest attack is, from 0 to 1. */
+    public float getAlertAge() {
+        return Math.min(1, (System.currentTimeMillis() - alertTime) / (float) ALERT_MILLIS);
     }
 
     /** The new game lobby as the server last told it, or null while it is closed. */
