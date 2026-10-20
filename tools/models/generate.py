@@ -21,6 +21,7 @@ from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import armor  # noqa: E402
 import blockbench  # noqa: E402
 import boxmodel  # noqa: E402
 import creatures  # noqa: E402
@@ -31,6 +32,8 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "src
 MODELS = os.path.join(ROOT, "models")
 TEXTURES = os.path.join(ROOT, "textures", "models")
 ITEMS = os.path.join(ROOT, "textures", "items")
+# Minecraft's own item icons, which the mod's replace: the helmets drawn as the mod draws them on the head.
+VANILLA_ITEMS = os.path.join(ROOT, "..", "minecraft", "textures", "items")
 
 # ---------------------------------------------------------------- the lesser demon
 #
@@ -944,6 +947,54 @@ def build_creatures(preview):
                                                           hi.round(1)))
 
 
+# Item names in Minecraft's icons (iron and runite, which is Minecraft's diamond) and the mod's (dark iron), by piece.
+ICON_ITEMS = {"full_helm": "helmet", "platebody": "chestplate", "platelegs": "leggings", "boots": "boots"}
+
+
+def helmet_icon(model, texture):
+    """The helmet turned a little to the side and seen from a little above, in 16 pixels as Minecraft's icons are."""
+    big = boxmodel.render(model, texture, size=128, yaw=30, pitch=12, margin=0.06)
+    small = big.resize((16, 16), Image.BOX)
+    pixels = small.load()
+    for y in range(16):
+        for x in range(16):
+            r, g, b, a = pixels[x, y]
+            if a < 100:
+                pixels[x, y] = (0, 0, 0, 0)
+            else:
+                pixels[x, y] = tuple(min(255, int(c * 255 / a)) for c in (r, g, b)) + (255,)
+    return small
+
+
+def build_armor(preview):
+    """The full helm, the plate and the leather cowl, worn in place of Minecraft's armor, and the armor's icons (see
+    armor.py)."""
+    os.makedirs(VANILLA_ITEMS, exist_ok=True)
+    for name, (build, model_name) in armor.ARMOR.items():
+        model = build()
+        texture, _ = model.paint()
+        if model_name == name:
+            with open(os.path.join(MODELS, name + ".json"), "w") as file:
+                file.write(model.to_json() + "\n")
+        texture.save(os.path.join(TEXTURES, name + ".png"))
+        lo, hi = boxmodel.bounds(model)
+        print("%s: %d parts, from %s to %s" % (name, len(list(model.parts())), lo.round(1), hi.round(1)))
+        if name == "leather_cowl":
+            helmet_icon(model, texture).save(os.path.join(VANILLA_ITEMS, "leather_helmet.png"))
+        if preview:
+            os.makedirs(preview, exist_ok=True)
+            for yaw in (30, 160):
+                image = boxmodel.render(model, texture, size=480, yaw=yaw, pitch=12, background=(54, 62, 74))
+                image.save(os.path.join(preview, "%s_%d.png" % (name, yaw)))
+    # The cowl's icon is tinted all over by the leather's dye; Minecraft's overlay, the cap's buckle and trim left
+    # undyed, would sit over it wrongly, so it is left clear.
+    Image.new("RGBA", (16, 16), (0, 0, 0, 0)).save(os.path.join(VANILLA_ITEMS, "leather_helmet_overlay.png"))
+    for piece, item in ICON_ITEMS.items():
+        armor.icon(armor.picture("iron", piece)).save(os.path.join(VANILLA_ITEMS, "iron_%s.png" % item))
+        armor.icon(armor.picture("rune", piece)).save(os.path.join(VANILLA_ITEMS, "diamond_%s.png" % item))
+        armor.icon(armor.picture("black", piece)).save(os.path.join(ITEMS, "dark_iron_%s.png" % item))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--preview", help="also draw each model into this folder")
@@ -992,6 +1043,7 @@ def main():
                     os.path.join(args.preview, name + "_icon.png"))
 
     build_creatures(args.preview)
+    build_armor(args.preview)
 
 
 if __name__ == "__main__":

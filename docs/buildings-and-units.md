@@ -66,7 +66,7 @@ mostly dry and not too steep. Foundations fill in dips, and anything above the b
 | Quarry | Age III, after tunnel mining: dug into a mined out gold mine, where up to 3 workers get 2 gold each every 5 s for ever | 500 Wood | 500 | 20 s |
 | Kinshra fortress | Zamorak's teams only, Age III: the Black Knights' graystone keep that trains Black Knights and Sagittare, and shoots a volley of 4 arrows a second at the nearest enemies within 20 blocks | 300 Wood, 400 Gold | 4000 | 90 s |
 
-**Quarries.** A quarry needs the armory to have researched tunnel mining (400 Food and 400 Wood, after diamond
+**Quarries.** A quarry needs the armory to have researched tunnel mining (400 Food and 400 Wood, after runite
 pickaxes), and costs 500 Wood in Age III. Up to three workers work a quarry like a farm. They bring in 2 gold each per
 harvest for ever, more with the pickaxe upgrades.
 
@@ -112,16 +112,16 @@ the team has that one.
 | Upgrade | At | Does |
 |---|---|---|
 | Iron swords | Armory | Warriors carry iron swords and hit 2 harder |
-| Diamond swords | Armory, Age III, after iron swords | Warriors carry diamond swords and hit 2 harder again |
+| Runite swords | Armory, Age III, after iron swords | Warriors carry runite swords and hit 2 harder again |
 | Fletching | Armory | Archers and towers shoot 1 harder and 4 farther |
 | Fire arrows | Armory, Age II, after fletching | Archers' arrows set enemies they hit on fire for a few seconds; they never set the team or its allies alight |
-| Padded armor | Armory | Warriors and archers have 6 more health, and wear chainmail |
+| Padded armor | Armory | Warriors and archers have 6 more health, and wear leather in their team's colour |
 | Plate armor | Armory, Age II, after padded armor | Warriors and archers have 8 more health, and wear iron |
 | Bigger baskets | Storehouse | Workers carry 10 more |
 | Iron axes | Storehouse | Workers chop half again as fast |
 | Iron pickaxes | Storehouse | Workers mine gold half again as fast |
 | Iron hoes | Storehouse | Farms yield half again as much |
-| Diamond axes / pickaxes / hoes | Storehouse, Age III, after the iron one | Twice as fast or as much as with stone tools |
+| Runite axes / pickaxes / hoes | Storehouse, Age III, after the iron one | Twice as fast or as much as with stone tools |
 | Masonry | Storehouse, Age II | Buildings have a fifth more health |
 | Fortified walls | Town center, Age II, for 150 Wood and 150 Gold | Buildings have half again as much health |
 | Watch towers | Tower, Age II, for 100 Wood and 100 Gold | Towers shoot arrows at enemies |
@@ -173,16 +173,16 @@ as fast as they would build it.
 | Lesser demon | 300 Food, 300 Gold, 7 Favor | Huge, horned and tailed: ten times a warrior's health, hits 8 harder, and nothing knocks it back; between its blows it hurls a fireball (10, and burns all enemies round where it bursts) every 10 to 15 s at an enemy within 16 blocks; summoned at a stone circle while four of its team's dark wizards stand in it |
 | White Knight | 60 Food, 75 Gold | Saradomin's knight in white plate: twice a warrior's health, hits 3 harder; trained at the White Knights' castle |
 | Black Knight | 60 Food, 75 Gold | Zamorak's knight in black plate: twice a warrior's health, hits 3 harder; trained at the Kinshra fortress |
-| Sir Tradigee | 200 Food, 350 Gold | A justiciar hero who fights up close with a diamond sword: eight times a warrior's health, hits 6 harder; trained at the White Knights' castle |
+| Sir Tradigee | 200 Food, 350 Gold | A justiciar hero who fights up close with a runite sword: eight times a warrior's health, hits 6 harder; trained at the White Knights' castle |
 | Sagittare | 200 Food, 350 Gold | A ranger hero, the boss of Daemonheim: six times a warrior's health, arrows 6 harder and 14 blocks farther than an archer's (28 blocks to their 14); trained at the Kinshra fortress |
 
 **Equipment.** Units walk as fast as a player.
 
-- Warriors carry stone swords until the armory researches iron, and then diamond ones.
-- Warriors and archers wear the armor upgrades from helmet to boots: chainmail with padded armor, and iron with plate.
+- Warriors carry stone swords until the armory researches iron, and then runite ones.
+- Warriors and archers wear the armor upgrades from helmet to boots: leather in the team's colour with padded armor, and iron with plate (dark iron for Zamorak).
 - Workers hold the tool for their job: a hoe at a farm, a pickaxe at a gold mine, an axe for building and chopping, and a
   sword for hunting. They swing it as they work. Their tools are stone until the storehouse researches iron ones, and
-  diamond after that in Age III. They hold what they carry only on the way to a store.
+  runite after that in Age III. They hold what they carry only on the way to a store.
 
 ## Knights, heroes and cavalry
 
@@ -257,7 +257,7 @@ differently from Saradomin's and Zamorak's:
 
 **Heroes.** The bastion trains Bandos's goblin generals, one of each at a time:
 
-- **Sergeant Strongstack**, with a diamond axe: goblins near him hit harder.
+- **Sergeant Strongstack**, with a runite axe: goblins near him hit harder.
 - **Sergeant Steelwill**, a caster: goblins near him take a quarter less from spells.
 - **Sergeant Grimspike**, an archer with long range.
 - **General Graardor**, a huge ork who costs 20 favor, has 1000 health and hits much harder while one of his sergeants is near.
@@ -270,5 +270,5 @@ cobblestone and mossy stone propped up with dark wood, hung with his green and b
 Each game's map has one shrine: an open stone shrine somewhere about the middle of the map. In the chest on its altar
 lies Silverlight, the sword that slew Delrith.
 
-- It strikes like a diamond sword. Against a lesser demon, or any creature of the Nether, it strikes six times as hard.
+- It strikes like a runite sword. Against a lesser demon, or any creature of the Nether, it strikes six times as hard.
 - There is only the one. Whoever takes it first has it.

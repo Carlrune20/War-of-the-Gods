@@ -1,0 +1,114 @@
+{
+ "texture": [
+  64,
+  64
+ ],
+ "parts": [
+  {
+   "name": "head",
+   "parent": null,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      0,
+      0
+     ],
+     "from": [
+      -5,
+      -9,
+      -5
+     ],
+     "size": [
+      10,
+      10,
+      10
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      0,
+      20
+     ],
+     "from": [
+      -4,
+      -10,
+      -4
+     ],
+     "size": [
+      8,
+      1,
+      8
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      0,
+      29
+     ],
+     "from": [
+      -2,
+      -10.5,
+      1
+     ],
+     "size": [
+      4,
+      2,
+      4
+     ],
+     "inflate": 0.1,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "mantle",
+   "parent": null,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      32,
+      20
+     ],
+     "from": [
+      -5,
+      0,
+      -3
+     ],
+     "size": [
+      10,
+      3,
+      6
+     ],
+     "inflate": 0.7,
+     "mirror": false
+    }
+   ]
+  }
+ ]
+}

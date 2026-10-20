@@ -117,7 +117,7 @@ class UnitKindTest {
                 assertTrue(kind.creatureModel() != null, kind + " has no model");
             }
         }
-        assertEquals("ork", UnitKind.GRAARDOR.creatureModel());
+        assertEquals("graardor", UnitKind.GRAARDOR.creatureModel());
         assertEquals("strongstack", UnitKind.STEELWILL.creatureModel());
         assertTrue(UnitKind.STEELWILL.isGoblin());
         assertEquals(null, UnitKind.SOLDIER.creatureModel());

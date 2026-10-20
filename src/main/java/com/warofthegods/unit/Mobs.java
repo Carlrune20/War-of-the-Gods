@@ -55,14 +55,12 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  */
 public final class Mobs {
 
-    /** Armor by slot, from boots (1) to helmet (4), and by material from leather to iron. */
-    private static final Item[][] ARMOR = {
-        { Items.leather_boots, Items.chainmail_boots, Items.golden_boots, Items.iron_boots },
-        { Items.leather_leggings, Items.chainmail_leggings, Items.golden_leggings, Items.iron_leggings },
-        { Items.leather_chestplate, Items.chainmail_chestplate, Items.golden_chestplate, Items.iron_chestplate },
-        { Items.leather_helmet, Items.chainmail_helmet, Items.golden_helmet, Items.iron_helmet } };
+    /** Armor by slot, from boots (1) to helmet (4), and by material: leather or iron, never gold or chainmail. */
+    private static final Item[][] ARMOR = { { Items.leather_boots, Items.iron_boots },
+        { Items.leather_leggings, Items.iron_leggings }, { Items.leather_chestplate, Items.iron_chestplate },
+        { Items.leather_helmet, Items.iron_helmet } };
     /** How likely each armor material is, out of the sum. */
-    private static final int[] MATERIAL_WEIGHTS = { 40, 30, 10, 20 };
+    private static final int[] MATERIAL_WEIGHTS = { 65, 35 };
     /** Spawn spots are this far from a player, unit or building at least, so groups do not appear in plain view. */
     private static final int MIN_DISTANCE = 24;
     /** And at most this far from a player or unit, where the chunks are loaded. */
@@ -508,6 +506,10 @@ public final class Mobs {
     }
 
     private void equip(EntityLiving mob) {
+        // Only the armor given here: none of what Minecraft gives a mob as it spawns, gold or chainmail among it.
+        for (int slot = 1; slot <= 4; slot++) {
+            mob.setCurrentItemOrArmor(slot, null);
+        }
         if (random.nextDouble() < Config.mobArmorChance) {
             int material = pickMaterial();
             for (int slot = 1; slot <= 4; slot++) {
