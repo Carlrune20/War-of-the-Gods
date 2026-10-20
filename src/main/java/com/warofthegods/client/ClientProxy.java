@@ -15,7 +15,8 @@ import com.warofthegods.unit.EntityUnit;
 import cpw.mods.fml.client.registry.RenderingRegistry;
 
 /**
- * Client setup: how units, commanders' bodies, carcasses and the mod's own items are drawn, and the in-game RTS view.
+ * Client setup: how units, commanders' bodies, carcasses, armor and the mod's own items are drawn, and the in-game
+ * RTS view.
  */
 public class ClientProxy extends CommonProxy {
 
@@ -35,6 +36,8 @@ public class ClientProxy extends CommonProxy {
             new RenderModelItem("zamorak_staff", ZAMORAK_STAFF_SCALE, -17));
         MinecraftForgeClient
             .registerItemRenderer(WarOfTheGods.silverlight, new RenderModelItem("silverlight", SILVERLIGHT_SCALE, -22));
+        ArmorLooks.get()
+            .register();
         RtsClient.init();
     }
 

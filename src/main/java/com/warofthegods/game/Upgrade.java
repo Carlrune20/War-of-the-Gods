@@ -7,16 +7,16 @@ import java.util.Map;
  * Team-wide improvements researched at a building: military ones at the armory, economic ones at the storehouse,
  * fortified, stone and citadel walls at the town center, watch and guard towers at a tower, the knights' own at
  * their fortress, and greater and black demons, for favor too, at Zamorak's chaos temple. Some need another
- * first: diamond tools
+ * first: runite tools
  * and swords their iron ones, plate armor padded armor, fire arrows fletching, guard towers watch towers and tunnel
- * mining, which lets workers dig quarries, diamond pickaxes. Each is
+ * mining, which lets workers dig quarries, runite pickaxes. Each is
  * researched once and lasts the game. Ids are stored in save data, so only add new values.
  */
 public enum Upgrade {
 
     FORGED_BLADES("forged_blades", "Iron swords", "Warriors carry iron swords and hit 2 harder", BuildingType.ARMORY, 1,
         null, 0, 60, 40, 30),
-    TEMPERED_STEEL("tempered_steel", "Diamond swords", "Warriors carry diamond swords and hit 2 harder again",
+    TEMPERED_STEEL("tempered_steel", "Runite swords", "Warriors carry runite swords and hit 2 harder again",
         BuildingType.ARMORY, 3, "forged_blades", 0, 0, 150, 45),
     FLETCHING("fletching", "Fletching", "Archers and towers shoot 1 harder and 4 farther", BuildingType.ARMORY, 1, null,
         0, 80, 20, 30),
@@ -33,12 +33,11 @@ public enum Upgrade {
         BuildingType.STOREHOUSE, 1, null, 50, 100, 20, 30),
     PLOUGHS("ploughs", "Iron hoes", "Workers carry iron hoes; farms yield half again as much food",
         BuildingType.STOREHOUSE, 1, null, 75, 75, 0, 30),
-    DIAMOND_AXES("diamond_axes", "Diamond axes", "Workers carry diamond axes and chop twice as fast",
+    DIAMOND_AXES("diamond_axes", "Runite axes", "Workers carry runite axes and chop twice as fast",
         BuildingType.STOREHOUSE, 3, "sharp_axes", 100, 100, 150, 45),
-    DIAMOND_PICKAXES("diamond_pickaxes", "Diamond pickaxes",
-        "Workers carry diamond pickaxes and mine gold twice as fast", BuildingType.STOREHOUSE, 3, "pickaxes", 100, 150,
-        150, 45),
-    DIAMOND_HOES("diamond_hoes", "Diamond hoes", "Workers carry diamond hoes; farms yield twice as much food",
+    DIAMOND_PICKAXES("diamond_pickaxes", "Runite pickaxes", "Workers carry runite pickaxes and mine gold twice as fast",
+        BuildingType.STOREHOUSE, 3, "pickaxes", 100, 150, 150, 45),
+    DIAMOND_HOES("diamond_hoes", "Runite hoes", "Workers carry runite hoes; farms yield twice as much food",
         BuildingType.STOREHOUSE, 3, "ploughs", 150, 100, 150, 45),
     MASONRY("masonry", "Masonry", "Buildings have a fifth more health", BuildingType.STOREHOUSE, 2, null, 0, 100, 100,
         40),

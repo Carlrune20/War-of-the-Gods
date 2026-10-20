@@ -18,3 +18,16 @@ tile.warofthegods.banner_bandos.name=Banner of Bandos
 tile.warofthegods.banner_bandos_inverted.name=Banner of Bandos (brown)
 tile.warofthegods.static_fire.name=Fire
 item.warofthegods.silverlight.name=Silverlight
+
+# Minecraft's own items as War of the Gods names them (also in assets/minecraft/lang/en_US.lang, for clients).
+item.helmetCloth.name=Leather cowl
+item.helmetDiamond.name=Runite helmet
+item.chestplateDiamond.name=Runite chestplate
+item.leggingsDiamond.name=Runite leggings
+item.bootsDiamond.name=Runite boots
+item.swordDiamond.name=Runite sword
+item.pickaxeDiamond.name=Runite pickaxe
+item.hatchetDiamond.name=Runite axe
+item.shovelDiamond.name=Runite shovel
+item.hoeDiamond.name=Runite hoe
+item.horsearmordiamond.name=Runite horse armor

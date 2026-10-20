@@ -1,0 +1,13 @@
+# Minecraft's own items under the names they have in War of the Gods. The same lines are in
+# assets/warofthegods/lang/en_US.lang, which the server reads; this file is what clients go by.
+item.helmetCloth.name=Leather cowl
+item.helmetDiamond.name=Runite helmet
+item.chestplateDiamond.name=Runite chestplate
+item.leggingsDiamond.name=Runite leggings
+item.bootsDiamond.name=Runite boots
+item.swordDiamond.name=Runite sword
+item.pickaxeDiamond.name=Runite pickaxe
+item.hatchetDiamond.name=Runite axe
+item.shovelDiamond.name=Runite shovel
+item.hoeDiamond.name=Runite hoe
+item.horsearmordiamond.name=Runite horse armor

@@ -325,15 +325,18 @@ public class RenderUnit extends RenderBiped {
 
     /**
      * Bandos's creatures wear no player armor over their models: an armored goblin's or hobgoblin's texture shows its
-     * armor.
+     * armor. Others wear theirs as {@link ArmorLooks} draws it: Zamorak's plate is black.
      */
     @Override
     protected int shouldRenderPass(EntityLiving entity, int pass, float partialTicks) {
-        if (((EntityUnit) entity).getWatchedKind()
+        EntityUnit unit = (EntityUnit) entity;
+        if (unit.getWatchedKind()
             .creatureModel() != null) {
             return -1;
         }
-        return super.shouldRenderPass(entity, pass, partialTicks);
+        int drawn = ArmorLooks.get()
+            .renderPass(this, unit, unit.func_130225_q(3 - pass), pass, unit.getWatchedFaction(), modelBipedMain);
+        return drawn != ArmorLooks.VANILLA ? drawn : super.shouldRenderPass(entity, pass, partialTicks);
     }
 
     /**

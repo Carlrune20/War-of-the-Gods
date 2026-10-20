@@ -1,0 +1,115 @@
+{
+ "texture": [
+  64,
+  64
+ ],
+ "parts": [
+  {
+   "name": "head",
+   "parent": null,
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      0,
+      0
+     ],
+     "from": [
+      -5,
+      -9,
+      -5
+     ],
+     "size": [
+      10,
+      10,
+      10
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      0,
+      41
+     ],
+     "from": [
+      -4,
+      -10,
+      -4
+     ],
+     "size": [
+      8,
+      1,
+      8
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      0,
+      20
+     ],
+     "from": [
+      -5,
+      -7,
+      -5
+     ],
+     "size": [
+      10,
+      1,
+      10
+     ],
+     "inflate": 0.25,
+     "mirror": false
+    },
+    {
+     "uv": [
+      32,
+      41
+     ],
+     "from": [
+      -1,
+      -6,
+      -5.6
+     ],
+     "size": [
+      2,
+      3,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      0,
+      31
+     ],
+     "from": [
+      -5,
+      -2,
+      -2
+     ],
+     "size": [
+      10,
+      3,
+      7
+     ],
+     "inflate": 0.45,
+     "mirror": false
+    }
+   ]
+  }
+ ]
+}
