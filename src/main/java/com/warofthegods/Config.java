@@ -40,7 +40,7 @@ public class Config {
         unitCosts.put(UnitKind.ZAMORAK_MAGE, new long[] { 80, 0, 120, 0 });
         unitCosts.put(UnitKind.BLUE_WIZARD, new long[] { 60, 0, 50, 0 });
         unitCosts.put(UnitKind.LESSER_DEMON, new long[] { 300, 0, 300, 7 });
-        unitCosts.put(UnitKind.CENTAUR, new long[] { 150, 150, 0, 3 });
+        unitCosts.put(UnitKind.CENTAUR, new long[] { 150, 150, 0, 5 });
         unitCosts.put(UnitKind.SLAVE, new long[] { 40, 0, 0, 0 });
         unitCosts.put(UnitKind.GOBLIN, new long[] { 25, 0, 10, 0 });
         unitCosts.put(UnitKind.GOBLIN_THROWER, new long[] { 25, 20, 0, 0 });
@@ -249,7 +249,7 @@ public class Config {
     public static int rtsFarTerrainCellPixels = 6;
 
     /** Bumped when defaults change in a way that should replace what older config files hold. */
-    private static final int CONFIG_VERSION = 13;
+    private static final int CONFIG_VERSION = 14;
 
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
@@ -329,6 +329,10 @@ public class Config {
                 forget(configuration, "units", "goblinCost" + resource);
                 forget(configuration, "units", "goblinThrowerCost" + resource);
             }
+        }
+        if (oldVersion < 14) {
+            // Centaurs cost more favor.
+            forget(configuration, "units", "centaurCostFavor");
         }
         version.set(CONFIG_VERSION);
 

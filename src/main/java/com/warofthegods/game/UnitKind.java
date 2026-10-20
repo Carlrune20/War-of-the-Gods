@@ -51,7 +51,7 @@ public enum UnitKind {
      * A centaur of Saradomin, man above and horse below, trained at the monastery for food, wood and favor. It shoots
      * a longbow farther than an archer, harder, and runs as fast as a rider.
      */
-    CENTAUR("centaur", "Centaur", "centaur", 4, 0, 2, 8, 4, true, false),
+    CENTAUR("centaur", "Centaur", "centaur", 4, 0, 2, 8, 5, true, false),
     /**
      * Bandos's slave, a goblin in rags and a shackle: gathers and builds as a worker does, never fights; trained at the
      * town center.
