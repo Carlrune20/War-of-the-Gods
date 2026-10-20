@@ -146,7 +146,7 @@ public class RenderUnit extends RenderBiped {
     /** How far up a rider sits, in blocks, to be in the saddle. */
     private static final float RIDER_LIFT = 0.7F;
     /** How far above a trebuchet's standing height its name goes, to clear its arm and pennants. */
-    private static final float TREBUCHET_LIFT = 4.0F;
+    private static final float TREBUCHET_LIFT = 11.0F;
     /** Horse coats: the low byte of a horse's variant. */
     private static final int HORSE_WHITE = 0;
     private static final int HORSE_BLACK = 4;

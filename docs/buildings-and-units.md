@@ -207,10 +207,11 @@ eight times as long as a warrior to train.
   help it, and it cannot fight up close, so it needs guarding.
 - It throws from up to 36 blocks: it takes aim for a second and a half, swings its arm up over the top and lets go of
   a cobblestone, then winds the arm back down and loads again, a throw every 9 seconds or so.
-- The stone flies in a high arc and bursts where it lands, breaking no blocks. An enemy building it lands on or beside
-  loses up to 250 health. Enemy units within 3 blocks take up to 16 damage, less toward the edge of the burst. Its own
+- The stone flies in a high arc and blows up where it lands, as TNT does, leaving a crater in the ground. Buildings,
+  the blocks within 2 of one, and map features such as gold mines are never broken. An enemy building it lands on or
+  beside loses up to 250 health instead. Enemy units within 3 blocks take up to 16 damage, less toward the edge of the burst. Its own
   team and allies are never hurt.
-- It is drawn at half size from the trebuchet structure, its arm swinging with each throw and a pennant in its team's
+- It is drawn full size from the trebuchet structure, its arm swinging with each throw and a pennant in its team's
   colour over each tower.
 
 ## Favor and magic

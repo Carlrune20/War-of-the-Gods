@@ -175,7 +175,7 @@ public class EntityUnit extends EntityCreature {
      * How tall a trebuchet is to bump into and find its way under; it is only as wide as a rider, to fit through the
      * gaps a rider does, though it is drawn much bigger.
      */
-    private static final float TREBUCHET_HEIGHT = 2.5F;
+    private static final float TREBUCHET_HEIGHT = 4.0F;
     /** Damage a worker's hit does to an animal it hunts. */
     private static final float HUNT_DAMAGE = 5;
     /** How far a worker looks for another animal once a carcass is eaten up. */

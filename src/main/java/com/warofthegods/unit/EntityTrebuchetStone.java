@@ -20,9 +20,10 @@ import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Team;
 
 /**
- * A stone a trebuchet throws: a falling cobblestone block, lobbed high, that bursts where it comes down. The burst
- * breaks no blocks but smashes the enemy buildings it lands on or beside and hurts enemies round it, less toward its
- * edge; it never harms its own team or allies.
+ * A stone a trebuchet throws: a falling cobblestone block, lobbed high, that blows up where it comes down as TNT
+ * does. The blast digs a crater, though it breaks no building, nothing close round one and no map feature; it smashes
+ * the enemy buildings it lands on or beside and hurts enemies round it, less toward its edge, but never harms its own
+ * team or allies.
  *
  * <p>
  * It is left out of the mod's entity list on purpose: Minecraft then sends it to clients as the falling block it is
@@ -32,7 +33,9 @@ import com.warofthegods.game.Team;
 public class EntityTrebuchetStone extends EntityFallingBlock {
 
     /** How far above a trebuchet's feet the stone leaves its arm, at the top of the swing. */
-    public static final double RELEASE_HEIGHT = 5.0;
+    public static final double RELEASE_HEIGHT = 12.0;
+    /** How big the blast is, for the blocks it breaks: as big as TNT's. */
+    private static final float BLAST_POWER = 4.0F;
     /** How hard the world pulls the stone down, and how much speed it keeps each tick, as for falling sand. */
     private static final double GRAVITY = 0.04;
     private static final double DRAG = 0.98;
@@ -120,9 +123,12 @@ public class EntityTrebuchetStone extends EntityFallingBlock {
         return false;
     }
 
-    /** Bursts where it is: a blast and a cloud of dust, enemies round it hurt and enemy buildings smashed. */
+    /**
+     * Bursts where it is: a blast that breaks blocks as TNT does and a cloud of dust, enemies round it hurt and enemy
+     * buildings smashed. Buildings see to it that the blast breaks none of theirs and leaves the hurting to this.
+     */
     private void burst() {
-        ((WorldServer) worldObj).func_147487_a("hugeexplosion", posX, posY, posZ, 1, 0, 0, 0, 0);
+        worldObj.newExplosion(this, posX, posY, posZ, BLAST_POWER, false, true);
         ((WorldServer) worldObj).func_147487_a(
             "blockcrack_" + Block.getIdFromBlock(Blocks.cobblestone) + "_0",
             posX,
@@ -133,7 +139,6 @@ public class EntityTrebuchetStone extends EntityFallingBlock {
             0.5,
             1.0,
             0.15);
-        worldObj.playSoundEffect(posX, posY, posZ, "random.explode", 4.0F, 0.7F + rand.nextFloat() * 0.2F);
         Game game = GameManager.getGame();
         Team team = game == null ? null : game.getTeam(teamId);
         if (team == null) {

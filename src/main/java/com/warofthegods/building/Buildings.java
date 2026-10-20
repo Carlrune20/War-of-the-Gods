@@ -49,6 +49,7 @@ import com.warofthegods.game.Upgrade;
 import com.warofthegods.game.WallLine;
 import com.warofthegods.shop.Shop;
 import com.warofthegods.unit.EntityTeamArrow;
+import com.warofthegods.unit.EntityTrebuchetStone;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Units;
 import com.warofthegods.web.WebMap;
@@ -1898,14 +1899,16 @@ public final class Buildings {
 
     /**
      * Explosions near buildings, such as creepers going off, take health off them instead of blowing holes in them:
-     * nothing within {@link Config#explosionProtection} blocks of a building or building site breaks.
+     * nothing within {@link Config#explosionProtection} blocks of a building or building site breaks. A trebuchet's
+     * stone hurts only enemies, units and buildings alike, and does that itself; its blast just breaks blocks.
      */
     @SubscribeEvent
     public void onDetonate(ExplosionEvent.Detonate event) {
         if (event.world.isRemote || !GameWorld.isGameWorld(event.world)) {
             return;
         }
-        if (harmless) {
+        boolean stone = event.explosion.exploder instanceof EntityTrebuchetStone;
+        if (harmless || stone) {
             event.getAffectedEntities()
                 .clear();
         }
@@ -1950,7 +1953,7 @@ public final class Buildings {
                 Math.max(building.minZ - explosion.explosionZ, explosion.explosionZ - (building.getMaxZ() + 1)));
             double dy = Math.max(0, Math.max(building.groundY - explosion.explosionY, explosion.explosionY - top));
             double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (distance < reach) {
+            if (distance < reach && !stone) {
                 int amount = (int) Math
                     .round(Config.explosionBuildingDamage * (1 - distance / reach) * Math.min(2, size / 3));
                 if (amount > 0) {

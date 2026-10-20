@@ -22,15 +22,15 @@ import com.warofthegods.unit.EntityUnit;
 
 /**
  * Draws a trebuchet from the three structures tools/structures/generate.py makes for it, block by block as the world
- * draws them, at half size: the frame standing still, the arm turning on the axle, and the counterweight hanging
+ * draws them, at full size: the frame standing still, the arm turning on the axle, and the counterweight hanging
  * upright from the arm's short end. When it throws, the arm swings up over the top, faster and faster as the weight
  * drops, lets the stone go, and is wound back down until it is cocked again with a new stone in the sling. A pennant
  * in its team's color flies over each tower.
  */
 final class RenderTrebuchet {
 
-    /** How big it is drawn: the frame, 7 by 11 blocks, comes out about as long as a house. */
-    private static final float SCALE = 0.5F;
+    /** How big it is drawn: block for block, as big as the structure it is made from. */
+    private static final float SCALE = 1.0F;
     /** Where the axle runs, in the frame's blocks, and where on the arm it passes through, in the arm's. */
     private static final double AXLE_X = 3.5;
     private static final double AXLE_Y = 9.5;
@@ -69,6 +69,15 @@ final class RenderTrebuchet {
     private final Part stone = new Part(arm.schematic, Part.STONE_ONLY);
     private final Part weight = new Part(Schematic.load("neutral/trebuchet_counterweight"), Part.ALL);
     private final RenderBlocks renderBlocks = new RenderBlocks();
+    /**
+     * Degrees a trebuchet turns at most in a tick, as heavy as it is: about a quarter turn in two seconds. It does not
+     * swing round at once to face where it looks, as a man would.
+     */
+    private static final float TURN_PER_TICK = 4.5F;
+    /** Blocks a tick it has to be rolling for the way it rolls to count as the way to face. */
+    private static final double ROLLING = 0.01;
+    /** For each trebuchet seen: the way it faced the tick before and this tick, and the tick that was. */
+    private final Map<EntityUnit, float[]> facings = new WeakHashMap<>();
     /** For each trebuchet seen: the number of throws it showed, and the tick its latest throw was seen to begin. */
     private final Map<EntityUnit, int[]> throwsSeen = new WeakHashMap<>();
 
@@ -78,8 +87,7 @@ final class RenderTrebuchet {
         boolean loaded = sinceThrow < EntityUnit.TREBUCHET_RELEASE
             || sinceThrow >= EntityUnit.TREBUCHET_RELOAD - LOADED_BEFORE;
         int brightness = unit.getBrightnessForRender(partialTicks);
-        float yaw = unit.prevRotationYawHead
-            + MathHelper.wrapAngleTo180_float(unit.rotationYawHead - unit.prevRotationYawHead) * partialTicks;
+        float yaw = facing(unit, partialTicks);
 
         GL11.glPushMatrix();
         GL11.glTranslated(x, y, z);
@@ -129,6 +137,32 @@ final class RenderTrebuchet {
         pennants(unit.getTeamColor());
         GL11.glEnable(GL11.GL_LIGHTING);
         GL11.glPopMatrix();
+    }
+
+    /**
+     * The way the trebuchet faces, turning slowly toward the way it rolls while it is on the move, and while it stands
+     * toward what it looks at, which is what it aims at.
+     */
+    private float facing(EntityUnit unit, float partialTicks) {
+        float[] facing = facings.get(unit);
+        if (facing == null) {
+            facing = new float[] { unit.rotationYawHead, unit.rotationYawHead, unit.ticksExisted };
+            facings.put(unit, facing);
+        }
+        int ticks = Math.min(20, unit.ticksExisted - (int) facing[2]);
+        if (ticks > 0) {
+            double dx = unit.posX - unit.prevPosX;
+            double dz = unit.posZ - unit.prevPosZ;
+            float wanted = dx * dx + dz * dz > ROLLING * ROLLING ? (float) Math.toDegrees(Math.atan2(-dx, dz))
+                : unit.rotationYawHead;
+            facing[0] = facing[1];
+            for (int i = 0; i < ticks; i++) {
+                float turn = MathHelper.wrapAngleTo180_float(wanted - facing[1]);
+                facing[1] += Math.max(-TURN_PER_TICK, Math.min(TURN_PER_TICK, turn));
+            }
+            facing[2] = unit.ticksExisted;
+        }
+        return facing[0] + MathHelper.wrapAngleTo180_float(facing[1] - facing[0]) * partialTicks;
     }
 
     /**
