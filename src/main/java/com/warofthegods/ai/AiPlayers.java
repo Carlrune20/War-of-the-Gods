@@ -137,8 +137,7 @@ public final class AiPlayers {
     /** Fewest towers its wall runs between, so that it goes all the way round the town. */
     private static final int WALL_TOWERS = 3;
     /**
-     * Ticks between looks at its walls for pieces knocked down, and before it tries again a side it found no room
-     * for.
+     * Ticks between looks at its walls for pieces knocked down, and before it tries again a side it found no room for.
      */
     private static final int BREACH_CHECK_TICKS = 200;
     private static final int WALL_RETRY_TICKS = 2400;
@@ -1063,11 +1062,8 @@ public final class AiPlayers {
             Units.get()
                 .orderBuild(builders, sites.get(i), i > 0);
         }
-        WarOfTheGods.LOG.info(
-            "AI {} laid out {} pieces of wall with {} workers",
-            team.getName(),
-            sites.size(),
-            builders.size());
+        WarOfTheGods.LOG
+            .info("AI {} laid out {} pieces of wall with {} workers", team.getName(), sites.size(), builders.size());
         return true;
     }
 
@@ -1087,8 +1083,7 @@ public final class AiPlayers {
         if (towers.size() < WALL_TOWERS) {
             return null;
         }
-        towers.sort(
-            Comparator.comparingDouble(tower -> Math.atan2(tower.getCenterZ() - cz, tower.getCenterX() - cx)));
+        towers.sort(Comparator.comparingDouble(tower -> Math.atan2(tower.getCenterZ() - cz, tower.getCenterX() - cx)));
         int[][] ring = new int[towers.size()][];
         for (int i = 0; i < towers.size(); i++) {
             Building tower = towers.get(i);
