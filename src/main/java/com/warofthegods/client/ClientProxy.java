@@ -43,10 +43,15 @@ public class ClientProxy extends CommonProxy {
         for (ItemGodsword godsword : WarOfTheGods.godswords) {
             MinecraftForgeClient.registerItemRenderer(
                 godsword,
-                new RenderModelItem(ItemGodsword.registryName(godsword.god), ARTIFACT_SCALE, -29, true));
+                new RenderModelItem(
+                    ItemGodsword.registryName(godsword.god),
+                    ARTIFACT_SCALE,
+                    -29,
+                    RenderModelItem.Hold.HEAVY));
         }
-        MinecraftForgeClient
-            .registerItemRenderer(WarOfTheGods.darkBow, new RenderModelItem("dark_bow", ARTIFACT_SCALE, 0));
+        MinecraftForgeClient.registerItemRenderer(
+            WarOfTheGods.darkBow,
+            new RenderModelItem("dark_bow", ARTIFACT_SCALE, 0, RenderModelItem.Hold.BOW));
         MinecraftForgeClient.registerItemRenderer(
             WarOfTheGods.dragonScimitar,
             new RenderModelItem("dragon_scimitar", ARTIFACT_SCALE, -22));

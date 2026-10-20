@@ -24,8 +24,11 @@ import cpw.mods.fml.relauncher.ReflectionHelper;
  */
 public final class GodswordPose {
 
-    /** Where both arms rest, raised forward, and how far the left reaches across to the grip. */
-    private static final float GUARD = -0.95F, LEFT_ACROSS = 0.55F, RIGHT_ACROSS = -0.2F;
+    /**
+     * Where both arms rest, raised forward, and how far each turns in toward the other: the right hand a little, the
+     * left across the body until it closes on the grip beside the right.
+     */
+    private static final float GUARD = -0.95F, LEFT_ACROSS = 1.0F, RIGHT_ACROSS = -0.35F;
     /** How far over the head the sword is heaved, and how far down it comes. */
     private static final float RAISED = -2.9F, CHOPPED = -0.25F;
 
@@ -105,7 +108,7 @@ public final class GodswordPose {
         model.bipedLeftArm.rotationPointZ = -MathHelper.sin(twist) * 5.0F;
         model.bipedLeftArm.rotationPointX = MathHelper.cos(twist) * 5.0F;
         model.bipedRightArm.rotateAngleX = pitch;
-        model.bipedLeftArm.rotateAngleX = pitch + 0.1F;
+        model.bipedLeftArm.rotateAngleX = pitch;
         model.bipedRightArm.rotateAngleY = RIGHT_ACROSS + twist;
         model.bipedLeftArm.rotateAngleY = LEFT_ACROSS + twist;
         model.bipedRightArm.rotateAngleZ = 0;

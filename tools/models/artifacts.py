@@ -225,12 +225,12 @@ HILT_IRON = (70, 66, 70)
 
 def dragon_metal(face, x, y, w, h):
     if face in ("front", "back"):
-        if x == w - 1:
-            return DRAGON_LIGHT
         if x == 0:
+            return DRAGON_LIGHT
+        if x == w - 1:
             return DRAGON_DARK
         return DRAGON
-    return DRAGON_LIGHT if face == "right" else DRAGON_DARK
+    return DRAGON_LIGHT if face == "left" else DRAGON_DARK
 
 
 def dragon_scimitar():
@@ -239,28 +239,28 @@ def dragon_scimitar():
     iron = flat(HILT_IRON)
     fbox(sword, -1, -5, -1, 2, 10, 2, wrapped(HILT_IRON, shade(HILT_IRON, 0.6)), inflate=0.1)
     # The pommel hooks back the way the blade curves, the guard's ends curl: an S of dark iron round the grip.
-    pommel = sword.child("pommel", pivot=(0, 5, 0), rotation=(0, 0, 0.9))
+    pommel = sword.child("pommel", pivot=(0, 5, 0), rotation=(0, 0, -0.9))
     fbox(pommel, -0.75, 0, -0.75, 1.5, 4, 1.5, iron)
-    fbox(pommel, -0.5, 3, -0.5, 3, 1, 1, iron)
+    fbox(pommel, -2.5, 3, -0.5, 3, 1, 1, iron)
     guard = sword.child("guard", pivot=(0, -6, 0))
     fbox(guard, -3, -1, -1.25, 6, 2, 2.5, iron)
-    curl = guard.child("curl", pivot=(-3, 0, 0), rotation=(0, 0, 2.3))
+    curl = guard.child("curl", pivot=(3, 0, 0), rotation=(0, 0, -2.3))
     fbox(curl, -0.5, -3, -0.5, 1, 3, 1, iron)
-    fbox(curl, -0.5, -3.5, -0.5, 2, 1, 1, iron)
-    hook = guard.child("hook", pivot=(3, 0, 0), rotation=(0, 0, -0.4))
+    fbox(curl, -1.5, -3.5, -0.5, 2, 1, 1, iron)
+    hook = guard.child("hook", pivot=(-3, 0, 0), rotation=(0, 0, 0.4))
     fbox(hook, -0.5, -3, -0.5, 1, 3, 1, iron)
-    # The blade: short, curving back, broadening greatly toward its end. Each step is set to the edge (-x), so its back
-    # (+x) rises in jagged steps, as RuneScape's does; then a long point sweeps up from the broad end.
-    part = sword.child("blade_0", pivot=(0, -7, 0), rotation=(0, 0, 0.1))
+    # The blade: short, curving back toward -x, broadening greatly toward its end. Each step is set to the edge (+x),
+    # so its back (-x) rises in jagged steps, as RuneScape's does; then a long point sweeps up from the broad end.
+    part = sword.child("blade_0", pivot=(0, -7, 0), rotation=(0, 0, -0.1))
     widths = (3, 4, 5, 6, 7, 8)
     for i, width in enumerate(widths):
         if i:
-            part = part.child("blade_%d" % i, pivot=(0, -5.5, 0), rotation=(0, 0, 0.07))
-        fbox(part, -1.5, -6, -0.5, width, 6, 1, dragon_metal)
-    tip = part.child("tip", pivot=(-1.5, -5.5, 0), rotation=(0, 0, 0.25))
-    fbox(tip, 0, -5, -0.5, 6, 5, 1, dragon_metal, inflate=-0.05)
-    fbox(tip, 0.5, -9, -0.5, 4, 4, 1, dragon_metal, inflate=-0.05)
-    fbox(tip, 1, -12, -0.5, 2, 3, 1, dragon_metal, inflate=-0.1)
+            part = part.child("blade_%d" % i, pivot=(0, -5.5, 0), rotation=(0, 0, -0.07))
+        fbox(part, 1.5 - width, -6, -0.5, width, 6, 1, dragon_metal)
+    tip = part.child("tip", pivot=(1.5, -5.5, 0), rotation=(0, 0, -0.25))
+    fbox(tip, -6, -5, -0.5, 6, 5, 1, dragon_metal, inflate=-0.05)
+    fbox(tip, -4.5, -9, -0.5, 4, 4, 1, dragon_metal, inflate=-0.05)
+    fbox(tip, -3, -12, -0.5, 2, 3, 1, dragon_metal, inflate=-0.1)
     return m
 
 

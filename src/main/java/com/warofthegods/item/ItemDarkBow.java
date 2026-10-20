@@ -57,6 +57,15 @@ public class ItemDarkBow extends ItemBow {
         lines.add(EnumChatFormatting.BLUE + "Unbreakable");
     }
 
+    /**
+     * Held up as a sword is, rather than lying flat as an icon: it is drawn as a model (see
+     * com.warofthegods.client.RenderModelItem), which expects to be held so.
+     */
+    @Override
+    public boolean isFull3D() {
+        return true;
+    }
+
     /** One picture however far it is drawn, rather than a bow's three. */
     @Override
     @SideOnly(Side.CLIENT)

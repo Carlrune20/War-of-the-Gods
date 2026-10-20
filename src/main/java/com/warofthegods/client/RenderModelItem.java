@@ -32,22 +32,32 @@ public class RenderModelItem implements IItemRenderer {
     private final float scale;
     /** How far along y the model's middle is from where it is held, in units. */
     private final float middle;
-    private final boolean heavy;
+    private final Hold hold;
+
+    /** How an item is held in the player's own view. */
+    public enum Hold {
+        /** As a sword is. */
+        ONE_HAND,
+        /** A godsword: held up before them, swaying a little, and swung in a great chop. */
+        HEAVY,
+        /** A bow held out in the middle of the grip: drawn smaller and further up, so the whole of it shows. */
+        BOW
+    }
+
+    /** How much smaller a bow is drawn in the player's own view, and how far up it is moved, in the item's square. */
+    private static final float BOW_IN_VIEW = 0.6F, BOW_LIFT = 0.45F;
 
     /**
      * The model in models/name.json with its texture, drawn so a unit of the model is scale of the square an item is
      * drawn in, and its middle middle units along from where it is held.
      */
     public RenderModelItem(String name, float scale, float middle) {
-        this(name, scale, middle, false);
+        this(name, scale, middle, Hold.ONE_HAND);
     }
 
-    /**
-     * As above; a heavy item, a godsword, is drawn in the player's own view held up before them, swaying a little,
-     * and swung in a great chop.
-     */
-    public RenderModelItem(String name, float scale, float middle, boolean heavy) {
-        this.heavy = heavy;
+    /** As above, held in the player's own view as hold says. */
+    public RenderModelItem(String name, float scale, float middle, Hold hold) {
+        this.hold = hold;
         model = new JsonModel(new ModelBase() {}, name);
         texture = new ResourceLocation(WarOfTheGods.MODID, "textures/models/" + name + ".png");
         this.scale = scale;
@@ -93,8 +103,11 @@ public class RenderModelItem implements IItemRenderer {
             // Across the square from its bottom right to its top left, as a sword is drawn, held near the bottom.
             GL11.glTranslatef(GRIP, GRIP_UP, -0.03125F);
             GL11.glRotatef(45, 0, 0, 1);
-            if (heavy && type == ItemRenderType.EQUIPPED_FIRST_PERSON) {
+            if (hold == Hold.HEAVY && type == ItemRenderType.EQUIPPED_FIRST_PERSON) {
                 heavyInView();
+            } else if (hold == Hold.BOW && type == ItemRenderType.EQUIPPED_FIRST_PERSON) {
+                GL11.glTranslatef(0, BOW_LIFT, 0);
+                GL11.glScalef(BOW_IN_VIEW, BOW_IN_VIEW, BOW_IN_VIEW);
             }
         }
         // Models are drawn upside down; turned over, top is up.
