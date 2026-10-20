@@ -6,10 +6,13 @@ import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.entity.RenderManager;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.client.GuiIngameForge;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
+import net.minecraftforge.client.event.RenderLivingEvent;
 import net.minecraftforge.common.MinecraftForge;
 
 import org.lwjgl.opengl.GL11;
@@ -25,7 +28,8 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 /**
  * The prayer bar, above the hunger bar while the player carries a prayer book: ten stars of two points each, as
  * hearts are of health, with the chosen protection prayer's icon beside them, bright while it is up. While the book
- * is held down to switch prayers, the prayer's name shows above the bar.
+ * is held down to switch prayers, the prayer's name shows above the bar. Any player's prayer that is up shows over
+ * their head.
  */
 public final class PrayerHud {
 
@@ -56,6 +60,18 @@ public final class PrayerHud {
         points = message.points;
         prayer = Prayer.byOrdinal(message.prayer);
         up = message.up;
+    }
+
+    /** Over the head of a player who has a prayer up, as over a hero's. */
+    @SubscribeEvent
+    public void onRenderSpecials(RenderLivingEvent.Specials.Post event) {
+        if (!(event.entity instanceof EntityPlayer) || event.entity.isInvisible()) {
+            return;
+        }
+        Prayer up = PlayerPrayers.watchedOn((EntityPlayer) event.entity);
+        if (up != Prayer.NONE) {
+            RenderUnit.drawOverhead(RenderManager.instance, up, event.x, event.y + event.entity.height + 0.9, event.z);
+        }
     }
 
     @SubscribeEvent

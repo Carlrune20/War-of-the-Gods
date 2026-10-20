@@ -296,8 +296,16 @@ public class RenderUnit extends RenderBiped {
         if (prayer == Prayer.NONE || entity.isInvisible()) {
             return;
         }
+        drawOverhead(renderManager, prayer, x, y + entity.height + 0.9, z);
+    }
+
+    /**
+     * A protection prayer's icon at x, y, z, facing the camera: above a hero's head, or a player's who has one up with
+     * a prayer book.
+     */
+    public static void drawOverhead(RenderManager renderManager, Prayer prayer, double x, double y, double z) {
         GL11.glPushMatrix();
-        GL11.glTranslated(x, y + entity.height + 0.9, z);
+        GL11.glTranslated(x, y, z);
         GL11.glNormal3f(0, 1, 0);
         GL11.glRotatef(-renderManager.playerViewY, 0, 1, 0);
         GL11.glRotatef(renderManager.playerViewX, 1, 0, 0);
@@ -305,7 +313,7 @@ public class RenderUnit extends RenderBiped {
         GL11.glEnable(GL11.GL_BLEND);
         OpenGlHelper.glBlendFunc(770, 771, 1, 0);
         GL11.glColor4f(1, 1, 1, 1);
-        bindTexture(OVERHEADS.get(prayer));
+        renderManager.renderEngine.bindTexture(OVERHEADS.get(prayer));
         float half = OVERHEAD_SIZE / 2;
         Tessellator tessellator = Tessellator.instance;
         // Turned to the camera as the name is, its right is toward -x.

@@ -8,6 +8,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EnumChatFormatting;
+import net.minecraftforge.event.entity.EntityEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 
 import com.warofthegods.game.Building;
@@ -27,7 +28,8 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  * {@link #MAX_POINTS} points, as many as their health. A protection prayer, put up with the book, takes three quarters
  * of hits of its style as a hero's does, and drains a point for every {@link #DRAIN_TICKS} it is up; it goes down when
  * the points run out, or the book is no longer carried. Standing by their own team's chaos temple, monastery or Bandos
- * temple fills the points up again. Points are kept with the player, and come back full when they die.
+ * temple fills the points up again. Points are kept with the player, and come back full when they die. The prayer a
+ * player has up shows over their head, as a hero's does.
  */
 public final class PlayerPrayers {
 
@@ -38,9 +40,30 @@ public final class PlayerPrayers {
     private static final double TEMPLE_REACH = 4;
 
     private static final String TAG = "warofthegods.prayer";
+    /**
+     * The player's data watcher slot that tells every client the prayer they have up, to show over their head. Players
+     * use slots up to 18 for themselves.
+     */
+    public static final int WATCH_PRAYER = 27;
 
     /** What each player's client was last told, so it is told again only when that changes. */
     private static final Map<EntityPlayer, Integer> SENT = new WeakHashMap<>();
+
+    /** Every player has the slot that shows their prayer, on the server and on each client. */
+    @SubscribeEvent
+    public void onEntityConstructing(EntityEvent.EntityConstructing event) {
+        if (event.entity instanceof EntityPlayer) {
+            event.entity.getDataWatcher()
+                .addObject(WATCH_PRAYER, (byte) 0);
+        }
+    }
+
+    /** On a client, the prayer a player has up, as their server said. */
+    public static Prayer watchedOn(EntityPlayer player) {
+        return Prayer.byOrdinal(
+            player.getDataWatcher()
+                .getWatchableObjectByte(WATCH_PRAYER));
+    }
 
     /** A player's prayer: points, the prayer chosen, whether it is up and how long it has been since the last drain. */
     private static NBTTagCompound state(EntityPlayer player) {
@@ -187,6 +210,12 @@ public final class PlayerPrayers {
         int points = points(player);
         int prayer = chosen(player).ordinal();
         boolean up = state(player).getBoolean("up");
+        byte shown = (byte) upFor(player).ordinal();
+        if (player.getDataWatcher()
+            .getWatchableObjectByte(WATCH_PRAYER) != shown) {
+            player.getDataWatcher()
+                .updateObject(WATCH_PRAYER, shown);
+        }
         int packed = points | prayer << 8 | (up ? 1 << 16 : 0);
         Integer sent = SENT.get(player);
         if (sent == null || sent != packed) {

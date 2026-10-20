@@ -33,6 +33,8 @@ public final class ArmorLooks {
     private static ArmorLooks instance;
 
     private final ModelArmor fullHelm = new ModelArmor("full_helm");
+    /** Dragon's full helm, which has horns. */
+    private final ModelArmor dragonHelm = new ModelArmor("full_helm_dragon");
     private final ModelArmor cowl = new ModelArmor("leather_cowl");
     private final ModelArmor plate = new ModelArmor("plate");
     private final ResourceLocation cowlTexture = texture("leather_cowl");
@@ -114,7 +116,7 @@ public final class ArmorLooks {
         } else if (look < 0) {
             return VANILLA;
         } else if (pass == 0) {
-            model = fullHelm;
+            model = look == 3 ? dragonHelm : fullHelm;
             texture = helms[look];
         } else {
             plate.showPiece(pass);

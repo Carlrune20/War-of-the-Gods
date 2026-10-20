@@ -41,6 +41,7 @@ public class ModelArmor extends ModelBiped {
     @Override
     public void render(Entity entity, float swing, float swingAmount, float age, float yaw, float pitch, float scale) {
         setRotationAngles(swing, swingAmount, age, yaw, pitch, scale, entity);
+        GodswordPose.apply(this, entity, age);
         model.resetPose();
         model.follow("head", bipedHead, 0, 0, 0);
         model.follow("mantle", bipedBody, 0, 0, 0);
