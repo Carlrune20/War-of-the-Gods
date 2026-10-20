@@ -609,6 +609,44 @@ public final class RtsState {
         return team != null && team.id.equals(unit.team);
     }
 
+    /**
+     * The resource a unit gathers: food hunting or at a farm, wood chopping, gold mining or at a quarry; null when it
+     * gathers nothing. Walking to a store and back counts, as the order stays the same.
+     */
+    public String gathering(UnitInfo unit) {
+        if (unit.order == null) {
+            return null;
+        }
+        switch (unit.order) {
+            case "hunt":
+                return "food";
+            case "chop":
+                return "wood";
+            case "mine":
+                return "gold";
+            case "work": {
+                BuildingInfo building = buildings.get(unit.building);
+                if (building == null) {
+                    return null;
+                }
+                return "farm".equals(building.type) ? "food" : "quarry".equals(building.type) ? "gold" : null;
+            }
+            default:
+                return null;
+        }
+    }
+
+    /** How many of the viewer's units gather the resource. */
+    public int gatherers(String resource) {
+        int count = 0;
+        for (UnitInfo unit : units.values()) {
+            if (isMine(unit) && resource.equals(gathering(unit))) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     public boolean isEnemyTeam(String teamId) {
         TeamInfo team = myTeam();
         return team != null && teamId != null && !teamId.equals(team.id) && !team.allies.contains(teamId);
