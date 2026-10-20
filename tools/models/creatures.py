@@ -347,6 +347,17 @@ GOBLIN_LOOKS = {
                        clear, clear),
 }
 
+# Goblins and axe-throwers in their team's armor upgrades: a leather cap and a quilted jerkin with leather pauldrons
+# and shin wraps for padded armor, an iron helm, a steel shirt with iron pauldrons and greaves for plate.
+PADDED = (150, 118, 78)
+PADDED_DARK = (112, 86, 56)
+for name in ("goblin", "goblin_thrower"):
+    skin, eye = GOBLIN_LOOKS[name][:2]
+    GOBLIN_LOOKS[name + "_padded"] = (skin, eye, helm(LEATHER, LEATHER, LEATHER_DARK), (PADDED, PADDED_DARK),
+                                      plain(LEATHER), plain(LEATHER_DARK))
+    GOBLIN_LOOKS[name + "_plate"] = (skin, eye, helm(STEEL_LIGHT, STEEL, STEEL_DARK), (STEEL, STEEL_DARK), iron,
+                                     plain(STEEL))
+
 
 def goblin(kind="goblin"):
     skin, eye, helmet, (tunic_color, tunic_dark), pauldron, wraps = GOBLIN_LOOKS[kind]
@@ -356,7 +367,7 @@ def goblin(kind="goblin"):
     head.box(-3, -6, -3, 6, 6, 6, goblin_head(skin, eye))
     head.box(-2.5, -1.5, -4, 5, 2, 1, flesh(skin))                    # the jutting jaw
     head.child("nose", pivot=(0, -3.5, -3), rotation=(0.35, 0, 0)).box(-1, -0.5, -3, 2, 2, 3, nose(skin))
-    head.box(-0.5, -8, -2, 1, 2, 5, mohawk(HAIR))
+    head.box(-0.5, -8, -2, 1, 2, 5, mohawk(HAIR) if helmet is clear else clear)   # hidden under a helmet or hood
     head.box(-3, -6, -3, 6, 3, 6, helmet, inflate=0.5)
     for side in (-1, 1):
         ear = head.child("%s_ear" % ("left" if side > 0 else "right"), pivot=(side * 3, -4, 0.5),

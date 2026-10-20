@@ -42,7 +42,7 @@ public class Config {
         unitCosts.put(UnitKind.LESSER_DEMON, new long[] { 300, 0, 300, 7 });
         unitCosts.put(UnitKind.CENTAUR, new long[] { 150, 150, 0, 3 });
         unitCosts.put(UnitKind.SLAVE, new long[] { 40, 0, 0, 0 });
-        unitCosts.put(UnitKind.GOBLIN, new long[] { 20, 0, 5, 0 });
+        unitCosts.put(UnitKind.GOBLIN, new long[] { 25, 0, 10, 0 });
         unitCosts.put(UnitKind.GOBLIN_THROWER, new long[] { 25, 20, 0, 0 });
         unitCosts.put(UnitKind.HOBGOBLIN, new long[] { 50, 0, 30, 0 });
         unitCosts.put(UnitKind.ORK, new long[] { 90, 0, 60, 0 });
@@ -241,7 +241,7 @@ public class Config {
     public static int rtsFarTerrainCellPixels = 6;
 
     /** Bumped when defaults change in a way that should replace what older config files hold. */
-    private static final int CONFIG_VERSION = 12;
+    private static final int CONFIG_VERSION = 13;
 
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
@@ -315,7 +315,7 @@ public class Config {
             // Quarries became a late, costly building.
             forget(configuration, "buildings", "quarryCostWood");
         }
-        if (oldVersion < 12) {
+        if (oldVersion < 13) {
             // Goblins and their axe-throwers became cheaper.
             for (String resource : new String[] { "Food", "Wood", "Gold" }) {
                 forget(configuration, "units", "goblinCost" + resource);
