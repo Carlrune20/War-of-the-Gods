@@ -40,7 +40,7 @@ import cpw.mods.fml.common.eventhandler.SubscribeEvent;
  * cooked food for food, building blocks, stone tools and leather armor, and buys ores and ingots for gold, so what
  * players dig out of caves goes to their team. The chest in its armory sells iron tools, iron armor (dark iron for
  * Zamorak's teams), bows and arrows from Age II and runite (Minecraft's diamond) tools and armor, and the hilt of the
- * team's god for a godsword, from Age III.
+ * team's god for a godsword, from Age III; a Zamorak team's armory sells Zamorak's staff too.
  * Everything is paid for out of the team's resources, and the whole team is told what was bought. Nothing a shop sells
  * can be sold back.
  */
@@ -49,17 +49,31 @@ public final class Shop {
     /** Blocks from the chest a player may stand and still use the shop. */
     private static final double REACH = 8;
 
-    /** One thing on sale: what it is, what it costs in food, wood and gold, and the age it needs. */
+    /**
+     * One thing on sale: what it is, what it costs in food, wood and gold, the age it needs, and the faction it is
+     * sold to, or null when every team can buy it.
+     */
     static final class Ware {
 
         final ItemStack item;
         final long[] cost;
         final int age;
+        final Faction faction;
 
         Ware(ItemStack item, long food, long wood, long gold, int age) {
+            this(item, food, wood, gold, age, null);
+        }
+
+        Ware(ItemStack item, long food, long wood, long gold, int age, Faction faction) {
             this.item = item;
             this.cost = new long[] { food, wood, gold };
             this.age = age;
+            this.faction = faction;
+        }
+
+        /** Whether a team's shop has this on its shelves at all. */
+        boolean soldTo(Team team) {
+            return faction == null || team != null && team.getFaction() == faction;
         }
 
         Map<Resource, Long> cost() {
@@ -136,8 +150,8 @@ public final class Shop {
         ARMORY.put(0, 8, new Ware(new ItemStack(Items.iron_boots), 0, 0, 40, 2));
         ARMORY.put(1, 0, new Ware(new ItemStack(Items.bow), 0, 20, 10, 2));
         ARMORY.put(1, 1, new Ware(new ItemStack(Items.arrow, 16), 0, 10, 0, 2));
-        // Zamorak's staff casts fire strikes.
-        ARMORY.put(1, 3, new Ware(new ItemStack(WarOfTheGods.zamorakStaff), 0, 50, 150, 3));
+        // Zamorak's staff casts fire strikes. Only his own armories sell it; anyone else has to find one in a ruin.
+        ARMORY.put(1, 3, new Ware(new ItemStack(WarOfTheGods.zamorakStaff), 0, 50, 150, 3, Faction.ZAMORAK));
         // The hilt of the team's own god, to fit to a godsword blade found in a ruin.
         ARMORY.put(1, 5, new Ware(new ItemStack(WarOfTheGods.hilts[Faction.SARADOMIN.ordinal()]), 0, 0, 300, 3));
 
@@ -240,6 +254,9 @@ public final class Shop {
         int age = team == null ? 1 : team.getAge();
         for (int slot = 0; slot < stall.wares.length; slot++) {
             Ware ware = stall.wares[slot];
+            if (ware != null && !ware.soldTo(team)) {
+                ware = null;
+            }
             ItemStack shown = null;
             if (ware != null) {
                 shown = goods(ware, team);
@@ -290,7 +307,7 @@ public final class Shop {
             return;
         }
         Ware ware = slot < stall.wares.length ? stall.wares[slot] : null;
-        if (ware == null) {
+        if (ware == null || !ware.soldTo(team)) {
             return;
         }
         ItemStack goods = goods(ware, team);
