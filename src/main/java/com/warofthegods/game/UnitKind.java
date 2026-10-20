@@ -361,12 +361,16 @@ public enum UnitKind {
     }
 
     /**
-     * Whether it wears its team's armor upgrades for show: warriors, archers and cavalry, and goblins and their
-     * axe-throwers, whose models are drawn armored instead. Knights and heroes keep their own look, though the
-     * upgrades still make them stronger.
+     * Whether it wears its team's armor upgrades for show: warriors, archers and cavalry, and goblins, their
+     * axe-throwers and hobgoblins, whose models are drawn armored instead. Knights and heroes keep their own look,
+     * though the upgrades still make them stronger.
      */
     public boolean showsArmor() {
-        return this == SOLDIER || this == ARCHER || this == CAVALRY || this == GOBLIN || this == GOBLIN_THROWER;
+        return this == SOLDIER || this == ARCHER
+            || this == CAVALRY
+            || this == GOBLIN
+            || this == GOBLIN_THROWER
+            || this == HOBGOBLIN;
     }
 
     /**

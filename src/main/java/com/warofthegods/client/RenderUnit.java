@@ -53,7 +53,7 @@ public class RenderUnit extends RenderBiped {
     private static final Map<String, ResourceLocation> SKINS = new HashMap<>();
     /**
      * Bandos's creatures' textures, and where on them their team's color goes, by texture name: the unit kind's id,
-     * and for goblins that show their team's armor that with _padded or _plate after it.
+     * and for goblins and hobgoblins that show their team's armor that with _padded or _plate after it.
      */
     private static final Map<String, ResourceLocation> CREATURE = new HashMap<>();
     private static final Map<String, ResourceLocation> CREATURE_TEAM = new HashMap<>();
@@ -73,8 +73,8 @@ public class RenderUnit extends RenderBiped {
     }
 
     /**
-     * The name of the texture one of Bandos's creatures is drawn with: a goblin wearing its team's armor, which the
-     * server puts on it as it does on a warrior, is drawn in padded or plate armor of its own instead.
+     * The name of the texture one of Bandos's creatures is drawn with: a goblin or hobgoblin wearing its team's armor,
+     * which the server puts on it as it does on a warrior, is drawn in padded or plate armor of its own instead.
      */
     private static String creatureTexture(EntityUnit unit) {
         UnitKind kind = unit.getWatchedKind();
@@ -323,7 +323,10 @@ public class RenderUnit extends RenderBiped {
         return unit.isWatchedElite() && ELITE_SKINS.containsKey(key) ? ELITE_SKINS.get(key) : SKINS.get(key);
     }
 
-    /** Bandos's creatures wear no player armor over their models: an armored goblin's texture shows its armor. */
+    /**
+     * Bandos's creatures wear no player armor over their models: an armored goblin's or hobgoblin's texture shows its
+     * armor.
+     */
     @Override
     protected int shouldRenderPass(EntityLiving entity, int pass, float partialTicks) {
         if (((EntityUnit) entity).getWatchedKind()

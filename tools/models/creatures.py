@@ -451,7 +451,34 @@ def breeches(face, x, y, w, h):
     return VEST_DARK if (x + y) % 5 == 0 else shade(VEST, 0.85)
 
 
+def armored_vest(color, dark):
+    """A quilted jerkin or a steel shirt over the vest, the belt and its buckle still showing."""
+
+    def fn(face, x, y, w, h):
+        if face == "bottom":
+            return CLEAR
+        if y == 8:
+            if face == "front" and abs(x - (w - 1) / 2) < 1:
+                return IRON
+            return BELT
+        if y > 8:
+            return dark if x % 2 else color                              # the skirt, in strips
+        return dark if (x * 3 + y * 2) % 7 == 0 or y == 0 else color
+
+    return fn
+
+
+# By kind: the armor a hobgoblin wears for its team's upgrades, if any: helmet, shirt colors, greaves.
+HOB_LOOKS = {
+    "hobgoblin": None,
+    "hobgoblin_padded": (helm(LEATHER, LEATHER, LEATHER_DARK), (PADDED, PADDED_DARK), plain(LEATHER_DARK)),
+    "hobgoblin_plate": (helm(STEEL_LIGHT, STEEL, STEEL_DARK), (STEEL, STEEL_DARK), plain(STEEL)),
+}
+
+
 def hobgoblin(kind="hobgoblin"):
+    armor = HOB_LOOKS[kind]
+    helmet, shirt, greaves = armor if armor else (clear, None, clear)
     m = Model("hobgoblin", 128, 64, seed=22)
     head = m.part("head", pivot=(0, 1, -1))
     head.box(-3.5, -7, -3.5, 7, 7, 7, hob_head)
@@ -460,10 +487,11 @@ def hobgoblin(kind="hobgoblin"):
         ear = head.child("%s_ear" % ("left" if side > 0 else "right"), pivot=(side * 3, -6, 0),
                          rotation=(-0.25, 0, side * 0.4))
         ear.box(-1 if side < 0 else 0, -4, -0.5, 1, 4, 2, flesh(HOB_SKIN), mirror=side > 0)
+    head.box(-3.5, -7, -3.5, 7, 3, 7, helmet, inflate=0.4)
 
     body = m.part("body", pivot=(0, 1, 0))
     body.box(-4.5, 0, -2.5, 9, 12, 5, flesh(HOB_SKIN))
-    body.box(-4.5, 0, -2.5, 9, 12, 5, vest, inflate=0.3)
+    body.box(-4.5, 0, -2.5, 9, 12, 5, armored_vest(*shirt) if shirt else vest, inflate=0.3)
 
     for side in (-1, 1):
         name = "left" if side > 0 else "right"
@@ -478,6 +506,7 @@ def hobgoblin(kind="hobgoblin"):
             spear.box(-1, -20, -0.5, 2, 4, 1, iron)
         leg = m.part("%s_leg" % name, pivot=(side * 2.2, 13, 0))
         leg.box(-2, 0, -2, 4, 11, 4, breeches, mirror=side > 0)
+        leg.box(-2, 5, -2, 4, 4, 4, greaves, inflate=0.25)
         leg.box(-2, 10, -4, 4, 1, 2, feet(HOB_SKIN))                    # big bare feet
     return m
 
@@ -982,7 +1011,7 @@ def sergeant(kind="strongstack"):
 # By model: how to build it, and the kinds that wear it.
 CREATURES = {
     "goblin": (goblin, list(GOBLIN_LOOKS)),
-    "hobgoblin": (hobgoblin, ["hobgoblin"]),
+    "hobgoblin": (hobgoblin, list(HOB_LOOKS)),
     "ork": (ork, list(ORK_LOOKS)),
     "ogre": (ogre, ["ogre"]),
     "strongstack": (sergeant, list(SERGEANT_LOOKS)),
