@@ -18,6 +18,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemArmor;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.AxisAlignedBB;
@@ -602,27 +603,33 @@ public class EntityUnit extends EntityCreature {
     }
 
     /**
-     * Warriors, archers and cavalry show their team's armor upgrades, boots included: chainmail with padded armor,
-     * iron with plate. It is only for show; the upgrades' extra health is what protects them. Workers wear none, and
-     * knights and heroes keep their own look.
+     * Warriors, archers and cavalry show their team's armor upgrades, boots included: leather in the team's color with
+     * padded armor, iron with plate (dark iron for Zamorak's teams). It is only for show; the upgrades' extra health
+     * is what protects them. Workers wear none, and knights and heroes keep their own look.
      */
     private void wearArmor(Team team) {
         Item[] armor = new Item[5];
         if (kind.showsArmor() && team.has(Upgrade.PLATE_ARMOR)) {
-            armor[4] = Items.iron_helmet;
-            armor[3] = Items.iron_chestplate;
-            armor[2] = Items.iron_leggings;
-            armor[1] = Items.iron_boots;
+            boolean dark = team.getFaction() == Faction.ZAMORAK;
+            armor[4] = dark ? WarOfTheGods.darkIron[0] : Items.iron_helmet;
+            armor[3] = dark ? WarOfTheGods.darkIron[1] : Items.iron_chestplate;
+            armor[2] = dark ? WarOfTheGods.darkIron[2] : Items.iron_leggings;
+            armor[1] = dark ? WarOfTheGods.darkIron[3] : Items.iron_boots;
         } else if (kind.showsArmor() && team.has(Upgrade.PADDED_ARMOR)) {
-            armor[4] = Items.chainmail_helmet;
-            armor[3] = Items.chainmail_chestplate;
-            armor[1] = Items.chainmail_boots;
+            armor[4] = Items.leather_helmet;
+            armor[3] = Items.leather_chestplate;
+            armor[2] = Items.leather_leggings;
+            armor[1] = Items.leather_boots;
         }
         for (int slot = 1; slot < 5; slot++) {
             ItemStack worn = getEquipmentInSlot(slot);
             Item wornItem = worn == null ? null : worn.getItem();
             if (wornItem != armor[slot]) {
-                setCurrentItemOrArmor(slot, armor[slot] == null ? null : new ItemStack(armor[slot]));
+                ItemStack stack = armor[slot] == null ? null : new ItemStack(armor[slot]);
+                if (stack != null && ((ItemArmor) armor[slot]).getArmorMaterial() == ItemArmor.ArmorMaterial.CLOTH) {
+                    ((ItemArmor) armor[slot]).func_82813_b(stack, team.getRgb());
+                }
+                setCurrentItemOrArmor(slot, stack);
             }
         }
     }

@@ -3,8 +3,8 @@
 Each is one model, its parts named as the player model's are (head, body, right_arm, left_arm, right_leg, left_leg)
 so the game can move them the way it moves a man; the hobgoblin's spear, the ork's cleaver and the ogre's club are
 parts in the right hand. Each unit kind drawn with one of them has a texture of its own, painted on the same layout:
-a goblin, an axe-thrower, a priest, the three spirits and the three sergeants all wear the goblin, and
-General Graardor the ork. Boxes a kind does not use (a helmet, a robe) are left clear on its texture, so they do not
+a goblin, an axe-thrower, a priest and the three spirits all wear the goblin. General Graardor has a model of his
+own. Boxes a kind does not use (a helmet, a robe) are left clear on its texture, so they do not
 show. Where the team's color goes is painted white on the kind's team mask.
 """
 
@@ -18,7 +18,6 @@ GOBLIN_SKIN = (104, 142, 56)
 SPIRIT_SKIN = (150, 208, 196)
 HOBGOBLIN_SKIN = (150, 112, 62)
 ORK_SKIN = (84, 104, 64)
-GRAARDOR_SKIN = (70, 88, 60)
 
 EYE = (220, 40, 30)
 EYE_YELLOW = (240, 210, 60)
@@ -32,8 +31,6 @@ LEATHER_DARK = (72, 46, 26)
 STEEL = (150, 154, 162)
 STEEL_DARK = (96, 100, 108)
 STEEL_LIGHT = (196, 200, 206)
-DARK_STEEL = (64, 64, 72)
-DARK_STEEL_LIGHT = (100, 100, 110)
 BONE = (226, 216, 186)
 WOOD = (110, 76, 42)
 WOOD_DARK = (78, 52, 28)
@@ -527,7 +524,6 @@ STRAP = (96, 62, 36)
 # By kind: skin, eyes, the helmet, the pads' light, middle and dark colors.
 ORK_LOOKS = {
     "ork": ((94, 106, 54), GOBLIN_EYE, "pot", (BONE_PAD, BONE_PAD, BONE_DARK)),
-    "graardor": (GRAARDOR_SKIN, GOBLIN_EYE, None, (DARK_STEEL_LIGHT, DARK_STEEL, (40, 40, 46))),
 }
 
 
@@ -598,6 +594,156 @@ def ork(kind="ork"):
         leg = m.part("%s_leg" % name, pivot=(side * 3, 15, 0))
         leg.box(-2.5, 0, -2.5, 5, 9, 5, feet(skin), mirror=side > 0)
         leg.box(-2.5, 3, -2.5, 5, 2, 5, plain(STRAP), inflate=0.2)
+    return m
+
+
+# ---------------------------------------------------------------- General Graardor
+#
+# Bandos's general as in Old School RuneScape: a giant green ork standing tall, a small head with pointed ears hung
+# with gold rings, yellow eyes and great tusks under a spiked steel cap; a dark leather harness over the shoulders,
+# fastened at the chest with a gold ring; a broad dark belt studded in bone, Bandos's mark on its front and its edges
+# in his team's color, over dark breeches and a pale loincloth; a huge spiked pauldron rimmed in gold on his left
+# shoulder, plates down his right arm, and banded steel bracers spiked with bone on both forearms; steel boots. He
+# fights with his fists.
+
+GRAARDOR_GREEN = (86, 120, 84)
+HARNESS = (78, 70, 82)
+HARNESS_DARK = (58, 52, 62)
+GOLD = (204, 164, 64)
+CREAM = (214, 206, 168)
+WAR_STEEL = (134, 134, 130)
+WAR_STEEL_LIGHT = (164, 164, 158)
+WAR_STEEL_DARK = (98, 98, 98)
+BREECHES = (72, 70, 76)
+
+
+def graardor_face(face, x, y, w, h):
+    base = flesh(GRAARDOR_GREEN)
+    if face == "front":
+        if y == 2 and 1 <= x <= w - 2:
+            return shade(GRAARDOR_GREEN, 0.62)                          # the heavy brow
+        if y == 3 and x in (1, w - 2):
+            return EYE_YELLOW
+        if y == 3 and x in (2, w - 3):
+            return shade(GRAARDOR_GREEN, 0.6)
+        if y == h - 2 and 2 <= x <= w - 3:
+            return MOUTH
+    return base(face, x, y, w, h)
+
+
+def war_steel(face, x, y, w, h):
+    """Battered steel: lighter along its top edge, a darker rim below."""
+    if face == "bottom":
+        return WAR_STEEL_DARK
+    if face == "top" or y == 0:
+        return WAR_STEEL_LIGHT
+    return WAR_STEEL_DARK if y == h - 1 else WAR_STEEL
+
+
+def pauldron(face, x, y, w, h):
+    if face == "bottom":
+        return CLEAR
+    if face != "top" and y == h - 1:
+        return GOLD                                                      # the gold rim
+    if face == "top" and min(x, y, w - 1 - x, h - 1 - y) == 0:
+        return GOLD
+    return war_steel(face, x, y, w, h)
+
+
+def harness(face, x, y, w, h):
+    """His chest, with the harness's straps coming down over each shoulder to the gold ring."""
+    base = flesh(GRAARDOR_GREEN)
+    if face in ("front", "back"):
+        middle = (w - 1) / 2
+        # Each strap runs from over a shoulder down and in toward the middle of the chest.
+        for side in (-1, 1):
+            at = middle + side * (middle - 1 - y * 0.6)
+            if abs(x - at) <= 1.0 and y <= 6:
+                return HARNESS if abs(x - at) < 0.6 else HARNESS_DARK
+    if face == "top" and (x in (1, 2, w - 3, w - 2)):
+        return HARNESS
+    return base(face, x, y, w, h)
+
+
+def war_belt(face, x, y, w, h):
+    """The broad belt, its edges in his team's color, studded in bone, Bandos's mark on its front."""
+    if face in ("top", "bottom"):
+        return HARNESS_DARK
+    if y in (0, h - 1):
+        return (TEAM, 200)
+    if face == "front":
+        c = w // 2
+        mark = {1: (c - 1, c + 1), 2: (c,), 3: (c - 1, c), 4: (c, c + 1)}
+        if x in mark.get(y, ()):
+            return CREAM
+        if y == 2 and x in (2, w - 3):
+            return CREAM
+    if face in ("left", "right", "back") and y == 2 and x % 3 == 1:
+        return CREAM
+    return HARNESS
+
+
+def loincloth(face, x, y, w, h):
+    if face in ("top",):
+        return CLEAR
+    return shade(CREAM, 0.85) if y == h - 1 or face != "front" else CREAM
+
+
+def tidy(value):
+    """A coordinate made by arithmetic as the model's files write it: whole numbers as ints, the rest to 2 places."""
+    value = round(value, 2)
+    return int(value) if value == int(value) else value
+
+
+def graardor(kind="graardor"):
+    m = Model("graardor", 128, 128, seed=27)
+    head = m.part("head", pivot=(0, 1, -1))
+    head.box(-3.5, -7, -3.5, 7, 7, 7, graardor_face)
+    head.box(-3, -2.5, -4.3, 6, 2, 1, flesh(GRAARDOR_GREEN))            # the jutting jaw
+    for side in (-1, 1):
+        tusk = head.child("%s_tusk" % ("left" if side > 0 else "right"), pivot=(side * 2.3, -1, -4.2),
+                          rotation=(0.25, 0, side * 0.35))
+        tusk.box(-0.5, -4, -0.5, 1, 4, 1, tooth)
+        ear = head.child("%s_ear" % ("left" if side > 0 else "right"), pivot=(side * 3.5, -4.5, 0),
+                         rotation=(0, side * -0.3, side * -0.9))
+        ear.box(0 if side > 0 else -4, -1, -0.5, 4, 2, 1, flesh(GRAARDOR_GREEN), mirror=side > 0)
+        ear.box(tidy(side * 1.5 - 0.5), 1, -0.5, 1, 1, 1, plain(GOLD))   # the earring
+    head.box(-3.5, -8, -3.5, 7, 2, 7, war_steel, inflate=0.3)          # the steel cap
+    crest = head.child("crest", pivot=(0, -8.5, 0))
+    crest.box(-0.5, -4, -1.5, 1, 4, 3, war_steel)
+    crest.box(-0.5, -6, -0.5, 1, 2, 1, plain(WAR_STEEL_LIGHT))
+
+    body = m.part("body", pivot=(0, 0, 0))
+    body.box(-6.5, 1, -3.5, 13, 9, 7, harness)
+    body.box(-1.5, 4, -4.3, 3, 3, 1, plain(GOLD))                       # the ring at the chest
+    body.box(-6.5, 9, -3.5, 13, 6, 7, war_belt, inflate=0.5)
+    body.box(-6, 14, -3, 12, 3, 6, plain(BREECHES))
+    body.box(-2.5, 14, -4.2, 5, 7, 1, loincloth)
+
+    for side in (-1, 1):
+        name = "left" if side > 0 else "right"
+        arm = m.part("%s_arm" % name, pivot=(side * 9, 3, 0))
+        arm.box(-2.5, -1, -2.5, 5, 13, 5, flesh(GRAARDOR_GREEN), mirror=side > 0)
+        arm.box(-3, 12, -3, 6, 3, 6, flesh(GRAARDOR_GREEN))              # the fist
+        for i in range(3):                                               # the banded bracer
+            arm.box(-3, tidy(5.5 + i * 2.2), -3, 6, 2, 6, war_steel, inflate=tidy(0.15 + 0.1 * i))
+        for i in range(2):
+            spike = arm.child("%s_bracer_spike%d" % (name, i), pivot=(side * 3.2, 7 + i * 3, 0),
+                              rotation=(0, 0, side * -1.3))
+            spike.box(-0.5, -2.5, -0.5, 1, 3, 1, tooth)
+        if side > 0:
+            # The great pauldron, its spikes standing up and out.
+            arm.box(-3.5, -4, -4, 8, 5, 8, pauldron, inflate=0.3)
+            spikes = ((-1, -2, 0.3), (1.5, 0, 0.7), (-1, 2, 0.3), (3.5, -2, 1.1), (3.5, 2, 1.1))
+            for i, (px, pz, tilt) in enumerate(spikes):
+                spike = arm.child("pauldron_spike%d" % i, pivot=(px, -4, pz), rotation=(0, 0, -tilt))
+                spike.box(-0.5, -5, -0.5, 1, 5, 1, tooth)
+        else:
+            for i in range(3):                                           # plates down the upper arm
+                arm.box(-3, tidy(-2 + i * 2.2), -3, 6, 2, 6, war_steel, inflate=tidy(0.35 - 0.1 * i))
+        leg = m.part("%s_leg" % name, pivot=(side * 3.3, 15, 0))
+        leg.box(-2.5, 0, -2.5, 5, 6, 5, plain(BREECHES), mirror=side > 0)
+        leg.box(-3, 5, -3.5, 6, 4, 6, war_steel)                        # the boot
     return m
 
 
@@ -1014,6 +1160,7 @@ CREATURES = {
     "hobgoblin": (hobgoblin, list(HOB_LOOKS)),
     "ork": (ork, list(ORK_LOOKS)),
     "ogre": (ogre, ["ogre"]),
+    "graardor": (graardor, ["graardor"]),
     "strongstack": (sergeant, list(SERGEANT_LOOKS)),
 }
 

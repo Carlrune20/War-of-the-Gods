@@ -247,8 +247,8 @@ public enum UnitKind {
 
     /**
      * The name of the creature model it is drawn with, made by tools/models/generate.py, or null for the player model
-     * or a model of its own: goblin, hobgoblin, ork, ogre or the sergeants' (named for Strongstack). General Graardor
-     * is a giant ork.
+     * or a model of its own: goblin, hobgoblin, ork, ogre, the sergeants' (named for Strongstack) or General
+     * Graardor's.
      */
     public String creatureModel() {
         switch (this) {
@@ -266,8 +266,9 @@ public enum UnitKind {
             case HOBGOBLIN:
                 return "hobgoblin";
             case ORK:
-            case GRAARDOR:
                 return "ork";
+            case GRAARDOR:
+                return "graardor";
             case OGRE:
                 return "ogre";
             default:

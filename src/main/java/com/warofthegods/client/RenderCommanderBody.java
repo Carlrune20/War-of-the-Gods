@@ -20,8 +20,9 @@ import com.mojang.authlib.properties.Property;
 import com.warofthegods.rts.EntityCommanderBody;
 
 /**
- * Draws the body a commanding player left behind like the player: the player model in their skin, their armor and
- * what they hold, and their name above. The skin comes from the textures the server passed on, loaded the way vanilla
+ * Draws the body a commanding player left behind like the player: the player model in their skin, their armor (as
+ * {@link ArmorLooks} draws it) and what they hold, and their name above. The skin comes from the textures the server
+ * passed on, loaded the way vanilla
  * loads other players' skins; until then, or offline, it is the default one.
  */
 public class RenderCommanderBody extends RenderBiped {
@@ -31,6 +32,13 @@ public class RenderCommanderBody extends RenderBiped {
 
     public RenderCommanderBody() {
         super(new ModelBiped(0), 0.5F);
+    }
+
+    @Override
+    protected int shouldRenderPass(EntityLiving entity, int pass, float partialTicks) {
+        int drawn = ArmorLooks.get()
+            .renderPass(this, entity, entity.func_130225_q(3 - pass), pass, modelBipedMain);
+        return drawn != ArmorLooks.VANILLA ? drawn : super.shouldRenderPass(entity, pass, partialTicks);
     }
 
     @Override

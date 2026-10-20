@@ -40,7 +40,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.path.join(HERE, "..", "..", "src", "main", "resources", "assets", "warofthegods")
 BLOCKBENCH = os.path.join(HERE, "blockbench")
 NAMES = ("lesser_demon", "greater_demon", "black_demon", "centaur", "zamorak_staff", "silverlight", "white_knight",
-         "black_knight", "elite_black_knight", "justiciar", "goblin", "hobgoblin", "ork", "ogre")
+         "black_knight", "elite_black_knight", "justiciar", "goblin", "hobgoblin", "ork", "ogre",
+         "graardor")
 # The knights wear the skins of their units, one for each god's teams though both look the same; by model, the skin's
 # name after the faction's.
 SKINS = {"white_knight": "white_knight", "black_knight": "black_knight", "elite_black_knight": "black_knight_elite",

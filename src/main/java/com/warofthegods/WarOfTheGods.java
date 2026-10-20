@@ -15,6 +15,7 @@ import com.warofthegods.command.Lobby;
 import com.warofthegods.command.TeamCommands;
 import com.warofthegods.game.PlayerEvents;
 import com.warofthegods.game.WinConditions;
+import com.warofthegods.item.ItemDarkIronArmor;
 import com.warofthegods.item.ItemSilverlight;
 import com.warofthegods.item.ItemZamorakStaff;
 import com.warofthegods.rts.Commanders;
@@ -67,6 +68,8 @@ public class WarOfTheGods {
     public static ItemZamorakStaff zamorakStaff;
     /** The demon-slaying sword, one of which lies in a shrine on each game's map. */
     public static ItemSilverlight silverlight;
+    /** Zamorak's dark iron armor, from the helmet (0) to the boots (3). */
+    public static final ItemDarkIronArmor[] darkIron = new ItemDarkIronArmor[4];
 
     @SidedProxy(clientSide = "com.warofthegods.client.ClientProxy", serverSide = "com.warofthegods.CommonProxy")
     public static CommonProxy proxy;
@@ -86,6 +89,10 @@ public class WarOfTheGods {
         ModBlocks.register();
         silverlight = new ItemSilverlight();
         GameRegistry.registerItem(silverlight, "silverlight");
+        for (int slot = 0; slot < darkIron.length; slot++) {
+            darkIron[slot] = new ItemDarkIronArmor(slot);
+            GameRegistry.registerItem(darkIron[slot], darkIron[slot].registryName());
+        }
         RtsNetwork.register();
     }
 
