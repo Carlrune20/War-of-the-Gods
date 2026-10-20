@@ -237,8 +237,8 @@ and trail their element's particles. Fire sets what it hits alight.
   - **confuse** gives it nausea for 6 seconds
 - Like arrows, spells fly on past friends.
 - Zamorak mages carry a Zamorak staff and know only fire.
-- A player can buy a Zamorak staff at the armory in Age III (50 Wood, 150 Gold). Right-click to cast a fire strike, once
-  a second.
+- A player on a Zamorak team can buy a Zamorak staff at the armory in Age III (50 Wood, 150 Gold); anyone else has to
+  find one in a [ruin chest](#ruin-chests-and-artifacts). Right-click to cast a fire strike, once a second.
 
 **Stone circles and lesser demons.** Dark wizards raise stone circles. Select dark wizards (and no workers), and the
 build menu offers the stone circle. It stands the moment it is placed, and the dark wizards that raised it walk into
@@ -299,7 +299,9 @@ lies Silverlight, the sword that slew Delrith.
 
 Most old ruins have a chest on their ground, against a wall where one still stands. It holds what was left behind:
 ores and ingots, food, building materials (planks, cobblestone, stone bricks, logs, torches), a few weapons and
-pieces of armor, and arrows. Now and then a chest also holds one of these, none of which ever wears out:
+pieces of armor, and arrows. Fairly often it also holds runite gear: a helmet or boots in 6% of chests, platelegs in
+4.5%, a platebody in 4%, a sword in 6% and an axe in 4%. More rarely it holds one of these, none of which ever wears
+out:
 
 - **Dark bow.** Looses two arrows at once, using up two (one if that is all you have), and each hits much harder than a
   bow's. Both land, even on the same target.
@@ -315,6 +317,7 @@ pieces of armor, and arrows. Now and then a chest also holds one of these, none 
   to fill your points up again. You come back from death with them full. While your prayer is up, its icon shows
   over your head for everyone to see, as a hero's does, and over your body while you command from the RTS view.
 - **Dragon scimitar.** Hits for 9.
+- **Zamorak staff.** Right-click to cast a fire strike, once a second. The only way to get one outside a Zamorak team.
 - **Dragon armor**: full helm (with white horns), platebody, platelegs and boots, drawn red. A full suit has 23 points
   of armor, to runite's 20. Each piece also takes a quarter of every knockback away, so a full suit is never knocked
   back; each piece of runite armor takes a tenth.

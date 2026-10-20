@@ -13,6 +13,7 @@ import java.util.Map;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockLog;
 import net.minecraft.block.material.Material;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.monster.EntityCreeper;
 import net.minecraft.entity.passive.EntityAnimal;
@@ -47,6 +48,7 @@ import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.Upgrade;
 import com.warofthegods.game.WallLine;
+import com.warofthegods.rts.AttackAlerts;
 import com.warofthegods.shop.Shop;
 import com.warofthegods.unit.EntityTeamArrow;
 import com.warofthegods.unit.EntityTrebuchetStone;
@@ -1719,11 +1721,26 @@ public final class Buildings {
      * building site is cleared away.
      */
     public void damage(Building building, int amount, String cause) {
+        damage(building, amount, cause, null);
+    }
+
+    /**
+     * Takes health off a building, as above, hit by the entity when it is known; its team hears of it unless the
+     * blow takes it down at once, as when its team is defeated.
+     */
+    public void damage(Building building, int amount, String cause, Entity attacker) {
         Game game = GameManager.getGame();
-        if (game == null || game.getBuilding(building.id) != building || !building.damage(amount)) {
+        if (game == null || game.getBuilding(building.id) != building) {
             return;
         }
-        destroy(game, building, cause);
+        if (amount > 0 && amount < building.getHealth()) {
+            WorldServer world = DimensionManager.getWorld(GameWorld.dimensionId());
+            AttackAlerts.get()
+                .buildingAttacked(game, building, attacker, world == null ? 0 : world.getTotalWorldTime());
+        }
+        if (building.damage(amount)) {
+            destroy(game, building, cause);
+        }
     }
 
     /** Takes a building or building site down at once, whatever its health, as when its own team destroys it. */

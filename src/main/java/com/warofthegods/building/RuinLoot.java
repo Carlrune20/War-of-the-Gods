@@ -20,7 +20,8 @@ import com.warofthegods.game.Ruin;
 /**
  * The old chests left in ruins: most ruins have one, against a wall where there is one, holding what was left behind
  * there: ores, food, building materials, a few weapons and pieces of armor, and arrows. Now and then one holds
- * something rare: the dark bow, a godsword blade, a prayer book, the dragon scimitar or a piece of dragon armor.
+ * something rare: a piece of runite armor, a runite sword or axe, or, rarer still, the dark bow, a godsword blade, a
+ * prayer book, the dragon scimitar or a piece of dragon armor.
  */
 final class RuinLoot {
 
@@ -73,7 +74,10 @@ final class RuinLoot {
         return new Object[][] { { WarOfTheGods.darkBow, 30 }, { WarOfTheGods.godswordBlade, 30 },
             { WarOfTheGods.prayerBook, 50 }, { WarOfTheGods.dragonScimitar, 30 }, { WarOfTheGods.dragonArmor[0], 20 },
             { WarOfTheGods.dragonArmor[1], 15 }, { WarOfTheGods.dragonArmor[2], 15 },
-            { WarOfTheGods.dragonArmor[3], 20 }, };
+            { WarOfTheGods.dragonArmor[3], 20 },
+            // Runite, Minecraft's diamond, twice as often as dragon or more.
+            { Items.diamond_helmet, 60 }, { Items.diamond_chestplate, 40 }, { Items.diamond_leggings, 45 },
+            { Items.diamond_boots, 60 }, { Items.diamond_sword, 60 }, { Items.diamond_axe, 40 }, };
     }
 
     /**

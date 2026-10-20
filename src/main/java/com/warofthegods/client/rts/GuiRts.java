@@ -2102,6 +2102,12 @@ public final class GuiRts extends GuiScreen {
                 iconAt.add(fontRendererObj.getStringWidth(resources.toString()));
                 resources.append("   ")
                     .append(amount == null ? 0 : amount);
+                // Favor is granted by the gods, not gathered, so it shows no workers.
+                if (!"favor".equals(resource)) {
+                    resources.append(" (")
+                        .append(state.gatherers(resource))
+                        .append(')');
+                }
             }
             resourceLine = lines.size();
             lines.add(resources.toString());

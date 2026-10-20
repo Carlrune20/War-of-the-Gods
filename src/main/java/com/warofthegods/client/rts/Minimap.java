@@ -204,6 +204,17 @@ final class Minimap {
             int color = team == null ? 0xFFFFFF : team.color;
             dot(unit.x, unit.z, left, top, size, client.selected.contains(unit.id) ? 0xFFFFFFFF : 0xFF000000 | color);
         }
+        // Where the team was last attacked: a red square that shrinks in, flashing, for a few seconds.
+        double[] alert = client.getAlert();
+        if (alert != null && (System.currentTimeMillis() / 250) % 2 == 0) {
+            int ax = (int) toX(alert[0], left, size);
+            int ay = (int) toY(alert[1], top, size);
+            int r = 3 + (int) (6 * (1 - client.getAlertAge()));
+            Gui.drawRect(ax - r, ay - r, ax + r, ay - r + 1, 0xFFFF2020);
+            Gui.drawRect(ax - r, ay + r - 1, ax + r, ay + r, 0xFFFF2020);
+            Gui.drawRect(ax - r, ay - r, ax - r + 1, ay + r, 0xFFFF2020);
+            Gui.drawRect(ax + r - 1, ay - r, ax + r, ay + r, 0xFFFF2020);
+        }
         // Town centers in their team's colour, and the free settlements the viewer's team has found.
         for (RtsState.BuildingInfo b : state.buildings.values()) {
             if (!"town_hall".equals(b.type)

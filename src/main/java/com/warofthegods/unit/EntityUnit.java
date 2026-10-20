@@ -43,6 +43,7 @@ import com.warofthegods.game.Team;
 import com.warofthegods.game.Tree;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.Upgrade;
+import com.warofthegods.rts.AttackAlerts;
 import com.warofthegods.rts.Commanders;
 import com.warofthegods.web.WebMap;
 
@@ -2211,13 +2212,13 @@ public class EntityUnit extends EntityCreature {
                         playSound("random.bow", 1.0F, 1.0F / (rand.nextFloat() * 0.4F + 0.8F));
                     }
                     Buildings.get()
-                        .damage(building, damage / 2, getLabel());
+                        .damage(building, damage / 2, getLabel(), this);
                 }
             } else if (attackCooldown <= 0) {
                 attackCooldown = 20;
                 swingItem();
                 Buildings.get()
-                    .damage(building, damage, getLabel());
+                    .damage(building, damage, getLabel(), this);
             }
             if (GameManager.getGame() != null && GameManager.getGame()
                 .getBuilding(building.id) == null) {
@@ -2867,6 +2868,11 @@ public class EntityUnit extends EntityCreature {
         }
         boolean hurt = super.attackEntityFrom(source, amount);
         computerPrays(style);
+        Game game = GameManager.getGame();
+        if (hurt && game != null) {
+            AttackAlerts.get()
+                .unitAttacked(game, this, attacker, worldObj.getTotalWorldTime());
+        }
         // Guarding units hit back; units on the move keep going.
         if (hurt && kind.fights()
             && stance != Stance.PASSIVE
