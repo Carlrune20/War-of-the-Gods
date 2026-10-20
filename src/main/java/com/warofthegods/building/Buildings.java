@@ -1125,6 +1125,9 @@ public final class Buildings {
 
     // ---------------------------------------------------------------- walls
 
+    /** Why a wall planned where the team has all of it already cannot go there. */
+    public static final String WALL_THERE = "There is wall there already";
+
     /** A wall laid out from one point to another: a plan for each of its pieces, or why it cannot go there. */
     public static final class WallPlan {
 
@@ -1143,6 +1146,16 @@ public final class Buildings {
      * already has wall are left out too.
      */
     public WallPlan planWall(Game game, WorldServer world, Team team, int x1, int z1, int x2, int z2) {
+        return planWall(game, world, team, x1, z1, x2, z2, 0, 0, false);
+    }
+
+    /**
+     * Lays a wall out as above, bent out by outX, outZ round what is in the way (see {@link WallLine#bent}). Closed,
+     * a short segment that cannot go where it would close a gap fails the plan rather than being left out, so the
+     * wall has no hole.
+     */
+    public WallPlan planWall(Game game, WorldServer world, Team team, int x1, int z1, int x2, int z2, int outX,
+        int outZ, boolean closed) {
         Building from = towerAt(game, team, x1, z1);
         if (from != null) {
             x1 = (int) Math.floor(from.getCenterX());
@@ -1153,7 +1166,7 @@ public final class Buildings {
             x2 = (int) Math.floor(to.getCenterX());
             z2 = (int) Math.floor(to.getCenterZ());
         }
-        List<WallLine.Piece> pieces = WallLine.pieces(x1, z1, x2, z2, (minX, minZ) -> {
+        List<WallLine.Piece> pieces = WallLine.bent(x1, z1, x2, z2, outX, outZ, (minX, minZ) -> {
             int[] box = null;
             for (Building building : game.getBuildings(team)) {
                 if ((building.type == BuildingType.TOWER || building.type.isWall())
@@ -1167,7 +1180,7 @@ public final class Buildings {
         for (WallLine.Piece piece : pieces) {
             String problem = wallPieceProblem(game, world, piece);
             if (problem != null) {
-                if (piece.isShort()) {
+                if (piece.isShort() && !closed) {
                     // A short segment only closes a gap; the wall stands without it.
                     continue;
                 }
@@ -1186,7 +1199,7 @@ public final class Buildings {
                     null));
         }
         if (plans.isEmpty()) {
-            return new WallPlan(plans, "There is wall there already");
+            return new WallPlan(plans, WALL_THERE);
         }
         return new WallPlan(plans, null);
     }

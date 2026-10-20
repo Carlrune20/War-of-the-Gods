@@ -39,6 +39,10 @@ still on no team then go on the team with the fewest players, the computer count
 more player: it spends the team's resources and commands only the units it trained itself, which players cannot
 order about.
 
+Once it has three towers round its town center and an armory, it walls the town in: a closed ring of wall from tower to
+tower, bent out round any building in the way, with a gate in the middle of each side. Any piece of it knocked down, a
+gate included, it builds again before anything else.
+
 Players who change team, in the lobby, in the team menu, or with `/rts team join`, come back after dying in front of
 their new team's main town center.
 

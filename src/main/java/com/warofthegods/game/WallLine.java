@@ -140,6 +140,45 @@ public final class WallLine {
     }
 
     /**
+     * The pieces of a wall from x1, z1 to x2, z2 bent out round what stands between: out from the first point by
+     * outX, outZ, across, and back in to the second point, in order along it. The bend's corners are on the grid of
+     * the first point, so the three runs meet on shared posts, each put in once. With no way out it is the straight
+     * wall of {@link #pieces}.
+     */
+    public static List<Piece> bent(int x1, int z1, int x2, int z2, int outX, int outZ, Blocker blocker) {
+        int vx = snap(outX);
+        int vz = snap(outZ);
+        if (vx == 0 && vz == 0) {
+            return pieces(x1, z1, x2, z2, blocker);
+        }
+        int cx1 = x1 + vx;
+        int cz1 = z1 + vz;
+        int cx2 = cx1 + snap(x2 - x1);
+        int cz2 = cz1 + snap(z2 - z1);
+        int[][] corners = { { x1, z1 }, { cx1, cz1 }, { cx2, cz2 }, { x2, z2 } };
+        List<Piece> pieces = new ArrayList<>();
+        for (int k = 0; k < corners.length - 1; k++) {
+            for (Piece piece : pieces(corners[k][0], corners[k][1], corners[k + 1][0], corners[k + 1][1], blocker)) {
+                boolean there = false;
+                for (Piece other : pieces) {
+                    there |= other.minX == piece.minX && other.minZ == piece.minZ
+                        && other.sizeX == piece.sizeX
+                        && other.sizeZ == piece.sizeZ;
+                }
+                if (!there && pieces.size() < MAX_PIECES) {
+                    pieces.add(piece);
+                }
+            }
+        }
+        return pieces;
+    }
+
+    /** The nearest whole number of pieces' widths to a distance. */
+    private static int snap(int distance) {
+        return Math.round(distance / (float) SIZE) * SIZE;
+    }
+
+    /**
      * Closes the gap, if any, going the way of step from box a to box b with segments of up to a full piece. They
      * run on the line's own row of cells, whose corner is cellX, cellZ.
      */

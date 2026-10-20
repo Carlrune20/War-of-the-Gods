@@ -17,6 +17,7 @@ import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.Team;
+import com.warofthegods.game.WallLine;
 import com.warofthegods.world.GameWorld;
 import com.warofthegods.world.Misthalin;
 
@@ -30,6 +31,11 @@ import com.warofthegods.world.Misthalin;
  * <p>
  * Units would rather not swim: a way that goes through water is given up for one over a bridge, the river's own
  * bridges or those workers built, as long as going round by the bridge is not too far out of the way.
+ *
+ * <p>
+ * A unit that may break through walls is routed through an enemy wall only when no way round it, through a gap or
+ * one of its own gates, is found within {@link #BREACH_DETOUR} blocks further; its route then ends at the wall, which it
+ * knocks down before going on.
  */
 public final class Routes {
 
@@ -47,6 +53,12 @@ public final class Routes {
     private static final double DETOUR_PER_WATER = 25;
     /** Fewest blocks of water on a way before a bridge is looked for. */
     private static final int MIN_WATER = 2;
+    /** Blocks further a unit that may break through walls will walk round an enemy wall rather than through it. */
+    private static final int BREACH_DETOUR = 64;
+    /** What a step onto a block of enemy wall costs, so that going through a piece costs about the detour. */
+    private static final double WALL_COST = (double) BREACH_DETOUR / WallLine.SIZE;
+    /** Set on a height for a block of enemy wall a unit may break through. */
+    private static final int WALL_BIT = 0x20000;
 
     private static final int BLOCKED = Integer.MIN_VALUE;
     private static final int UNKNOWN = Integer.MIN_VALUE + 1;
@@ -72,6 +84,28 @@ public final class Routes {
      */
     public static List<double[]> find(World world, Game game, String team, double fromX, double fromZ, double toX,
         double toZ) {
+        Route route = plan(world, game, team, false, fromX, fromZ, toX, toZ);
+        return route == null ? null : route.waypoints;
+    }
+
+    /** A route planned: its waypoints, and the enemy wall it ends at, to break through, by building id; 0 for none. */
+    public static final class Route {
+
+        public final List<double[]> waypoints;
+        public final int breach;
+
+        Route(List<double[]> waypoints, int breach) {
+            this.waypoints = waypoints;
+            this.breach = breach;
+        }
+    }
+
+    /**
+     * A route for a unit of a team; with breach, one that may end at an enemy wall to break through where going round
+     * it is too far or there is no way round. Null when there is no time for a search this tick or no way was found.
+     */
+    public static Route plan(World world, Game game, String team, boolean breach, double fromX, double fromZ,
+        double toX, double toZ) {
         long tick = world.getTotalWorldTime();
         if (tick != searchTick) {
             searchTick = tick;
@@ -80,17 +114,18 @@ public final class Routes {
         if (++searches > SEARCHES_PER_TICK) {
             return null;
         }
-        Path direct = new Search(world, game, team, floor(fromX), floor(fromZ), floor(toX), floor(toZ)).run();
+        Path direct = new Search(world, game, team, breach, floor(fromX), floor(fromZ), floor(toX), floor(toZ)).run();
         if (direct == null) {
             return null;
         }
-        if (direct.water >= MIN_WATER) {
+        // A way that ends at a wall to break is taken as it is.
+        if (direct.water >= MIN_WATER && direct.breach == 0) {
             List<double[]> over = overBridge(world, game, team, fromX, fromZ, toX, toZ, direct);
             if (over != null) {
-                return over;
+                return new Route(over, 0);
             }
         }
-        return direct.waypoints;
+        return new Route(direct.waypoints, direct.breach);
     }
 
     /** One way across water on a bridge: where it is stepped onto, where off, and how far it is between. */
@@ -146,11 +181,11 @@ public final class Routes {
         double onZ = bestReversed ? best.z2 : best.z1;
         double offX = bestReversed ? best.x1 : best.x2;
         double offZ = bestReversed ? best.z1 : best.z2;
-        Path to = new Search(world, game, team, floor(fromX), floor(fromZ), floor(onX), floor(onZ)).run();
+        Path to = new Search(world, game, team, false, floor(fromX), floor(fromZ), floor(onX), floor(onZ)).run();
         if (to == null || to.length + best.length() > allowed) {
             return null;
         }
-        Path from = new Search(world, game, team, floor(offX), floor(offZ), floor(toX), floor(toZ)).run();
+        Path from = new Search(world, game, team, false, floor(offX), floor(offZ), floor(toX), floor(toZ)).run();
         if (from == null || to.length + best.length() + from.length > allowed
             || to.water + from.water >= direct.water) {
             return null;
@@ -230,17 +265,22 @@ public final class Routes {
         return new Crossing(centerX, minZ - 0.5, centerX, maxZ + 1.5);
     }
 
-    /** A way found: its waypoints, how long it is, and how many of its blocks are water. */
+    /**
+     * A way found: its waypoints, how long it is, how many of its blocks are water, and the enemy wall it ends at to
+     * break through, by building id, or 0.
+     */
     private static final class Path {
 
         final List<double[]> waypoints;
         final double length;
         final int water;
+        final int breach;
 
-        Path(List<double[]> waypoints, double length, int water) {
+        Path(List<double[]> waypoints, double length, int water, int breach) {
             this.waypoints = waypoints;
             this.length = length;
             this.water = water;
+            this.breach = breach;
         }
     }
 
@@ -284,8 +324,10 @@ public final class Routes {
         final Map<Long, Long> cameFrom = new HashMap<>();
         final Map<Long, Double> best = new HashMap<>();
         final List<Building> buildings = new ArrayList<>();
+        /** Enemy walls and gates the unit may break through, when it may. */
+        final List<Building> walls = new ArrayList<>();
 
-        Search(World world, Game game, String team, int startX, int startZ, int goalX, int goalZ) {
+        Search(World world, Game game, String team, boolean breach, int startX, int startZ, int goalX, int goalZ) {
             this.world = world;
             this.game = game;
             this.startX = startX;
@@ -315,7 +357,11 @@ public final class Routes {
                 }
                 if (building.getShown() != null && !building.covers(goalX + 0.5, goalZ + 0.5, 0)
                     && !building.covers(startX + 0.5, startZ + 0.5, 0)) {
-                    buildings.add(building);
+                    boolean breakable = breach && building.type.isWall()
+                        && own != null
+                        && owner != null
+                        && game.areEnemies(own, owner);
+                    (breakable ? walls : buildings).add(building);
                 }
             }
         }
@@ -386,6 +432,13 @@ public final class Routes {
             if (height == UNKNOWN || fromHeight == UNKNOWN) {
                 return 1.2;
             }
+            // Into a wall to be broken it costs what going round would, and the rubble is left level.
+            if ((height & WALL_BIT) != 0) {
+                return WALL_COST;
+            }
+            if ((fromHeight & WALL_BIT) != 0) {
+                return 1;
+            }
             int ground = height & 0xFFFF;
             int climb = ground - (fromHeight & 0xFFFF);
             if (climb > 1) {
@@ -400,8 +453,8 @@ public final class Routes {
         }
 
         /**
-         * The block a unit stands on at x, z, with bit 16 set for water; BLOCKED for a tree trunk, lava or a
-         * building, UNKNOWN where the chunk is not loaded.
+         * The block a unit stands on at x, z, with bit 16 set for water and bit 17 for enemy wall it may break
+         * through; BLOCKED for a tree trunk, lava or a building, UNKNOWN where the chunk is not loaded.
          */
         int height(int x, int z) {
             long k = key(x, z);
@@ -423,6 +476,9 @@ public final class Routes {
                 if (building.covers(x + 0.5, z + 0.5, 0)) {
                     return BLOCKED;
                 }
+            }
+            if (wallAt(x, z) != null) {
+                return WALL_BIT;
             }
             int y = world.getHeightValue(x, z) - 1;
             while (y > 0) {
@@ -449,9 +505,24 @@ public final class Routes {
             return BLOCKED;
         }
 
+        /** The enemy wall to break through at x, z, or null. */
+        Building wallAt(int x, int z) {
+            for (Building wall : walls) {
+                if (wall.covers(x + 0.5, z + 0.5, 0)) {
+                    return wall;
+                }
+            }
+            return null;
+        }
+
+        boolean isWall(int x, int z) {
+            int height = height(x, z);
+            return height != BLOCKED && height != UNKNOWN && (height & WALL_BIT) != 0;
+        }
+
         /**
          * The route back from the goal, thinned out to waypoints the unit can walk between in a straight line, with
-         * how long it is and how much of it is water.
+         * how long it is and how much of it is water. A route through an enemy wall stops short of it.
          */
         Path path(long goalKey) {
             List<long[]> path = new ArrayList<>();
@@ -459,6 +530,16 @@ public final class Routes {
             while (at != null) {
                 path.add(0, new long[] { at >> 32, (int) (long) at });
                 at = cameFrom.get(at);
+            }
+            int breach = 0;
+            for (int i = 0; i < path.size(); i++) {
+                int x = (int) path.get(i)[0];
+                int z = (int) path.get(i)[1];
+                if (isWall(x, z)) {
+                    breach = wallAt(x, z).id;
+                    path = new ArrayList<>(path.subList(0, Math.max(1, i)));
+                    break;
+                }
             }
             double length = 0;
             int water = 0;
@@ -470,7 +551,7 @@ public final class Routes {
                     water++;
                 }
             }
-            return new Path(waypoints(path), length, water);
+            return new Path(waypoints(path), length, water, breach);
         }
 
         boolean isWater(int x, int z) {
@@ -517,7 +598,7 @@ public final class Routes {
                 if (x == lastX && z == lastZ) {
                     continue;
                 }
-                if (stepCost(height(lastX, lastZ), lastX, lastZ, x, z) < 0 || !wet && isWater(x, z)) {
+                if (stepCost(height(lastX, lastZ), lastX, lastZ, x, z) < 0 || !wet && isWater(x, z) || isWall(x, z)) {
                     return false;
                 }
                 lastX = x;

@@ -362,6 +362,17 @@ public class EntityUnit extends EntityCreature {
     private List<double[]> route;
     private double routeX = Double.NaN;
     private double routeZ = Double.NaN;
+    /** The enemy wall the route ends at, to break through, by building id; 0 for none. */
+    private int breachId;
+    /**
+     * The enemy wall it is breaking through, by building id, or 0; and the order it goes back to once the wall is
+     * down. Not saved.
+     */
+    private int breakingId;
+    private Order resumeOrder;
+    private int resumeBuildingId;
+    private EntityLivingBase resumeTarget;
+    private UUID resumeTargetId;
 
     public EntityUnit(World world) {
         super(world);
@@ -1205,6 +1216,7 @@ public class EntityUnit extends EntityCreature {
         attackQueue.clear();
         attackMove = false;
         moveQueue.clear();
+        breakingId = 0;
     }
 
     /**
@@ -1250,7 +1262,7 @@ public class EntityUnit extends EntityCreature {
             return true;
         }
         Building building = Units.get()
-            .findEnemyBuildingNear(this, kind.ranged ? ARCHER_BUILDING_RANGE : GUARD_RANGE);
+            .findEnemyBuildingNear(this, kind.ranged ? ARCHER_BUILDING_RANGE : GUARD_RANGE, !aiControlled);
         if (building != null) {
             order = Order.ATTACK_BUILDING;
             buildingId = building.id;
@@ -2141,6 +2153,11 @@ public class EntityUnit extends EntityCreature {
 
     private void tickAttackBuilding() {
         Building building = targetBuilding();
+        if (building == null && breakingId != 0 && buildingId == breakingId) {
+            // Through the wall: on with what it was doing.
+            resumeAfterBreach();
+            return;
+        }
         if (building == null) {
             if (defending) {
                 backToPost();
@@ -2428,7 +2445,7 @@ public class EntityUnit extends EntityCreature {
             double buildingRange = kind.ranged ? ARCHER_BUILDING_RANGE
                 : stance == Stance.HOLD ? Buildings.REACH : GUARD_RANGE;
             Building building = Units.get()
-                .findEnemyBuildingNear(this, buildingRange);
+                .findEnemyBuildingNear(this, buildingRange, !aiControlled);
             if (building != null) {
                 order = Order.ATTACK_BUILDING;
                 buildingId = building.id;
@@ -2496,6 +2513,9 @@ public class EntityUnit extends EntityCreature {
             triedToMove = true;
         }
         double[] next = nextWaypoint(x, z);
+        if (next == null) {
+            return;
+        }
         x = next[0];
         z = next[1];
         double dx = x - posX;
@@ -2529,17 +2549,22 @@ public class EntityUnit extends EntityCreature {
     }
 
     /**
-     * Where to head for now on the way to x, z: past one leg away, the next waypoint of a route planned around what
-     * is in the way; close by, or with no route, x, z itself.
+     * Where to head for now on the way to x, z: past one leg away, or with a wall in between, the next waypoint of a
+     * route planned around what is in the way; close by, or with no route, x, z itself. Null when it got to an enemy
+     * wall its route goes through and set about breaking it instead.
      */
     private double[] nextWaypoint(double x, double z) {
-        if (distanceTo(x, z) <= LEG) {
+        Game game = GameManager.getGame();
+        if (distanceTo(x, z) <= LEG && (game == null || !wallBetween(game, x, z))) {
             route = null;
+            breachId = 0;
             return new double[] { x, z };
         }
         if (route == null || Math.abs(routeX - x) > 3 || Math.abs(routeZ - z) > 3) {
-            Game game = GameManager.getGame();
-            route = game == null ? null : Routes.find(worldObj, game, teamId, posX, posZ, x, z);
+            Routes.Route found = game == null ? null
+                : Routes.plan(worldObj, game, teamId, mayBreach(), posX, posZ, x, z);
+            route = found == null ? null : found.waypoints;
+            breachId = found == null ? 0 : found.breach;
             routeX = x;
             routeZ = z;
             if (route == null) {
@@ -2550,7 +2575,99 @@ public class EntityUnit extends EntityCreature {
         while (!route.isEmpty() && distanceTo(route.get(0)[0], route.get(0)[1]) < 3) {
             route.remove(0);
         }
+        if (route.isEmpty() && breachId != 0) {
+            return breakThrough(game) ? null : new double[] { x, z };
+        }
         return route.isEmpty() ? new double[] { x, z } : route.get(0);
+    }
+
+    /**
+     * Whether a wall or gate it cannot go through stands on the straight line from the unit to x, z, so that the
+     * vanilla pathfinder, which looks only a short way ahead, would walk it into the wall.
+     */
+    private boolean wallBetween(Game game, double x, double z) {
+        Team own = team();
+        int minX = MathHelper.floor_double(Math.min(posX, x));
+        int minZ = MathHelper.floor_double(Math.min(posZ, z));
+        int sizeX = MathHelper.floor_double(Math.max(posX, x)) - minX + 1;
+        int sizeZ = MathHelper.floor_double(Math.max(posZ, z)) - minZ + 1;
+        double distance = distanceTo(x, z);
+        int steps = (int) Math.ceil(distance * 2);
+        for (Building building : game.getBuildings()) {
+            if (!building.type.isWall() || !building.overlaps(minX, minZ, sizeX, sizeZ, 0)
+                || building.covers(posX, posZ, 0)
+                || building.covers(x, z, 0)) {
+                continue;
+            }
+            Team owner = game.getTeam(building.team);
+            if (building.type == BuildingType.GATE && own != null && owner != null && !game.areEnemies(own, owner)) {
+                continue;
+            }
+            for (int i = 1; i < steps; i++) {
+                if (building.covers(posX + (x - posX) * i / steps, posZ + (z - posZ) * i / steps, 0)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether the computer may have it break through an enemy wall in its way: one of its fighters on an attack, but
+     * not one on guard, which keeps near its post.
+     */
+    private boolean mayBreach() {
+        return aiControlled && kind.fights()
+            && !isWorker()
+            && !defending
+            && (attackMove || order == Order.ATTACK || order == Order.ATTACK_BUILDING);
+    }
+
+    /**
+     * At the enemy wall its route goes through: attacks the wall, to go back to what it was doing once it is down.
+     * False when the wall is gone meanwhile, and the way is planned again.
+     */
+    private boolean breakThrough(Game game) {
+        Building wall = game == null ? null : game.getBuilding(breachId);
+        breachId = 0;
+        route = null;
+        Team own = team();
+        Team owner = wall == null ? null : game.getTeam(wall.team);
+        if (wall == null || own == null || owner == null || !game.areEnemies(own, owner)) {
+            return false;
+        }
+        // Already breaking a wall, it goes back to what it was doing before that one.
+        if (breakingId == 0 || order != Order.ATTACK_BUILDING || buildingId != breakingId) {
+            resumeOrder = order;
+            resumeBuildingId = buildingId;
+            resumeTarget = target;
+            resumeTargetId = targetId;
+        }
+        breakingId = wall.id;
+        order = Order.ATTACK_BUILDING;
+        buildingId = wall.id;
+        target = null;
+        targetId = null;
+        startOrder();
+        WarOfTheGods.LOG.debug("{} breaks through {} in its way", getLabel(), wall.describe(game));
+        return true;
+    }
+
+    /** The wall it broke through is down: back to the order it had before. */
+    private void resumeAfterBreach() {
+        breakingId = 0;
+        order = resumeOrder == null ? Order.IDLE : resumeOrder;
+        buildingId = resumeBuildingId;
+        target = resumeTarget;
+        targetId = resumeTargetId;
+        resumeOrder = null;
+        resumeTarget = null;
+        resumeTargetId = null;
+        if (order == Order.IDLE) {
+            nextAttack();
+            return;
+        }
+        startOrder();
     }
 
     /**
