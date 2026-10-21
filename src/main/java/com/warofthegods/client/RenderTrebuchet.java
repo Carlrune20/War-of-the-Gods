@@ -202,8 +202,8 @@ final class RenderTrebuchet {
     private float facing(EntityUnit unit, float partialTicks) {
         double[] facing = facings.get(unit);
         if (facing == null) {
-            facing = new double[] { unit.rotationYawHead, unit.rotationYawHead, unit.ticksExisted, unit.posX,
-                unit.posZ, unit.rotationYawHead, STANDING };
+            facing = new double[] { unit.rotationYawHead, unit.rotationYawHead, unit.ticksExisted, unit.posX, unit.posZ,
+                unit.rotationYawHead, STANDING };
             facings.put(unit, facing);
         }
         int ticks = Math.min(20, unit.ticksExisted - (int) facing[2]);
