@@ -303,7 +303,7 @@ public enum UnitKind {
             return 1.5;
         }
         if (this == TREBUCHET) {
-            return 0.4;
+            return 0.6;
         }
         return this == ORK ? 0.75 : this == OGRE ? 0.7 : this == GRAARDOR ? 0.8 : 1;
     }
