@@ -653,7 +653,7 @@ echo "ok: Bandos's buildings trained a slave, a goblin, an ork, a goblin priest 
 echo "rts newgame" >&3
 wait_for_log "opened the lobby for a new game" 30
 echo "rts newgame start" >&3
-wait_for_log "has started on Misthalin, 256x256, with 2 teams." 120
+wait_for_log "has started on Misthalin, 256x256, with 2 teams of up to " 120
 wait_for_log "The computer plays on team " 30
 echo "rts ai" >&3
 sleep 2
