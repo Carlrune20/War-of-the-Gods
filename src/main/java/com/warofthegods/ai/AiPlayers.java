@@ -25,6 +25,7 @@ import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.Resource;
+import com.warofthegods.game.SafeMode;
 import com.warofthegods.game.Settlement;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
@@ -315,7 +316,7 @@ public final class AiPlayers {
 
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || ++ticks % THINK_TICKS != 0) {
+        if (event.phase != TickEvent.Phase.END || ++ticks % SafeMode.stretch(THINK_TICKS) != 0) {
             return;
         }
         Game game = DimensionManager.getWorld(0) == null ? null : GameManager.getGame();
