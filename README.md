@@ -20,7 +20,7 @@ A game with no enemy teams is fine too. You can build and fight the wilderness m
 
 | Guide | What is in it |
 |---|---|
-| [How to play](docs/how-to-play.md) | Starting a game, the lobby, the map, gods and teams, gathering, ages, shops, and winning |
+| [How to play](docs/how-to-play.md) | Starting a game, the lobby, the map, gods and teams, gathering, tiers, shops, and winning |
 | [Buildings and units](docs/buildings-and-units.md) | Every building, unit, upgrade and hero, plus walls, health, favor, magic and Silverlight |
 | [Orders and combat](docs/orders-and-combat.md) | Stances, formations, fighting, archers, cavalry, torches |
 | [Commands](docs/commands.md) | The full `/rts` command reference, grouped by what it does |

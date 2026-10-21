@@ -114,7 +114,7 @@ class BuildingTypeTest {
 
     @Test
     void ageNamesAreRomanNumerals() {
-        assertEquals("Age I", BuildingType.ageName(1));
-        assertEquals("Age III", BuildingType.ageName(3));
+        assertEquals("Tier I", BuildingType.ageName(1));
+        assertEquals("Tier III", BuildingType.ageName(3));
     }
 }

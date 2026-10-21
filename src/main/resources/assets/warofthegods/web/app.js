@@ -1062,7 +1062,7 @@
     }
 
     function ageName(age) {
-        return "Age " + roman(age || 1);
+        return "Tier " + roman(age || 1);
     }
 
     function researchName(research) {
@@ -1356,7 +1356,7 @@
             const ready = center || (team.age || 1) > building.level;
             const up = squareButton("level", "level", (center ? "Advance to " + ageName(building.level + 1)
                 : "Level " + (building.level + 1)) + " (" + costText(next.cost) + ")\n"
-                + (ready ? "Takes " + next.seconds + "s; every building takes on the new age's look"
+                + (ready ? "Takes " + next.seconds + "s; every building takes on the new tier's look"
                     : "Your town has to reach " + ageName(building.level + 1) + " first"), async () => {
                     if (await send("buildings.upgrade", {building: building.id})) {
                         showToast("Going up a level");
