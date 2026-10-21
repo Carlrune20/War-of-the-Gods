@@ -52,6 +52,8 @@ public class Game {
     private boolean featuresPlaced;
     /** How many teams the map was laid out for, which places its river and bridges; 0 for maps from before. */
     private int mapTeams;
+    /** Most units a team may have at once, set in the lobby; 0 for the configured number. */
+    private int unitsPerTeam;
     /** Whether the bridges are in the world. */
     private boolean bridgesPlaced;
     /** Whether a winner has been decided; nobody is defeated after that. */
@@ -629,6 +631,16 @@ public class Game {
         return mapTeams;
     }
 
+    /** Most units a team may have at once, however many houses it builds. */
+    public int getUnitsPerTeam() {
+        return unitsPerTeam > 0 ? unitsPerTeam : Config.unitsPerTeam;
+    }
+
+    public void setUnitsPerTeam(int unitsPerTeam) {
+        this.unitsPerTeam = unitsPerTeam;
+        changed();
+    }
+
     public void setMapTeams(int mapTeams) {
         this.mapTeams = mapTeams;
         changed();
@@ -660,7 +672,7 @@ public class Game {
                 cap += building.type.population(building.getLevel());
             }
         }
-        return Math.min(cap, Config.unitsPerTeam);
+        return Math.min(cap, getUnitsPerTeam());
     }
 
     public Collection<Tree> getTrees() {
@@ -779,6 +791,7 @@ public class Game {
         tag.setInteger("lastFeatureId", lastFeatureId);
         tag.setBoolean("featuresPlaced", featuresPlaced);
         tag.setInteger("mapTeams", mapTeams);
+        tag.setInteger("unitsPerTeam", unitsPerTeam);
         tag.setBoolean("bridgesPlaced", bridgesPlaced);
         tag.setBoolean("over", over);
         tag.setBoolean("seeAll", seeAll);
@@ -860,6 +873,7 @@ public class Game {
         game.lastFeatureId = tag.getInteger("lastFeatureId");
         game.featuresPlaced = tag.getBoolean("featuresPlaced");
         game.mapTeams = tag.getInteger("mapTeams");
+        game.unitsPerTeam = tag.getInteger("unitsPerTeam");
         game.bridgesPlaced = tag.getBoolean("bridgesPlaced");
         game.over = tag.getBoolean("over");
         game.seeAll = tag.getBoolean("seeAll");

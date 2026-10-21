@@ -18,8 +18,9 @@ import com.warofthegods.game.Faction;
 
 /**
  * The new game lobby, which comes up for everyone when an op opens it. Ops pick the map, its size and seed, how many
- * teams there are, each team's god and whether the computer plays on it, and can move anyone; every player picks
- * their own numbered team. Everyone clicks Ready, and the game starts once every player online has.
+ * teams there are and how many units each may have, each team's god, whether the computer plays on it and which
+ * alliance it is in, and can move anyone; every player picks their own numbered team. Everyone clicks Ready, and the
+ * game starts once every player online has.
  */
 public final class GuiLobby extends GuiScreen {
 
@@ -27,6 +28,9 @@ public final class GuiLobby extends GuiScreen {
     private static final int READY = 0x80FF80;
     private static final int NOT_READY = 0xE0E0E0;
     private static final int COMPUTER = 0x9AB8FF;
+    /** Colors of alliances A to D. */
+    private static final int[] ALLIANCE_COLORS = { 0xFFD24A, 0x5AE0E0, 0xFF8AD0, 0x9AF06A };
+    private static final String[] ALLIANCE_CODES = { "\u00a76", "\u00a7b", "\u00a7d", "\u00a7a" };
 
     private final RtsClient client;
     private final Map<Integer, Runnable> actions = new HashMap<>();
@@ -113,8 +117,27 @@ public final class GuiLobby extends GuiScreen {
         return Math.min(width - 16, 470);
     }
 
+    /** Left edge of the second settings row and each of its parts: units, then the two alliance presets. */
+    private int[] secondRowAt() {
+        int total = 96 + 12 + 84 + 6 + 84;
+        int x = Math.max(4, (width - total) / 2);
+        return new int[] { x, x + 108, x + 198 };
+    }
+
     private int rowsTop() {
-        return 52;
+        return 76;
+    }
+
+    private static String allianceName(int alliance) {
+        return alliance <= 0 ? "Solo" : "Ally " + (char) ('A' + alliance - 1);
+    }
+
+    /** The alliance's name in its color, for a button. */
+    private static String allianceLabel(int alliance) {
+        if (alliance <= 0) {
+            return allianceName(alliance);
+        }
+        return ALLIANCE_CODES[(alliance - 1) % ALLIANCE_CODES.length] + allianceName(alliance);
     }
 
     private int rowHeight(int teams) {
@@ -169,6 +192,16 @@ public final class GuiLobby extends GuiScreen {
             more.enabled = teams < most;
             seedField.xPosition = at[3] + 30;
             seedField.yPosition = y + 1;
+
+            int[] second = secondRowAt();
+            int sy = 50;
+            JsonArray unitChoices = lobby.getAsJsonArray("unitChoices");
+            int units = lobby.get("units")
+                .getAsInt();
+            addButton(second[0], sy, 20, "-", () -> stepUnits(unitChoices, units, -1));
+            addButton(second[0] + 76, sy, 20, "+", () -> stepUnits(unitChoices, units, 1));
+            addButton(second[1], sy, 84, "No alliances", () -> alliancePreset("none"));
+            addButton(second[2], sy, 84, "Players vs AI", () -> alliancePreset("players-vs-ai"));
         }
 
         JsonArray teams = lobby.getAsJsonArray("teams");
@@ -196,6 +229,16 @@ public final class GuiLobby extends GuiScreen {
                     JsonObject body = new JsonObject();
                     body.addProperty("team", index);
                     body.addProperty("ai", !ai);
+                    send("lobby.team", body);
+                });
+                int alliance = team.get("alliance")
+                    .getAsInt();
+                int alliances = lobby.get("maxAlliances")
+                    .getAsInt();
+                addButton(left + 214, ry, 44, allianceLabel(alliance), () -> {
+                    JsonObject body = new JsonObject();
+                    body.addProperty("team", index);
+                    body.addProperty("alliance", (alliance + 1) % (alliances + 1));
                     send("lobby.team", body);
                 });
             }
@@ -248,6 +291,29 @@ public final class GuiLobby extends GuiScreen {
             sizes.get(next)
                 .getAsInt());
         send("lobby.settings", body);
+    }
+
+    private void stepUnits(JsonArray choices, int units, int step) {
+        int index = 0;
+        for (int i = 0; i < choices.size(); i++) {
+            if (choices.get(i)
+                .getAsInt() == units) {
+                index = i;
+            }
+        }
+        int next = Math.max(0, Math.min(choices.size() - 1, index + step));
+        JsonObject body = new JsonObject();
+        body.addProperty(
+            "units",
+            choices.get(next)
+                .getAsInt());
+        send("lobby.settings", body);
+    }
+
+    private void alliancePreset(String preset) {
+        JsonObject body = new JsonObject();
+        body.addProperty("preset", preset);
+        send("lobby.alliances", body);
     }
 
     private void setTeams(int teams) {
@@ -409,7 +475,10 @@ public final class GuiLobby extends GuiScreen {
         int teamCount = lobby.getAsJsonArray("teams")
             .size();
         String seed = text(lobby, "seed");
+        String units = lobby.get("units")
+            .getAsString();
         if (op) {
+            drawCenteredString(fontRendererObj, units + " units", secondRowAt()[0] + 48, 56, 0xFFFFFF);
             drawCenteredString(fontRendererObj, size + "x" + size, at[1] + 48, y, 0xFFFFFF);
             drawCenteredString(
                 fontRendererObj,
@@ -423,6 +492,7 @@ public final class GuiLobby extends GuiScreen {
             fontRendererObj.drawStringWithShadow("Size: " + size + "x" + size, at[1], y, 0xFFFFFF);
             fontRendererObj.drawStringWithShadow("Teams: " + teamCount, at[2], y, 0xFFFFFF);
             fontRendererObj.drawStringWithShadow("Seed: " + (seed.isEmpty() ? "random" : seed), at[3], y, 0xFFFFFF);
+            drawCenteredString(fontRendererObj, "Up to " + units + " units per team", width / 2, 56, 0xFFFFFF);
         }
 
         JsonArray teams = lobby.getAsJsonArray("teams");
@@ -447,6 +517,12 @@ public final class GuiLobby extends GuiScreen {
                     .getAsBoolean();
                 if (!op) {
                     fontRendererObj.drawStringWithShadow(text(team, "factionName"), left + 82, textY, 0xB0B0B0);
+                    int alliance = team.get("alliance")
+                        .getAsInt();
+                    if (alliance > 0) {
+                        int allianceColor = ALLIANCE_COLORS[(alliance - 1) % ALLIANCE_COLORS.length];
+                        fontRendererObj.drawStringWithShadow(allianceName(alliance), left + 160, textY, allianceColor);
+                    }
                 }
                 for (JsonElement player : team.getAsJsonArray("players")) {
                     players.add(player.getAsJsonObject());
@@ -457,7 +533,7 @@ public final class GuiLobby extends GuiScreen {
                     players.add(player.getAsJsonObject());
                 }
             }
-            int x = left + 216;
+            int x = left + (op ? 262 : 216);
             int end = right - 62;
             if (ai) {
                 fontRendererObj.drawStringWithShadow("Computer", x, textY, COMPUTER);
@@ -499,7 +575,7 @@ public final class GuiLobby extends GuiScreen {
         }
         drawCenteredString(fontRendererObj, status, width / 2, height - 52, 0xC0C0C0);
         String hint = op ? (picked == null ? "Green players are ready. Click a player to move them."
-            : "Pick where " + pickedName + " goes") : "Green players are ready.";
+            : "Pick where " + pickedName + " goes") : "Green players are ready. Same alliance means allies.";
         drawCenteredString(fontRendererObj, hint, width / 2, height - 40, 0x909090);
         String toast = client.getToast();
         if (toast != null) {

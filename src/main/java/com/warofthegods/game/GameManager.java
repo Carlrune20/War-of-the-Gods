@@ -58,12 +58,17 @@ public final class GameManager {
         return newGame(size, teams, seed);
     }
 
-    /** How one team of a new game is set up: its color, its god, whether the computer plays it, and its players. */
+    /**
+     * How one team of a new game is set up: its color, its god, whether the computer plays it, its alliance and its
+     * players.
+     */
     public static final class TeamSetup {
 
         public final EnumChatFormatting color;
         public Faction faction;
         public boolean ai;
+        /** Teams with the same alliance, other than 0, start the game allied. */
+        public int alliance;
         /** Player UUID to name. */
         public final Map<UUID, String> players = new LinkedHashMap<>();
 
@@ -78,9 +83,19 @@ public final class GameManager {
      * on 0,0 of the game world, which is rebuilt from the seed.
      */
     public static Game newGame(int size, List<TeamSetup> teams, long seed) {
+        return newGame(size, teams, seed, 0);
+    }
+
+    /**
+     * Ends any running game and starts a new one with the given teams, each of up to the given number of units (0 for
+     * the configured number).
+     */
+    public static Game newGame(int size, List<TeamSetup> teams, long seed, int unitsPerTeam) {
         GameSavedData data = getData();
         Game game = new Game(data.getLastGameNumber() + 1, System.currentTimeMillis(), 0, 0, size, seed);
+        game.setUnitsPerTeam(unitsPerTeam);
         int teamCount = teams.size();
+        List<Team> made = new ArrayList<>();
         for (TeamSetup setup : teams) {
             String name = Game.colorDisplayName(setup.color);
             for (int i = 2; game.getTeam(name) != null; i++) {
@@ -89,8 +104,17 @@ public final class GameManager {
             Team team = game.addTeam(name, setup.color, Config.startingResources);
             team.setFaction(setup.faction);
             team.setAi(setup.ai);
+            made.add(team);
             for (Map.Entry<UUID, String> player : setup.players.entrySet()) {
                 game.setTeamOf(player.getKey(), player.getValue(), team);
+            }
+        }
+        for (int i = 0; i < made.size(); i++) {
+            for (int j = i + 1; j < made.size(); j++) {
+                int alliance = teams.get(i).alliance;
+                if (alliance != 0 && alliance == teams.get(j).alliance) {
+                    game.setAllied(made.get(i), made.get(j), true);
+                }
             }
         }
         game.setMapTeams(teamCount);

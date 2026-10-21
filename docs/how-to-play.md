@@ -28,6 +28,12 @@ Only ops change the settings:
 - how many teams there are (1 to 8)
 - which god each team follows
 - whether the computer plays on a team
+- the most units a team may have at once (**-** and **+** on the second row; it starts at the configured
+  `units.perTeam`, or the last game's number)
+- which alliance each team is in: click a team's **Solo** button to cycle it through **Ally A** to **Ally D**. Teams in
+  the same alliance start the game allied. **Players vs AI** puts every team the players are on in one alliance and every
+  computer team in another; **No alliances** makes it a free for all. All the teams cannot be in one alliance, as
+  nobody would be left to fight. A new lobby keeps the alliances of the game that just ended.
 
 Teams are numbered, and every player picks their own with **Join**. Ops can also click a player and then **Move
 here**. Any change to the settings takes everyone's Ready away, so they see it before they agree.

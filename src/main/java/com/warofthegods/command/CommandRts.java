@@ -689,7 +689,7 @@ public class CommandRts extends CommandBase {
                     throw new CommandException(
                         "Team %s has the most units it can have (%d)",
                         team.getName(),
-                        Config.unitsPerTeam);
+                        game.getUnitsPerTeam());
                 }
                 EntityUnit first = spawned.get(0);
                 send(

@@ -6,7 +6,6 @@ import java.util.Map;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.warofthegods.Config;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
@@ -530,7 +529,7 @@ public final class BuildingCommands {
         int room = kind.isAnimal() ? count : Buildings.room(game, team);
         if (room <= 0) {
             request.replyError(
-                game.getPopulationCap(team) < Config.unitsPerTeam ? "Build more houses to train more units"
+                game.getPopulationCap(team) < game.getUnitsPerTeam() ? "Build more houses to train more units"
                     : "Your team has the most units it can have");
             return;
         }
