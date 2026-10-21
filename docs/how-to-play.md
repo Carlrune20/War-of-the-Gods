@@ -36,8 +36,9 @@ The game starts on its own once every player online has clicked **Ready**; the c
 still on no team then go on the team with the fewest players, the computer counting as one.
 
 **The computer as a player.** It can play a team on its own or share one with players. When sharing, it plays as one
-more player: it spends the team's resources and commands only the units it trained itself, which players cannot
-order about.
+more player: it spends the team's resources and commands only the units it trained itself. Players can still order any
+of those about, to reassign workers, build or fight a battle themselves: the computer leaves a unit be while it carries
+out a player's orders and takes it back once it stands idle. The same goes for workers while it runs only the economy.
 
 Once it has three towers round its town center and an armory, it walls the town in: a closed ring of wall from tower to
 tower, bent out round any building in the way, with a gate in the middle of each side. Any piece of it knocked down, a

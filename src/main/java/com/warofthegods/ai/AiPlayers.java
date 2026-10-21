@@ -356,29 +356,40 @@ public final class AiPlayers {
             .isEmpty();
         List<EntityUnit> all = Units.get()
             .getUnits(team);
+        // Units a player took over still count towards how many it has, though it leaves them be.
+        int workerCount = 0;
+        int fighterCount = 0;
         for (EntityUnit unit : all) {
             // Priests and monks only pray, and are left where they are; goblin priests too, though they can fight.
             if ((!alongsidePlayers || unit.isAiControlled()) && (unit.isWorker() || unit.getKind()
                 .fights()
                 && !unit.getKind()
                     .praysAtTemple())) {
-                (unit.isWorker() ? workers : fighters).add(unit);
+                if (unit.isWorker()) {
+                    workerCount++;
+                } else {
+                    fighterCount++;
+                }
+                if (!heldByPlayer(unit)) {
+                    (unit.isWorker() ? workers : fighters).add(unit);
+                }
             }
         }
+        letGo(state);
         explore(game, team, state, all);
         survey(game, team, state);
         summon(game, world, team, state, hall, fighters);
         fighters.removeAll(state.summoners);
         pray(game, world, team, fighters);
         flee(game, team, hall, workers, state);
-        trainWorkers(game, team, hall, workers.size());
-        boolean saving = advanceAge(game, team, hall, workers.size(), fighters.size());
+        trainWorkers(game, team, hall, workerCount);
+        boolean saving = advanceAge(game, team, hall, workerCount, fighterCount);
         // In Age III, with a few fighters to hold the town, it saves up for its knights' fortress before more of them.
         boolean savingForFortress = !saving && !state.noFortressSpot
             && game.getAge(team) >= 3
             && count(game, team, fortressOf(team), false) == 0
-            && fighters.size() >= FORTRESS_FIGHTERS;
-        build(game, world, team, state, hall, workers, saving, fighters.size(), false);
+            && fighterCount >= FORTRESS_FIGHTERS;
+        build(game, world, team, state, hall, workers, saving, fighterCount, false);
         wall(game, world, team, state, hall, workers, !saving && !savingForFortress, ticks);
         makeGates(game, world, state);
         staffSites(game, team, workers);
@@ -386,7 +397,7 @@ public final class AiPlayers {
         gather(game, world, team, hall, workers, state);
         if (!saving && !savingForFortress) {
             research(game, team);
-            trainFighters(game, team, state, fighters.size());
+            trainFighters(game, team, state, fighterCount);
             trainWorshippers(game, team);
         }
         fight(game, world, team, hall, fighters, state);
@@ -396,18 +407,45 @@ public final class AiPlayers {
     /** Runs only the team's economy, with every worker the team has, and leaves the rest to its players. */
     private void runEconomy(Game game, WorldServer world, Team team, State state, Building hall) {
         List<EntityUnit> workers = new ArrayList<>();
+        int workerCount = 0;
         for (EntityUnit unit : Units.get()
             .getUnits(team)) {
             if (unit.isWorker()) {
-                workers.add(unit);
+                workerCount++;
+                if (!heldByPlayer(unit)) {
+                    workers.add(unit);
+                }
             }
         }
+        letGo(state);
         flee(game, team, hall, workers, state);
-        trainWorkers(game, team, hall, workers.size());
+        trainWorkers(game, team, hall, workerCount);
         build(game, world, team, state, hall, workers, false, 0, true);
         staffSites(game, team, workers);
         repair(game, world, team, workers);
         gather(game, world, team, hall, workers, state);
+    }
+
+    /**
+     * Whether a player has taken the unit over and it is still busy with their orders; once it stands idle again the
+     * computer has it back.
+     */
+    private static boolean heldByPlayer(EntityUnit unit) {
+        if (unit.isCommanded() && unit.getOrder() == EntityUnit.Order.IDLE) {
+            unit.setCommanded(false);
+        }
+        return unit.isCommanded();
+    }
+
+    /** Forgets the units players took over from its marches, scouting, raids, summoning and flight. */
+    private static void letGo(State state) {
+        state.march.removeIf(EntityUnit::isCommanded);
+        state.raiders.removeIf(EntityUnit::isCommanded);
+        state.summoners.removeIf(EntityUnit::isCommanded);
+        state.scouts.keySet()
+            .removeIf(EntityUnit::isCommanded);
+        state.fled.keySet()
+            .removeIf(EntityUnit::isCommanded);
     }
 
     // ---------------------------------------------------------------- fog of war
