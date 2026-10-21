@@ -2085,8 +2085,8 @@ public final class GuiRts extends GuiScreen {
             colors.add(team.color);
             if (team.ai != null) {
                 lines.add(
-                    "economy".equals(team.ai) ? "The computer runs your workers (B to change)"
-                        : "The computer plays alongside you (B to change)");
+                    "economy".equals(team.ai) ? "The computer runs your workers; your orders come first (B to change)"
+                        : "The computer plays alongside you; your orders come first (B to change)");
                 colors.add(0x9ACBFF);
             }
             if (team.defeated) {

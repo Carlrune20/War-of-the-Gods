@@ -299,6 +299,11 @@ public class EntityUnit extends EntityCreature {
     private int trainedAt;
     /** Whether the computer trained it, and so commands it while it plays the team. */
     private boolean aiControlled;
+    /**
+     * Whether a player has taken it over from the computer playing its team: the computer leaves it be until it
+     * stands idle again. Not saved, so the computer has it back after a restart.
+     */
+    private boolean commanded;
     /** The player it follows, and its place behind them: blocks to their right and behind them. */
     private UUID leaderId;
     private double followAcross;
@@ -929,6 +934,15 @@ public class EntityUnit extends EntityCreature {
 
     public void setAiControlled(boolean aiControlled) {
         this.aiControlled = aiControlled;
+    }
+
+    /** Whether a player has taken it over from the computer, which leaves it be until it stands idle again. */
+    public boolean isCommanded() {
+        return commanded;
+    }
+
+    public void setCommanded(boolean commanded) {
+        this.commanded = commanded;
     }
 
     public UUID getTargetId() {

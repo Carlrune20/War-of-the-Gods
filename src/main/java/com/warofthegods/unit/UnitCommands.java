@@ -100,7 +100,7 @@ public final class UnitCommands {
 
     private static void kill(WebRequest request) {
         Team team = commander(request);
-        List<EntityUnit> units = team == null ? null : ownUnits(request, team);
+        List<EntityUnit> units = team == null ? null : ownUnits(request, team, false);
         if (units == null) {
             return;
         }
@@ -425,7 +425,7 @@ public final class UnitCommands {
         if (team == null) {
             return;
         }
-        List<EntityUnit> units = ownUnits(request, team);
+        List<EntityUnit> units = ownUnits(request, team, false);
         if (units == null) {
             return;
         }
@@ -447,7 +447,7 @@ public final class UnitCommands {
         if (team == null) {
             return;
         }
-        List<EntityUnit> units = ownUnits(request, team);
+        List<EntityUnit> units = ownUnits(request, team, false);
         if (units == null) {
             return;
         }
@@ -566,10 +566,17 @@ public final class UnitCommands {
         request.reply(reply);
     }
 
-    /** The team's loaded units the request names, or null after replying that there are none. */
+    /**
+     * The team's loaded units the request names, or null after replying that there are none. Ordering them about
+     * takes them over from the computer playing the team until they stand idle again.
+     */
     public static List<EntityUnit> ownUnits(WebRequest request, Team team) {
+        return ownUnits(request, team, true);
+    }
+
+    /** As above; with takeOver false, as for a change of stance, the computer keeps any it commands. */
+    public static List<EntityUnit> ownUnits(WebRequest request, Team team, boolean takeOver) {
         List<EntityUnit> units = new ArrayList<>();
-        boolean computers = false;
         JsonElement ids = request.body.get("units");
         if (ids != null && ids.isJsonArray()) {
             JsonArray array = ids.getAsJsonArray();
@@ -580,19 +587,18 @@ public final class UnitCommands {
                         .getUnit(id);
                 if (unit != null && unit.getTeamId()
                     .equals(team.getId())) {
-                    // The computer playing alongside the team commands the units it trained itself; running only
-                    // the workers, it leaves players free to order any of them about.
-                    if (team.isAi() && !team.isAiEconomy() && unit.isAiControlled()) {
-                        computers = true;
-                    } else {
-                        units.add(unit);
-                    }
+                    units.add(unit);
                 }
             }
         }
         if (units.isEmpty()) {
-            request.replyError(computers ? "The computer commands those units" : "None of those units are yours");
+            request.replyError("None of those units are yours");
             return null;
+        }
+        if (takeOver && team.isAi()) {
+            for (EntityUnit unit : units) {
+                unit.setCommanded(true);
+            }
         }
         return units;
     }
