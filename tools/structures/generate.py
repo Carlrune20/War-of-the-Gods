@@ -57,6 +57,7 @@ SKULL, ANVIL, REDSTONE_BLOCK, QUARTZ, CLAY, PANE_STAINED, LOG2 = 144, 145, 152, 
 DARK_OAK_STAIRS, HAY, CARPET, COAL_BLOCK, COBWEB, FIRE, TALL_GRASS = 164, 170, 171, 173, 30, 51, 31
 LEAVES = 18
 QUARTZ_STAIRS = 156
+BIRCH_STAIRS = 135
 
 # The mod's own blocks, by the ids ModBlocks.java gives them in schematics. FIRE is its fire that burns for show
 # and never spreads, in place of Minecraft's.
@@ -64,13 +65,15 @@ GRAYSTONE, GRAYSTONE_SLAB, GRAYSTONE_DOUBLE_SLAB, GRAYSTONE_STAIRS, WOOD_DOOR = 
 BANNER_SARADOMIN, BANNER_ZAMORAK = 205, 207    # each followed by its inverted kind
 FIRE = 209
 BANNER_BANDOS = 210                              # after the fire, as it came later; followed by its inverted kind
-BANNERS = {205, 206, 207, 208, 210, 211}
+BANNER_ARMADYL = 212                             # after Bandos's; followed by its inverted kind
+BANNERS = {205, 206, 207, 208, 210, 211, 212, 213}
 # Banner metadata: the way its face looks in the low two bits, its piece in the high two.
 BANNER_NORTH, BANNER_EAST, BANNER_SOUTH, BANNER_WEST = 0, 1, 2, 3
 BANNER_TOP, BANNER_EMBLEM, BANNER_BOTTOM, BANNER_PENNANT = 0, 1, 2, 3
 
 # Wool and stained clay colours.
 WHITE, ORANGE, LIGHT_GRAY, GRAY, BLUE, BROWN, GREEN, RED, BLACK = 0, 1, 8, 7, 11, 12, 13, 14, 15
+LIGHT_BLUE, YELLOW, CYAN = 3, 4, 9
 
 # Stairs metadata: which way the stairs climb.
 UP_EAST, UP_WEST, UP_SOUTH, UP_NORTH = 0, 1, 2, 3
@@ -242,6 +245,57 @@ def bandos(level):
         plaza=(COBBLE, 0), stairs=STONE_BRICK_STAIRS, **common)
 
 
+def armadyl(level):
+    """Armadyl's people build tall and pale, for the god of the sky: birch on a stone brick plinth in Age I, stone
+    brick framed in birch in Age II, and white quartz on chiseled stone under white quartz roofs in Age III. Cyan and
+    white cloth and light blue glass, and his white and blue banners with the wings."""
+    common = dict(
+        window=(PANE, 0),
+        window2=(PANE_STAINED, LIGHT_BLUE),
+        fence=(FENCE, 0),
+        low_wall=(COBBLE_WALL, 0),
+        light=TORCH,
+        lamp=(GLOWSTONE, 0),
+        door=DOOR,
+        trim=(WOOL, CYAN),
+        shutter=(WOOL, LIGHT_BLUE),
+        tent=(WOOL, WHITE),
+        tent2=(WOOL, CYAN),
+        quarry_stone=(STONE, 0),
+        topper=(FENCE, 0),
+        emblem=(GOLD_BLOCK, 0),
+        banner=BANNER_ARMADYL,
+        banner_inv=BANNER_ARMADYL + 1,
+        cloth=(WOOL, CYAN),
+        cloth2=(WOOL, WHITE),
+        planks=(PLANKS, 2), floor=(PLANKS, 2), path=(GRAVEL, 0),
+    )
+    if level == 1:
+        return Palette(
+            "armadyl", 1,
+            found=(COBBLE, 0), base=(STONE_BRICK, 0),
+            wall=(PLANKS, 2), frame=(LOG, 2), frame_x=(LOG, 6), frame_z=(LOG, 10), plaza=(COBBLE, 0),
+            roof=BIRCH_STAIRS, roof_full=(PLANKS, 2), roof_slab=(WOOD_SLAB, 2),
+            house_roof=BIRCH_STAIRS, house_roof_full=(PLANKS, 2),
+            stairs=COBBLE_STAIRS, **common)
+    if level == 2:
+        return Palette(
+            "armadyl", 2,
+            found=(STONE_BRICK, 0), base=(STONE_BRICK, 3), lower=(STONE_BRICK, 0),
+            wall=(STONE_BRICK, 0), frame=(LOG, 2), frame_x=(LOG, 6), frame_z=(LOG, 10), plaza=(STONE_BRICK, 0),
+            roof=BIRCH_STAIRS, roof_full=(PLANKS, 2), roof_slab=(WOOD_SLAB, 2),
+            house_roof=BIRCH_STAIRS, house_roof_full=(PLANKS, 2),
+            stairs=STONE_BRICK_STAIRS, **common)
+    return Palette(
+        "armadyl", 3,
+        found=(STONE_BRICK, 0), base=(STONE_BRICK, 3), lower=(STONE_BRICK, 3), stone=True,
+        wall=(QUARTZ, 0), frame=(QUARTZ, 2), frame_x=(STONE_BRICK, 3), frame_z=(STONE_BRICK, 3),
+        plaza=(STONE_BRICK, 0),
+        roof=QUARTZ_STAIRS, roof_full=(QUARTZ, 0), roof_slab=(SLAB, 7),
+        house_roof=QUARTZ_STAIRS, house_roof_full=(QUARTZ, 0),
+        stairs=QUARTZ_STAIRS, **common)
+
+
 # What chaotic() swaps a block for, now and then, on a Bandos building.
 CHAOS = {
     (COBBLE, 0): [(MOSSY, 0), (MOSSY, 0), (GRAVEL, 0), (STONE_BRICK, 2)],
@@ -274,13 +328,16 @@ def palette(faction, level, type_id=None):
         return saradomin(level)
     if faction == "bandos":
         return bandos(level)
+    if faction == "armadyl":
+        return armadyl(level)
     return zamorak(level, type_id is None or type_id in ZAMORAK_STONE)
 
 
 SARADOMIN = saradomin(1)
 ZAMORAK = zamorak(1)
 BANDOS = bandos(1)
-FACTIONS = ["saradomin", "zamorak", "bandos"]
+ARMADYL = armadyl(1)
+FACTIONS = ["saradomin", "zamorak", "bandos", "armadyl"]
 
 
 def zam(p):
@@ -1988,7 +2045,12 @@ FORTRESS_TOP = 18
 
 
 def fortress_style(black):
-    """The look of a fortress: True for the Kinshra's, False for the White Knights', "bandos" for Bandos's bastion."""
+    """The look of a fortress: True for the Kinshra's, False for the White Knights', "bandos" for Bandos's bastion,
+    "armadyl" for Armadyl's eyrie."""
+    if black == "armadyl":
+        return dict(wall=(STONE_BRICK, 0), pillar=(QUARTZ, 2), base=(STONE_BRICK, 0), floor=(STONE_BRICK, 0),
+                    accent=(STONE_BRICK, 3), palette=armadyl(3), slit=(PANE_STAINED, LIGHT_BLUE), light=TORCH,
+                    lamp=(GLOWSTONE, 0), door=DOOR, stairs=STONE_BRICK_STAIRS, slab=(SLAB, 7), fence=(FENCE, 0))
     if black == "bandos":
         return dict(wall=(COBBLE, 0), pillar=(MOSSY, 0), base=(COBBLE, 0), floor=(GRAVEL, 0),
                     accent=(LOG2, 5), palette=bandos(3), slit=(IRON_BARS, 0), light=TORCH,
@@ -2320,6 +2382,257 @@ def bandos_bastion(p, level):
     return s
 
 
+# ---------------------------------------------------------------- Armadyl's own buildings
+#
+# Armadyl's people build up toward the sky: narrow tower houses, an open temple with his winged statue, a domed
+# observatory, a tall roost where the aviansie perch, and the eyrie, his fortress with a landing platform over its
+# keep. Whichever folder they are written into, they look the same.
+
+
+def tower_house(p, level):
+    """Armadyl's house: a narrow stone-footed tower of two storeys, three from Age II, under a steep pointed roof,
+    a cyan band under its eaves and his pennant on the peak."""
+    s = Struct(5, 5, 20, 1)
+    foundation(s, p, 0, 0, 4, 4)
+    storeys = 2 if level == 1 else 3
+    top = 4 * storeys
+    s.fill(1, 0, 1, 3, 0, 3, p.floor)
+    s.walls(0, 0, 4, 4, 1, top, p.wall)
+    s.walls(0, 0, 4, 4, 1, 1, p.base)
+    if p.lower is not None:
+        s.walls(0, 0, 4, 4, 2, 2, p.lower)
+    for y in range(4, top + 1, 4):
+        for i in range(5):
+            s.set(i, y, 0, p.frame_x)
+            s.set(i, y, 4, p.frame_x)
+            s.set(0, y, i, p.frame_z)
+            s.set(4, y, i, p.frame_z)
+    s.pillars(0, 0, 4, 4, 1, top, p.frame)
+    for x, z in ((1, 0), (3, 0), (1, 4), (3, 4), (0, 1), (0, 3), (4, 1), (4, 3)):
+        s.set(x, top, z, p.trim)
+    door(s, p, 2, 1, 0)
+    for y in range(2, top, 4):
+        for x, z in ((2, 4), (0, 2), (4, 2)):
+            s.set(x, y + (1 if y == 2 else 0), z, p.window2 if level == 3 else p.window)
+        if y > 2:
+            s.set(2, y, 0, p.window2 if level == 3 else p.window)
+    # Floors, a ladder up the back wall, a bed of wool and a chest.
+    for y in range(4, top, 4):
+        s.fill(1, y, 1, 3, y, 3, p.planks)
+    for y in range(1, top):
+        s.set(2, y, 3, (LADDER, 2))
+    s.set(1, 1, 3, (CHEST, 3))
+    s.set(3, 1, 3, (WORKBENCH, 0))
+    s.set(1, 5, 1, (WOOL, CYAN))
+    s.set(1, 5, 2, (WOOL, WHITE))
+    torch(s, p, 1, 2, 1, "up")
+    cap = hip(s, 0, 0, 4, 4, top + 1, p.house_roof, p.house_roof_full)
+    s.fill(2, cap + 1, 2, 2, cap + 1, 2, p.house_roof_full)
+    flag(s, p, 2, cap + 2, cap + 3, 2, "east", tall=1)
+    return s
+
+
+def wing_statue(s, p, x, y, z, stone):
+    """Armadyl's sign raised in stone over an altar: two wings joined at their roots in a U, facing north."""
+    for dx, dy in ((0, 0), (-1, 1), (1, 1), (-2, 1), (2, 1), (-2, 2), (2, 2), (-3, 2), (3, 2), (-3, 3), (3, 3),
+                   (-2, 3), (2, 3), (-3, 4), (3, 4)):
+        s.set(x + dx, y + dy, z, stone)
+    s.set(x, y + 1, z, p.emblem)
+
+
+def armadyl_temple(p, level):
+    """Armadyl's temple, open to the sky: a stone platform with steps up its front, a colonnade round it carrying a
+    stone band, and at the back an altar under his winged sign, braziers either side. The columns are birch in Age
+    I, chiseled stone in Age II and quartz pillars in Age III, and grow taller with the ages."""
+    s = Struct(11, 13, 16, 1)
+    foundation(s, p, 0, 0, 10, 12)
+    s.fill(0, 1, 1, 10, 1, 12, p.base)
+    s.fill(1, 1, 2, 9, 1, 11, p.plaza)
+    for x in range(3, 8):
+        s.set(x, 1, 0, stairs(p.stairs, UP_SOUTH))
+    s.fill(0, 0, 0, 10, 0, 0, p.path)
+    column = {1: (LOG, 2), 2: (STONE_BRICK, 3), 3: (QUARTZ, 2)}[level]
+    band = p.frame_x if level < 3 else (QUARTZ, 0)
+    top = 6 + level
+    spots = [(x, z) for x in (1, 9) for z in (2, 4, 6, 8, 10, 12)] + [(x, 2) for x in (3, 7)] + \
+        [(x, 12) for x in (3, 5, 7)]
+    for x, z in spots:
+        s.fill(x, 2, z, x, top - 1, z, column)
+    # The band the columns carry, round the top, cyan cloth set in it over the door.
+    for x in range(1, 10):
+        for z in (2, 12):
+            s.set(x, top, z, band)
+    for z in range(2, 13):
+        for x in (1, 9):
+            s.set(x, top, z, band)
+    for x in (4, 5, 6):
+        s.set(x, top, 2, p.trim)
+    for x in range(1, 10, 2):
+        s.set(x, top + 1, 2, p.roof_slab)
+        s.set(x, top + 1, 12, p.roof_slab)
+    # The altar and the winged sign over it.
+    altar = (STONE_BRICK, 3)
+    s.fill(4, 2, 10, 6, 2, 10, altar)
+    s.set(5, 3, 10, (CARPET, CYAN))
+    statue = (QUARTZ, 0) if level == 3 else (WOOL, WHITE)
+    wing_statue(s, p, 5, 3, 11, statue)
+    # Braziers either side, and benches down the sides.
+    for x in (2, 8):
+        s.set(x, 2, 10, (COBBLE_WALL, 0))
+        s.set(x, 3, 10, p.lamp if level > 1 else (FIRE, 0))
+    for z in (4, 6, 8):
+        s.set(3, 2, z, stairs(p.stairs, UP_EAST))
+        s.set(7, 2, z, stairs(p.stairs, UP_WEST))
+    # Banners down the front columns.
+    for x in (1, 9):
+        hang(s, p, x, top - 1, 1, "south", inverted=(x > 5))
+    if level == 3:
+        # Lamps in the band and a gold rim round the altar.
+        for x in (1, 9):
+            s.set(x, top, 7, p.lamp)
+        s.set(4, 3, 10, p.emblem)
+        s.set(6, 3, 10, p.emblem)
+    return s
+
+
+def observatory(p, level):
+    """Armadyl's observatory, where his scholars watch the sky and the land: a round stone tower with floors and a
+    ladder inside, a cyan band round its top under a dome of light blue glass on stone ribs, and a telescope looking
+    out of the dome. It rises a storey with each age."""
+    s = Struct(9, 9, 26, 1)
+    foundation(s, p, 0, 0, 8, 8)
+    top = 8 + 3 * level
+    stone = (QUARTZ, 0) if level == 3 else (STONE_BRICK, 0)
+    ring = [(x, z) for x in range(9) for z in range(9) if 9 <= (x - 4) ** 2 + (z - 4) ** 2 <= 17]
+    inside = [(x, z) for x in range(9) for z in range(9) if (x - 4) ** 2 + (z - 4) ** 2 < 9]
+    for x, z in ring:
+        s.fill(x, 1, z, x, top, z, stone)
+        s.set(x, 1, z, p.base)
+        s.set(x, top, z, p.trim)
+    for x, z in inside:
+        s.set(x, 0, z, p.floor)
+    for y in range(5, top, 4):
+        for x, z in inside:
+            s.set(x, y, z, p.planks)
+    for x, z in inside:
+        s.set(x, top, z, p.planks)
+    for y in range(1, top):
+        s.set(4, y, 6, (LADDER, 2))
+    s.set(4, top, 6, (LADDER, 2))
+    door(s, p, 4, 1, 0)
+    for y in range(3, top - 1, 4):
+        for x, z in ((4, 8), (0, 4), (8, 4)):
+            s.set(x, y, z, p.window2)
+            s.set(x, y + 1, z, p.window2)
+    # The dome: glass on ribs of stone running north to south and east to west.
+    glass = (STAINED_GLASS, LIGHT_BLUE)
+    for dy, r2 in enumerate((17, 13, 8, 3)):
+        y = top + 1 + dy
+        for x in range(9):
+            for z in range(9):
+                d = (x - 4) ** 2 + (z - 4) ** 2
+                if d <= r2 and (d > r2 - 6 or dy == 3):
+                    s.set(x, y, z, stone if x == 4 or z == 4 else glass)
+    s.set(4, top + 5, 4, p.emblem)
+    # The telescope, out of the dome to the north-east, on a stand on the top floor.
+    s.set(4, top + 1, 4, (COBBLE_WALL, 0))
+    for i, (x, y, z) in enumerate(((5, top + 2, 3), (6, top + 3, 2), (7, top + 4, 1))):
+        s.set(x, y, z, (WOOL, GRAY) if i < 2 else (GLASS, 0))
+    # Books, a map table and a lamp.
+    s.set(3, 1, 3, (BOOKSHELF, 0))
+    s.set(5, 1, 3, (BOOKSHELF, 0))
+    s.set(3, 1, 5, (WORKBENCH, 0))
+    s.set(4, 2, 4, p.lamp)
+    hang(s, p, 2, top - 2, 0, "south")
+    hang(s, p, 6, top - 2, 0, "south", inverted=True)
+    return s
+
+
+def roost(p, level):
+    """Where the aviansie are trained: a tall square pillar of stone with a ladder up its front, a broad deck on
+    brackets at its top with nests of hay and perches round its rail, and Armadyl's banners hanging under the deck.
+    From Age II a pointed roof shelters the deck; it climbs higher with each age."""
+    s = Struct(7, 7, 30, 1)
+    foundation(s, p, 0, 0, 6, 6)
+    top = 11 + 3 * level
+    core = p.wall if p.stone else p.base
+    s.walls(0, 0, 6, 6, 1, 1, p.base)
+    s.fill(1, 1, 1, 5, 1, 5, p.plaza)
+    s.fill(2, 1, 2, 4, top - 1, 4, core)
+    s.pillars(2, 2, 4, 4, 1, top - 1, p.frame)
+    for y in range(4, top - 1, 4):
+        s.set(3, y, 4, p.window2)
+        s.set(2, y + 1, 3, p.window2)
+        s.set(4, y + 1, 3, p.window2)
+    for y in range(1, top + 1):
+        s.set(3, y, 1, (LADDER, 2))
+    # The brackets under the deck, and the deck.
+    for i in range(1, 6):
+        s.set(i, top - 1, 1, stairs(p.stairs, UP_SOUTH, upside_down=True))
+        s.set(i, top - 1, 5, stairs(p.stairs, UP_NORTH, upside_down=True))
+        s.set(1, top - 1, i, stairs(p.stairs, UP_EAST, upside_down=True))
+        s.set(5, top - 1, i, stairs(p.stairs, UP_WEST, upside_down=True))
+    s.set(3, top - 1, 1, (LADDER, 2))
+    s.fill(0, top, 0, 6, top, 6, p.roof_full if not p.stone else (QUARTZ, 0))
+    s.set(3, top, 1, (LADDER, 2))
+    s.set(3, top, 0, None)
+    # The rail, with gaps for the perches.
+    for i in range(7):
+        for x, z in ((i, 0), (i, 6), (0, i), (6, i)):
+            if i in (3,):
+                continue
+            s.set(x, top + 1, z, p.fence)
+    # Perches: posts standing out over the gaps, and nests of hay in the corners.
+    for x, z in ((3, 6), (0, 3), (6, 3)):
+        s.fill(x, top + 1, z, x, top + 2, z, p.fence)
+    for x, z in ((1, 1), (5, 1), (1, 5), (5, 5)):
+        s.set(x, top + 1, z, (HAY, 0))
+    s.set(3, top + 1, 3, p.lamp)
+    # Banners hanging under the deck on every side.
+    for x in (1, 5):
+        hang(s, p, x, top - 2, 0, "south", inverted=x > 3)
+        hang(s, p, x, top - 2, 6, "north", inverted=x > 3)
+    if level >= 2:
+        for x, z in ((0, 0), (6, 0), (0, 6), (6, 6)):
+            s.fill(x, top + 1, z, x, top + 3, z, p.fence)
+        cap = hip(s, 0, 0, 6, 6, top + 4, p.roof, p.roof_full)
+        flag(s, p, 3, cap + 1, cap + 2, 3, "east", tall=1)
+    else:
+        flag(s, p, 6, top + 2, top + 4, 6, "west", tall=1)
+    return s
+
+
+def armadyl_eyrie(p, level):
+    """Armadyl's eyrie, his fortress: the knights' fortress in stone brick and quartz, its towers under white quartz
+    spires, and over its keep a broad landing platform of quartz for his aviansie, with perches at its corners and
+    nests of hay."""
+    s = fortress("armadyl")
+    last = FORTRESS - 1
+    tower_top = 11
+    for x0, z0 in ((0, 0), (last - 3, 0), (0, last - 3), (last - 3, last - 3)):
+        s.clear(x0, tower_top + 1, z0, x0 + 3, tower_top + 1, z0 + 3)
+        cap = hip(s, x0, z0, x0 + 3, z0 + 3, tower_top + 1, QUARTZ_STAIRS, (QUARTZ, 0))
+        s.set(x0 + 1, cap + 1, z0 + 1, p.fence)
+        s.set(x0 + 1, cap + 2, z0 + 1, (WOOL, CYAN))
+    gate = FORTRESS // 2
+    kx0, kx1, kz0, kz1 = gate - 3, gate + 3, 7, last - 2
+    # Clear the flag over the keep, and lay the platform over the keep's battlements.
+    s.clear(kx0 + 1, 15, kz0 + 1, kx1 - 1, FORTRESS_TOP, kz1 - 1)
+    for x in range(kx0 - 1, kx1 + 2):
+        for z in range(kz0 - 1, kz1 + 2):
+            if 0 <= x <= last and 0 <= z <= last:
+                s.set(x, 16, z, (SLAB, 7))
+    for x, z in ((kx0 - 1, kz0 - 1), (kx1 + 1, kz0 - 1), (kx0 - 1, kz1 + 1), (kx1 + 1, kz1 + 1)):
+        if 0 <= x <= last and 0 <= z <= last:
+            s.fill(x, 17, z, x, 18, z, p.fence)
+    for x, z in ((kx0, kz0), (kx1, kz1)):
+        s.set(x, 17, z, (HAY, 0))
+    s.set(gate, 17, kz0 + 3, p.lamp)
+    for x in (gate - 2, gate + 2):
+        hang(s, p, x, 15, kz0 - 1, "south", tall=1, inverted=(x > gate))
+    return s
+
+
 FIXED_STYLE_BUILDINGS = {
     "white_knights_fortress": lambda p, level: fortress(False),
     "black_knights_fortress": lambda p, level: fortress(True),
@@ -2331,6 +2644,11 @@ FIXED_STYLE_BUILDINGS = {
     "war_pit": lambda p, level: war_pit(bandos(level), level),
     "bandos_temple": lambda p, level: bandos_temple(bandos(level), level),
     "bandos_bastion": lambda p, level: bandos_bastion(bandos(3), level),
+    "tower_house": lambda p, level: tower_house(armadyl(level), level),
+    "armadyl_temple": lambda p, level: armadyl_temple(armadyl(level), level),
+    "observatory": lambda p, level: observatory(armadyl(level), level),
+    "roost": lambda p, level: roost(armadyl(level), level),
+    "armadyl_eyrie": lambda p, level: armadyl_eyrie(armadyl(3), level),
 }
 
 
@@ -2358,12 +2676,19 @@ BUILDINGS = {
     "war_pit": (FIXED_STYLE_BUILDINGS["war_pit"], 3),
     "bandos_temple": (FIXED_STYLE_BUILDINGS["bandos_temple"], 3),
     "bandos_bastion": (FIXED_STYLE_BUILDINGS["bandos_bastion"], 1),
+    "tower_house": (FIXED_STYLE_BUILDINGS["tower_house"], 3),
+    "armadyl_temple": (FIXED_STYLE_BUILDINGS["armadyl_temple"], 3),
+    "observatory": (FIXED_STYLE_BUILDINGS["observatory"], 3),
+    "roost": (FIXED_STYLE_BUILDINGS["roost"], 3),
+    "armadyl_eyrie": (FIXED_STYLE_BUILDINGS["armadyl_eyrie"], 1),
 }
 
 # The palette each fortress's building site and ruin are drawn in, whichever folder it is written into.
 FIXED_PALETTE = {"white_knights_fortress": "saradomin", "black_knights_fortress": "zamorak", "chaos_temple": "zamorak",
                  "stone_circle": "zamorak", "monastery": "saradomin", "wizards_tower": "saradomin",
-                 "goblin_cave": "bandos", "war_pit": "bandos", "bandos_temple": "bandos", "bandos_bastion": "bandos"}
+                 "goblin_cave": "bandos", "war_pit": "bandos", "bandos_temple": "bandos", "bandos_bastion": "bandos",
+                 "tower_house": "armadyl", "armadyl_temple": "armadyl", "observatory": "armadyl", "roost": "armadyl",
+                 "armadyl_eyrie": "armadyl"}
 
 # ---------------------------------------------------------------- building sites, damage and ruins
 

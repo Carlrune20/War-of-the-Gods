@@ -45,9 +45,9 @@ def wrapped(color, dark):
 # ---------------------------------------------------------------- the godswords
 #
 # A great broad blade of pale steel with a ridge down its middle, saw teeth at its foot and a heavy guard of curling
-# claws, the blade the same for all three; the hilt below it is the god's: Zamorak's a red grip over spread black
+# claws, the blade the same for all four; the hilt below it is the god's: Zamorak's a red grip over spread black
 # claws, Saradomin's a pale grip over a gold four-pointed star, Bandos's a dark green grip over a spiked green-black
-# pommel.
+# pommel, Armadyl's a lavender grip over a grey knob and a fan of blue feathers.
 
 STEEL = (182, 184, 192)
 STEEL_LIGHT = (222, 224, 230)
@@ -77,6 +77,7 @@ HILTS = {
     "zamorak": ((150, 26, 24), (88, 12, 14), (62, 56, 60), (34, 30, 34)),
     "saradomin": ((224, 214, 180), (176, 164, 128), (214, 184, 90), (156, 128, 54)),
     "bandos": ((92, 104, 88), (58, 68, 56), (60, 72, 60), (34, 42, 34)),
+    "armadyl": ((118, 118, 192), (80, 80, 146), (140, 142, 152), (80, 92, 168)),
 }
 
 
@@ -125,6 +126,17 @@ def godsword(god):
             ray = hilt.child("ray%d" % i, pivot=(0, 0, 0), rotation=(0, 0, math.pi / 2 * i))
             fbox(ray, -1, -6, -0.75, 2, 5, 1.5, pom, inflate=-0.1)
             fbox(ray, -0.5, -8, -0.5, 1, 2, 1, pom_dark)
+    elif god == "armadyl":
+        # A grey knob, and out of it a great fan of blue feathers spreading down and out, longest in the middle,
+        # each with a barb near its tip.
+        fbox(hilt, -2.25, -2, -2.25, 4.5, 4.5, 4.5, pom, inflate=0.2)
+        for i, angle in enumerate((-1.7, -2.15, -2.6, 3.14, 2.6, 2.15, 1.7)):
+            length = 11 - abs(i - 3) * 1.2
+            feather = hilt.child("feather%d" % i, pivot=(0, 1.5, 0), rotation=(0, 0, angle))
+            fbox(feather, -1, -length, -0.6, 2, length, 1.2, pom_dark)
+            fbox(feather, -0.5, -length - 2, -0.5, 1, 2, 1, pom_dark, inflate=-0.05)
+            barb = feather.child("barb%d" % i, pivot=(0, -length + 3, 0), rotation=(0, 0, 0.8 if i < 3 else -0.8))
+            fbox(barb, -0.5, -3, -0.5, 1, 3, 1, pom_dark)
     else:
         # A heavy spiked knob of green-black iron, Bandos's sign on its end.
         fbox(hilt, -2, -1.5, -2, 4, 4, 4, pom)
@@ -303,6 +315,7 @@ def dragon_scimitar():
 
 
 ARTIFACTS = {"zamorak_godsword": lambda: godsword("zamorak"), "saradomin_godsword": lambda: godsword("saradomin"),
-             "bandos_godsword": lambda: godsword("bandos"), "dark_bow": dark_bow,
+             "bandos_godsword": lambda: godsword("bandos"), "armadyl_godsword": lambda: godsword("armadyl"),
+             "dark_bow": dark_bow,
              "dark_bow_pulling_0": lambda: dark_bow(0), "dark_bow_pulling_1": lambda: dark_bow(1),
              "dark_bow_pulling_2": lambda: dark_bow(2), "dragon_scimitar": dragon_scimitar}

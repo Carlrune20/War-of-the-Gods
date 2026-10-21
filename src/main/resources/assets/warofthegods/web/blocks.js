@@ -200,6 +200,8 @@
             case 209: return same(0xE0661A);
             case 210: return same(0x4A6A2A);
             case 211: return same(0x6A4A2A);
+            case 212: return same(0xE6E6E0);
+            case 213: return same(0x3E74CE);
             case 175: return same([0xE6D820, 0xB060D0, 0x5E9A3A, 0x4E8A3A, 0xC21414, 0xE090C0][d & 7] || 0x5E9A3A);
             default: return same(0x8A8A8A);
         }
@@ -254,7 +256,7 @@
             case 104: case 105: return [box([6, 0, 6], [10, (Math.min(d, 7) + 1) * 2, 10])];
             case 60: return [box([0, 0, 0], [16, 15, 16])];
             case 63: return [box([7, 0, 7], [9, 9, 9]), box([0, 9, 7], [16, 16, 9])];
-            case 205: case 206: case 207: case 208: case 210: case 211: return [wall([3, 0, 1, 2][d & 3], 1, 0, 16)];
+            case 205: case 206: case 207: case 208: case 210: case 211: case 212: case 213: return [wall([3, 0, 1, 2][d & 3], 1, 0, 16)];
             case 209: return [box([1, 0, 1], [15, 12, 15])];
             case 64: case 71: case 204: {
                 if (d & 8) {
