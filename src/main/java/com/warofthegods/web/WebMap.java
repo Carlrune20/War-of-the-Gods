@@ -247,7 +247,7 @@ public final class WebMap {
             unitKinds.add(kind.id, kindJson);
         }
         json.add("unitKinds", unitKinds);
-        json.addProperty("unitsPerTeam", Config.unitsPerTeam);
+        json.addProperty("unitsPerTeam", game.getUnitsPerTeam());
         json.addProperty("trainSeconds", Config.trainSeconds);
         json.addProperty("buildingGap", Buildings.GAP);
         json.addProperty("carryCapacity", Config.carryCapacity);

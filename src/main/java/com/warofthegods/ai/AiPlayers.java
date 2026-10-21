@@ -16,7 +16,6 @@ import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.DimensionManager;
 
-import com.warofthegods.Config;
 import com.warofthegods.WarOfTheGods;
 import com.warofthegods.building.Buildings;
 import com.warofthegods.game.Building;
@@ -1004,7 +1003,7 @@ public final class AiPlayers {
     /** The building it needs next, which it waits to afford; or null when it needs none now. */
     private static BuildingType neededBuilding(Game game, Team team, State state, int workers, boolean saving) {
         int age = game.getAge(team);
-        if (Buildings.room(game, team) <= 3 && game.getPopulationCap(team) < Config.unitsPerTeam) {
+        if (Buildings.room(game, team) <= 3 && game.getPopulationCap(team) < game.getUnitsPerTeam()) {
             return own(team, BuildingType.HOUSE);
         }
         if (saving) {
@@ -1051,7 +1050,7 @@ public final class AiPlayers {
     /** Running only the economy: a house when short of room, its first storehouse, or farms for its food workers. */
     private static BuildingType neededEconomyBuilding(Game game, Team team, int workers) {
         int age = game.getAge(team);
-        if (Buildings.room(game, team) <= 3 && game.getPopulationCap(team) < Config.unitsPerTeam) {
+        if (Buildings.room(game, team) <= 3 && game.getPopulationCap(team) < game.getUnitsPerTeam()) {
             return own(team, BuildingType.HOUSE);
         }
         if (count(game, team, BuildingType.STOREHOUSE, false) == 0 && (workers >= STOREHOUSE_WORKERS || age >= 2)) {
@@ -1072,7 +1071,7 @@ public final class AiPlayers {
         int age = game.getAge(team);
         BuildingType house = own(team, BuildingType.HOUSE);
         if (Buildings.room(game, team) <= 8 && fighters < MAX_FIGHTERS
-            && game.getPopulationCap(team) < Config.unitsPerTeam
+            && game.getPopulationCap(team) < game.getUnitsPerTeam()
             && affords(team, house.cost(), SPARE_MARGIN)) {
             return house;
         }

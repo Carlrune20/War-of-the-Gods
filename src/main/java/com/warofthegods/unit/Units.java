@@ -301,7 +301,7 @@ public final class Units {
     public List<EntityUnit> spawn(Game game, Team team, UnitKind kind, int count, double x, double z) {
         WorldServer world = GameWorld.getWorld();
         List<EntityUnit> spawned = new ArrayList<>();
-        count = Math.min(count, Config.unitsPerTeam - game.countUnits(team));
+        count = Math.min(count, game.getUnitsPerTeam() - game.countUnits(team));
         for (int i = 0; i < count; i++) {
             double[] spot = spawnSpot(world, game, MathHelper.floor_double(x), MathHelper.floor_double(z));
             EntityUnit unit = new EntityUnit(world);
