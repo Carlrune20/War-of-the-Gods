@@ -4,7 +4,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Team-wide improvements researched at a building: military ones at the armory, economic ones at the storehouse,
+ * Team-wide improvements researched at a building: military ones at the armory, economic ones, tunnel mining among
+ * them, at the storehouse,
  * fortified, stone and citadel walls at the town center, and for Bandos armed goblins there too, watch and guard towers
  * at a tower, the knights' own at
  * their fortress, and greater and black demons, for favor too, at Zamorak's chaos temple. Some need another
@@ -69,7 +70,7 @@ public enum Upgrade {
             + "lesser demon, hitting 6 harder",
         BuildingType.CHAOS_TEMPLE, 3, "greater_demons", 500, 0, 700, 40, 90),
     TUNNEL_MINING("tunnel_mining", "Tunnel mining", "Workers can dig quarries into mined out gold mines",
-        BuildingType.ARMORY, 3, "diamond_pickaxes", 400, 400, 0, 60),
+        BuildingType.STOREHOUSE, 3, "diamond_pickaxes", 400, 400, 0, 60),
     SIEGE_WEAPONS("siege_weapons", "Siege weapons",
         "Your stronghold builds trebuchets, which hurl stones that burst where they land, smashing buildings from afar",
         BuildingType.ARMORY, 3, null, 300, 600, 600, 90),
