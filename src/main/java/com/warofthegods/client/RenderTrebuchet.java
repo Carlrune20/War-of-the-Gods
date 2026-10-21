@@ -74,10 +74,28 @@ final class RenderTrebuchet {
      * swing round at once to face where it looks, as a man would.
      */
     private static final float TURN_PER_TICK = 4.5F;
-    /** Blocks a tick it has to be rolling for the way it rolls to count as the way to face. */
-    private static final double ROLLING = 0.01;
-    /** For each trebuchet seen: the way it faced the tick before and this tick, and the tick that was. */
-    private final Map<EntityUnit, float[]> facings = new WeakHashMap<>();
+    /**
+     * Blocks it has to roll before the way it went counts as the way to face. Taken over a stretch rather than tick by
+     * tick, the way it rolls is not thrown about by the small jolts of its position coming in from the server.
+     */
+    private static final double ROLLING = 0.3;
+    /** Ticks it has to stand before it turns to what it looks at rather than on the way it was rolling. */
+    private static final int STANDING = 15;
+    /**
+     * For each trebuchet seen: the way it faced the tick before and this tick, the tick that was, where it was when
+     * the way it rolls was last taken, the way it was rolling then, and the ticks since it last rolled.
+     */
+    private final Map<EntityUnit, double[]> facings = new WeakHashMap<>();
+    /**
+     * Share of the way to where the server has it a trebuchet is drawn to go each tick. The server sends where a unit
+     * is only once it has gone an eighth of a block, which one as slow as a trebuchet takes a few ticks to do, so on
+     * its own it lurches forward and stops, again and again; drawn gliding after where it is, it rolls on steadily.
+     */
+    private static final double GLIDE = 0.3;
+    /** Blocks it can be off from where it is drawn before it is drawn there at once, as when it is first seen. */
+    private static final double GLIDE_SNAP = 3;
+    /** For each trebuchet seen: where it was drawn the tick before and this tick, and the tick that was. */
+    private final Map<EntityUnit, double[]> glides = new WeakHashMap<>();
     /** For each trebuchet seen: the number of throws it showed, and the tick its latest throw was seen to begin. */
     private final Map<EntityUnit, int[]> throwsSeen = new WeakHashMap<>();
 
@@ -88,9 +106,10 @@ final class RenderTrebuchet {
             || sinceThrow >= EntityUnit.TREBUCHET_RELOAD - LOADED_BEFORE;
         int brightness = unit.getBrightnessForRender(partialTicks);
         float yaw = facing(unit, partialTicks);
+        double[] off = glide(unit, partialTicks);
 
         GL11.glPushMatrix();
-        GL11.glTranslated(x, y, z);
+        GL11.glTranslated(x + off[0], y + off[1], z + off[2]);
         // Turned so its front, the frame's z = 0 side, faces the way it looks.
         GL11.glRotatef(180 - yaw, 0, 1, 0);
         if (unit.deathTime > 0) {
@@ -139,30 +158,75 @@ final class RenderTrebuchet {
         GL11.glPopMatrix();
     }
 
+    /** How far from where it is this frame the trebuchet is drawn, gliding steadily after it. */
+    private double[] glide(EntityUnit unit, float partialTicks) {
+        double[] glide = glides.get(unit);
+        if (glide == null) {
+            glide = new double[] { unit.posX, unit.posY, unit.posZ, unit.posX, unit.posY, unit.posZ,
+                unit.ticksExisted };
+            glides.put(unit, glide);
+        }
+        int ticks = Math.min(20, unit.ticksExisted - (int) glide[6]);
+        if (ticks > 0) {
+            for (int i = 0; i < 3; i++) {
+                glide[i] = glide[i + 3];
+            }
+            double[] at = { unit.posX, unit.posY, unit.posZ };
+            double dx = at[0] - glide[3];
+            double dy = at[1] - glide[4];
+            double dz = at[2] - glide[5];
+            boolean snap = dx * dx + dy * dy + dz * dz > GLIDE_SNAP * GLIDE_SNAP;
+            double follow = 1 - Math.pow(1 - GLIDE, ticks);
+            for (int i = 0; i < 3; i++) {
+                glide[i + 3] = snap ? at[i] : glide[i + 3] + (at[i] - glide[i + 3]) * follow;
+                if (snap) {
+                    glide[i] = at[i];
+                }
+            }
+            glide[6] = unit.ticksExisted;
+        }
+        double[] off = new double[3];
+        double[] at = { unit.lastTickPosX + (unit.posX - unit.lastTickPosX) * partialTicks,
+            unit.lastTickPosY + (unit.posY - unit.lastTickPosY) * partialTicks,
+            unit.lastTickPosZ + (unit.posZ - unit.lastTickPosZ) * partialTicks };
+        for (int i = 0; i < 3; i++) {
+            off[i] = glide[i] + (glide[i + 3] - glide[i]) * partialTicks - at[i];
+        }
+        return off;
+    }
+
     /**
      * The way the trebuchet faces, turning slowly toward the way it rolls while it is on the move, and while it stands
      * toward what it looks at, which is what it aims at.
      */
     private float facing(EntityUnit unit, float partialTicks) {
-        float[] facing = facings.get(unit);
+        double[] facing = facings.get(unit);
         if (facing == null) {
-            facing = new float[] { unit.rotationYawHead, unit.rotationYawHead, unit.ticksExisted };
+            facing = new double[] { unit.rotationYawHead, unit.rotationYawHead, unit.ticksExisted, unit.posX, unit.posZ,
+                unit.rotationYawHead, STANDING };
             facings.put(unit, facing);
         }
         int ticks = Math.min(20, unit.ticksExisted - (int) facing[2]);
         if (ticks > 0) {
-            double dx = unit.posX - unit.prevPosX;
-            double dz = unit.posZ - unit.prevPosZ;
-            float wanted = dx * dx + dz * dz > ROLLING * ROLLING ? (float) Math.toDegrees(Math.atan2(-dx, dz))
-                : unit.rotationYawHead;
+            double dx = unit.posX - facing[3];
+            double dz = unit.posZ - facing[4];
+            if (dx * dx + dz * dz > ROLLING * ROLLING) {
+                facing[3] = unit.posX;
+                facing[4] = unit.posZ;
+                facing[5] = Math.toDegrees(Math.atan2(-dx, dz));
+                facing[6] = 0;
+            } else {
+                facing[6] += ticks;
+            }
+            float wanted = facing[6] < STANDING ? (float) facing[5] : unit.rotationYawHead;
             facing[0] = facing[1];
             for (int i = 0; i < ticks; i++) {
-                float turn = MathHelper.wrapAngleTo180_float(wanted - facing[1]);
+                float turn = MathHelper.wrapAngleTo180_float(wanted - (float) facing[1]);
                 facing[1] += Math.max(-TURN_PER_TICK, Math.min(TURN_PER_TICK, turn));
             }
             facing[2] = unit.ticksExisted;
         }
-        return facing[0] + MathHelper.wrapAngleTo180_float(facing[1] - facing[0]) * partialTicks;
+        return (float) facing[0] + MathHelper.wrapAngleTo180_float((float) (facing[1] - facing[0])) * partialTicks;
     }
 
     /**
