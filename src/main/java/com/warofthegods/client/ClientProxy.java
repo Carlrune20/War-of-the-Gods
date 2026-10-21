@@ -44,11 +44,21 @@ public class ClientProxy extends CommonProxy {
             MinecraftForgeClient.registerItemRenderer(
                 godsword,
                 new RenderModelItem(
-                    ItemGodsword.registryName(godsword.god),
+                    ItemGodsword.registryName(godsword.godId),
                     ARTIFACT_SCALE,
                     -29,
                     RenderModelItem.Hold.HEAVY));
         }
+        MinecraftForgeClient.registerItemRenderer(
+            WarOfTheGods.armadylGodsword,
+            new RenderModelItem(
+                ItemGodsword.registryName(WarOfTheGods.armadylGodsword.godId),
+                ARTIFACT_SCALE,
+                -29,
+                RenderModelItem.Hold.HEAVY));
+        MinecraftForgeClient.registerItemRenderer(
+            WarOfTheGods.armadylCrossbow,
+            new RenderModelItem("armadyl_crossbow", ARTIFACT_SCALE, -6));
         MinecraftForgeClient.registerItemRenderer(
             WarOfTheGods.darkBow,
             new RenderModelItem("dark_bow", ARTIFACT_SCALE, 0, RenderModelItem.Hold.BOW));

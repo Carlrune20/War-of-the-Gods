@@ -311,6 +311,10 @@ out:
   - **Zamorak godsword** sets whoever it hits alight.
   - **Saradomin godsword** heals you by 5% of the damage it deals.
   - **Bandos godsword** hits for 14.
+  - **Armadyl godsword**: one blow in eight lands half again as hard. No team follows Armadyl yet, so no armory sells
+    his hilt; the Armadyl hilt is found in ruin chests instead (1.5% of them).
+- **Armadyl crossbow.** Shoots arrows as a bow does, but winds to full power in half a bow's time, and its arrows hit
+  twice as hard as a bow's (found in 2% of chests).
 - **Prayer book.** While you carry it you have 20 prayer points, shown as stars above your hunger bar. Click with the
   book to put your protection prayer up or take it down; hold the button to switch between Protect from Melee,
   Missiles and Magic, and let go on the one you want. A prayer takes three quarters off hits of its style, as a hero's

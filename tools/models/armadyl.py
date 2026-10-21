@@ -172,9 +172,10 @@ def armadyl_armor():
 # feet. Over the feathers it wears Armadyl's armour: a white vest edged in gold with a gold diamond on it, a white
 # skirt, grey bracers, and heavy grey plates round its thighs and shins. A belt in its team's color.
 #
-# Looks: the plain aviansie (a ranger, throwing spears), the warrior (a sword), the mage (a staff), Flight Kilisa
-# (melee, a helmet and a jagged sword), Wingman Skree (a mage, big pauldrons and a dark skirt), Flockleader Geerin
-# (ranged, a helmet and a spear), and Kree'arra, Armadyl's general: grey-feathered, his wings sheathed in grey steel.
+# Looks: the plain aviansie (a ranger, throwing spears), the warrior (its team's sword, held as a man's is), the mage
+# (a staff), Flight Kilisa (melee, a helmet and a jagged sword), Wingman Skree (a mage, big pauldrons and a dark
+# skirt), Flockleader Geerin (ranged, a helmet and a spear), and Kree'arra, Armadyl's general: grey-headed, his wings
+# sheathed in grey steel.
 
 FEATHER = (124, 96, 58)
 FEATHER_DARK = (92, 70, 42)
@@ -197,7 +198,7 @@ STAFF_GEM = (90, 180, 230)
 # By look: feathers (light, mid, dark), eye, helmet, skirt, pauldron paint, weapon, wing steel, leg plates.
 LOOKS = {
     "aviansie": ((FEATHER_LIGHT, FEATHER, FEATHER_DARK), EYE, False, WHITE, False, "spear", False, GREY),
-    "aviansie_warrior": ((FEATHER_LIGHT, FEATHER, FEATHER_DARK), EYE, False, WHITE, True, "sword", False, GREY),
+    "aviansie_warrior": ((FEATHER_LIGHT, FEATHER, FEATHER_DARK), EYE, False, WHITE, True, None, False, GREY),
     "aviansie_mage": ((FEATHER_LIGHT, FEATHER, FEATHER_DARK), EYE, False, (96, 110, 170), False, "staff", False, GREY),
     "kilisa": ((FEATHER_LIGHT, FEATHER, FEATHER_DARK), EYE, True, WHITE, False, "jagged", False, GREY_DARK),
     "skree": ((FEATHER_LIGHT, FEATHER, FEATHER_DARK), EYE, True, SKIRT_DARK, True, "staff", False, GREY),
@@ -384,23 +385,22 @@ def aviansie(kind="aviansie"):
         for i in range(3):                                                      # the talons of the hand
             finger = arm.child("%s_finger%d" % (name, i), pivot=(side * 0.9 * (i - 1), 10.5, -1))
             finger.box(-0.5, 0, -0.5, 1, 2, 1, talon)
-        if side < 0 and weapon:
+        if side < 0:
+            # The weapons each look carries, in the right hand: all are in the model, those a look does not carry
+            # left clear on its texture. The warrior carries none, as the game puts its team's sword in its hand.
             held = arm.child("weapon", pivot=(0, 9.5, -0.5), rotation=(0.45, 0, 0))
-            if weapon == "spear":
-                held.box(-0.5, -16, -0.5, 1, 24, 1, flat(WOOD))
-                held.box(-1, -20, -0.5, 2, 4, 1, flat(STEEL_LIGHT))
-            elif weapon == "staff":
-                held.box(-0.5, -14, -0.5, 1, 22, 1, flat(STEEL))
-                held.box(-1, -16, -1, 2, 2, 2, flat(STAFF_GEM))
-                held.box(-1.5, -14, -0.5, 3, 1, 1, gold)
-            else:
-                held.box(-0.5, -1, -0.5, 1, 3, 1, flat(SKIRT_DARK))
-                held.box(-2, -2, -1, 4, 1, 2, flat(STEEL))
-                held.box(-1, -14, -0.5, 2, 12, 1, flat(STEEL_LIGHT))
-                if weapon == "jagged":
-                    for i in range(3):
-                        tooth = held.child("tooth%d" % i, pivot=(1, -5 - i * 3, 0), rotation=(0, 0, 0.7))
-                        tooth.box(-0.5, -2, -0.5, 1, 2, 1, flat(STEEL_LIGHT))
+            spear, staff, sword = (weapon == "spear"), (weapon == "staff"), (weapon == "jagged")
+            held.box(-0.5, -16, -0.5, 1, 24, 1, color_or_clear(spear, flat(WOOD)))
+            held.box(-1, -20, -0.5, 2, 4, 1, color_or_clear(spear, flat(STEEL_LIGHT)))
+            held.box(-0.5, -14, -0.5, 1, 22, 1, color_or_clear(staff, flat(STEEL)), inflate=0.05)
+            held.box(-1, -16, -1, 2, 2, 2, color_or_clear(staff, flat(STAFF_GEM)))
+            held.box(-1.5, -14, -0.5, 3, 1, 1, color_or_clear(staff, gold))
+            held.box(-0.5, -1, -0.5, 1, 3, 1, color_or_clear(sword, flat(SKIRT_DARK)), inflate=0.1)
+            held.box(-2, -2, -1, 4, 1, 2, color_or_clear(sword, flat(STEEL)))
+            held.box(-1, -14, -0.5, 2, 12, 1, color_or_clear(sword, flat(STEEL_LIGHT)))
+            for i in range(3):
+                tooth = held.child("tooth%d" % i, pivot=(1, -5 - i * 3, 0), rotation=(0, 0, 0.7))
+                tooth.box(-0.5, -2, -0.5, 1, 2, 1, color_or_clear(sword, flat(STEEL_LIGHT)))
 
         leg = m.part("%s_leg" % name, pivot=(side * 2.3, 14, 0))
         leg.box(-2, 0, -2, 4, 6, 4, feathers(colors), mirror=side > 0)

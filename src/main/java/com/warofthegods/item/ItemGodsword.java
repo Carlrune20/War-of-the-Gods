@@ -35,13 +35,22 @@ public class ItemGodsword extends ItemSword {
     /** Part of what Saradomin's godsword deals that it heals its wielder by. */
     public static final float HEAL_PART = 0.05F;
 
+    /** The god whose hilt it has, or null for a god no team follows yet, such as Armadyl. */
     public final Faction god;
+    /** The god's id, as its name and textures go. */
+    public final String godId;
 
     public ItemGodsword(Faction god) {
-        super(god == Faction.BANDOS ? BANDOS : GODSWORD);
+        this(god.id, god == Faction.BANDOS ? BANDOS : GODSWORD, god);
+    }
+
+    /** A godsword with the hilt of the god of this id, striking as material does. */
+    protected ItemGodsword(String godId, ToolMaterial material, Faction god) {
+        super(material);
         this.god = god;
-        setUnlocalizedName(WarOfTheGods.MODID + "." + registryName(god));
-        setTextureName(WarOfTheGods.MODID + ":" + registryName(god));
+        this.godId = godId;
+        setUnlocalizedName(WarOfTheGods.MODID + "." + registryName(godId));
+        setTextureName(WarOfTheGods.MODID + ":" + registryName(godId));
         setCreativeTab(CreativeTabs.tabCombat);
         // Unbreakable: an item with no durability is never damaged by use.
         setMaxDamage(0);
@@ -49,7 +58,17 @@ public class ItemGodsword extends ItemSword {
 
     /** The name the godsword of a god is registered under. */
     public static String registryName(Faction god) {
-        return god.id + "_godsword";
+        return registryName(god.id);
+    }
+
+    /** The name the godsword of the god of this id is registered under. */
+    public static String registryName(String godId) {
+        return godId + "_godsword";
+    }
+
+    /** The plain godsword's material: 12 damage. */
+    protected static ToolMaterial plain() {
+        return GODSWORD;
     }
 
     @Override
