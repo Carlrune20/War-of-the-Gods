@@ -1410,7 +1410,7 @@ def quarry(p, level):
     rng = random.Random(1000 + level + (7 if zam(p) else 0))
     # Solid rock under the whole footprint, then the pit dug into it in steps.
     s.fill(0, -5, 0, 10, -1, 10, p.quarry_stone)
-    s.fill(0, 0, 0, 10, 0, 10, p.path if not zam(p) else (NETHERRACK, 0))
+    s.fill(0, 0, 0, 10, 0, 10, p.path)
     px0, pz0, px1, pz1 = 1, 1, 7, 7
     for x in range(px0, px1 + 1):
         for z in range(pz0, pz1 + 1):
@@ -1432,8 +1432,6 @@ def quarry(p, level):
                 if pick <= 0:
                     s.set(x, y, z, (ore, 0))
                     break
-        elif zam(p) and rng.random() < 0.15:
-            s.set(x, y, z, (NETHERRACK, 0))
     # Steps down one side.
     for i in range(3):
         s.set(px0 + 1 + i, -i, pz1, stairs(COBBLE_STAIRS, UP_WEST))
