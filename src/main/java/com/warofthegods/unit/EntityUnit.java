@@ -2904,16 +2904,25 @@ public class EntityUnit extends EntityCreature {
      */
     @Override
     public void knockBack(Entity attacker, float amount, double dx, double dz) {
-        if (steadyTick != ticksExisted && !kind.isUnshakable()) {
+        if (steadyTick != ticksExisted && !isUnshakable()) {
             super.knockBack(attacker, amount, dx, dz);
         }
     }
 
     @Override
     public void addVelocity(double x, double y, double z) {
-        if (steadyTick != ticksExisted && !kind.isUnshakable()) {
+        if (steadyTick != ticksExisted && !isUnshakable()) {
             super.addVelocity(x, y, z);
         }
+    }
+
+    /**
+     * Whether nothing pushes it about. A client knows its kind only from what the server watches; were it to go by
+     * the kind it was made with, a trebuchet crowded by units would be shoved about there while it stood firm on the
+     * server, and jerk back each time its position came in.
+     */
+    private boolean isUnshakable() {
+        return (worldObj.isRemote ? getWatchedKind() : kind).isUnshakable();
     }
 
     /**
