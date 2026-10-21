@@ -19,7 +19,8 @@ import com.warofthegods.game.Faction;
 /**
  * The new game lobby, which comes up for everyone when an op opens it. Ops pick the map, its size and seed, how many
  * teams there are and how many units each may have, each team's god, whether the computer plays on it and which
- * alliance it is in, and can move anyone; every player picks their own numbered team. Everyone clicks Ready, and the game starts once every player online has.
+ * alliance it is in, and can move anyone; every player picks their own numbered team. Everyone clicks Ready, and the
+ * game starts once every player online has.
  */
 public final class GuiLobby extends GuiScreen {
 
@@ -131,6 +132,14 @@ public final class GuiLobby extends GuiScreen {
         return alliance <= 0 ? "Solo" : "Ally " + (char) ('A' + alliance - 1);
     }
 
+    /** The alliance's name in its color, for a button. */
+    private static String allianceLabel(int alliance) {
+        if (alliance <= 0) {
+            return allianceName(alliance);
+        }
+        return ALLIANCE_CODES[(alliance - 1) % ALLIANCE_CODES.length] + allianceName(alliance);
+    }
+
     private int rowHeight(int teams) {
         int room = height - rowsTop() - 62;
         return Math.max(20, Math.min(26, room / (teams + 1)));
@@ -226,9 +235,7 @@ public final class GuiLobby extends GuiScreen {
                     .getAsInt();
                 int alliances = lobby.get("maxAlliances")
                     .getAsInt();
-                String label = alliance <= 0 ? allianceName(0)
-                    : ALLIANCE_CODES[(alliance - 1) % ALLIANCE_CODES.length] + allianceName(alliance);
-                addButton(left + 214, ry, 44, label, () -> {
+                addButton(left + 214, ry, 44, allianceLabel(alliance), () -> {
                     JsonObject body = new JsonObject();
                     body.addProperty("team", index);
                     body.addProperty("alliance", (alliance + 1) % (alliances + 1));
@@ -513,11 +520,8 @@ public final class GuiLobby extends GuiScreen {
                     int alliance = team.get("alliance")
                         .getAsInt();
                     if (alliance > 0) {
-                        fontRendererObj.drawStringWithShadow(
-                            allianceName(alliance),
-                            left + 160,
-                            textY,
-                            ALLIANCE_COLORS[(alliance - 1) % ALLIANCE_COLORS.length]);
+                        int allianceColor = ALLIANCE_COLORS[(alliance - 1) % ALLIANCE_COLORS.length];
+                        fontRendererObj.drawStringWithShadow(allianceName(alliance), left + 160, textY, allianceColor);
                     }
                 }
                 for (JsonElement player : team.getAsJsonArray("players")) {
@@ -570,10 +574,8 @@ public final class GuiLobby extends GuiScreen {
             status = "Waiting for " + String.join(", ", list) + " to click Ready";
         }
         drawCenteredString(fontRendererObj, status, width / 2, height - 52, 0xC0C0C0);
-        String hint = op
-            ? (picked == null ? "Green players are ready. Click a player to move them. Teams in the same alliance are allies."
-                : "Pick where " + pickedName + " goes")
-            : "Green players are ready. Teams in the same alliance are allies.";
+        String hint = op ? (picked == null ? "Green players are ready. Click a player to move them."
+            : "Pick where " + pickedName + " goes") : "Green players are ready. Same alliance means allies.";
         drawCenteredString(fontRendererObj, hint, width / 2, height - 40, 0x909090);
         String toast = client.getToast();
         if (toast != null) {
