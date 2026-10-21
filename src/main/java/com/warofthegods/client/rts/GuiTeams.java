@@ -17,7 +17,8 @@ import com.google.gson.JsonObject;
  * The team menu, opened with B in person or in the RTS view: every team with its faction and players, and who is on
  * no team. Players join and leave teams here when the server lets them; ops also pick a player and move them, fill
  * the teams with whoever is on none, or deal everyone out afresh. Each team shows whether the computer plays it;
- * players hand their own team to the computer, in full or only to run its workers, and ops any team.
+ * players hand their own team to the computer, in full or only to run its workers, and ops any team. While no game is
+ * running it says so, and ops get a New game button; opened with B, it opens the new game lobby straight away for ops.
  */
 public final class GuiTeams extends GuiScreen {
 
@@ -32,6 +33,8 @@ public final class GuiTeams extends GuiScreen {
     /** The uuid of the player an op picked to move, or null. */
     private String picked;
     private String pickedName;
+    /** Opened with the key: while no game is running, an op goes straight to the new game lobby. */
+    private boolean startIfNoGame;
     private final Map<Integer, Runnable> actions = new HashMap<>();
     /** Player names on screen: x, y, width, and the player's uuid and name. */
     private final List<Object[]> names = new ArrayList<>();
@@ -48,7 +51,12 @@ public final class GuiTeams extends GuiScreen {
     }
 
     public GuiTeams(RtsClient client) {
+        this(client, false);
+    }
+
+    public GuiTeams(RtsClient client, boolean startIfNoGame) {
         this.client = client;
+        this.startIfNoGame = startIfNoGame;
     }
 
     @Override
@@ -65,6 +73,11 @@ public final class GuiTeams extends GuiScreen {
     private void refresh() {
         client.command("teams.list", new JsonObject(), reply -> {
             data = reply;
+            if (startIfNoGame && !isRunning() && isOp() && mc.currentScreen == this) {
+                // The lobby comes up by itself once it opens.
+                client.command("lobby.open", new JsonObject(), null);
+            }
+            startIfNoGame = false;
             layout();
         });
     }
@@ -83,6 +96,13 @@ public final class GuiTeams extends GuiScreen {
                 .getAsBoolean();
     }
 
+    /** Whether a game is running; servers from before the menu said so always had one when they answered. */
+    private boolean isRunning() {
+        return data == null || !data.has("running")
+            || data.get("running")
+                .getAsBoolean();
+    }
+
     private String mine() {
         return data == null || !data.has("mine") ? ""
             : data.get("mine")
@@ -91,7 +111,7 @@ public final class GuiTeams extends GuiScreen {
 
     private List<Column> columns() {
         List<Column> columns = new ArrayList<>();
-        if (data == null) {
+        if (data == null || !isRunning()) {
             return columns;
         }
         for (JsonElement element : data.getAsJsonArray("teams")) {
@@ -163,6 +183,16 @@ public final class GuiTeams extends GuiScreen {
         int rows = (columns.size() + perRow - 1) / perRow;
         int top = Math.max(30, (this.height - rows * (height + GAP) - 30) / 2);
         boolean op = isOp();
+        if (data != null && !isRunning()) {
+            int w = 100;
+            int x = op ? width / 2 - w - 3 : width / 2 - w / 2;
+            if (op) {
+                addButton(x, this.height / 2 + 12, w, "New game", () -> send("lobby.open", new JsonObject()));
+                x += w + 6;
+            }
+            addButton(x, this.height / 2 + 12, w, "Done", this::close);
+            return;
+        }
         boolean selfJoin = data != null && data.has("selfJoin")
             && data.get("selfJoin")
                 .getAsBoolean();
@@ -326,6 +356,18 @@ public final class GuiTeams extends GuiScreen {
             super.drawScreen(mouseX, mouseY, partialTicks);
             return;
         }
+        if (!isRunning()) {
+            drawCenteredString(fontRendererObj, "No game is running", width / 2, this.height / 2 - 14, 0xFFFFFF);
+            drawCenteredString(
+                fontRendererObj,
+                isOp() ? "Start one to open the new game lobby" : "An op can start one",
+                width / 2,
+                this.height / 2 - 2,
+                0xA0A0A0);
+            drawToast();
+            super.drawScreen(mouseX, mouseY, partialTicks);
+            return;
+        }
         List<Column> columns = columns();
         int perRow = perRow(columns.size());
         int height = columnHeight(columns);
@@ -381,6 +423,11 @@ public final class GuiTeams extends GuiScreen {
         if (hint != null) {
             drawCenteredString(fontRendererObj, hint, width / 2, 22, 0xA0A0A0);
         }
+        drawToast();
+        super.drawScreen(mouseX, mouseY, partialTicks);
+    }
+
+    private void drawToast() {
         String toast = client.getToast();
         if (toast != null) {
             drawCenteredString(
@@ -390,6 +437,5 @@ public final class GuiTeams extends GuiScreen {
                 this.height - 36,
                 client.isToastBad() ? 0xFF8A80 : 0xA8FFB0);
         }
-        super.drawScreen(mouseX, mouseY, partialTicks);
     }
 }
