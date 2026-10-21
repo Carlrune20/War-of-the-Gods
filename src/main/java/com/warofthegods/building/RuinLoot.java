@@ -85,7 +85,12 @@ final class RuinLoot {
      * against a wall where one stands.
      */
     static void stock(WorldServer world, Ruin ruin, Random random) {
-        if (random.nextInt(100) >= CHEST_CHANCE) {
+        stock(world, ruin, random, false);
+    }
+
+    /** As {@link #stock(WorldServer, Ruin, Random)}, but always, when asked to: a lava maze's chest is always there. */
+    static void stock(WorldServer world, Ruin ruin, Random random, boolean always) {
+        if (!always && random.nextInt(100) >= CHEST_CHANCE) {
             return;
         }
         int y = ruin.groundY + 1;

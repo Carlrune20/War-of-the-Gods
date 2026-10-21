@@ -1,6 +1,7 @@
 package com.warofthegods.block;
 
 import net.minecraft.block.Block;
+import net.minecraft.block.material.Material;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 
@@ -16,7 +17,8 @@ public final class ModBlocks {
     /** Ids of the mod's blocks in schematics, as tools/structures/generate.py writes them. */
     public static final int GRAYSTONE_ID = 200, GRAYSTONE_SLAB_ID = 201, GRAYSTONE_DOUBLE_SLAB_ID = 202,
         GRAYSTONE_STAIRS_ID = 203, WOOD_DOOR_ID = 204, BANNER_ID = 205, STATIC_FIRE_ID = 209, BANDOS_BANNER_ID = 210,
-        LAST_ID = 211;
+        CHARRED_EARTH_ID = 212, ASH_ID = 213, SCORCHED_STONE_ID = 214, EMBER_ROCK_ID = 215, CHARRED_LOG_ID = 216,
+        MUSHROOM_STEM_ID = 217, MUSHROOM_CAP_ID = 218, LAST_ID = 218;
 
     /**
      * The banners' kinds, in the order of their ids: Saradomin's and Zamorak's from {@link #BANNER_ID}, Bandos's, which
@@ -33,6 +35,14 @@ public final class ModBlocks {
     public static Item woodDoorItem;
     public static BlockBanner[] banners;
     public static Block staticFire;
+    /** Forinthry's ground: charred earth, ash, scorched stone and ember rock, and its dead trees and mushrooms. */
+    public static Block charredEarth;
+    public static Block ash;
+    public static Block scorchedStone;
+    public static Block emberRock;
+    public static Block charredLog;
+    public static Block mushroomStem;
+    public static Block mushroomCap;
 
     private static final Block[] STORED = new Block[256];
 
@@ -60,12 +70,34 @@ public final class ModBlocks {
         staticFire = new BlockStaticFire();
         GameRegistry.registerBlock(staticFire, "static_fire");
 
+        charredEarth = new BlockWilderness("charred_earth", Material.ground, 0.6F, Block.soundTypeGravel, 0);
+        GameRegistry.registerBlock(charredEarth, "charred_earth");
+        ash = new BlockWilderness("ash", Material.sand, 0.5F, Block.soundTypeSand, 0);
+        GameRegistry.registerBlock(ash, "ash");
+        scorchedStone = new BlockWilderness("scorched_stone", Material.rock, 1.5F, Block.soundTypePiston, 0);
+        GameRegistry.registerBlock(scorchedStone, "scorched_stone");
+        emberRock = new BlockWilderness("ember_rock", Material.rock, 1.5F, Block.soundTypePiston, 0.5F);
+        GameRegistry.registerBlock(emberRock, "ember_rock");
+        charredLog = new BlockCharredLog();
+        GameRegistry.registerBlock(charredLog, "charred_log");
+        mushroomStem = new BlockWildMushroom(false);
+        GameRegistry.registerBlock(mushroomStem, "mushroom_stem");
+        mushroomCap = new BlockWildMushroom(true);
+        GameRegistry.registerBlock(mushroomCap, "mushroom_cap");
+
         STORED[GRAYSTONE_ID] = graystoneBricks;
         STORED[GRAYSTONE_SLAB_ID] = graystoneSlab;
         STORED[GRAYSTONE_DOUBLE_SLAB_ID] = graystoneDoubleSlab;
         STORED[GRAYSTONE_STAIRS_ID] = graystoneStairs;
         STORED[WOOD_DOOR_ID] = woodDoor;
         STORED[STATIC_FIRE_ID] = staticFire;
+        STORED[CHARRED_EARTH_ID] = charredEarth;
+        STORED[ASH_ID] = ash;
+        STORED[SCORCHED_STONE_ID] = scorchedStone;
+        STORED[EMBER_ROCK_ID] = emberRock;
+        STORED[CHARRED_LOG_ID] = charredLog;
+        STORED[MUSHROOM_STEM_ID] = mushroomStem;
+        STORED[MUSHROOM_CAP_ID] = mushroomCap;
     }
 
     /** The block a schematic's block id stands for: one of the mod's own, or Minecraft's block of that id. */

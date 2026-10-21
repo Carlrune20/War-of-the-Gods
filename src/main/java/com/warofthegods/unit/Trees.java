@@ -12,13 +12,16 @@ import net.minecraft.init.Blocks;
 import net.minecraft.world.World;
 
 import com.warofthegods.Config;
+import com.warofthegods.block.ModBlocks;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.Tree;
 import com.warofthegods.web.WebMap;
 
 /**
  * Trees workers chop for wood. A tree is the logs joined to the foot of a trunk; it holds wood by its number of
- * logs, within limits, and once the wood is all chopped out it falls: its logs and leaves are gone.
+ * logs, within limits, and once the wood is all chopped out it falls: its logs and leaves are gone. Forinthry's dead
+ * trees are charred logs with no leaves, and its giant mushrooms count as trees too: their stems are logs and their
+ * caps leaves, and they hold {@link Config#mushroomFood} food instead of wood, which workers harvest with hoes.
  */
 public final class Trees {
 
@@ -29,7 +32,13 @@ public final class Trees {
     private Trees() {}
 
     public static boolean isLog(Block block) {
-        return block == Blocks.log || block == Blocks.log2;
+        return block == Blocks.log || block == Blocks.log2
+            || block != null && (block == ModBlocks.charredLog || block == ModBlocks.mushroomStem);
+    }
+
+    /** Whether the block is a giant mushroom's stem or cap, which gives food rather than wood. */
+    public static boolean isMushroom(Block block) {
+        return block != null && (block == ModBlocks.mushroomStem || block == ModBlocks.mushroomCap);
     }
 
     private static boolean isLeaves(Block block) {
@@ -46,10 +55,17 @@ public final class Trees {
 
     /**
      * Whether the trunk with its foot at x, y, z is a tree that grew there: it stands on earth and has leaves of its
-     * own. Logs in buildings, walls and ruins stand on stone, planks or nothing, and have no leaves on them.
+     * own. Logs in buildings, walls and ruins stand on stone, planks or nothing, and have no leaves on them. Charred
+     * trees and giant mushrooms only grow in the Wilderness, so any of them standing on the ground is one.
      */
     public static boolean isTree(World world, int x, int y, int z) {
         Block ground = world.getBlock(x, y - 1, z);
+        Block foot = world.getBlock(x, y, z);
+        if (foot == ModBlocks.charredLog || foot == ModBlocks.mushroomStem) {
+            return ground.getMaterial()
+                .isSolid() && !isLog(ground)
+                && !isLeaves(ground);
+        }
         if (ground != Blocks.grass && ground != Blocks.dirt && ground != Blocks.mycelium) {
             return false;
         }
@@ -207,7 +223,8 @@ public final class Trees {
         for (int[] log : logs) {
             top = Math.max(top, log[1]);
         }
-        int wood = Math.max(Config.treeWoodMin, Math.min(Config.treeWoodMax, logs.size() * Config.woodPerLog));
+        int wood = isMushroom(world.getBlock(x, y, z)) ? Config.mushroomFood
+            : Math.max(Config.treeWoodMin, Math.min(Config.treeWoodMax, logs.size() * Config.woodPerLog));
         return game.trackTree(x, y, z, top, wood);
     }
 
@@ -219,6 +236,8 @@ public final class Trees {
     /** Fells a tree that has no wood left: its logs go, and the leaves around them. */
     public static void fell(World world, Game game, Tree tree) {
         List<int[]> logs = logs(world, tree.x, tree.y, tree.z);
+        Block trunk = isLog(world.getBlock(tree.x, tree.y, tree.z)) ? world.getBlock(tree.x, tree.y, tree.z)
+            : Blocks.log;
         int minX = tree.x;
         int maxX = tree.x;
         int minZ = tree.z;
@@ -250,7 +269,7 @@ public final class Trees {
         for (int[] log : logs) {
             world.setBlock(log[0], log[1], log[2], Blocks.air, 0, 2);
         }
-        world.playAuxSFX(2001, tree.x, tree.y, tree.z, Block.getIdFromBlock(Blocks.log));
+        world.playAuxSFX(2001, tree.x, tree.y, tree.z, Block.getIdFromBlock(trunk));
         game.removeTree(tree);
         WebMap.blocksChanged(world, minX - 1, minZ - 1, maxX + 1, maxZ + 1);
     }
@@ -260,6 +279,24 @@ public final class Trees {
      * top, so trees on hills and in hollows are found as well as those level with x, z.
      */
     public static int[] nearest(World world, Game game, double x, double z, int range) {
+        return nearest(world, game, x, z, range, null);
+    }
+
+    /**
+     * The nearest standing tree as above, of the same sort as a worker was at (a giant mushroom or a tree for wood)
+     * if there is one in range, else of either.
+     */
+    public static int[] nearest(World world, Game game, double x, double z, int range, Boolean mushroom) {
+        if (mushroom != null) {
+            int[] same = nearestOf(world, game, x, z, range, mushroom);
+            if (same != null) {
+                return same;
+            }
+        }
+        return nearestOf(world, game, x, z, range, null);
+    }
+
+    private static int[] nearestOf(World world, Game game, double x, double z, int range, Boolean mushroom) {
         int bx = (int) Math.floor(x);
         int bz = (int) Math.floor(z);
         int[] best = null;
@@ -276,7 +313,8 @@ public final class Trees {
                     continue;
                 }
                 int[] foot = trunkFoot(world, cx, cz);
-                if (foot != null && isTree(world, foot[0], foot[1], foot[2])) {
+                if (foot != null && isTree(world, foot[0], foot[1], foot[2])
+                    && (mushroom == null || mushroom == isMushroom(world.getBlock(foot[0], foot[1], foot[2])))) {
                     best = foot;
                     bestDistance = distance;
                 }

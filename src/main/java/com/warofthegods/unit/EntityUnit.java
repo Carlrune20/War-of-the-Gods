@@ -253,6 +253,8 @@ public class EntityUnit extends EntityCreature {
     private int treeY;
     private int treeZ;
     private int chopTicks;
+    /** Whether the tree it last chopped was a giant mushroom, so it looks for another of those next; null if none. */
+    private Boolean harvesting;
     /** The gold mine a worker mines. */
     private int mineId;
     private int mineTicks;
@@ -563,6 +565,9 @@ public class EntityUnit extends EntityCreature {
         if (order == Order.MINE) {
             return PICKAXES[tier(team, Upgrade.PICKAXES, Upgrade.DIAMOND_PICKAXES)];
         }
+        if (order == Order.CHOP && Trees.isMushroom(worldObj.getBlock(treeX, treeY, treeZ))) {
+            return HOES[tier(team, Upgrade.PLOUGHS, Upgrade.DIAMOND_HOES)];
+        }
         if (order == Order.WORK) {
             Building workplace = building();
             if (workplace != null && workplace.type == BuildingType.FARM) {
@@ -839,7 +844,9 @@ public class EntityUnit extends EntityCreature {
             }
         }
         Item item = most < 0 ? tool()
-            : order == Order.HUNT && most == Resource.FOOD.ordinal() ? Items.beef : CARRIED_ITEMS[most];
+            : order == Order.HUNT && most == Resource.FOOD.ordinal() ? Items.beef
+                : order == Order.CHOP && most == Resource.FOOD.ordinal() ? Item.getItemFromBlock(Blocks.red_mushroom)
+                    : CARRIED_ITEMS[most];
         ItemStack held = getHeldItem();
         if (item == null ? held != null : held == null || held.getItem() != item) {
             setCurrentItemOrArmor(0, item == null ? null : new ItemStack(item));
@@ -1770,7 +1777,7 @@ public class EntityUnit extends EntityCreature {
         }
         if (!Trees.isLog(worldObj.getBlock(treeX, treeY, treeZ))) {
             // Felled, by this worker or another: on to the next.
-            int[] next = Trees.nearest(worldObj, game, treeX + 0.5, treeZ + 0.5, NEXT_TREE_RANGE);
+            int[] next = Trees.nearest(worldObj, game, treeX + 0.5, treeZ + 0.5, NEXT_TREE_RANGE, harvesting);
             if (next != null) {
                 orderChop(next[0], next[1], next[2]);
             } else if (getCarried() > 0) {
@@ -1806,9 +1813,11 @@ public class EntityUnit extends EntityCreature {
         }
         progressTicks = 0;
         getLookHelper().setLookPosition(treeX + 0.5, treeY + 1, treeZ + 0.5, 10, 30);
+        boolean mushroom = Trees.isMushroom(worldObj.getBlock(treeX, treeY, treeZ));
+        harvesting = mushroom;
         if (ticksExisted % 12 == 0) {
             swingItem();
-            worldObj.playSoundAtEntity(this, "dig.wood", 0.5F, 0.8F + rand.nextFloat() * 0.4F);
+            worldObj.playSoundAtEntity(this, mushroom ? "dig.cloth" : "dig.wood", 0.5F, 0.8F + rand.nextFloat() * 0.4F);
         }
         Team team = game.getTeam(teamId);
         int needed = Config.chopSeconds * 20;
@@ -1823,7 +1832,9 @@ public class EntityUnit extends EntityCreature {
         chopTicks = 0;
         Tree tree = Trees.track(worldObj, game, treeX, treeY, treeZ);
         long[] wood = new long[carrying.length];
-        wood[Resource.WOOD.ordinal()] = game.chopTree(tree, Config.chopWood);
+        // A giant mushroom gives food, cut off it with a hoe; a tree wood.
+        Resource gives = mushroom ? Resource.FOOD : Resource.WOOD;
+        wood[gives.ordinal()] = game.chopTree(tree, Config.chopWood);
         // Cracks spread up the trunk as it is chopped.
         int stage = (int) (10 * (1 - tree.getWood() / (double) tree.maxWood));
         worldObj.destroyBlockInWorldPartially((int) (tree.key() & 0x7FFFFFFF), treeX, treeY, treeZ, Math.min(9, stage));
@@ -1831,7 +1842,7 @@ public class EntityUnit extends EntityCreature {
             worldObj.destroyBlockInWorldPartially((int) (tree.key() & 0x7FFFFFFF), treeX, treeY, treeZ, -1);
             Trees.fell(worldObj, game, tree);
         }
-        if (wood[Resource.WOOD.ordinal()] > 0) {
+        if (wood[gives.ordinal()] > 0) {
             gather(wood);
         }
     }

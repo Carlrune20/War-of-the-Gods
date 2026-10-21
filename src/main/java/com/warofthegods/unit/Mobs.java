@@ -39,6 +39,7 @@ import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
+import com.warofthegods.game.GameMap;
 import com.warofthegods.game.Ruin;
 import com.warofthegods.world.GameWorld;
 
@@ -52,6 +53,11 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  * ruins keep their own: spiders lurk in the ones hung with cobwebs, and zombies and skeletons walk round others, until
  * someone builds nearby. They do not burn in daylight, notice enemies only from close by and chase them further once
  * they have, go after units as readily as after players, and often wear armor; some skeletons carry swords.
+ *
+ * <p>
+ * Forinthry, the Wilderness, has its own creatures instead (see {@link EntityWildMob}): ghosts, hill giants,
+ * hellhounds, red spiders, gargoyles and chromatic dragons roam it, twice as many and twice as often as Misthalin's
+ * undead, anywhere outside towns, and its ruins are haunted by ghosts, giants, bandits or hellhounds by their kind.
  */
 public final class Mobs {
 
@@ -97,6 +103,9 @@ public final class Mobs {
             return;
         }
         Entity entity = event.entity;
+        if (entity instanceof EntityWildMob) {
+            return;
+        }
         if (entity.getClass() == EntitySpider.class && entity.getEntityData()
             .hasKey(RUIN_KEY)) {
             // A spider that lurks in a ruin; it comes alone.
@@ -145,8 +154,7 @@ public final class Mobs {
     @SubscribeEvent
     public void onLivingUpdate(LivingEvent.LivingUpdateEvent event) {
         Entity entity = event.entity;
-        if (entity.worldObj.isRemote || !(entity instanceof EntityZombie || entity instanceof EntitySkeleton)
-            || !GameWorld.isGameWorld(entity.worldObj)) {
+        if (entity.worldObj.isRemote || !ours(entity) || !GameWorld.isGameWorld(entity.worldObj)) {
             return;
         }
         EntityMob mob = (EntityMob) entity;
@@ -176,8 +184,7 @@ public final class Mobs {
     @SubscribeEvent
     public void onLivingHurt(LivingHurtEvent event) {
         Entity entity = event.entity;
-        if (entity.worldObj.isRemote || !(entity instanceof EntityZombie || entity instanceof EntitySkeleton)
-            || !GameWorld.isGameWorld(entity.worldObj)) {
+        if (entity.worldObj.isRemote || !ours(entity) || !GameWorld.isGameWorld(entity.worldObj)) {
             return;
         }
         Entity attacker = event.source.getEntity();
@@ -193,6 +200,15 @@ public final class Mobs {
         mob.setAttackTarget((EntityLivingBase) attacker);
     }
 
+    /** Whether an entity is one of the hostile mobs this class looks after. */
+    private static boolean ours(Entity entity) {
+        return entity instanceof EntityZombie || entity instanceof EntitySkeleton || entity instanceof EntityWildMob;
+    }
+
+    private static boolean wilderness(Game game) {
+        return game.getMap() == GameMap.FORINTHRY;
+    }
+
     // ---------------------------------------------------------------- haunted ruins
 
     /** Entity data key holding the id of the ruin a mob haunts. */
@@ -201,6 +217,9 @@ public final class Mobs {
     private static final int RUIN_SPIDERS = 3;
     /** Most zombies and skeletons walking round a ruin at once. */
     private static final int RUIN_UNDEAD = 3;
+    /** Most bandits in a camp, and hill giants and gargoyles round a fortress, at once. */
+    private static final int RUIN_BANDITS = 4;
+    private static final int RUIN_GIANTS = 2;
     /** How far a ruin's mobs keep round it; one that wanders further off with nothing to chase is gone. */
     private static final int RUIN_REACH = 16;
     /** A ruin's mobs turn up only while a player or unit is this near, and none nearer than {@link #RUIN_HIDDEN}. */
@@ -245,7 +264,8 @@ public final class Mobs {
             if (ruin.haunt == Ruin.QUIET || settled(game, ruin)) {
                 continue;
             }
-            int most = ruin.haunt == Ruin.SPIDERS ? RUIN_SPIDERS : RUIN_UNDEAD;
+            int most = ruin.haunt == Ruin.SPIDERS ? RUIN_SPIDERS
+                : ruin.haunt == Ruin.BANDITS ? RUIN_BANDITS : ruin.haunt == Ruin.GIANTS ? RUIN_GIANTS : RUIN_UNDEAD;
             if (counts.getOrDefault(ruin.id, 0) >= most) {
                 continue;
             }
@@ -262,7 +282,7 @@ public final class Mobs {
                 seen |= distance < RUIN_HIDDEN * RUIN_HIDDEN;
             }
             if (near && !seen) {
-                spawnAtRuin(world, ruin);
+                spawnAtRuin(game, world, ruin);
             }
         }
     }
@@ -293,7 +313,7 @@ public final class Mobs {
         return null;
     }
 
-    private void spawnAtRuin(WorldServer world, Ruin ruin) {
+    private void spawnAtRuin(Game game, WorldServer world, Ruin ruin) {
         for (int attempt = 0; attempt < 6; attempt++) {
             // Spiders in among the walls, the undead in and round the ruin.
             int spread = ruin.haunt == Ruin.SPIDERS ? 0 : 3;
@@ -305,12 +325,7 @@ public final class Mobs {
                 .isLiquid()) {
                 continue;
             }
-            EntityLiving mob;
-            if (ruin.haunt == Ruin.SPIDERS) {
-                mob = new EntitySpider(world);
-            } else {
-                mob = random.nextInt(3) == 0 ? new EntitySkeleton(world) : new EntityZombie(world);
-            }
+            EntityLiving mob = ruinMob(game, world, ruin.haunt);
             mob.setLocationAndAngles(x + 0.5, y, z + 0.5, random.nextFloat() * 360, 0);
             if (!world.getCollidingBoundingBoxes(mob, mob.boundingBox)
                 .isEmpty()) {
@@ -325,7 +340,7 @@ public final class Mobs {
                     (int) ruin.getCenterZ(),
                     Math.max(ruin.sizeX, ruin.sizeZ) / 2 + 6);
             }
-            if (!(mob instanceof EntitySpider)) {
+            if (!(mob instanceof EntitySpider || mob instanceof EntityWildMob)) {
                 mob.onSpawnWithEgg(null);
                 equip(mob);
             }
@@ -334,11 +349,30 @@ public final class Mobs {
         }
     }
 
+    /** A mob of the kind that haunts a ruin: red spiders in Forinthry's cobwebs, its own lot round its ruins. */
+    private EntityLiving ruinMob(Game game, WorldServer world, int haunt) {
+        switch (haunt) {
+            case Ruin.SPIDERS:
+                return wilderness(game) ? new EntityWildMob(world, WildKind.RED_SPIDER) : new EntitySpider(world);
+            case Ruin.GHOSTS:
+                // The odd skeleton walks the graveyards with the ghosts.
+                return random.nextInt(4) == 0 ? new EntitySkeleton(world) : new EntityWildMob(world, WildKind.GHOST);
+            case Ruin.GIANTS:
+                return new EntityWildMob(world, random.nextInt(3) == 0 ? WildKind.GARGOYLE : WildKind.HILL_GIANT);
+            case Ruin.BANDITS:
+                return new EntityWildMob(world, WildKind.BANDIT);
+            case Ruin.HELLHOUNDS:
+                return new EntityWildMob(world, WildKind.HELLHOUND);
+            default:
+                return random.nextInt(3) == 0 ? new EntitySkeleton(world) : new EntityZombie(world);
+        }
+    }
+
     // ---------------------------------------------------------------- spawning
 
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || ++ticks % Math.max(20, Config.mobSpawnSeconds * 20) != 0) {
+        if (event.phase != TickEvent.Phase.END || ++ticks % Math.max(10, Config.mobSpawnSeconds * 10) != 0) {
             return;
         }
         Game game = DimensionManager.getWorld(0) == null ? null : GameManager.getGame();
@@ -346,6 +380,12 @@ public final class Mobs {
         if (game == null || world == null || Config.maxMobs <= 0) {
             return;
         }
+        // The Wilderness gets a try every half interval, everywhere else every whole one.
+        boolean wild = wilderness(game);
+        if (!wild && ticks % Math.max(20, Config.mobSpawnSeconds * 20) != 0) {
+            return;
+        }
+        int maxMobs = wild ? Config.maxMobs * 2 : Config.maxMobs;
         List<EntityLiving> hostile = new ArrayList<>();
         List<EntityLiving> haunting = new ArrayList<>();
         for (EntityLiving mob : Units.get()
@@ -358,14 +398,18 @@ public final class Mobs {
             }
         }
         haunt(game, world, haunting);
-        if (hostile.size() >= Config.maxMobs) {
+        if (hostile.size() >= maxMobs) {
             return;
         }
         // A few tries for a good spot; most of the map is no good at a given moment.
         for (int attempt = 0; attempt < 8; attempt++) {
             int[] spot = pickSpot(game, world, hostile);
             if (spot != null) {
-                spawnGroup(world, game, spot, Config.maxMobs - hostile.size());
+                if (wild) {
+                    spawnWildGroup(world, game, spot, maxMobs - hostile.size());
+                } else {
+                    spawnGroup(world, game, spot, maxMobs - hostile.size());
+                }
                 return;
             }
         }
@@ -407,7 +451,7 @@ public final class Mobs {
         for (EntityLiving mob : hostile) {
             nearby += mob.getDistanceSq(x, mob.posY, z) < 48 * 48 ? 1 : 0;
         }
-        if (nearby >= MAX_NEARBY) {
+        if (nearby >= (wilderness(game) ? MAX_NEARBY * 2 : MAX_NEARBY)) {
             return null;
         }
         int y = world.getTopSolidOrLiquidBlock(x, z);
@@ -416,7 +460,7 @@ public final class Mobs {
         if (ground.isLiquid() || ground == Material.leaves || ground == Material.ice) {
             return null;
         }
-        if (!amongTrees(world, x, z) && random.nextDouble() >= Config.openGroundChance) {
+        if (!wilderness(game) && !amongTrees(world, x, z) && random.nextDouble() >= Config.openGroundChance) {
             return null;
         }
         return new int[] { x, y, z };
@@ -466,6 +510,48 @@ public final class Mobs {
                 ((EntityZombie) mob).setChild(false);
             }
             equip(mob);
+            world.spawnEntityInWorld(mob);
+        }
+    }
+
+    /** How often each of the Wilderness's creatures turns up, out of the sum, and how many come together. */
+    private static final WildKind[] WILD = { WildKind.GHOST, WildKind.RED_SPIDER, WildKind.HELLHOUND,
+        WildKind.HILL_GIANT, WildKind.GARGOYLE, null };
+    private static final int[] WILD_WEIGHTS = { 24, 22, 20, 14, 10, 10 };
+    private static final int[][] WILD_GROUPS = { { 2, 3 }, { 2, 3 }, { 2, 3 }, { 1, 2 }, { 1, 2 }, { 1, 1 } };
+    private static final WildKind[] DRAGONS = { WildKind.GREEN_DRAGON, WildKind.BLUE_DRAGON, WildKind.RED_DRAGON,
+        WildKind.BLACK_DRAGON };
+
+    /** A group of one of the Wilderness's creatures; a dragon (the null kind above) comes alone, of any colour. */
+    private void spawnWildGroup(WorldServer world, Game game, int[] spot, int room) {
+        int total = 0;
+        for (int weight : WILD_WEIGHTS) {
+            total += weight;
+        }
+        int roll = random.nextInt(total);
+        int pick = 0;
+        while (roll >= WILD_WEIGHTS[pick]) {
+            roll -= WILD_WEIGHTS[pick++];
+        }
+        int[] group = WILD_GROUPS[pick];
+        int size = Math.min(group[0] + random.nextInt(group[1] - group[0] + 1), room);
+        for (int i = 0; i < size; i++) {
+            int x = spot[0] + (i == 0 ? 0 : random.nextInt(7) - 3);
+            int z = spot[2] + (i == 0 ? 0 : random.nextInt(7) - 3);
+            int y = world.getTopSolidOrLiquidBlock(x, z);
+            if (Math.abs(y - spot[1]) > 3 || onBuilding(game, x, z, BUILDING_MARGIN)
+                || world.getBlock(x, y - 1, z)
+                    .getMaterial()
+                    .isLiquid()) {
+                continue;
+            }
+            WildKind kind = WILD[pick] != null ? WILD[pick] : DRAGONS[random.nextInt(DRAGONS.length)];
+            EntityWildMob mob = new EntityWildMob(world, kind);
+            mob.setLocationAndAngles(x + 0.5, y, z + 0.5, random.nextFloat() * 360, 0);
+            if (!world.getCollidingBoundingBoxes(mob, mob.boundingBox)
+                .isEmpty()) {
+                continue;
+            }
             world.spawnEntityInWorld(mob);
         }
     }

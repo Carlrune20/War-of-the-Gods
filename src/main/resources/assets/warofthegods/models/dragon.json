@@ -1,0 +1,1255 @@
+{
+ "texture": [
+  128,
+  128
+ ],
+ "parts": [
+  {
+   "name": "body",
+   "parent": null,
+   "pivot": [
+    0.0,
+    9.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      0,
+      0
+     ],
+     "from": [
+      -6,
+      -5,
+      -11
+     ],
+     "size": [
+      12,
+      11,
+      22
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "crest0",
+   "parent": "body",
+   "pivot": [
+    0.0,
+    -5.0,
+    -9.0
+   ],
+   "rotation": [
+    -0.4,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      116,
+      91
+     ],
+     "from": [
+      -0.5,
+      -3,
+      -0.5
+     ],
+     "size": [
+      1,
+      3,
+      2
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "crest1",
+   "parent": "body",
+   "pivot": [
+    0.0,
+    -5.0,
+    -5.0
+   ],
+   "rotation": [
+    -0.4,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      122,
+      91
+     ],
+     "from": [
+      -0.5,
+      -3,
+      -0.5
+     ],
+     "size": [
+      1,
+      3,
+      2
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "crest2",
+   "parent": "body",
+   "pivot": [
+    0.0,
+    -5.0,
+    -1.0
+   ],
+   "rotation": [
+    -0.4,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      0,
+      98
+     ],
+     "from": [
+      -0.5,
+      -3,
+      -0.5
+     ],
+     "size": [
+      1,
+      3,
+      2
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "crest3",
+   "parent": "body",
+   "pivot": [
+    0.0,
+    -5.0,
+    3.0
+   ],
+   "rotation": [
+    -0.4,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      6,
+      98
+     ],
+     "from": [
+      -0.5,
+      -3,
+      -0.5
+     ],
+     "size": [
+      1,
+      3,
+      2
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "crest4",
+   "parent": "body",
+   "pivot": [
+    0.0,
+    -5.0,
+    7.0
+   ],
+   "rotation": [
+    -0.4,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      12,
+      98
+     ],
+     "from": [
+      -0.5,
+      -3,
+      -0.5
+     ],
+     "size": [
+      1,
+      3,
+      2
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "crest5",
+   "parent": "body",
+   "pivot": [
+    0.0,
+    -5.0,
+    11.0
+   ],
+   "rotation": [
+    -0.4,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      18,
+      98
+     ],
+     "from": [
+      -0.5,
+      -3,
+      -0.5
+     ],
+     "size": [
+      1,
+      3,
+      2
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "right_wing",
+   "parent": "body",
+   "pivot": [
+    -6.0,
+    -4.0,
+    -6.0
+   ],
+   "rotation": [
+    -0.15,
+    0.15,
+    0.35
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      32,
+      33
+     ],
+     "from": [
+      -1,
+      -1,
+      0
+     ],
+     "size": [
+      2,
+      2,
+      16
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      68,
+      0
+     ],
+     "from": [
+      -1,
+      0,
+      1
+     ],
+     "size": [
+      1,
+      9,
+      15
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "left_wing",
+   "parent": "body",
+   "pivot": [
+    6.0,
+    -4.0,
+    -6.0
+   ],
+   "rotation": [
+    -0.15,
+    -0.15,
+    -0.35
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      68,
+      33
+     ],
+     "from": [
+      -1,
+      -1,
+      0
+     ],
+     "size": [
+      2,
+      2,
+      16
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      0,
+      33
+     ],
+     "from": [
+      0,
+      0,
+      1
+     ],
+     "size": [
+      1,
+      9,
+      15
+     ],
+     "inflate": 0.0,
+     "mirror": true
+    }
+   ]
+  },
+  {
+   "name": "neck",
+   "parent": null,
+   "pivot": [
+    0.0,
+    7.0,
+    -11.0
+   ],
+   "rotation": [
+    -0.75,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      0,
+      72
+     ],
+     "from": [
+      -2.5,
+      -2.5,
+      -5
+     ],
+     "size": [
+      5,
+      5,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      24,
+      98
+     ],
+     "from": [
+      -0.5,
+      -4,
+      -4
+     ],
+     "size": [
+      1,
+      2,
+      2
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "neck1",
+   "parent": "neck",
+   "pivot": [
+    0.0,
+    0.0,
+    -5.0
+   ],
+   "rotation": [
+    0.15,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      20,
+      72
+     ],
+     "from": [
+      -2.5,
+      -2.5,
+      -5
+     ],
+     "size": [
+      5,
+      5,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      30,
+      98
+     ],
+     "from": [
+      -0.5,
+      -4,
+      -4
+     ],
+     "size": [
+      1,
+      2,
+      2
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "neck2",
+   "parent": "neck1",
+   "pivot": [
+    0.0,
+    0.0,
+    -5.0
+   ],
+   "rotation": [
+    0.15,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      40,
+      72
+     ],
+     "from": [
+      -2.5,
+      -2.5,
+      -5
+     ],
+     "size": [
+      5,
+      5,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      36,
+      98
+     ],
+     "from": [
+      -0.5,
+      -4,
+      -4
+     ],
+     "size": [
+      1,
+      2,
+      2
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "neck3",
+   "parent": "neck2",
+   "pivot": [
+    0.0,
+    0.0,
+    -5.0
+   ],
+   "rotation": [
+    0.15,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": []
+  },
+  {
+   "name": "head",
+   "parent": "neck3",
+   "pivot": [
+    0.0,
+    0.0,
+    -3.0
+   ],
+   "rotation": [
+    0.6,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      60,
+      57
+     ],
+     "from": [
+      -3.5,
+      -3.5,
+      -6
+     ],
+     "size": [
+      7,
+      6,
+      7
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      88,
+      57
+     ],
+     "from": [
+      -2.5,
+      -1.5,
+      -13
+     ],
+     "size": [
+      5,
+      3,
+      7
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      42,
+      98
+     ],
+     "from": [
+      -2,
+      1.5,
+      -12.5
+     ],
+     "size": [
+      1,
+      1,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      46,
+      98
+     ],
+     "from": [
+      1,
+      1.5,
+      -12.5
+     ],
+     "size": [
+      1,
+      1,
+      1
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "jaw",
+   "parent": "head",
+   "pivot": [
+    0.0,
+    1.5,
+    -6.0
+   ],
+   "rotation": [
+    0.08,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      100,
+      72
+     ],
+     "from": [
+      -2.5,
+      0,
+      -7
+     ],
+     "size": [
+      5,
+      2,
+      7
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "right_horn",
+   "parent": "head",
+   "pivot": [
+    -2.5,
+    -3.0,
+    0.0
+   ],
+   "rotation": [
+    0.6,
+    -0.2,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      36,
+      82
+     ],
+     "from": [
+      -1,
+      -1,
+      0
+     ],
+     "size": [
+      2,
+      2,
+      6
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "left_horn",
+   "parent": "head",
+   "pivot": [
+    2.5,
+    -3.0,
+    0.0
+   ],
+   "rotation": [
+    0.6,
+    0.2,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      52,
+      82
+     ],
+     "from": [
+      -1,
+      -1,
+      0
+     ],
+     "size": [
+      2,
+      2,
+      6
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "front_right_leg",
+   "parent": null,
+   "pivot": [
+    -4.5,
+    13.0,
+    -7.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      104,
+      33
+     ],
+     "from": [
+      -2.5,
+      0,
+      -2.5
+     ],
+     "size": [
+      5,
+      10,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      100,
+      82
+     ],
+     "from": [
+      -3,
+      10,
+      -3.5
+     ],
+     "size": [
+      6,
+      1,
+      6
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "front_left_leg",
+   "parent": null,
+   "pivot": [
+    4.5,
+    13.0,
+    -7.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      0,
+      57
+     ],
+     "from": [
+      -2.5,
+      0,
+      -2.5
+     ],
+     "size": [
+      5,
+      10,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": true
+    },
+    {
+     "uv": [
+      0,
+      91
+     ],
+     "from": [
+      -3,
+      10,
+      -3.5
+     ],
+     "size": [
+      6,
+      1,
+      6
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "back_right_leg",
+   "parent": null,
+   "pivot": [
+    -4.5,
+    13.0,
+    7.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      20,
+      57
+     ],
+     "from": [
+      -2.5,
+      0,
+      -2.5
+     ],
+     "size": [
+      5,
+      10,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      24,
+      91
+     ],
+     "from": [
+      -3,
+      10,
+      -3.5
+     ],
+     "size": [
+      6,
+      1,
+      6
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "back_left_leg",
+   "parent": null,
+   "pivot": [
+    4.5,
+    13.0,
+    7.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      40,
+      57
+     ],
+     "from": [
+      -2.5,
+      0,
+      -2.5
+     ],
+     "size": [
+      5,
+      10,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": true
+    },
+    {
+     "uv": [
+      48,
+      91
+     ],
+     "from": [
+      -3,
+      10,
+      -3.5
+     ],
+     "size": [
+      6,
+      1,
+      6
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "tail0",
+   "parent": null,
+   "pivot": [
+    0.0,
+    7.0,
+    10.0
+   ],
+   "rotation": [
+    -0.25,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      60,
+      72
+     ],
+     "from": [
+      -2.5,
+      -2.5,
+      0
+     ],
+     "size": [
+      5,
+      5,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "tail1",
+   "parent": "tail0",
+   "pivot": [
+    0.0,
+    0.0,
+    4.6
+   ],
+   "rotation": [
+    0.12,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      80,
+      72
+     ],
+     "from": [
+      -2.5,
+      -2.5,
+      0
+     ],
+     "size": [
+      5,
+      5,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "tail2",
+   "parent": "tail1",
+   "pivot": [
+    0.0,
+    0.0,
+    4.6
+   ],
+   "rotation": [
+    0.12,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      0,
+      82
+     ],
+     "from": [
+      -2,
+      -2,
+      0
+     ],
+     "size": [
+      4,
+      4,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "tail3",
+   "parent": "tail2",
+   "pivot": [
+    0.0,
+    0.0,
+    4.6
+   ],
+   "rotation": [
+    0.12,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      18,
+      82
+     ],
+     "from": [
+      -2,
+      -2,
+      0
+     ],
+     "size": [
+      4,
+      4,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "tail4",
+   "parent": "tail3",
+   "pivot": [
+    0.0,
+    0.0,
+    4.6
+   ],
+   "rotation": [
+    0.12,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      68,
+      82
+     ],
+     "from": [
+      -1.5,
+      -1.5,
+      0
+     ],
+     "size": [
+      3,
+      3,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "tail5",
+   "parent": "tail4",
+   "pivot": [
+    0.0,
+    0.0,
+    4.6
+   ],
+   "rotation": [
+    0.05,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      84,
+      82
+     ],
+     "from": [
+      -1.5,
+      -1.5,
+      0
+     ],
+     "size": [
+      3,
+      3,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "tail6",
+   "parent": "tail5",
+   "pivot": [
+    0.0,
+    0.0,
+    4.6
+   ],
+   "rotation": [
+    0.05,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      72,
+      91
+     ],
+     "from": [
+      -1,
+      -1,
+      0
+     ],
+     "size": [
+      2,
+      2,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "tail7",
+   "parent": "tail6",
+   "pivot": [
+    0.0,
+    0.0,
+    4.6
+   ],
+   "rotation": [
+    0.05,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      86,
+      91
+     ],
+     "from": [
+      -1,
+      -1,
+      0
+     ],
+     "size": [
+      2,
+      2,
+      5
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "tail8",
+   "parent": "tail7",
+   "pivot": [
+    0.0,
+    0.0,
+    4.6
+   ],
+   "rotation": [
+    0.05,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      100,
+      91
+     ],
+     "from": [
+      -2,
+      -0.5,
+      0
+     ],
+     "size": [
+      4,
+      1,
+      4
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  }
+ ]
+}

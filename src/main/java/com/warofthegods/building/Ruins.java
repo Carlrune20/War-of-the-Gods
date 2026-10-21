@@ -11,6 +11,7 @@ import net.minecraft.world.WorldServer;
 import com.warofthegods.Config;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.Game;
+import com.warofthegods.game.GameMap;
 import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.Ruin;
 import com.warofthegods.game.Settlement;
@@ -89,7 +90,11 @@ public final class Ruins {
      */
     public static void populate(WorldServer world, int chunkX, int chunkZ, long seed) {
         Game game = GameWorld.currentGame();
-        if (game == null || Config.ruinEvery <= 0 || GameWorld.layout(game) == null) {
+        if (game == null || Config.ruinEvery <= 0 || game.getMapTeams() == 0) {
+            return;
+        }
+        if (game.getMap() == GameMap.FORINTHRY) {
+            ForinthryRuins.populate(game, world, chunkX, chunkZ, seed);
             return;
         }
         int baseX = chunkX * 16;
@@ -166,7 +171,7 @@ public final class Ruins {
      * Whether a footprint is inside the map and clear of where the teams start, the town centers and other
      * buildings, settlements, gold mines, other ruins, the river and its bridges.
      */
-    private static boolean clear(Game game, int minX, int minZ, int sizeX, int sizeZ) {
+    static boolean clear(Game game, int minX, int minZ, int sizeX, int sizeZ) {
         int edge = 8;
         if (minX < game.getMinX() + edge || minZ < game.getMinZ() + edge
             || minX + sizeX - 1 > game.getMaxX() - edge

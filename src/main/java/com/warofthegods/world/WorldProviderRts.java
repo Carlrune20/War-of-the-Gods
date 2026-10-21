@@ -8,12 +8,16 @@ import net.minecraft.world.chunk.IChunkProvider;
 
 import com.warofthegods.Config;
 import com.warofthegods.game.Game;
+import com.warofthegods.game.GameMap;
 
 /**
  * The game dimension. Each game gets its own save folder, so a new game always starts from fresh terrain. Clients
  * are told this dimension is a plain overworld-type dimension, so players need no client mod.
  */
 public class WorldProviderRts extends WorldProvider {
+
+    /** The time of day at midnight, in ticks. */
+    private static final long MIDNIGHT = 18000;
 
     private Game game;
 
@@ -27,11 +31,25 @@ public class WorldProviderRts extends WorldProvider {
 
     @Override
     public IChunkProvider createChunkGenerator() {
-        return new ChunkProviderRts(
-            worldObj,
-            GameWorld.mapArea(game),
-            GameWorld.seedOf(game, worldObj.getSeed()),
-            GameWorld.mapTeams(game));
+        MapArea area = GameWorld.mapArea(game);
+        long seed = GameWorld.seedOf(game, worldObj.getSeed());
+        if (GameWorld.mapOf(game) == GameMap.FORINTHRY) {
+            return new ChunkProviderForinthry(worldObj, area, seed, GameWorld.mapTeams(game));
+        }
+        return new ChunkProviderRts(worldObj, area, seed, GameWorld.mapTeams(game));
+    }
+
+    /**
+     * Forinthry is always at midnight, whatever the time in the overworld; players are sent this time, so their sky
+     * stays dark there too. Elsewhere the game map keeps the overworld's time.
+     */
+    @Override
+    public long getWorldTime() {
+        if (GameWorld.mapOf(game) == GameMap.FORINTHRY) {
+            long time = super.getWorldTime();
+            return time - Math.floorMod(time, 24000L) + MIDNIGHT;
+        }
+        return super.getWorldTime();
     }
 
     @Override

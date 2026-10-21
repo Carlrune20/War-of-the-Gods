@@ -40,6 +40,9 @@ SLAB_TEXTURES = ["stone_slab_top", "sandstone_normal", "planks_oak", "cobbleston
 CROSS = {6: "sapling_oak", 30: "web", 31: "tallgrass", 32: "deadbush", 37: "flower_dandelion", 38: "flower_rose",
          59: "wheat_stage_7", 115: "nether_wart_stage_2", 141: "carrots_stage_3", 142: "potatoes_stage_3",
          51: "fire_layer_0", 209: "fire_layer_0"}
+# Forinthry's blocks, by the ids ModBlocks.java gives them.
+WILDERNESS = {212: "charred_earth", 213: "ash", 214: "scorched_stone", 215: "ember_rock", 216: "charred_log",
+              217: "mushroom_stem", 218: "mushroom_cap"}
 BANNER_KINDS = {205: "saradomin", 206: "saradomin_inverted", 207: "zamorak", 208: "zamorak_inverted", 210: "bandos",
                 211: "bandos_inverted"}
 
@@ -82,6 +85,14 @@ def faces_for(t, block, meta):
     """Textures of a full block as (top, side, front), or None to skip it."""
     if block == 1:
         return ["stone"] * 3
+    if block in WILDERNESS:
+        name = WILDERNESS[block]
+        if block == 216:
+            side, end = "mod:charred_log", "mod:charred_log_top"
+            return (side, end, side) if meta & 12 == 4 else (side, side, end) if meta & 12 == 8 else (end, side, side)
+        if block == 217:
+            return "mod:mushroom_inside", "mod:mushroom_stem", "mod:mushroom_stem"
+        return ["mod:" + name] * 3
     if block == 2:
         return ("grass_top", GRASS_TINT), "grass_side", "grass_side"
     if block == 3:

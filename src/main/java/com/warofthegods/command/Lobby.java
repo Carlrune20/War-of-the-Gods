@@ -21,6 +21,7 @@ import com.warofthegods.WarOfTheGods;
 import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
+import com.warofthegods.game.GameMap;
 import com.warofthegods.game.Team;
 import com.warofthegods.rts.RtsNetwork;
 import com.warofthegods.unit.UnitCommands;
@@ -58,8 +59,8 @@ import com.warofthegods.world.GameWorld;
  */
 public final class Lobby {
 
-    /** Maps a game can be played on, as id and name. Misthalin is the only one so far. */
-    public static final String[][] MAPS = { { "misthalin", "Misthalin" } };
+    /** Maps a game can be played on, as id and name. */
+    public static final String[][] MAPS = mapList();
     /** Map sizes ops pick from, besides the configured default. */
     private static final int[] SIZES = { 256, 500, 750, 1000, 1500, 2000, 3000 };
     public static final int MAX_TEAMS = 8;
@@ -97,6 +98,15 @@ public final class Lobby {
     private final Set<UUID> ready = new HashSet<>();
 
     private Lobby() {}
+
+    private static String[][] mapList() {
+        GameMap[] maps = GameMap.values();
+        String[][] list = new String[maps.length][];
+        for (int i = 0; i < maps.length; i++) {
+            list[i] = new String[] { maps[i].id, maps[i].displayName };
+        }
+        return list;
+    }
 
     public static void register() {
         WebCommand.register("lobby.get", Lobby::get);
@@ -576,7 +586,7 @@ public final class Lobby {
         }
         long gameSeed = seed.isEmpty() ? new Random().nextLong() : CommandRts.parseSeed(seed);
         close();
-        Game game = GameManager.newGame(size, teams, gameSeed, units);
+        Game game = GameManager.newGame(size, teams, gameSeed, units, GameMap.byId(map));
         CommandRts.broadcast(
             "Game #" + game.getNumber()
                 + " has started on "

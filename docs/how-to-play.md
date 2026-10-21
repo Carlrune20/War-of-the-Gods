@@ -9,8 +9,8 @@ For the buildings and units, see [Buildings and units](buildings-and-units.md). 
 Ops start a game in one of two ways:
 
 - **`/rts newgame`** ends the current game and opens the [lobby](#the-lobby) for everyone.
-- **`/rts quickgame [teams] [mapSize] [seed]`** skips the lobby and starts a new game on a freshly generated map
-  straight away. The gods take turns, so each follows half the teams (Red Zamorak, Blue Saradomin, Green
+- **`/rts quickgame [teams] [mapSize] [seed] [map]`** skips the lobby and starts a new game on a freshly generated
+  map straight away. The map is `misthalin` (the default) or `forinthry`. The gods take turns, so each follows half the teams (Red Zamorak, Blue Saradomin, Green
   Zamorak...), and everyone online is shuffled evenly onto the teams. Defaults: 2 teams, 1000x1000 map, random
   seed. Teams are named after their colour: Red, Blue, Green...
 
@@ -24,7 +24,7 @@ it back with B. It starts with the teams of the game that just ended, and everyo
 
 Only ops change the settings:
 
-- the map (Misthalin is the only one so far), its size, and its seed (blank for a random one)
+- the map (Misthalin or [Forinthry](#forinthry-the-wilderness)), its size, and its seed (blank for a random one)
 - how many teams there are (1 to 8)
 - which god each team follows
 - whether the computer plays on a team
@@ -86,16 +86,48 @@ Players online when a game starts are shared out over the teams. Players who log
 with the fewest players; press **B** for the team menu to change that.
 
 Players who log in while a game is running are moved onto its map, unless they are already on it, and placed in front
-of their team's town center. So are players when a new game starts, and players who die on the map. The overworld is
+of their team's town center. Everyone's inventory is emptied the first time they come into each new game, on any map,
+so nothing is carried over from the last one. So are players when a new game starts, and players who die on the map. The overworld is
 untouched.
 
 Game worlds are saved under `world/warofthegods/game-<number>`. The folders of older games are deleted when a new game
 starts. The game state is saved with the overworld (`world/data/warofthegods.dat`) and survives restarts. Only one
 game runs at a time, and it lasts until an op starts a new one.
 
+### Forinthry, the Wilderness
+
+**Forinthry** is the burnt north of the world, where the God Wars were fought. Teams start and settle as on
+Misthalin, but there is no river, and the land is hostile:
+
+- **Charred terrain.** Charred earth, drifts of ash, scorched stone and crags of glowing ember rock, with dead charred
+  trees standing alone or in groves. There is no grass, though animals graze round the towns as on Misthalin.
+- **Always night.** The sun never rises on Forinthry, until it gets shaders of its own.
+- **Lava mazes.** Square mazes of ash paths between channels of lava, about one for every 300 blocks of map width (at
+  least two). Each has a gateway in the middle of every side, and a chest of loot in its middle cell that hellhounds
+  guard.
+- **Ruins**, more of them and more dangerous than Misthalin's: the great **Graveyard of Shadows** where ghosts walk,
+  ruined **fortresses** held by hill giants and gargoyles, **bandit camps** with up to four bandits, and smaller
+  ruins (haunted graveyards, burnt chapels and houses, broken watchtowers and altars of Zamorak) with ghosts,
+  hellhounds or deadly red spiders in their cobwebs. Every ruin has a chest of loot.
+- **Giant mushrooms** grow over the charred ground and are Forinthry's food. Select workers and right-click one to
+  harvest it with hoes, just as trees are chopped: each holds 50 food, and the workers carry it home and go on to the
+  next mushroom.
+
+Its creatures replace the zombies and skeletons, twice as many and spawning twice as often, anywhere outside towns:
+
+| Creature | Health | Hit | Notes |
+| --- | --- | --- | --- |
+| Ghost | 24 | 4 | Arrows and spells mostly pass through it. Comes in twos and threes. |
+| Deadly red spider | 18 | 3 | Its bite poisons. Twos and threes. |
+| Hellhound | 50 | 7 | Fireproof. Twos and threes. |
+| Hill giant | 90 | 10 | Its club throws you back. Alone or in pairs. |
+| Gargoyle | 80 | 9 | Stone: takes less from blows and arrows. Fireproof. Alone or in pairs. |
+| Green / blue / red / black dragon | 200 / 240 / 280 / 360 | 12 / 13 / 14 / 16 | Always alone. They do not fly or breathe fire: they wander, and bite and claw, throwing you back. |
+| Bandit | 26 | 5 | Only in bandit camps. |
+
 ## Mobs
 
-The only hostile mobs are zombies and skeletons, and they are not common. Every 30 seconds, day or night, a group of
+On Misthalin the only hostile mobs are zombies and skeletons, and they are not common. Every 30 seconds, day or night, a group of
 two or three may turn up somewhere out of sight of players and units, mostly among trees and now and then in the open.
 There are up to 24 on the whole map.
 

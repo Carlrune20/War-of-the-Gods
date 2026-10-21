@@ -17,6 +17,8 @@ src/main/resources/assets/warofthegods/structures/<faction>/:
                                     nearly finished walls in scaffolding
     <type>_ruin.schematic           what is left when it is destroyed
 
+Forinthry's ruins go into structures/forinthry/ (see wilderness.py).
+
 All files of one building share the same width, length, height and ground layer, so any of them can be pasted over
 any other. At rotation 0 a building's front, its z = 0 side, faces north; doors and gates are on that side.
 
@@ -2594,6 +2596,15 @@ def generate(preview_dir=None):
         if preview_dir:
             import preview
             preview.render(s, os.path.join(preview_dir, "neutral_%s.png" % name))
+    import wilderness
+    folder = os.path.join(OUT, "forinthry")
+    os.makedirs(folder, exist_ok=True)
+    for name, s in wilderness.structures().items():
+        s.save(os.path.join(folder, name + ".schematic"), "forinthry " + name)
+        written += 1
+        if preview_dir:
+            import preview
+            preview.render(s, os.path.join(preview_dir, "forinthry_%s.png" % name))
     print("Wrote %d structures to %s" % (written, OUT))
 
 

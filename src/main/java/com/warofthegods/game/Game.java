@@ -54,6 +54,10 @@ public class Game {
     private int mapTeams;
     /** Most units a team may have at once, set in the lobby; 0 for the configured number. */
     private int unitsPerTeam;
+    /**
+     * The map the game is played on, by its id in {@link GameMap}; Misthalin for games saved before there was a choice.
+     */
+    private GameMap map = GameMap.MISTHALIN;
     /** Whether the bridges are in the world. */
     private boolean bridgesPlaced;
     /** Whether a winner has been decided; nobody is defeated after that. */
@@ -641,6 +645,16 @@ public class Game {
         changed();
     }
 
+    public GameMap getMap() {
+        return map;
+    }
+
+    /** Sets the map before the game's world is first built; the terrain follows from it. */
+    public void setMap(GameMap map) {
+        this.map = map == null ? GameMap.MISTHALIN : map;
+        changed();
+    }
+
     public void setMapTeams(int mapTeams) {
         this.mapTeams = mapTeams;
         changed();
@@ -792,6 +806,7 @@ public class Game {
         tag.setBoolean("featuresPlaced", featuresPlaced);
         tag.setInteger("mapTeams", mapTeams);
         tag.setInteger("unitsPerTeam", unitsPerTeam);
+        tag.setString("map", map.id);
         tag.setBoolean("bridgesPlaced", bridgesPlaced);
         tag.setBoolean("over", over);
         tag.setBoolean("seeAll", seeAll);
@@ -874,6 +889,8 @@ public class Game {
         game.featuresPlaced = tag.getBoolean("featuresPlaced");
         game.mapTeams = tag.getInteger("mapTeams");
         game.unitsPerTeam = tag.getInteger("unitsPerTeam");
+        GameMap map = GameMap.byId(tag.getString("map"));
+        game.map = map == null ? GameMap.MISTHALIN : map;
         game.bridgesPlaced = tag.getBoolean("bridgesPlaced");
         game.over = tag.getBoolean("over");
         game.seeAll = tag.getBoolean("seeAll");
