@@ -76,6 +76,9 @@ class BuildingTypeTest {
     void quarryNeedsTunnelMining() {
         assertEquals(Upgrade.TUNNEL_MINING, BuildingType.QUARRY.requiredUpgrade());
         assertNull(BuildingType.FARM.requiredUpgrade());
+        // Researched where its runite pickaxes come from, so the storehouse offers it once those are done.
+        assertEquals(BuildingType.STOREHOUSE, Upgrade.TUNNEL_MINING.at);
+        assertEquals(Upgrade.TUNNEL_MINING.requires().at, Upgrade.TUNNEL_MINING.at);
     }
 
     @Test

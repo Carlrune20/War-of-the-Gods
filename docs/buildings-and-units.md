@@ -51,7 +51,7 @@ mostly dry and not too steep. Foundations fill in dips, and anything above the b
 | Town center | Trains workers, takes in what they gather, houses 10 units and 5 more each age; shoots arrows from Age II; researches fortified walls; goes on a settlement nobody holds | 300 Wood, 200 Gold | 1500 | 60 s |
 | House | Houses 5 more units | 60 Wood | 300 | 12 s |
 | Farm | A worker there gathers food: 5 every 5 s, one worker per farm; needs Age II | 75 Wood | 300 | 15 s |
-| Storehouse | Takes in what workers gather; researches economic upgrades | 100 Wood | 600 | 20 s |
+| Storehouse | Takes in what workers gather; researches economic upgrades, and tunnel mining for quarries | 100 Wood | 600 | 20 s |
 | Barracks | Trains warriors; needs Age II | 150 Wood, 50 Gold | 800 | 25 s |
 | Archery range | Trains archers; needs Age II | 150 Wood | 700 | 25 s |
 | Stables | Trains cavalry, and tame horses for players to ride; needs Age II | 175 Wood, 50 Gold | 800 | 30 s |
@@ -59,7 +59,7 @@ mostly dry and not too steep. Foundations fill in dips, and anything above the b
 | Stone circle | Zamorak's teams only, Age II: an old ring of grey standing stones, raised by dark wizards, not workers; four dark wizards standing in it summon a lesser demon | 100 Gold | 600 | at once |
 | Monastery | Saradomin's teams only, Age II: trains monks, who earn favor just by living | 150 Wood, 75 Gold | 800 | 30 s |
 | Wizards' tower | Saradomin's teams only, Age II: trains blue wizards | 100 Wood, 150 Gold | 900 | 30 s |
-| Armory | Researches military upgrades, and tunnel mining for quarries; needs Age II | 120 Wood, 60 Gold | 700 | 25 s |
+| Armory | Researches military upgrades; needs Age II | 120 Wood, 60 Gold | 700 | 25 s |
 | Tower | Watches over the land round it; with watch towers (Age II) shoots arrows at enemies within 16 blocks, and with guard towers (Age III) within 24; researches both | 50 Wood, 100 Gold | 900 | 25 s |
 | Wall | Keeps enemies out; laid out from one point to another, a 5 by 5 piece at a time | 10 Gold a piece | 600 a segment, 800 a post | 10 s a piece |
 | Gate | A wall segment your own units and allies walk through; it opens as they come near | 40 Gold | 600 | at once |
@@ -67,7 +67,7 @@ mostly dry and not too steep. Foundations fill in dips, and anything above the b
 | Quarry | Age III, after tunnel mining: dug into a mined out gold mine, where up to 3 workers get 2 gold each every 5 s for ever | 500 Wood | 500 | 20 s |
 | Kinshra fortress | Zamorak's teams only, Age III: the Black Knights' graystone keep that trains Black Knights and Sagittare, and shoots a volley of 4 arrows a second at the nearest enemies within 20 blocks | 300 Wood, 400 Gold | 4000 | 90 s |
 
-**Quarries.** A quarry needs the armory to have researched tunnel mining (400 Food and 400 Wood, after runite
+**Quarries.** A quarry needs the storehouse to have researched tunnel mining (400 Food and 400 Wood, after runite
 pickaxes), and costs 500 Wood in Age III. Up to three workers work a quarry like a farm. They bring in 2 gold each per
 harvest for ever, more with the pickaxe upgrades.
 
@@ -124,6 +124,7 @@ the team has that one.
 | Iron hoes | Storehouse | Farms yield half again as much |
 | Runite axes / pickaxes / hoes | Storehouse, Age III, after the iron one | Twice as fast or as much as with stone tools |
 | Masonry | Storehouse, Age II | Buildings have a fifth more health |
+| Tunnel mining | Storehouse, Age III, after runite pickaxes, for 400 Food and 400 Wood | Workers can dig quarries into mined out gold mines |
 | Fortified walls | Town center, Age II, for 150 Wood and 150 Gold | Buildings have half again as much health |
 | Watch towers | Tower, Age II, for 100 Wood and 100 Gold | Towers shoot arrows at enemies |
 | Guard towers | Tower, Age III, after watch towers, for 150 Wood and 200 Gold | Towers see and shoot 8 farther |

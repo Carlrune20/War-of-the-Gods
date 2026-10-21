@@ -81,7 +81,7 @@ public enum BuildingType {
     BRIDGE("bridge", "Bridge", "bridge", 1, true, false),
     /**
      * Dug into a mined out gold mine, the only place it can go: workers working at it get a little gold out of it
-     * for ever. Needs Age III and tunnel mining, researched at the armory.
+     * for ever. Needs Age III and tunnel mining, researched at the storehouse.
      */
     QUARRY("quarry", "Quarry", "quarry", 3, true, false),
     /**
