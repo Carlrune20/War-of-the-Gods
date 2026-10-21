@@ -57,9 +57,11 @@ import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import com.warofthegods.Config;
 import com.warofthegods.game.BridgeLine;
+import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.WallLine;
 import com.warofthegods.rts.RtsNetwork;
 import com.warofthegods.rts.TerrainMessage;
+import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.world.GameWorld;
 
 import cpw.mods.fml.client.registry.ClientRegistry;
@@ -1362,7 +1364,7 @@ public final class RtsClient {
 
     /**
      * Where a unit, player or mob is drawn: its client entity's position between ticks when the client has it, else
-     * its last reported position. As {x, feet y, z, height}.
+     * its last reported position. As {x, feet y, z, height, half width}, as big as it is drawn.
      */
     public double[] positionOf(RtsState.Thing thing, float partialTicks) {
         Entity entity = thing.eid < 0 || mc.theWorld == null ? null : mc.theWorld.getEntityByID(thing.eid);
@@ -1371,10 +1373,18 @@ public final class RtsClient {
             double y = entity.lastTickPosY + (entity.posY - entity.lastTickPosY) * partialTicks
                 - (entity.posY - entity.boundingBox.minY);
             double z = entity.lastTickPosZ + (entity.posZ - entity.lastTickPosZ) * partialTicks;
-            return new double[] { x, y, z, entity.height };
+            if (entity instanceof EntityUnit) {
+                // As big as it is drawn, which a trebuchet or a demon is far more than the box it moves in.
+                EntityUnit unit = (EntityUnit) entity;
+                UnitKind kind = unit.getWatchedKind();
+                int tier = unit.getWatchedEliteTier();
+                return new double[] { x, y, z, EntityUnit.hitHeight(kind, tier), EntityUnit.hitWidth(kind, tier) / 2 };
+            }
+            return new double[] { x, y, z, entity.height, entity.width / 2 };
         }
         double height = thing instanceof RtsState.MobInfo ? Math.max(0.5, ((RtsState.MobInfo) thing).height) : 1.8;
-        return new double[] { thing.x, thing.y, thing.z, height };
+        double halfWidth = thing instanceof RtsState.MobInfo ? ((RtsState.MobInfo) thing).width / 2 : 0.3;
+        return new double[] { thing.x, thing.y, thing.z, height, halfWidth };
     }
 
     public void focusOn(double x, double z) {
