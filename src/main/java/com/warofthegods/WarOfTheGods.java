@@ -39,6 +39,7 @@ import com.warofthegods.unit.EntityCarcass;
 import com.warofthegods.unit.EntitySpell;
 import com.warofthegods.unit.EntityTeamArrow;
 import com.warofthegods.unit.EntityUnit;
+import com.warofthegods.unit.EntityWildMob;
 import com.warofthegods.unit.Hunting;
 import com.warofthegods.unit.Mobs;
 import com.warofthegods.unit.PlayerPrayers;
@@ -47,6 +48,7 @@ import com.warofthegods.unit.Units;
 import com.warofthegods.unit.WarFavor;
 import com.warofthegods.web.WebMap;
 import com.warofthegods.web.WebServer;
+import com.warofthegods.world.BiomeWilderness;
 import com.warofthegods.world.DimensionSync;
 import com.warofthegods.world.GameWorld;
 import com.warofthegods.world.MapBorder;
@@ -114,9 +116,11 @@ public class WarOfTheGods {
         EntityRegistry.registerModEntity(EntityTeamArrow.class, "TeamArrow", 2, this, 64, 20, true);
         EntityRegistry.registerModEntity(EntityCarcass.class, "Carcass", 3, this, 80, 40, false);
         EntityRegistry.registerModEntity(EntitySpell.class, "Spell", 4, this, 64, 10, true);
+        EntityRegistry.registerModEntity(EntityWildMob.class, "WildMob", 5, this, 80, 3, true);
         zamorakStaff = new ItemZamorakStaff();
         GameRegistry.registerItem(zamorakStaff, "zamorak_staff");
         ModBlocks.register();
+        BiomeWilderness.register();
         silverlight = new ItemSilverlight();
         GameRegistry.registerItem(silverlight, "silverlight");
         for (int slot = 0; slot < darkIron.length; slot++) {

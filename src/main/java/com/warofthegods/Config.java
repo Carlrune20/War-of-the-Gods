@@ -18,6 +18,8 @@ public class Config {
     public static int defaultTeamCount = 2;
     public static boolean allowSelfJoin = true;
     public static int gameDimensionId = 77;
+    /** Biome id of Forinthry's Wilderness, which tints its water. */
+    public static int wildernessBiomeId = 120;
     public static int mapMargin = 48;
     public static final long[] startingResources = { 200, 200, 100 };
 
@@ -139,6 +141,8 @@ public class Config {
     public static int woodPerLog = 25;
     public static int treeWoodMin = 100;
     public static int treeWoodMax = 200;
+    /** Food in one of Forinthry's mushrooms, which workers harvest with hoes as they chop trees. */
+    public static int mushroomFood = 50;
     /** Wood a worker chops per chopSeconds. */
     public static int chopWood = 4;
     public static int chopSeconds = 3;
@@ -371,6 +375,13 @@ public class Config {
             2,
             100000,
             "Dimension id of the world games are played in. Change it if another mod uses the same id.");
+        wildernessBiomeId = configuration.getInt(
+            "wildernessBiomeId",
+            Configuration.CATEGORY_GENERAL,
+            wildernessBiomeId,
+            40,
+            255,
+            "Biome id of Forinthry's Wilderness. Change it if another mod uses the same id.");
         mapMargin = configuration.getInt(
             "mapMargin",
             Configuration.CATEGORY_GENERAL,
@@ -648,6 +659,8 @@ public class Config {
         treeWoodMin = configuration
             .getInt("treeWoodMin", buildings, treeWoodMin, 1, 100000, "Least wood a tree holds.");
         treeWoodMax = configuration.getInt("treeWoodMax", buildings, treeWoodMax, 1, 100000, "Most wood a tree holds.");
+        mushroomFood = configuration
+            .getInt("mushroomFood", buildings, mushroomFood, 1, 100000, "Food in a mushroom of Forinthry.");
         chopWood = configuration
             .getInt("chopWood", buildings, chopWood, 1, 10000, "Wood a worker chops off a tree at a time.");
         chopSeconds = configuration

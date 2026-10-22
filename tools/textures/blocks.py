@@ -1,4 +1,5 @@
-"""Draws the textures of War of the Gods' own blocks: graystone bricks, the wooden door and the gods' banners.
+"""Draws the textures of War of the Gods' own blocks: graystone bricks, the wooden door, the gods' banners and
+Forinthry's charred ground, dead trees and mushrooms (see wilderness.py).
 
     python3 tools/textures/blocks.py [--preview DIR]
 
@@ -9,8 +10,13 @@ src/main/resources/assets/warofthegods/textures/blocks/ and textures/items/.
 import argparse
 import os
 import random
+import sys
 
 from PIL import Image
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import wilderness  # noqa: E402
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..", "src", "main", "resources", "assets", "warofthegods")
 BLOCKS = os.path.join(ROOT, "textures", "blocks")
@@ -377,6 +383,7 @@ def generate(preview=None):
     for kind in BANNERS:
         for piece in ("top", "emblem", "bottom", "pennant"):
             out["banner_%s_%s" % (kind, piece)] = banner(kind, piece)
+    out.update(wilderness.textures())
     for name, image in out.items():
         image.save(os.path.join(BLOCKS, name + ".png"))
     items = {"wood_door": door_item()}

@@ -226,7 +226,12 @@ public class ChunkProviderRts implements IChunkProvider {
      * further off are often filled in only after a town center goes up, and their trees would grow into it.
      */
     private boolean keptClear(int x, int z) {
-        for (double[] base : layout.getBases()) {
+        return keptClear(layout.getBases(), x, z);
+    }
+
+    /** Whether no tree may grow at x, z on any map: near where a team starts, or near what stands on the map. */
+    static boolean keptClear(double[][] bases, int x, int z) {
+        for (double[] base : bases) {
             double dx = base[0] - x;
             double dz = base[1] - z;
             if (dx * dx + dz * dz < BASE_CLEARING * BASE_CLEARING) {

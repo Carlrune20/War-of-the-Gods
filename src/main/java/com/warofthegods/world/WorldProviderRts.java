@@ -8,6 +8,7 @@ import net.minecraft.world.chunk.IChunkProvider;
 
 import com.warofthegods.Config;
 import com.warofthegods.game.Game;
+import com.warofthegods.game.GameMap;
 
 /**
  * The game dimension. Each game gets its own save folder, so a new game always starts from fresh terrain. Clients
@@ -15,23 +16,50 @@ import com.warofthegods.game.Game;
  */
 public class WorldProviderRts extends WorldProvider {
 
+    /** The time of day at midnight, in ticks. */
+    private static final long MIDNIGHT = 18000;
+
     private Game game;
 
     @Override
     protected void registerWorldChunkManager() {
-        worldChunkMgr = new WorldChunkManagerHell(BiomeGenBase.plains, 0.5F);
         if (!worldObj.isRemote) {
             game = GameWorld.currentGame();
         }
+        boolean wild = GameWorld.mapOf(game) == GameMap.FORINTHRY && BiomeWilderness.get() != null;
+        worldChunkMgr = new WorldChunkManagerHell(wild ? BiomeWilderness.get() : BiomeGenBase.plains, wild ? 0 : 0.5F);
     }
 
     @Override
     public IChunkProvider createChunkGenerator() {
-        return new ChunkProviderRts(
-            worldObj,
-            GameWorld.mapArea(game),
-            GameWorld.seedOf(game, worldObj.getSeed()),
-            GameWorld.mapTeams(game));
+        MapArea area = GameWorld.mapArea(game);
+        long seed = GameWorld.seedOf(game, worldObj.getSeed());
+        if (GameWorld.mapOf(game) == GameMap.FORINTHRY) {
+            return new ChunkProviderForinthry(worldObj, area, seed, GameWorld.mapTeams(game));
+        }
+        return new ChunkProviderRts(worldObj, area, seed, GameWorld.mapTeams(game));
+    }
+
+    /**
+     * Forinthry is always at midnight, whatever the time in the overworld; players are sent this time, so their sky
+     * stays dark there too. Elsewhere the game map keeps the overworld's time.
+     */
+    @Override
+    public long getWorldTime() {
+        if (GameWorld.mapOf(game) == GameMap.FORINTHRY) {
+            long time = super.getWorldTime();
+            return time - Math.floorMod(time, 24000L) + MIDNIGHT;
+        }
+        return super.getWorldTime();
+    }
+
+    /** The sun's place in the sky by the time; on Forinthry the server too keeps it at midnight, for its light. */
+    @Override
+    public float calculateCelestialAngle(long time, float partialTicks) {
+        if (GameWorld.mapOf(game) == GameMap.FORINTHRY) {
+            return super.calculateCelestialAngle(MIDNIGHT, 0);
+        }
+        return super.calculateCelestialAngle(time, partialTicks);
     }
 
     @Override

@@ -29,6 +29,7 @@ import org.lwjgl.opengl.GL12;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import com.warofthegods.Config;
 import com.warofthegods.unit.Trees;
 
 /**
@@ -1038,6 +1039,10 @@ public final class GuiRts extends GuiScreen {
         if (state().buildingAt(x + 0.5, z + 0.5) != null) {
             return null;
         }
+        // The ground under the pointer may have a mushroom on it, which the pick passes through.
+        if (Trees.isMushroom(mc.theWorld.getBlock(x, y + 1, z))) {
+            y++;
+        }
         long key = ((long) x << 36) ^ ((long) (y & 0xFF) << 28) ^ (z & 0xFFFFFFFL);
         if (key != treeKey || mc.theWorld.getTotalWorldTime() - treeTime > 20) {
             // Only logs and leaves that grew on a tree; those of buildings, walls and ruins are no tree's.
@@ -1616,6 +1621,18 @@ public final class GuiRts extends GuiScreen {
                 return null;
             }
             RtsState.TreeInfo tree = trackedTreeNear(block);
+            if (Trees.isMushroom(mc.theWorld.getBlock(block[0], block[1], block[2]))) {
+                // Forinthry's mushrooms are harvested for food, as trees are chopped for wood.
+                String food = " · " + (tree == null ? Config.mushroomFood : tree.wood)
+                    + "/"
+                    + (tree == null ? Config.mushroomFood : tree.maxWood)
+                    + " food";
+                if (workers > 0) {
+                    return new Object[] { "hoe", "Harvest mushroom" + food, "act" };
+                }
+                return new Object[] { "food",
+                    "Giant mushroom" + food + (team != null ? " · select workers to harvest it" : ""), null };
+            }
             String wood = tree == null ? "" : " · " + tree.wood + "/" + tree.maxWood + " wood";
             if (workers > 0) {
                 return new Object[] { "axe", "Chop tree" + wood, "act" };

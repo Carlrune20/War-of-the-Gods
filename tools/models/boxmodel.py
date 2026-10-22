@@ -61,9 +61,13 @@ class Part:
 
 
 class Model:
-    def __init__(self, name, tex_w, tex_h, seed=1):
+    """A model whose texture is tex_w by tex_h in its boxes' units, painted res texels to the unit: the JSON gives the
+    texture's size in units, so the game draws a texture res times as big just as well, in finer detail."""
+
+    def __init__(self, name, tex_w, tex_h, seed=1, res=1):
         self.name = name
         self.tex_w, self.tex_h = tex_w, tex_h
+        self.res = res
         self.roots = []
         self.seed = seed
 
@@ -96,13 +100,16 @@ class Model:
             shelf = max(shelf, box.tex_h)
 
     def paint(self):
-        """The texture and its team mask: white where the team's color goes, clear elsewhere."""
+        """The texture and its team mask: white where the team's color goes, clear elsewhere. Each face is painted
+        res texels to the unit, its paint given the texel and the face's size in texels."""
         self.pack()
-        image = Image.new("RGBA", (self.tex_w, self.tex_h), (0, 0, 0, 0))
-        mask = Image.new("RGBA", (self.tex_w, self.tex_h), (0, 0, 0, 0))
+        r = self.res
+        image = Image.new("RGBA", (self.tex_w * r, self.tex_h * r), (0, 0, 0, 0))
+        mask = Image.new("RGBA", (self.tex_w * r, self.tex_h * r), (0, 0, 0, 0))
         rng = random.Random(self.seed)
         for box in self.boxes():
             for face, fu, fv, fw, fh in faces(box):
+                fu, fv, fw, fh = int(fu * r), int(fv * r), int(fw * r), int(fh * r)
                 for py in range(fh):
                     for px in range(fw):
                         color = box.paint(face, px, py, fw, fh)
@@ -244,7 +251,9 @@ def render(model, texture, size=512, yaw=30.0, pitch=15.0, pose=None, mask=None,
         covered = m[:, :, 3:4] > 0.1
         tex = np.where(covered, np.concatenate([m[:, :, :3] * tint, m[:, :, 3:4]], axis=2), tex)
     th, tw = tex.shape[:2]
-    quads = world_quads(model, pose)
+    # The texture may be painted finer than the model's units (see Model.res).
+    sx, sy = tw / float(model.tex_w), th / float(model.tex_h)
+    quads = [(corners, [(u * sx, v * sy) for u, v in uvs], glow) for corners, uvs, glow in world_quads(model, pose)]
     # Model space is y down and faces -z; turn it so up is up and its front faces the viewer.
     flip = np.diag([-1.0, -1.0, 1.0]) if up is None else up
     view = rotation_matrix(math.radians(pitch), 0, 0) @ rotation_matrix(0, math.radians(yaw), 0) \

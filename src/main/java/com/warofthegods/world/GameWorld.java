@@ -25,6 +25,7 @@ import com.warofthegods.WarOfTheGods;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
+import com.warofthegods.game.GameMap;
 import com.warofthegods.game.Team;
 import com.warofthegods.unit.Units;
 
@@ -44,6 +45,11 @@ public final class GameWorld {
 
     public static boolean isGameWorld(World world) {
         return world.provider.dimensionId == dimensionId();
+    }
+
+    /** Whether the world is the game world of a game on Forinthry, the Wilderness, where nothing green grows. */
+    public static boolean isWilderness(World world) {
+        return !world.isRemote && isGameWorld(world) && mapOf(currentGame()) == GameMap.FORINTHRY;
     }
 
     /** Registers the game dimension, reusing its id as the id of its provider type. */
@@ -88,9 +94,12 @@ public final class GameWorld {
     private static Misthalin layout;
     private static int layoutGame = -1;
 
-    /** The river and bridges of the running game's map; null for no game, or a map from before there were any. */
+    /**
+     * The river and bridges of the running game's map; null for no game, a map from before there were any, or a map
+     * other than Misthalin, which has none.
+     */
     public static Misthalin layout(Game game) {
-        if (game == null || game.getMapTeams() == 0) {
+        if (game == null || game.getMapTeams() == 0 || game.getMap() != GameMap.MISTHALIN) {
             return null;
         }
         if (layout == null || layoutGame != game.getNumber()) {
@@ -98,6 +107,37 @@ public final class GameWorld {
             layoutGame = game.getNumber();
         }
         return layout;
+    }
+
+    /** The map the game is played on; Misthalin with no game. */
+    static GameMap mapOf(Game game) {
+        return game == null ? GameMap.MISTHALIN : game.getMap();
+    }
+
+    /** Where the teams' bases go on the running game's map, as x, z; the same spots on every map. */
+    static double[][] basesOf(MapArea area, long seed, int teams) {
+        int size = Math.max(area.getMaxX() - area.getMinX(), area.getMaxZ() - area.getMinZ()) + 1;
+        int n = Math.max(2, teams);
+        double[][] bases = new double[Math.max(1, teams)][];
+        for (int i = 0; i < bases.length; i++) {
+            bases[i] = Misthalin.baseSpot(area.getCenterX(), area.getCenterZ(), size, seed, i, n);
+        }
+        return bases;
+    }
+
+    private static Forinthry wilderness;
+    private static int wildernessGame = -1;
+
+    /** The layout of the running game's map if it is Forinthry; null for no game or another map. */
+    public static Forinthry forinthry(Game game) {
+        if (game == null || game.getMap() != GameMap.FORINTHRY) {
+            return null;
+        }
+        if (wilderness == null || wildernessGame != game.getNumber()) {
+            wilderness = new Forinthry(mapArea(game), game.getSeed(), mapTeams(game));
+            wildernessGame = game.getNumber();
+        }
+        return wilderness;
     }
 
     static long seedOf(Game game, long worldSeed) {
@@ -216,6 +256,10 @@ public final class GameWorld {
      * players on no team in the middle of the map.
      */
     public static void sendToGame(EntityPlayerMP player, Game game) {
+        if (persistedData(player).getInteger(PLAYER_GAME_KEY) != game.getNumber()) {
+            // Everyone starts each new game empty handed, whatever they carried out of the last one.
+            clearInventory(player);
+        }
         WorldServer world = getWorld();
         int[] spawn = findTeamSpawn(world, game, game.getTeamOf(player.getUniqueID()));
         teleport(player, world, spawn[0] + 0.5, spawn[1], spawn[2] + 0.5);
@@ -240,6 +284,14 @@ public final class GameWorld {
     public static boolean isOutsideGame(EntityPlayerMP player, Game game) {
         return player.dimension != dimensionId()
             || persistedData(player).getInteger(PLAYER_GAME_KEY) != game.getNumber();
+    }
+
+    /** Empties the player's inventory, armor and what they hold on the cursor. */
+    private static void clearInventory(EntityPlayerMP player) {
+        player.inventory.clearInventory(null, -1);
+        player.inventory.setItemStack(null);
+        player.inventoryContainer.detectAndSendChanges();
+        player.updateHeldItem();
     }
 
     /** Player NBT that Forge keeps across deaths. */

@@ -9,8 +9,8 @@ For the buildings and units, see [Buildings and units](buildings-and-units.md). 
 Ops start a game in one of two ways:
 
 - **`/rts newgame`** ends the current game and opens the [lobby](#the-lobby) for everyone.
-- **`/rts quickgame [teams] [mapSize] [seed]`** skips the lobby and starts a new game on a freshly generated map
-  straight away. The gods take turns, so each follows half the teams (Red Zamorak, Blue Saradomin, Green
+- **`/rts quickgame [teams] [mapSize] [seed] [map]`** skips the lobby and starts a new game on a freshly generated
+  map straight away. The map is `misthalin` (the default) or `forinthry`. The gods take turns, so each follows half the teams (Red Zamorak, Blue Saradomin, Green
   Zamorak...), and everyone online is shuffled evenly onto the teams. Defaults: 2 teams, 1000x1000 map, random
   seed. Teams are named after their colour: Red, Blue, Green...
 
@@ -24,7 +24,7 @@ it back with B. It starts with the teams of the game that just ended, and everyo
 
 Only ops change the settings:
 
-- the map (Misthalin is the only one so far), its size, and its seed (blank for a random one)
+- the map (Misthalin or [Forinthry](#forinthry-the-wilderness)), its size, and its seed (blank for a random one)
 - how many teams there are (1 to 8)
 - which god each team follows
 - whether the computer plays on a team
@@ -86,16 +86,57 @@ Players online when a game starts are shared out over the teams. Players who log
 with the fewest players; press **B** for the team menu to change that.
 
 Players who log in while a game is running are moved onto its map, unless they are already on it, and placed in front
-of their team's town center. So are players when a new game starts, and players who die on the map. The overworld is
+of their team's town center. Everyone's inventory is emptied the first time they come into each new game, on any map,
+so nothing is carried over from the last one. So are players when a new game starts, and players who die on the map. The overworld is
 untouched.
 
 Game worlds are saved under `world/warofthegods/game-<number>`. The folders of older games are deleted when a new game
 starts. The game state is saved with the overworld (`world/data/warofthegods.dat`) and survives restarts. Only one
 game runs at a time, and it lasts until an op starts a new one.
 
+### Forinthry, the Wilderness
+
+**Forinthry** is the burnt north of the world, where the God Wars were fought. Teams start and settle as on
+Misthalin, but there is no river, and the land is hostile:
+
+- **Charred terrain.** Mostly black ground of charred earth, scorched stone and glowing ember rock, with rocky crags,
+  patches of bare earth where no grass grows, and dead dark oak trees without leaves, alone or in groves. Its biome,
+  the Wilderness, never rains, and its few small ponds are stagnant olive green, bubbling. Hills rise here and there.
+- **Lava.** Rivers of lava wind across the land and cross each other, now and then leaving a small island between them,
+  with fords to cross them. Where a river runs through the hills it cuts a canyon, its banks curving in over the lava.
+  Obsidian glazes the rock wherever lava meets it. There are lava lakes and small lava potholes too.
+- **No animals.** Nothing grazes on Forinthry: instead a ring of mushroom patches grows round each team's town
+  center for its first food.
+- **Always night.** The sun never rises on Forinthry, until it gets shaders of its own.
+- **The old fortresses.** Great walled ruins 55 blocks across, about one for every 500 by 500 blocks of map (at least
+  one), each in one of three layouts: a curtain wall with towers and a gatehouse round the burnt-out keep, with
+  barracks, a chapel, smithy, prison, stable or storehouse in their yards, all hung with cobwebs and full of chests. No
+  god's banner flies over them: the Wilderness is no one's. Ghosts, skeletons, zombies and deadly red spiders haunt
+  them.
+- **Ruins**, more of them and more dangerous than Misthalin's: the great **Graveyards of Shadows** where ghosts walk,
+  their graves, crypts and mausoleums laid out at random, **bandit camps** of tents, a lookout, a cage and a stash round
+  a fire, laid out anew each time, with a band of six bandits, and smaller ruins (haunted graveyards, burnt chapels and
+  houses, broken watchtowers and altars of Zamorak) with ghosts, hellhounds or deadly red spiders in their cobwebs.
+  Every ruin has a chest of loot.
+- **Mushrooms**, red and brown, grow in clumps over the ground and are Forinthry's food. Select workers and
+  right-click one to harvest it with hoes, just as trees are chopped: each holds 50 food, and the workers carry it
+  home and go on to the next mushroom.
+
+Its creatures replace the zombies and skeletons, in bigger groups and about eight times as many, anywhere outside towns:
+
+| Creature | Health | Hit | Notes |
+| --- | --- | --- | --- |
+| Ghost | 24 | 4 | Arrows and spells mostly pass through it. Comes in fours to sixes. |
+| Deadly red spider | 18 | 3 | Its bite poisons. Fours to sixes. |
+| Hellhound | 50 | 7 | Fireproof. Threes to sixes. |
+| Hill giant | 90 | 10 | Its cleaver throws you back. In twos and threes. |
+| Gargoyle | 80 | 9 | Stone: takes less from blows and arrows. Fireproof. In twos and threes. |
+| Green / blue / red / black dragon | 200 / 240 / 280 / 360 | 12 / 13 / 14 / 16 | Always alone. They do not fly or breathe fire: they wander, and bite and claw, throwing you back. |
+| Bandit | 26 | 5 | Only in bandit camps, six to a camp. |
+
 ## Mobs
 
-The only hostile mobs are zombies and skeletons, and they are not common. Every 30 seconds, day or night, a group of
+On Misthalin the only hostile mobs are zombies and skeletons, and they are not common. Every 30 seconds, day or night, a group of
 two or three may turn up somewhere out of sight of players and units, mostly among trees and now and then in the open.
 There are up to 24 on the whole map.
 
@@ -156,7 +197,8 @@ and red. Each unit has a band of its team's colour round its arms and waist, and
 
 **Gold** comes from mines, laid out like Old School RuneScape's surface mining sites: bare brown ground with rocks
 showing their ore. The layouts are an open patch of rocks (Rimmington), rocks under a ridge (Al Kharid), or a rocky
-mound (south-west of Varrock).
+mound (south-west of Varrock). On Forinthry they are the Wilderness's own: charred earth, ash and glowing ember rock
+underfoot, rocks of scorched stone and obsidian, and in place of the open patch a crater ringed with rock.
 
 - Whatever their ores, mines yield gold, and the rarer the best ore, the more gold they hold:
 

@@ -21,6 +21,7 @@ import com.warofthegods.WarOfTheGods;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
+import com.warofthegods.game.GameMap;
 import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.MineKind;
 import com.warofthegods.game.Ruin;
@@ -122,11 +123,14 @@ public final class MapFeatures {
         }
         placeWildMines(game, world, teams, n, sector);
         placeShrine(game, world);
-        for (Team team : teams) {
-            placeHerds(game, world, team);
-        }
-        for (int i = 0; i < teams.size(); i++) {
-            placeWildHerds(game, world, -Math.PI / 2 + 2 * Math.PI * i / n, sector);
+        // No animals live in the Wilderness: its teams start with mushrooms round their town centers instead.
+        if (game.getMap() != GameMap.FORINTHRY) {
+            for (Team team : teams) {
+                placeHerds(game, world, team);
+            }
+            for (int i = 0; i < teams.size(); i++) {
+                placeWildHerds(game, world, -Math.PI / 2 + 2 * Math.PI * i / n, sector);
+            }
         }
         game.setFeaturesPlaced();
         WarOfTheGods.LOG.info(

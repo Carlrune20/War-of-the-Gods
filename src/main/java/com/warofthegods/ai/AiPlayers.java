@@ -1724,6 +1724,13 @@ public final class AiPlayers {
                     return Units.get()
                         .orderBuild(one, farm) > 0;
                 }
+                // Mushrooms, where they grow (all the food there is round a town on Forinthry), before the hunt.
+                int[] mushroom = Trees.nearestOnly(world, game, x, z, HUNT_RANGE, true);
+                if (mushroom != null && Units.get()
+                    .orderChop(one, mushroom[0], mushroom[1], mushroom[2]) > 0) {
+                    Trees.track(world, game, mushroom[0], mushroom[1], mushroom[2]);
+                    return true;
+                }
                 Hunting.Carcass carcass = Hunting.nearest(x, z, HUNT_RANGE);
                 if (carcass != null && carcass.getFood() > 0) {
                     return Units.get()
@@ -1751,24 +1758,24 @@ public final class AiPlayers {
     }
 
     /**
-     * The tree it chops next: the nearest to the town center, else by one of its storehouses, else round trees it
-     * found further off, looking for those now and then as far again; or null.
+     * The tree it chops next for wood, never a mushroom: the nearest to the town center, else by one of its
+     * storehouses, else round trees it found further off, looking for those now and then as far again; or null.
      */
     private int[] nearestTree(Game game, WorldServer world, Team team, double x, double z, State state) {
-        int[] tree = Trees.nearest(world, game, x, z, TREE_RANGE);
+        int[] tree = Trees.nearestOnly(world, game, x, z, TREE_RANGE, false);
         if (tree != null) {
             return tree;
         }
         for (Building store : game.getBuildings(team)) {
             if (store.type == BuildingType.STOREHOUSE && store.isComplete()) {
-                tree = Trees.nearest(world, game, store.getCenterX(), store.getCenterZ(), STORE_TREE_RANGE);
+                tree = Trees.nearestOnly(world, game, store.getCenterX(), store.getCenterZ(), STORE_TREE_RANGE, false);
                 if (tree != null) {
                     return tree;
                 }
             }
         }
         if (state.forest != null) {
-            tree = Trees.nearest(world, game, state.forest[0] + 0.5, state.forest[2] + 0.5, FOREST_RANGE);
+            tree = Trees.nearestOnly(world, game, state.forest[0] + 0.5, state.forest[2] + 0.5, FOREST_RANGE, false);
             state.forest = tree;
             if (tree != null) {
                 return tree;
@@ -1778,7 +1785,7 @@ public final class AiPlayers {
             return null;
         }
         state.lastFarTreeSearch = ticks;
-        state.forest = Trees.nearest(world, game, x, z, FAR_TREE_RANGE);
+        state.forest = Trees.nearestOnly(world, game, x, z, FAR_TREE_RANGE, false);
         if (state.forest != null) {
             WarOfTheGods.LOG.info(
                 "AI {} found trees {} blocks from its town center",
@@ -1818,14 +1825,14 @@ public final class AiPlayers {
         return best != null ? best : Units.nearestMine(game, x, z, Double.MAX_VALUE);
     }
 
-    /** What the worker is gathering, or null if it is gathering nothing. */
+    /** What the worker is gathering, or null if it is gathering nothing: picking mushrooms is food, not wood. */
     private static Resource resourceOf(EntityUnit worker) {
         switch (worker.getOrder()) {
             case HUNT:
             case WORK:
                 return Resource.FOOD;
             case CHOP:
-                return Resource.WOOD;
+                return worker.isHarvesting() ? Resource.FOOD : Resource.WOOD;
             case MINE:
                 return Resource.GOLD;
             default:

@@ -14,7 +14,7 @@ Everyone can use `/rts`. Commands marked **(op)** need operator rights.
 |---|---|
 | `/rts info` | Show the current game: map area, teams, resources, alliances. |
 | `/rts newgame [close\|start]` | (op) End the current game and open the new game lobby for everyone (see [How to play](how-to-play.md#the-lobby)); `close` closes it without a game, `start` starts the game at once without waiting for everyone to be ready. |
-| `/rts quickgame [teams] [mapSize] [seed]` | (op) Skip the lobby: end the current game and start a new one on a freshly generated map at once. The gods take turns, so each follows half the teams (Red Zamorak, Blue Saradomin, Green Zamorak...), and everyone online is shuffled evenly onto the teams. Defaults: 2 teams, 1000x1000 map, random seed. Teams are named after their color: Red, Blue, Green... |
+| `/rts quickgame [teams] [mapSize] [seed] [map]` | (op) Skip the lobby: end the current game and start a new one on a freshly generated map at once. The map is `misthalin` (default) or `forinthry`. The gods take turns, so each follows half the teams (Red Zamorak, Blue Saradomin, Green Zamorak...), and everyone online is shuffled evenly onto the teams. Defaults: 2 teams, 1000x1000 map, random seed. Teams are named after their color: Red, Blue, Green... |
 | `/rts endgame` | (op) End the current game. |
 | `/rts finish [team]` | (op) Finish every building site at once. |
 | `/rts memory` | (op) Show the server's heap use (used, committed and maximum), how often and how long the garbage collector has run, and the current game's unit, building and tree counts. See [Memory](hosting.md#memory). |

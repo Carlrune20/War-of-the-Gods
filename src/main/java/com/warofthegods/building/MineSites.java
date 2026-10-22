@@ -6,7 +6,9 @@ import net.minecraft.block.Block;
 import net.minecraft.init.Blocks;
 import net.minecraft.world.WorldServer;
 
+import com.warofthegods.block.ModBlocks;
 import com.warofthegods.game.Game;
+import com.warofthegods.game.GameMap;
 import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.MineKind;
 import com.warofthegods.web.WebMap;
@@ -17,6 +19,11 @@ import com.warofthegods.web.WebMap;
  * Rimmington's; some lie under a rocky ridge with ore in its face, like the mine north of Al Kharid; and some are
  * dug into a rocky mound with rocks round its foot, like the mine south-west of Varrock. Fence posts with torches,
  * a stretch of cart track and a crate or two stand among them.
+ *
+ * <p>
+ * On Forinthry the sites are the Wilderness's own: charred earth, ash and scorched stone underfoot with ember rock
+ * glowing in it, rocks of scorched stone and obsidian, nether brick posts and dark oak crates; and in place of the open
+ * patch, a crater ringed with rock with ore in its inner face.
  *
  * <p>
  * A site is built from its id and place, so it comes out the same every time: when it is mined out it is built again
@@ -100,6 +107,7 @@ public final class MineSites {
     public static void build(WorldServer world, Game game, GoldMine mine, boolean depleted) {
         int design = mine.design < 0 ? MOUND : mine.design % DESIGNS;
         Random random = new Random(mine.id * 341873128712L + mine.minX * 132897987541L + mine.minZ + 7);
+        boolean wild = game.getMap() == GameMap.FORINTHRY;
         Plan plan = new Plan(mine.size, depleted);
         ground(plan, random);
         switch (design) {
@@ -110,8 +118,15 @@ public final class MineSites {
                 mound(plan, mine.kind, random);
                 break;
             default:
-                open(plan, mine.kind, random);
+                if (wild) {
+                    crater(plan, mine.kind, random);
+                } else {
+                    open(plan, mine.kind, random);
+                }
                 break;
+        }
+        if (wild) {
+            wilderness(plan, random);
         }
         // The ridge stands on the side away from the middle of the map, so workers come at it from the front.
         int rotation = (MapFeatures.facingMiddle(game, (int) mine.getCenterX(), (int) mine.getCenterZ()) + 2) & 3;
@@ -126,6 +141,9 @@ public final class MineSites {
                     int meta = plan.metadata[plan.index(x, y, z)];
                     if (block == Blocks.rail && (rotation & 1) == 1) {
                         meta ^= 1;
+                    }
+                    if (block == Blocks.grass) {
+                        block = Schematic.groundBlock(world);
                     }
                     if (block != null) {
                         world.setBlock(wx, mine.groundY + y, wz, block, meta, 2);
@@ -371,6 +389,89 @@ public final class MineSites {
             int z = side == 0 ? 1 : side == 1 ? along : side == 2 ? last - 1 : last - along;
             if (plan.open(x, z, 0) && random.nextInt(3) != 0) {
                 plan.ore(x, 1, z, rockOre(kind, random, random.nextInt(3) == 0));
+            }
+        }
+    }
+
+    /**
+     * A crater, the Wilderness's own: a ring of rock round a hollow, broken through on two sides, with ore in its inner
+     * face, rocks on its floor and ember rock glowing among the ash.
+     */
+    private static void crater(Plan plan, MineKind kind, Random random) {
+        double center = (plan.size - 1) / 2.0;
+        double outer = plan.size / 2.0 - 0.5;
+        double inner = outer - 2.2;
+        // Two ways in, across from each other at a random turn.
+        double gap = random.nextDouble() * Math.PI;
+        for (int x = 0; x < plan.size; x++) {
+            for (int z = 0; z < plan.size; z++) {
+                double distance = Math.hypot(x - center, z - center);
+                double angle = Math.atan2(z - center, x - center);
+                double fromGap = Math.abs(Math.sin(angle - gap));
+                if (distance < inner) {
+                    if (random.nextInt(5) == 0) {
+                        plan.set(x, 0, z, ModBlocks.ash, 0);
+                    }
+                    continue;
+                }
+                if (distance > outer || fromGap < 0.3) {
+                    continue;
+                }
+                // Highest on the inner edge, sloping away outside.
+                int height = Math.max(1, Math.min(3, (int) Math.round((outer - distance) * 1.2 + random.nextDouble())));
+                for (int y = 1; y <= height; y++) {
+                    boolean face = distance < inner + 1.2 && y <= 2;
+                    int roll = random.nextInt(10);
+                    if (face && roll < 4) {
+                        plan.ore(x, y, z, rockOre(kind, random, roll == 0));
+                    } else if (roll < 7) {
+                        plan.set(x, y, z, Blocks.stone, 0);
+                    } else {
+                        plan.set(x, y, z, Blocks.cobblestone, 0);
+                    }
+                }
+            }
+        }
+        int c = (int) Math.round(center);
+        plan.ore(c, 1, c, kind.ore);
+        plan.set(c, 0, c, ModBlocks.emberRock, 0);
+        int rocks = plan.size * plan.size / 30;
+        scatterRocks(plan, kind, rocks, Math.max(1, rocks / 2), random);
+        torchPost(plan, 0, 0);
+        torchPost(plan, plan.size - 1, plan.size - 1);
+    }
+
+    /**
+     * Turns a site's blocks to the Wilderness's: charred earth, ash and scorched stone for its ground, ember rock
+     * glowing here and there, scorched stone and obsidian for its rock (and its mined out ore), nothing growing, nether
+     * brick posts and dark oak crates.
+     */
+    private static void wilderness(Plan plan, Random random) {
+        for (int x = 0; x < plan.size; x++) {
+            for (int z = 0; z < plan.size; z++) {
+                for (int y = 0; y <= HEIGHT; y++) {
+                    Block block = plan.get(x, y, z);
+                    int meta = plan.metadata[plan.index(x, y, z)];
+                    if (block == Blocks.stone) {
+                        plan.set(x, y, z, ModBlocks.scorchedStone, 0);
+                    } else if (block == Blocks.cobblestone) {
+                        plan.set(x, y, z, random.nextBoolean() ? ModBlocks.scorchedStone : Blocks.cobblestone, 0);
+                    } else if (block == Blocks.mossy_cobblestone) {
+                        plan.set(x, y, z, Blocks.obsidian, 0);
+                    } else if (block == Blocks.dirt) {
+                        plan.set(x, y, z, meta == 1 ? ModBlocks.charredEarth : ModBlocks.ash, 0);
+                    } else if (block == Blocks.gravel && y == 0 && random.nextInt(8) == 0) {
+                        plan.set(x, y, z, ModBlocks.emberRock, 0);
+                    } else if (block == Blocks.tallgrass) {
+                        plan.set(x, y, z, null, 0);
+                    } else if (block == Blocks.fence) {
+                        plan.set(x, y, z, Blocks.nether_brick_fence, 0);
+                    } else if (block == Blocks.log) {
+                        plan.set(x, y, z, Blocks.log2, 1);
+                    } else if (block == Blocks.planks) {
+                        plan.set(x, y, z, Blocks.planks, 5);
+                    }
+                }
             }
         }
     }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Boots the dev dedicated server five times. The first boot sets up a game through /rts and saves it; the second
+# Boots the dev dedicated server seven times. The first boot sets up a game through /rts and saves it; the second
 # boot checks the game and its map came back from the save intact, then starts a new game to check numbering
 # continues and the old map is replaced by a fresh one. The third checks the web map, units and buildings: town
 # centers, a worker building a farm and working it, a barracks training warriors and
@@ -8,7 +8,8 @@
 # finished with /rts finish, so the test does not sit waiting on build timers. The fourth checks that units and buildings come back after a restart, then that a team losing its
 # town center gets a countdown and a team with neither town center nor workers is defeated, leaving a winner. The
 # fifth has the computer play a team, and checks the knights' fortresses, the archery range and stables, and the
-# gods' temples, the stone circle and the lesser demon. Every game also gets the Silverlight shrine.
+# gods' temples, the stone circle and the lesser demon. Every game also gets the Silverlight shrine. The sixth and
+# seventh start a game on Forinthry and reload it.
 set -uo pipefail
 
 TIMEOUT="${SERVER_TIMEOUT:-600}"
@@ -666,5 +667,18 @@ if grep -q "at com.warofthegods.ai." "$WEB_LOG"; then
     fail "boot-5-ai: the AI threw an exception"
 fi
 echo "ok: the AI played Blue without errors"
+
+# Boot 6: a game on Forinthry, the Wilderness: its terrain, lava rivers and ruins generate, and it comes back from the
+# save as Forinthry.
+boot boot-6-forinthry "rts quickgame 2 256 4242 forinthry
+rts info
+stop"
+expect boot-6-forinthry.log "has started on a 256x256 Forinthry map with 2 teams."
+expect boot-6-forinthry.log "Map: 256x256 from -128,-128 to 127,127, Forinthry"
+echo "ok: a Forinthry game started"
+boot boot-7-forinthry-reload "rts info
+stop"
+expect boot-7-forinthry-reload.log "Map: 256x256 from -128,-128 to 127,127, Forinthry"
+echo "ok: the Forinthry game came back from the save"
 
 echo "Server smoke test passed"

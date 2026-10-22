@@ -13,6 +13,7 @@ import com.warofthegods.unit.EntityCarcass;
 import com.warofthegods.unit.EntitySpell;
 import com.warofthegods.unit.EntityTeamArrow;
 import com.warofthegods.unit.EntityUnit;
+import com.warofthegods.unit.EntityWildMob;
 
 import cpw.mods.fml.client.registry.RenderingRegistry;
 
@@ -33,6 +34,7 @@ public class ClientProxy extends CommonProxy {
         RenderingRegistry.registerEntityRenderingHandler(EntityUnit.class, new RenderUnit());
         RenderingRegistry.registerEntityRenderingHandler(EntityCommanderBody.class, new RenderCommanderBody());
         RenderingRegistry.registerEntityRenderingHandler(EntityTeamArrow.class, new RenderTeamArrow());
+        RenderingRegistry.registerEntityRenderingHandler(EntityWildMob.class, new RenderWildMob());
         RenderingRegistry.registerEntityRenderingHandler(EntityCarcass.class, new RenderCarcass());
         RenderingRegistry.registerEntityRenderingHandler(EntitySpell.class, new RenderSpell());
         MinecraftForgeClient.registerItemRenderer(
@@ -70,6 +72,7 @@ public class ClientProxy extends CommonProxy {
         MobRenderers.register();
         PrayerHud.register();
         GodswordPose.register();
+        MurkyWater.register();
         RtsClient.init();
     }
 

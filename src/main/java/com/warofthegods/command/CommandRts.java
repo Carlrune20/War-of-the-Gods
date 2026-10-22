@@ -33,6 +33,7 @@ import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
+import com.warofthegods.game.GameMap;
 import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Settlement;
@@ -239,7 +240,10 @@ public class CommandRts extends CommandBase {
         send(sender, EnumChatFormatting.GOLD + "War of the Gods commands:");
         send(sender, "/rts info - show the current game");
         send(sender, "/rts newgame [close|start] - open the new game lobby, close it, or start without waiting (op)");
-        send(sender, "/rts quickgame [teams] [mapSize] [seed] - start a new game at once, players shuffled (op)");
+        send(
+            sender,
+            "/rts quickgame [teams] [mapSize] [seed] [misthalin|forinthry] - start a new game at once, players shuffled"
+                + " (op)");
         send(sender, "/rts endgame - end the current game (op)");
         send(sender, "/rts spawn [player] - go to the game map");
         send(sender, "/rts surrender - give up: your team is defeated");
@@ -335,7 +339,8 @@ public class CommandRts extends CommandBase {
                 + " to "
                 + game.getMaxX()
                 + ","
-                + game.getMaxZ());
+                + game.getMaxZ()
+                + (game.getMap() == GameMap.MISTHALIN ? "" : ", " + game.getMap().displayName));
         send(sender, "World: dimension " + GameWorld.dimensionId() + ", seed " + game.getSeed());
         int[] spawn = GameWorld.findSpawn(GameWorld.getWorld(), game);
         send(sender, "Spawn: " + spawn[0] + "," + spawn[1] + "," + spawn[2]);
@@ -404,16 +409,27 @@ public class CommandRts extends CommandBase {
             : Config.defaultTeamCount;
         int size = args.length > 1 ? parseIntBounded(sender, args[1], 64, 100000) : Config.defaultMapSize;
         long seed = args.length > 2 ? parseSeed(args[2]) : new Random().nextLong();
+        GameMap map = args.length > 3 ? GameMap.byId(args[3]) : GameMap.MISTHALIN;
+        if (map == null) {
+            throw new CommandException("Unknown map %s; the maps are misthalin and forinthry", args[3]);
+        }
 
         Lobby.close();
         Game previous = GameManager.getGame();
         if (previous != null) {
             broadcast("Game #" + previous.getNumber() + " has ended. Building a new map...");
         }
-        Game game = GameManager.newGame(size, teamCount, seed);
+        Game game = GameManager.newGame(size, teamCount, seed, map);
         broadcast(
-            "Game #" + game
-                .getNumber() + " has started on a " + size + "x" + size + " map with " + teamCount + " teams.");
+            "Game #" + game.getNumber()
+                + " has started on a "
+                + size
+                + "x"
+                + size
+                + (map == GameMap.MISTHALIN ? "" : " " + map.displayName)
+                + " map with "
+                + teamCount
+                + " teams.");
         GameManager.autoAssign(game);
         announceTeams(game);
         GameWorld.sendAllToGame(game);

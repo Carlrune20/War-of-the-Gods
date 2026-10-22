@@ -18,7 +18,8 @@
     const FULL = new Set([
         1, 2, 3, 4, 5, 7, 12, 13, 14, 15, 16, 17, 19, 21, 22, 23, 24, 25, 29, 33, 35, 41, 42, 43, 45, 46, 47, 48, 49,
         52, 56, 57, 58, 61, 62, 73, 74, 80, 82, 84, 86, 87, 88, 89, 91, 97, 98, 99, 100, 103, 110, 112, 121, 123, 124,
-        125, 129, 133, 137, 152, 153, 155, 158, 159, 162, 170, 172, 173, 174, 200, 202, UNKNOWN,
+        125, 129, 133, 137, 152, 153, 155, 158, 159, 162, 170, 172, 173, 174, 200, 202,
+        214, 215, 216, 217, UNKNOWN,
     ]);
     // Drawn see-through, after everything else.
     const TRANSLUCENT = new Set([8, 9, 20, 30, 79, 90, 95, 102, 160]);
@@ -202,6 +203,11 @@
             case 211: return same(0x6A4A2A);
             case 212: return same(0xE6E6E0);
             case 213: return same(0x3E74CE);
+            // Forinthry's: charred earth, ash, scorched stone and ember rock.
+            case 214: return same(0x2E2622);
+            case 215: return same(0x84807C);
+            case 216: return same(0x3A3638);
+            case 217: return same(0x5A2E1E);
             case 175: return same([0xE6D820, 0xB060D0, 0x5E9A3A, 0x4E8A3A, 0xC21414, 0xE090C0][d & 7] || 0x5E9A3A);
             default: return same(0x8A8A8A);
         }

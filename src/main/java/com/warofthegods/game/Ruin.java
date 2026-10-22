@@ -18,12 +18,26 @@ public final class Ruin {
     public final int groundY;
     /** What the ruin was, as the name of its design. */
     public final String design;
-    /** What lurks there: {@link #QUIET}, {@link #SPIDERS} or {@link #UNDEAD}. */
+    /**
+     * What lurks there: {@link #QUIET}, {@link #SPIDERS} or {@link #UNDEAD}, and in Forinthry {@link #GHOSTS},
+     * {@link #GIANTS}, {@link #BANDITS}, {@link #HELLHOUNDS} or {@link #FORTRESS}; spiders there are deadly red
+     * spiders.
+     */
     public final int haunt;
 
     public static final int QUIET = 0;
     public static final int SPIDERS = 1;
     public static final int UNDEAD = 2;
+    /** Ghosts, and skeletons with them: Forinthry's graveyards. */
+    public static final int GHOSTS = 3;
+    /** Hill giants and gargoyles: Forinthry's fortress ruins. */
+    public static final int GIANTS = 4;
+    /** Bandits: their camps in Forinthry. */
+    public static final int BANDITS = 5;
+    /** Hellhounds: Zamorak's altars in Forinthry. */
+    public static final int HELLHOUNDS = 6;
+    /** Ghosts, the undead and red spiders: Forinthry's old fortress. */
+    public static final int FORTRESS = 7;
 
     public Ruin(int id, int minX, int minZ, int sizeX, int sizeZ, int groundY, String design, int haunt) {
         this.id = id;

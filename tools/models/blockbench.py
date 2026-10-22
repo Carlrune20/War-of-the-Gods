@@ -41,7 +41,8 @@ ASSETS = os.path.join(HERE, "..", "..", "src", "main", "resources", "assets", "w
 BLOCKBENCH = os.path.join(HERE, "blockbench")
 NAMES = ("lesser_demon", "greater_demon", "black_demon", "centaur", "zamorak_staff", "silverlight", "white_knight",
          "black_knight", "elite_black_knight", "justiciar", "goblin", "hobgoblin", "ork", "ogre",
-         "graardor", "aviansie", "armadyl_godsword", "armadyl_crossbow", "armadyl_helmet", "armadyl_armor")
+         "graardor", "aviansie", "armadyl_godsword", "armadyl_crossbow", "armadyl_helmet", "armadyl_armor", "ghost",
+         "hill_giant", "hellhound", "red_spider", "gargoyle", "dragon", "bandit")
 # The knights wear the skins of their units, one for each god's teams though both look the same; by model, the skin's
 # name after the faction's.
 SKINS = {"white_knight": "white_knight", "black_knight": "black_knight", "elite_black_knight": "black_knight_elite",
@@ -100,6 +101,13 @@ def box_faces(u, v, w, h, d, mirror):
 
 
 # ---------------------------------------------------------------- export
+
+
+def png_size(path):
+    """A PNG's width and height, from its header: a texture can be painted finer than its model's units."""
+    with open(path, "rb") as file:
+        header = file.read(24)
+    return int.from_bytes(header[16:20], "big"), int.from_bytes(header[20:24], "big")
 
 
 def to_blockbench(name, model, texture, team=None):
@@ -175,8 +183,8 @@ def to_blockbench(name, model, texture, team=None):
             "folder": "",
             "namespace": "",
             "id": str(len(textures)),
-            "width": tex_w,
-            "height": tex_h,
+            "width": png_size(path)[0],
+            "height": png_size(path)[1],
             "uv_width": tex_w,
             "uv_height": tex_h,
             "particle": False,

@@ -48,6 +48,11 @@ public final class GameManager {
      * centred on 0,0 of the game world, which is rebuilt from the seed.
      */
     public static Game newGame(int size, int teamCount, long seed) {
+        return newGame(size, teamCount, seed, GameMap.MISTHALIN);
+    }
+
+    /** As {@link #newGame(int, int, long)}, on the given map. */
+    public static Game newGame(int size, int teamCount, long seed, GameMap map) {
         List<TeamSetup> teams = new ArrayList<>();
         for (int i = 0; i < teamCount; i++) {
             TeamSetup setup = new TeamSetup(Team.COLORS[i % Team.COLORS.length]);
@@ -55,7 +60,7 @@ public final class GameManager {
             setup.faction = new Faction[] { Faction.ZAMORAK, Faction.SARADOMIN, Faction.BANDOS }[i % 3];
             teams.add(setup);
         }
-        return newGame(size, teams, seed);
+        return newGame(size, teams, seed, 0, map);
     }
 
     /**
@@ -91,9 +96,15 @@ public final class GameManager {
      * the configured number).
      */
     public static Game newGame(int size, List<TeamSetup> teams, long seed, int unitsPerTeam) {
+        return newGame(size, teams, seed, unitsPerTeam, GameMap.MISTHALIN);
+    }
+
+    /** Ends any running game and starts a new one on the given map. */
+    public static Game newGame(int size, List<TeamSetup> teams, long seed, int unitsPerTeam, GameMap map) {
         GameSavedData data = getData();
         Game game = new Game(data.getLastGameNumber() + 1, System.currentTimeMillis(), 0, 0, size, seed);
         game.setUnitsPerTeam(unitsPerTeam);
+        game.setMap(map);
         int teamCount = teams.size();
         List<Team> made = new ArrayList<>();
         for (TeamSetup setup : teams) {
@@ -119,8 +130,13 @@ public final class GameManager {
         }
         game.setMapTeams(teamCount);
         data.setGame(game);
-        WarOfTheGods.LOG
-            .info("Started game #{} with size {}, {} teams and seed {}", game.getNumber(), size, teamCount, seed);
+        WarOfTheGods.LOG.info(
+            "Started game #{} on {} with size {}, {} teams and seed {}",
+            game.getNumber(),
+            map.displayName,
+            size,
+            teamCount,
+            seed);
         GameWorld.rebuild();
         Hunting.clear();
         resetDay();

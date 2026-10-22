@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Builds War of the Gods' own box models: the lesser demon, the centaur, Zamorak's staff, Silverlight, Bandos's
-goblin, hobgoblin, ork and ogre (see creatures.py), and Armadyl's aviansie, crossbow and armour (see armadyl.py).
+goblin, hobgoblin, ork and ogre (see creatures.py), Armadyl's aviansie, crossbow and armour (see armadyl.py), and
+Forinthry's wild creatures (see wild.py).
 
     python3 tools/models/generate.py [--preview DIR]
 
@@ -27,6 +28,7 @@ import artifacts  # noqa: E402
 import blockbench  # noqa: E402
 import boxmodel  # noqa: E402
 import creatures  # noqa: E402
+import wild  # noqa: E402
 from boxmodel import TEAM, Model, mix, shade  # noqa: E402
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "src", "main", "resources", "assets",
@@ -922,6 +924,32 @@ def icon(model, texture):
     return small
 
 
+def build_wild(preview):
+    """Forinthry's wild creatures: one model each, and a texture for each look (the dragons have four; see wild.py)."""
+    for name, (_, looks) in wild.WILD.items():
+        model = wild.build(name, looks[0])
+        texture, _ = model.paint()
+        if blockbench.edited(name, json.loads(model.to_json()), {looks[0] + ".png": texture}):
+            print("%s: edited in Blockbench (tools/models/blockbench/%s.bbmodel), so left as it is; make it from here "
+                  "again by deleting that file" % (name, name))
+            continue
+        with open(os.path.join(MODELS, name + ".json"), "w") as file:
+            file.write(model.to_json() + "\n")
+        for look in looks:
+            looked = wild.build(name, look)
+            texture, _ = looked.paint()
+            texture.save(os.path.join(TEXTURES, look + ".png"))
+            if preview:
+                os.makedirs(preview, exist_ok=True)
+                for yaw in (30, 150):
+                    image = boxmodel.render(looked, texture, size=480, yaw=yaw, pitch=12, background=(54, 62, 74))
+                    image.save(os.path.join(preview, "%s_%d.png" % (look, yaw)))
+        blockbench.export([name])
+        lo, hi = boxmodel.bounds(model)
+        print("%s: %d parts, %d looks, from %s to %s" % (name, len(list(model.parts())), len(looks), lo.round(1),
+                                                          hi.round(1)))
+
+
 def build_creatures(preview):
     """Bandos's creatures and Armadyl's aviansie: one model each, and a texture and team mask for each kind that wears
     it."""
@@ -1071,6 +1099,7 @@ def main():
                     os.path.join(args.preview, name + "_icon.png"))
 
     build_creatures(args.preview)
+    build_wild(args.preview)
     build_armor(args.preview)
     build_armadyl_icons()
 
