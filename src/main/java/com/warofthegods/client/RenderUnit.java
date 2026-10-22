@@ -106,8 +106,7 @@ public class RenderUnit extends RenderBiped {
 
     /** A demon's texture, or its team mask, for its tier and look. */
     private static ResourceLocation demonTexture(ResourceLocation[][] textures, EntityUnit unit) {
-        return textures[ModelDemon.clampTier(unit.getWatchedEliteTier())][ModelDemon
-            .clampLook(unit.getWatchedLook())];
+        return textures[ModelDemon.clampTier(unit.getWatchedEliteTier())][ModelDemon.clampLook(unit.getWatchedLook())];
     }
 
     static {
