@@ -16,6 +16,7 @@ import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.DimensionManager;
 
+import com.warofthegods.Config;
 import com.warofthegods.WarOfTheGods;
 import com.warofthegods.building.Buildings;
 import com.warofthegods.game.Building;
@@ -74,8 +75,9 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  * on switches only to the one against what he is hit with. Playing
  * Zamorak, it raises a stone circle once it has dark wizards, keeps four of them standing at it and summons lesser
  * demons there when it has the favor; playing Saradomin, its monks earn favor and its wizards' tower trains blue
- * wizards. Once it has walls it researches stone and then citadel walls. It pays for everything like a player and gets
- * no bonuses.
+ * wizards. Once it has walls it researches stone and then citadel walls. When the gold mines round its town centers and
+ * storehouses run low or out, it researches tunnel mining and digs quarries into the mined out mines near home, and
+ * puts its gold workers at them. It pays for everything like a player and gets no bonuses.
  *
  * <p>
  * Handed a team only to run its economy, it commands all the team's workers, whoever trained them, and nothing else:
@@ -198,6 +200,13 @@ public final class AiPlayers {
     private static final double CLAIM_RANGE = 32;
     /** Gold mines it holds before it stops claiming more, by age. */
     private static final int[] MINE_OUTPOSTS = { 0, 1, 3, 6 };
+    /**
+     * Blocks from its town centers and finished storehouses that it counts a gold mine as near home, and digs quarries
+     * into mined out mines within.
+     */
+    private static final double GOLD_RANGE = 96;
+    /** Share of a gold mine's gold that, with less than it left in the mines near home, makes gold scarce. */
+    private static final double SCARCE_GOLD = 0.5;
     /** Blocks round where an enemy team started that count as its main base. */
     private static final double MAIN_BASE_RANGE = 56;
     /** Fighters out from home go at an enemy building no further than this by themselves; else they hold the ground. */
@@ -396,7 +405,7 @@ public final class AiPlayers {
         repair(game, world, team, workers);
         gather(game, world, team, hall, workers, state);
         if (!saving && !savingForFortress) {
-            research(game, team);
+            research(game, team, state);
             trainFighters(game, team, state, fighterCount);
             trainWorshippers(game, team);
         }
@@ -942,6 +951,9 @@ public final class AiPlayers {
         }
         BuildingType type = economyOnly ? neededEconomyBuilding(game, team, workers.size())
             : neededBuilding(game, team, state, workers.size(), saving);
+        if (economyOnly && type == null && wantsQuarry(game, team, state)) {
+            type = BuildingType.QUARRY;
+        }
         // Where to put it, when not round the town center.
         double[] near = null;
         if (type == null && !saving) {
@@ -973,8 +985,18 @@ public final class AiPlayers {
         if (type == null) {
             return;
         }
-        Buildings.Plan plan = near == null ? Buildings.get()
-            .findSpot(game, world, team, type) : spotNear(game, world, team, type, near[0], near[1]);
+        Buildings.Plan plan;
+        if (type == BuildingType.QUARRY) {
+            // Dug into the middle of the mined out mine nearest home, not round the town center.
+            GoldMine mine = quarryMine(game, team, state);
+            plan = mine == null ? null
+                : Buildings.get()
+                    .plan(game, world, type, (int) mine.getCenterX(), (int) mine.getCenterZ(), 0, team.getFaction());
+            plan = plan == null || plan.problem != null ? null : plan;
+        } else {
+            plan = near == null ? Buildings.get()
+                .findSpot(game, world, team, type) : spotNear(game, world, team, type, near[0], near[1]);
+        }
         if (plan == null && spread) {
             plan = Buildings.get()
                 .findSpot(game, world, team, type);
@@ -1024,6 +1046,9 @@ public final class AiPlayers {
         if (count(game, team, BuildingType.FARM, false) * BuildingType.FARM.maxWorkers() < foodWorkers) {
             return BuildingType.FARM;
         }
+        if (wantsQuarry(game, team, state)) {
+            return BuildingType.QUARRY;
+        }
         if (wants(team, BuildingType.ARCHERY_RANGE) && count(game, team, BuildingType.ARCHERY_RANGE, false) == 0) {
             return BuildingType.ARCHERY_RANGE;
         }
@@ -1062,6 +1087,94 @@ public final class AiPlayers {
             return BuildingType.FARM;
         }
         return null;
+    }
+
+    /**
+     * Whether it wants another quarry: with tunnel mining, gold scarce near home, a mined out mine near home to dig
+     * into, and fewer quarries than it takes to keep its gold workers busy.
+     */
+    private static boolean wantsQuarry(Game game, Team team, State state) {
+        if (!team.has(Upgrade.TUNNEL_MINING) || !goldScarce(game, team, state)) {
+            return false;
+        }
+        int goldWorkers = (int) Math.round(WORKERS_WANTED[game.getAge(team)] * SHARE_LATER[Resource.GOLD.ordinal()]);
+        return count(game, team, BuildingType.QUARRY, false) * BuildingType.QUARRY.maxWorkers() < goldWorkers
+            && quarryMine(game, team, state) != null;
+    }
+
+    /**
+     * Whether the gold mines near its town centers and finished storehouses, leaving out those it has seen an enemy
+     * building by, have less gold left in all than half a fresh gold mine holds.
+     */
+    private static boolean goldScarce(Game game, Team team, State state) {
+        List<double[]> homes = homes(game, team);
+        long gold = 0;
+        for (GoldMine mine : game.getMines()) {
+            if (!mine.isDepleted() && nearAny(mine, homes) && !enemyHeld(game, team, state, mine)) {
+                gold += mine.getGold();
+            }
+        }
+        return gold < Config.goldMineGold * SCARCE_GOLD;
+    }
+
+    /**
+     * The mined out mine with no quarry on it nearest its town centers and finished storehouses, within reach of them
+     * and with no enemy building it has seen by it; or null.
+     */
+    private static GoldMine quarryMine(Game game, Team team, State state) {
+        List<double[]> homes = homes(game, team);
+        GoldMine best = null;
+        double bestDistance = GOLD_RANGE;
+        for (GoldMine mine : game.getMines()) {
+            if (!mine.isDepleted() || game.quarryOn(mine) != null || enemyHeld(game, team, state, mine)) {
+                continue;
+            }
+            for (double[] home : homes) {
+                double distance = mine.distanceTo(home[0], home[1]);
+                if (distance <= bestDistance) {
+                    best = mine;
+                    bestDistance = distance;
+                }
+            }
+        }
+        return best;
+    }
+
+    /** The middles of its town centers and finished storehouses. */
+    private static List<double[]> homes(Game game, Team team) {
+        List<double[]> homes = new ArrayList<>();
+        for (Building building : game.getBuildings(team)) {
+            if (building.type == BuildingType.TOWN_HALL
+                || building.type == BuildingType.STOREHOUSE && building.isComplete()) {
+                homes.add(new double[] { building.getCenterX(), building.getCenterZ() });
+            }
+        }
+        return homes;
+    }
+
+    private static boolean nearAny(GoldMine mine, List<double[]> homes) {
+        for (double[] home : homes) {
+            if (mine.distanceTo(home[0], home[1]) <= GOLD_RANGE) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether it has seen an enemy building standing by the mine. */
+    private static boolean enemyHeld(Game game, Team team, State state, GoldMine mine) {
+        for (Building building : game.getBuildings()) {
+            Team owner = game.getTeam(building.team);
+            if (owner != null && owner != team
+                && !building.type.isWall()
+                && !owner.isDefeated()
+                && game.areEnemies(team, owner)
+                && state.knownBuildings.contains(building.id)
+                && building.distanceTo(mine.getCenterX(), mine.getCenterZ()) <= CLAIM_RANGE) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1497,10 +1610,19 @@ public final class AiPlayers {
         return true;
     }
 
-    /** Starts researching the first upgrade it wants that one of its buildings can research now and it can pay for. */
-    private static void research(Game game, Team team) {
+    /**
+     * Starts researching the first upgrade it wants that one of its buildings can research now and it can pay for;
+     * with gold scarce, diamond pickaxes and tunnel mining before all else, so it can dig quarries.
+     */
+    private static void research(Game game, Team team, State state) {
         boolean walls = count(game, team, BuildingType.WALL, false) > 0;
-        for (Upgrade upgrade : RESEARCH_ORDER) {
+        List<Upgrade> order = new ArrayList<>();
+        if (!team.has(Upgrade.TUNNEL_MINING) && goldScarce(game, team, state)) {
+            order.add(Upgrade.DIAMOND_PICKAXES);
+            order.add(Upgrade.TUNNEL_MINING);
+        }
+        order.addAll(Arrays.asList(RESEARCH_ORDER));
+        for (Upgrade upgrade : order) {
             if (team.has(upgrade) || game.getAge(team) < upgrade.level
                 || !walls && (upgrade == Upgrade.STONE_WALLS || upgrade == Upgrade.CITADEL_WALLS)) {
                 continue;
@@ -1650,7 +1772,7 @@ public final class AiPlayers {
         int[] on = new int[Resource.values().length];
         List<EntityUnit> idle = new ArrayList<>();
         for (EntityUnit worker : workers) {
-            Resource resource = resourceOf(worker);
+            Resource resource = resourceOf(game, worker);
             if (resource != null) {
                 on[resource.ordinal()]++;
             } else if (worker.getOrder() == EntityUnit.Order.IDLE && !state.fled.containsKey(worker)) {
@@ -1707,7 +1829,7 @@ public final class AiPlayers {
         }
         for (EntityUnit worker : workers) {
             // Not one carrying home what it has gathered.
-            if (resourceOf(worker) == over && !worker.isDelivering()) {
+            if (resourceOf(game, worker) == over && !worker.isDelivering()) {
                 if (sendTo(game, world, team, hall, worker, under, state)) {
                     WarOfTheGods.LOG.info(
                         "AI {} moved a worker from {} to {}",
@@ -1728,7 +1850,7 @@ public final class AiPlayers {
         double z = hall.getCenterZ();
         switch (resource) {
             case FOOD: {
-                Building farm = farmWithRoom(game, team);
+                Building farm = workplaceWithRoom(game, team, BuildingType.FARM);
                 if (farm != null) {
                     return Units.get()
                         .orderBuild(one, farm) > 0;
@@ -1759,6 +1881,12 @@ public final class AiPlayers {
                 return true;
             }
             default: {
+                // A quarry it dug with room first: it never runs out.
+                Building quarry = workplaceWithRoom(game, team, BuildingType.QUARRY);
+                if (quarry != null && Units.get()
+                    .orderBuild(one, quarry) > 0) {
+                    return true;
+                }
                 GoldMine mine = goldMine(game, team, state, x, z);
                 return mine != null && Units.get()
                     .orderMine(one, mine) > 0;
@@ -1834,12 +1962,18 @@ public final class AiPlayers {
         return best != null ? best : Units.nearestMine(game, x, z, Double.MAX_VALUE);
     }
 
-    /** What the worker is gathering, or null if it is gathering nothing: picking mushrooms is food, not wood. */
-    private static Resource resourceOf(EntityUnit worker) {
+    /**
+     * What the worker is gathering, or null if it is gathering nothing: picking mushrooms is food, not wood, and
+     * working a quarry is gold, not food.
+     */
+    private static Resource resourceOf(Game game, EntityUnit worker) {
         switch (worker.getOrder()) {
             case HUNT:
-            case WORK:
                 return Resource.FOOD;
+            case WORK: {
+                Building workplace = game.getBuilding(worker.getBuildingId());
+                return workplace != null && workplace.type == BuildingType.QUARRY ? Resource.GOLD : Resource.FOOD;
+            }
             case CHOP:
                 return worker.isHarvesting() ? Resource.FOOD : Resource.WOOD;
             case MINE:
@@ -1849,12 +1983,13 @@ public final class AiPlayers {
         }
     }
 
-    private static Building farmWithRoom(Game game, Team team) {
-        for (Building farm : game.getBuildings(team)) {
+    /** One of its farms or quarries, as asked, that has room for another worker; or null. */
+    private static Building workplaceWithRoom(Game game, Team team, BuildingType type) {
+        for (Building workplace : game.getBuildings(team)) {
             // Counting workers on their way there and carrying from it, not only those at it, so it sends no more
-            // than a farm takes.
-            if (farm.type == BuildingType.FARM && Units.takesWorkers(farm) && Units.hasRoom(farm)) {
-                return farm;
+            // than it takes.
+            if (workplace.type == type && Units.takesWorkers(workplace) && Units.hasRoom(workplace)) {
+                return workplace;
             }
         }
         return null;
