@@ -42,7 +42,8 @@ BLOCKBENCH = os.path.join(HERE, "blockbench")
 NAMES = ("lesser_demon", "greater_demon", "black_demon", "centaur", "zamorak_staff", "silverlight", "white_knight",
          "black_knight", "elite_black_knight", "justiciar", "goblin", "hobgoblin", "ork", "ogre",
          "graardor", "aviansie", "armadyl_godsword", "armadyl_crossbow", "armadyl_helmet", "armadyl_armor", "ghost",
-         "hill_giant", "hellhound", "red_spider", "gargoyle", "dragon", "bandit")
+         "hill_giant", "hellhound", "red_spider", "gargoyle", "dragon", "bandit") + tuple(
+    "%s_%d" % (demon, look) for demon in ("lesser_demon", "greater_demon", "black_demon") for look in range(1, 5))
 # The knights wear the skins of their units, one for each god's teams though both look the same; by model, the skin's
 # name after the faction's.
 SKINS = {"white_knight": "white_knight", "black_knight": "black_knight", "elite_black_knight": "black_knight_elite",

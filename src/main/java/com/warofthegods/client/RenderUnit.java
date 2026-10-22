@@ -41,9 +41,9 @@ public class RenderUnit extends RenderBiped {
     private static final ResourceLocation OVERLAY = new ResourceLocation(
         WarOfTheGods.MODID,
         "textures/entity/unit/team_overlay.png");
-    /** The lesser, greater and black demon's own textures, and where on them their team's color goes. */
-    private static final ResourceLocation[] DEMON = demonTextures("");
-    private static final ResourceLocation[] DEMON_TEAM = demonTextures("_team");
+    /** The lesser, greater and black demon's own textures by look, and where on them their team's color goes. */
+    private static final ResourceLocation[][] DEMON = demonTextures("");
+    private static final ResourceLocation[][] DEMON_TEAM = demonTextures("_team");
     /** A centaur's own texture, and where on it its team's color goes. */
     private static final ResourceLocation CENTAUR = new ResourceLocation(
         WarOfTheGods.MODID,
@@ -92,13 +92,22 @@ public class RenderUnit extends RenderBiped {
     /** How much of a spiritual warrior, ranger or mage shows; the rest is see-through. */
     private static final float SPIRIT_ALPHA = 0.6F;
 
-    private static ResourceLocation[] demonTextures(String suffix) {
-        String[] names = { "lesser_demon", "greater_demon", "black_demon" };
-        ResourceLocation[] textures = new ResourceLocation[names.length];
-        for (int i = 0; i < names.length; i++) {
-            textures[i] = new ResourceLocation(WarOfTheGods.MODID, "textures/models/" + names[i] + suffix + ".png");
+    private static ResourceLocation[][] demonTextures(String suffix) {
+        ResourceLocation[][] textures = new ResourceLocation[ModelDemon.NAMES.length][ModelDemon.LOOKS];
+        for (int tier = 0; tier < textures.length; tier++) {
+            for (int look = 0; look < ModelDemon.LOOKS; look++) {
+                textures[tier][look] = new ResourceLocation(
+                    WarOfTheGods.MODID,
+                    "textures/models/" + ModelDemon.lookName(tier, look) + suffix + ".png");
+            }
         }
         return textures;
+    }
+
+    /** A demon's texture, or its team mask, for its tier and look. */
+    private static ResourceLocation demonTexture(ResourceLocation[][] textures, EntityUnit unit) {
+        return textures[ModelDemon.clampTier(unit.getWatchedEliteTier())][ModelDemon
+            .clampLook(unit.getWatchedLook())];
     }
 
     static {
@@ -188,7 +197,7 @@ public class RenderUnit extends RenderBiped {
         // A lesser demon and a centaur have models of their own, and knights wear full plate with a plume.
         UnitKind kind = unit.getWatchedKind();
         if (kind == UnitKind.LESSER_DEMON) {
-            demonModel.setTier(unit.getWatchedEliteTier());
+            demonModel.setLook(unit.getWatchedEliteTier(), unit.getWatchedLook());
             modelBipedMain = demonModel;
         } else if (kind == UnitKind.CENTAUR) {
             modelBipedMain = centaurModel;
@@ -332,7 +341,7 @@ public class RenderUnit extends RenderBiped {
     protected ResourceLocation getEntityTexture(EntityLiving entity) {
         EntityUnit unit = (EntityUnit) entity;
         if (unit.getWatchedKind() == UnitKind.LESSER_DEMON) {
-            return DEMON[Math.min(DEMON.length - 1, unit.getWatchedEliteTier())];
+            return demonTexture(DEMON, unit);
         }
         if (unit.getWatchedKind() == UnitKind.CENTAUR) {
             return CENTAUR;
@@ -380,7 +389,7 @@ public class RenderUnit extends RenderBiped {
         int color = ((EntityUnit) entity).getTeamColor();
         if (mainModel == demonModel) {
             // Its belt, loincloth and arm bands, drawn again over themselves in the team's color.
-            bindTexture(DEMON_TEAM[Math.min(DEMON_TEAM.length - 1, ((EntityUnit) entity).getWatchedEliteTier())]);
+            bindTexture(demonTexture(DEMON_TEAM, (EntityUnit) entity));
             GL11.glColor3f((color >> 16 & 255) / 255F, (color >> 8 & 255) / 255F, (color & 255) / 255F);
             GL11.glDepthFunc(GL11.GL_EQUAL);
             demonModel.renderAgain(scale);

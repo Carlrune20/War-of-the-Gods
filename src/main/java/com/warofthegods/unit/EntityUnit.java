@@ -233,6 +233,10 @@ public class EntityUnit extends EntityCreature {
      * demon), 2 a black demon; well clear of the ids above for others to add to.
      */
     private static final int WATCH_ELITE = 29;
+    /** Which of its looks it wears, picked at random when it is trained: one of a demon's four. */
+    private static final int WATCH_LOOK = 30;
+    /** How many looks a demon has to pick from, as ModelDemon draws them. */
+    private static final int DEMON_LOOKS = 4;
     /** Health and damage an Elite Black Knight or a Justiciar has over a plain knight. */
     private static final int ELITE_HEALTH = 20;
     private static final int ELITE_DAMAGE = 3;
@@ -253,6 +257,8 @@ public class EntityUnit extends EntityCreature {
     private String teamId = "";
     private UnitKind kind = UnitKind.SOLDIER;
     private int number;
+    /** Which of its looks it wears, 0 to 3, picked at random when it is trained; only a demon's shows. */
+    private int look;
     /** Its name in logs and admin commands, with team and number: Red goblin 82. */
     private String label = "";
     /** The foot of the trunk of the tree a worker chops. */
@@ -413,6 +419,12 @@ public class EntityUnit extends EntityCreature {
         dataWatcher.addObject(WATCH_PRAYER, (byte) 0);
         dataWatcher.addObject(WATCH_ELITE, (byte) 0);
         dataWatcher.addObject(WATCH_THROWS, (byte) 0);
+        dataWatcher.addObject(WATCH_LOOK, (byte) 0);
+    }
+
+    /** On a client, which of its looks it wears: for a demon, 0 to 3. */
+    public int getWatchedLook() {
+        return dataWatcher.getWatchableObjectByte(WATCH_LOOK);
     }
 
     /** On a client, how many stones a trebuchet has thrown, counting round; it changes as each throw begins. */
@@ -527,6 +539,7 @@ public class EntityUnit extends EntityCreature {
         this.teamId = team.getId();
         this.kind = kind;
         this.number = number;
+        look = rand.nextInt(DEMON_LOOKS);
         updateTeam(team);
         setHealth(getMaxHealth());
     }
@@ -617,6 +630,9 @@ public class EntityUnit extends EntityCreature {
         }
         if (getWatchedKind() != kind) {
             dataWatcher.updateObject(WATCH_KIND, (byte) kind.ordinal());
+        }
+        if (getWatchedLook() != look) {
+            dataWatcher.updateObject(WATCH_LOOK, (byte) look);
         }
         if (getWatchedFaction() != team.getFaction()) {
             dataWatcher.updateObject(
@@ -3060,6 +3076,7 @@ public class EntityUnit extends EntityCreature {
         tag.setIntArray("Carrying", carried);
         tag.setBoolean("Delivering", delivering);
         tag.setInteger("Number", number);
+        tag.setByte("Look", (byte) look);
         tag.setIntArray("Tree", new int[] { treeX, treeY, treeZ });
         tag.setInteger("Mine", mineId);
         int[] spots = new int[torches.size() * 3];
@@ -3124,6 +3141,9 @@ public class EntityUnit extends EntityCreature {
         }
         delivering = tag.getBoolean("Delivering");
         number = tag.getInteger("Number");
+        // Units saved before they had looks take one now.
+        look = tag.hasKey("Look") ? Math.max(0, Math.min(DEMON_LOOKS - 1, tag.getByte("Look")))
+            : rand.nextInt(DEMON_LOOKS);
         int[] tree = tag.getIntArray("Tree");
         if (tree.length == 3) {
             treeX = tree[0];

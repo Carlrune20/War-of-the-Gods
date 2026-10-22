@@ -12,27 +12,50 @@ import com.warofthegods.client.model.JsonModel;
  * parts come from models/lesser_demon.json, greater_demon.json and black_demon.json (edited in Blockbench, see
  * tools/models/blockbench.py); this only moves them. It walks with a heavy swing of its arms, its tail swaying behind
  * it and its wings stirring slowly; it opens its jaw and rakes with its right claw when it strikes, and throws up its
- * arm when it hurls a fireball.
+ * arm when it hurls a fireball. Each comes in four looks (lesser_demon_1.json to black_demon_4.json, drawn by
+ * tools/models/demons.py), one picked at random for each demon when it is trained.
  */
 public class ModelDemon extends ModelBiped {
 
     private static final int TAIL_LINKS = 9;
 
     /** The lesser, greater and black demon, by elite tier. */
-    private final JsonModel[] models = new JsonModel[3];
+    public static final String[] NAMES = { "lesser_demon", "greater_demon", "black_demon" };
+    /** How many looks each demon has. */
+    public static final int LOOKS = 4;
+
+    /** The demons' looks, by elite tier and look. */
+    private final JsonModel[][] models = new JsonModel[NAMES.length][LOOKS];
     private JsonModel model;
 
     public ModelDemon() {
         super(0, 0, 128, 128);
-        models[0] = new JsonModel(this, "lesser_demon");
-        models[1] = new JsonModel(this, "greater_demon");
-        models[2] = new JsonModel(this, "black_demon");
-        model = models[0];
+        for (int tier = 0; tier < NAMES.length; tier++) {
+            for (int look = 0; look < LOOKS; look++) {
+                models[tier][look] = new JsonModel(this, lookName(tier, look));
+            }
+        }
+        model = models[0][0];
     }
 
-    /** Draws it as a lesser demon (0), a greater demon (1) or a black demon (2) from now on. */
-    public void setTier(int tier) {
-        model = models[Math.max(0, Math.min(models.length - 1, tier))];
+    /** The name of a demon's look, as its model and textures are named: lesser_demon_1 to black_demon_4. */
+    public static String lookName(int tier, int look) {
+        return NAMES[clampTier(tier)] + "_" + (clampLook(look) + 1);
+    }
+
+    public static int clampTier(int tier) {
+        return Math.max(0, Math.min(NAMES.length - 1, tier));
+    }
+
+    public static int clampLook(int look) {
+        return Math.max(0, Math.min(LOOKS - 1, look));
+    }
+
+    /**
+     * Draws it from now on as a lesser demon (0), a greater demon (1) or a black demon (2), in one of its four looks.
+     */
+    public void setLook(int tier, int look) {
+        model = models[clampTier(tier)][clampLook(look)];
     }
 
     @Override
