@@ -1251,15 +1251,21 @@ public final class Units {
 
     /**
      * The nearest enemy the unit can see within range, or null. Creepers are left alone unless ordered: fighting one
-     * up close only sets it off.
+     * up close only sets it off; and fliers up in the air by those that fight with swords, which cannot reach them.
      */
     EntityLivingBase findEnemyNear(EntityUnit unit, double range) {
         EntityLivingBase best = null;
         double bestDistance = range * range;
         for (Object object : unit.worldObj
-            .getEntitiesWithinAABB(EntityLivingBase.class, unit.boundingBox.expand(range, 4, range))) {
+            .getEntitiesWithinAABB(EntityLivingBase.class, unit.boundingBox.expand(range, 8, range))) {
             EntityLivingBase other = (EntityLivingBase) object;
             if (other == unit || !other.isEntityAlive() || other instanceof EntityCreeper || !isEnemy(unit, other)) {
+                continue;
+            }
+            // A sword cannot reach a flier up in the air.
+            if (!unit.getKind().ranged && !unit.isAirborne()
+                && other instanceof EntityUnit
+                && ((EntityUnit) other).isAirborne()) {
                 continue;
             }
             double distance = unit.getDistanceSqToEntity(other);

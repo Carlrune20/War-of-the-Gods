@@ -739,7 +739,7 @@ public final class GuiRts extends GuiScreen {
         if (button == 1) {
             if (!client.selected.isEmpty()) {
                 order(px, py, hit);
-            } else if (!client.selectedBuildings.isEmpty()) {
+            } else if (!client.selectedBuildings.isEmpty() && !openEye(px, py, hit)) {
                 setRally(px, py, hit);
             }
             return;
@@ -1154,6 +1154,39 @@ public final class GuiRts extends GuiScreen {
         JsonObject body = new JsonObject();
         body.add("buildings", ids);
         return body;
+    }
+
+    /** A selected finished observatory of a team that has Armadyl's eye, or null. */
+    private RtsState.BuildingInfo eyeObservatory() {
+        RtsState.TeamInfo team = state().myTeam();
+        if (team == null || !team.upgrades.contains("armadyls_eye")) {
+            return null;
+        }
+        for (RtsState.BuildingInfo building : client.selectedBuildingList()) {
+            if ("observatory".equals(building.type) && building.complete && team.id.equals(building.team)) {
+                return building;
+            }
+        }
+        return null;
+    }
+
+    /** Right-click with an observatory selected, once the team has Armadyl's eye: it looks there. */
+    private boolean openEye(int px, int py, Hit hit) {
+        RtsState.BuildingInfo observatory = eyeObservatory();
+        if (observatory == null) {
+            return false;
+        }
+        double[] ground = hit != null ? hit.position : groundUnder(px, py);
+        if (ground == null) {
+            return true;
+        }
+        client.mark(ground[0], ground[1], ground[2], false);
+        JsonObject body = new JsonObject();
+        body.addProperty("building", observatory.id);
+        body.addProperty("x", ground[0]);
+        body.addProperty("z", ground[2]);
+        client.command("buildings.eye", body, reply -> client.showToast("Armadyl's eye opens", false));
+        return true;
     }
 
     /** Right-click with buildings selected: their new units go there, or join the control group of the unit. */
@@ -2575,6 +2608,7 @@ public final class GuiRts extends GuiScreen {
             boolean full = !kind.animal && teamFull;
             RtsState.UpgradeInfo needed = kind.requires == null || team.upgrades.contains(kind.requires) ? null
                 : state.game.upgrades.get(kind.requires);
+            boolean tooEarly = kind.age > team.age;
             int waiting = 0;
             for (RtsState.BuildingInfo trainer : trainers) {
                 for (String queued : trainer.queue) {
@@ -2590,24 +2624,28 @@ public final class GuiRts extends GuiScreen {
                     + RtsState.costText(kind.cost)
                     + ")\n"
                     + (needed != null ? "Needs " + needed.name + ": research it first"
-                        : heroTaken ? kind.name + " is already with your team; train him again once he falls"
-                            : full
-                                ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
-                                    : "Your team has the most units it can have")
-                                : kind.hero ? "Train " + kind.name + ", a hero; your team has one at a time"
-                                    : "Train a " + kind.name.toLowerCase()
-                                        + "; shift-click for 5"
-                                        + (trainers.size() > 1
-                                            ? ", shared out over the " + trainers.size() + " selected"
-                                            : "")),
+                        : tooEarly ? "Needs Age " + (kind.age >= 3 ? "III" : "II") + " first"
+                            : heroTaken ? kind.name + " is already with your team; train him again once he falls"
+                                : full
+                                    ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
+                                        : "Your team has the most units it can have")
+                                    : kind.hero ? "Train " + kind.name + ", a hero; your team has one at a time"
+                                        : "Train a " + kind.name.toLowerCase()
+                                            + "; shift-click for 5"
+                                            + (trainers.size() > 1
+                                                ? ", shared out over the " + trainers.size() + " selected"
+                                                : "")),
                 shift -> trainSpread(
                     trainers,
                     kindId,
                     kind.hero ? kind.name : kind.name.toLowerCase(),
                     kind.hero ? 1 : shift ? 5 : 1),
-                needed == null && !heroTaken && !full && RtsState.canAfford(team, kind.cost) && room);
+                needed == null && !tooEarly && !heroTaken && !full && RtsState.canAfford(team, kind.cost) && room);
             train.badge = waiting > 0 ? String.valueOf(waiting) : null;
             actions.add(train);
+        }
+        if ("observatory".equals(building.type) && building.complete && team.upgrades.contains("armadyls_eye")) {
+            actions.add(label("Right-click to open Armadyl's eye there (3 favor)", 0x9FE8F0));
         }
         if (!type.trains.isEmpty()) {
             Integer number = client.rallyGroups.get(building.id);

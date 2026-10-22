@@ -10,6 +10,8 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.EnumChatFormatting;
 
 import com.google.gson.JsonObject;
 import com.warofthegods.game.Building;
@@ -147,6 +149,32 @@ public final class AttackAlerts {
             return;
         }
         lastWarning.put(team.getId(), now);
+        send(team, x, z, text);
+    }
+
+    /** Warns the team's players online that Armadyl's eye watches them at x, z, in chat and in the RTS view. */
+    public void watched(Team team, double x, double z) {
+        String text = "Armadyl's eye is watching you!";
+        send(team, x, z, text);
+        MinecraftServer server = MinecraftServer.getServer();
+        if (server == null) {
+            return;
+        }
+        Map<UUID, String> members = team.getMembers();
+        for (Object object : server.getConfigurationManager().playerEntityList) {
+            EntityPlayerMP player = (EntityPlayerMP) object;
+            if (members.containsKey(player.getUniqueID())) {
+                player.addChatMessage(new ChatComponentText(EnumChatFormatting.AQUA + text));
+            }
+        }
+    }
+
+    /** Sends an alert to the team's players online. */
+    private void send(Team team, double x, double z, String text) {
+        MinecraftServer server = MinecraftServer.getServer();
+        if (server == null) {
+            return;
+        }
         JsonObject message = WebJson.message("alert");
         message.addProperty("text", text);
         message.addProperty("x", x);

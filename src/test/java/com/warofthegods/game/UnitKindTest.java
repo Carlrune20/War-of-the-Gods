@@ -68,7 +68,42 @@ class UnitKindTest {
     void factionsTakeTurnsAndComeBackRound() {
         assertEquals(Faction.ZAMORAK, Faction.SARADOMIN.next());
         assertEquals(Faction.BANDOS, Faction.ZAMORAK.next());
-        assertEquals(Faction.SARADOMIN, Faction.BANDOS.next());
+        assertEquals(Faction.ARMADYL, Faction.BANDOS.next());
+        assertEquals(Faction.SARADOMIN, Faction.ARMADYL.next());
+    }
+
+    @Test
+    void aquaTeamsFollowArmadyl() {
+        assertEquals(Faction.ARMADYL, Faction.forColor(EnumChatFormatting.AQUA));
+        assertEquals(Faction.ARMADYL, Faction.forColor(EnumChatFormatting.DARK_AQUA));
+    }
+
+    @Test
+    void aviansieAndArmadylsHeroesFly() {
+        for (UnitKind kind : new UnitKind[] { UnitKind.AVIANSIE_RANGER, UnitKind.AVIANSIE_WARRIOR,
+            UnitKind.AVIANSIE_MAGE, UnitKind.KILISA, UnitKind.GEERIN, UnitKind.SKREE, UnitKind.KREEARRA }) {
+            assertTrue(kind.flies(), kind.id);
+            assertEquals(Faction.ARMADYL, kind.faction(), kind.id);
+            assertEquals(0.25, kind.buildingDamageFactor(), 1e-9, kind.id);
+        }
+        assertFalse(UnitKind.GUARDIAN.flies());
+        assertFalse(UnitKind.ARCHER.flies());
+        // Only the melee fliers come down to fight.
+        assertTrue(UnitKind.AVIANSIE_WARRIOR.landsToFight());
+        assertTrue(UnitKind.KILISA.landsToFight());
+        assertFalse(UnitKind.AVIANSIE_RANGER.landsToFight());
+        assertFalse(UnitKind.KREEARRA.landsToFight());
+    }
+
+    @Test
+    void armadylsWorkersAreFollowers() {
+        assertEquals("Follower", UnitKind.WORKER.nameFor(Faction.ARMADYL));
+        assertEquals("Worker", UnitKind.WORKER.nameFor(Faction.SARADOMIN));
+        assertEquals(UnitKind.KREEARRA, UnitKind.byId("kree'arra"));
+        assertEquals(3, UnitKind.AVIANSIE_WARRIOR.age());
+        assertEquals(1, UnitKind.AVIANSIE_RANGER.age());
+        assertEquals(Upgrade.ARMADYL_ARMOUR, UnitKind.AVIANSIE_MAGE.eliteUpgrade());
+        assertEquals("Armoured aviansie ranger", UnitKind.AVIANSIE_RANGER.eliteName(1));
     }
 
     @Test

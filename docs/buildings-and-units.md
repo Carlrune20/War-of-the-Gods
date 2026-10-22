@@ -10,6 +10,7 @@
 - [Knights, heroes and cavalry](#knights-heroes-and-cavalry)
 - [Favor and magic](#favor-and-magic)
 - [Bandos](#bandos)
+- [Armadyl](#armadyl)
 - [Silverlight](#silverlight)
 - [Ruin chests and artifacts](#ruin-chests-and-artifacts)
 
@@ -288,6 +289,70 @@ differently from Saradomin's and Zamorak's:
 Goblins, hobgoblins, orks and ogres have models of their own rather than a man's. Bandos's buildings are heaps of
 cobblestone and mossy stone propped up with dark wood, hung with his green and brown banners.
 
+## Armadyl
+
+Armadyl, god of justice, law and the sky, is the fourth god. His army is the best at range, his aviansie fly, and his
+towns stand on hills and cliff edges. His teams build and train differently:
+
+- **No houses or stables.** In their place:
+  - the **tower house** (Tier I) houses as many units as a house
+  - the **temple of Armadyl** (Tier II) trains priests of Armadyl, who pray there for favor
+  - the **observatory** (Tier II) sees twice as far as a watch tower and researches his scouting upgrades
+  - the **roost** (Tier II) trains aviansie. It has to stand at least 4 blocks above the ground round it, on a hill
+    or a cliff edge
+  - **Armadyl's eyrie**, his fortress (Tier III), trains Guardians of Armadyl, trebuchets and his heroes
+- **Followers** gather and build, as workers do for the other gods.
+- **Steep building.** Armadyl's teams can build on slopes twice as steep as anyone else.
+- **His archers shoot 2 farther** than other gods' archers.
+
+| Unit | Health | Notes |
+|---|---|---|
+| Priest of Armadyl | as a worker | prays at the temple for favor, and casts air strikes |
+| Aviansie ranger | as a warrior | flies; shoots |
+| Aviansie warrior | 2× | flies; lands to fight with its sword. Tier III |
+| Aviansie mage | 1.5× | flies; casts wind strikes that throw what they hit back. Tier III |
+| Guardian of Armadyl | 2× | his knight, in white and gold plate; cannot be knocked back |
+
+**Flying.** Aviansie and Armadyl's heroes keep about 5 blocks over the ground and fly straight to where they are sent,
+over walls, water and cliffs. While one is up in the air, swords and spears cannot reach it, and units that fight up
+close leave it be; arrows, axes, spells, fireballs and towers can. Aviansie warriors and Flight Kilisa come down to
+fight, and the first blow after landing hits harder. Fliers hit buildings a quarter as hard as a warrior, and see
+farther than units on the ground in the fog of war.
+
+**High ground.** A building's height is how far its floor stands above the average of the ground on a ring 16
+blocks out from it. Towers of Armadyl's teams 8 or more blocks high shoot 4 farther, and a temple that high has its
+priests pray faster. His archers and aviansie rangers shoot 2 farther and 1 harder at anything 4 or more blocks
+below them.
+
+**Favor from worship and justice.**
+
+- An idle priest by a temple of Armadyl earns a favor every 60 seconds, or 40 if the temple stands 8 or more blocks
+  high, up to 5 priests a temple.
+- **Justice:** a favor whenever his team kills an enemy who attacked it first in the last 30 seconds (60 with divine
+  law). Hitting the team's buildings always counts as attacking first; hitting its units does unless the team's units
+  hit that enemy in the 10 seconds before. Wild mobs never count.
+
+**Upgrades.**
+
+| Upgrade | At | Does |
+|---|---|---|
+| Keen sight | Observatory, Tier II | Archers, aviansie rangers and towers shoot 2 farther |
+| Armadyl's eye | Observatory, Tier III | Select the observatory and right-click anywhere on the map to see round that spot for 10 seconds, for 3 favor, once every 5 minutes. The team watched gets a warning and sees a glowing eye over the spot |
+| Updrafts | Roost, Tier II | Aviansie fly a quarter faster |
+| Armadyl armour | Armadyl's eyrie, Tier III | Aviansie have half again as much health, and wear white and teal armour |
+| Armadyl crossbows | Armory, Tier III | Archers carry Armadyl crossbows and shoot 2 harder |
+| Divine law | Temple of Armadyl, Tier III | Justice counts attacks in the last 60 seconds instead of 30 |
+
+**Heroes.** The eyrie trains Kree'arra and his three lieutenants, one of each at a time. All four fly:
+
+- **Flight Kilisa** fights with a sword, lands to fight, and his dive hits 6 harder.
+- **Flockleader Geerin** shoots from 22 blocks.
+- **Wingman Skree** casts wind strikes that hit everyone within 2 blocks of where they land.
+- **Kree'arra**, Armadyl's general, costs 30 favor. Every 15 seconds he beats his wings and throws every enemy within 6
+  blocks back, and he shoots harder while one of his lieutenants lives.
+
+Armadyl's buildings are white stone brick, quartz and birch, hung with his white and teal banners.
+
 ## Silverlight
 
 Each game's map has one shrine: an open stone shrine somewhere about the middle of the map. In the chest on its altar
@@ -311,15 +376,15 @@ out:
   - **Zamorak godsword** sets whoever it hits alight.
   - **Saradomin godsword** heals you by 5% of the damage it deals.
   - **Bandos godsword** hits for 14.
-  - **Armadyl godsword**: one blow in eight lands half again as hard. No team follows Armadyl yet, so no armory sells
-    his hilt; the Armadyl hilt is found in ruin chests instead (1.5% of them).
+  - **Armadyl godsword**: one blow in eight lands half again as hard. The hilt is sold at Armadyl's armories, and also
+    found in ruin chests (1.5% of them).
 - **Armadyl crossbow.** Shoots arrows as a bow does, but winds to full power in half a bow's time, and its arrows hit
   twice as hard as a bow's (found in 2% of chests).
 - **Prayer book.** While you carry it you have 20 prayer points, shown as stars above your hunger bar. Click with the
   book to put your protection prayer up or take it down; hold the button to switch between Protect from Melee,
   Missiles and Magic, and let go on the one you want. A prayer takes three quarters off hits of its style, as a hero's
-  does, and drains a point for every 6 seconds it is up. Stand by your team's chaos temple, monastery or Bandos temple
-  to fill your points up again. You come back from death with them full. While your prayer is up, its icon shows
+  does, and drains a point for every 6 seconds it is up. Stand by your team's chaos temple, monastery, Bandos temple or temple
+  of Armadyl to fill your points up again. You come back from death with them full. While your prayer is up, its icon shows
   over your head for everyone to see, as a hero's does, and over your body while you command from the RTS view.
 - **Dragon scimitar.** Hits for 9.
 - **Zamorak staff.** Right-click to cast a fire strike, once a second. The only way to get one outside a Zamorak team.

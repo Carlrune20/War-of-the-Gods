@@ -106,7 +106,32 @@ public enum BuildingType {
      */
     BANDOS_BASTION("bandos_bastion", "Bandos bastion", "bandosBastion", 1, true, false, UnitKind.OGRE,
         UnitKind.SPIRITUAL_WARRIOR, UnitKind.SPIRITUAL_RANGER, UnitKind.SPIRITUAL_MAGE, UnitKind.STRONGSTACK,
-        UnitKind.STEELWILL, UnitKind.GRIMSPIKE, UnitKind.GRAARDOR, UnitKind.TREBUCHET);
+        UnitKind.STEELWILL, UnitKind.GRIMSPIKE, UnitKind.GRAARDOR, UnitKind.TREBUCHET),
+    /** Armadyl's house: a narrow stone tower with a pointed roof, housing as many as a house. Armadyl's teams only. */
+    TOWER_HOUSE("tower_house", "Tower house", "towerHouse", 3, true, false),
+    /**
+     * Armadyl's temple, open to the sky round a wing statue: trains priests of Armadyl, who pray here for favor,
+     * faster if it stands high. Armadyl's teams only.
+     */
+    ARMADYL_TEMPLE("armadyl_temple", "Temple of Armadyl", "armadylTemple", 3, true, false, UnitKind.ARMADYL_PRIEST),
+    /**
+     * Armadyl's domed tower of stargazers: sees far round it, and researches keen sight and Armadyl's eye. Armadyl's
+     * teams only.
+     */
+    OBSERVATORY("observatory", "Observatory", "observatory", 3, true, false),
+    /**
+     * A tall stone pillar with perches at the top, where Armadyl's aviansie are trained. It has to stand on high
+     * ground.
+     * Armadyl's teams only.
+     */
+    ROOST("roost", "Roost", "roost", 3, true, false, UnitKind.AVIANSIE_RANGER, UnitKind.AVIANSIE_WARRIOR,
+        UnitKind.AVIANSIE_MAGE),
+    /**
+     * Armadyl's stronghold in Age III, a high white keep with a landing platform that shoots many arrows, training
+     * Guardians of Armadyl, Kree'arra and his lieutenants, and trebuchets. Armadyl's teams only.
+     */
+    ARMADYL_EYRIE("armadyl_eyrie", "Armadyl's eyrie", "armadylEyrie", 1, true, false, UnitKind.GUARDIAN,
+        UnitKind.KILISA, UnitKind.GEERIN, UnitKind.SKREE, UnitKind.KREEARRA, UnitKind.TREBUCHET);
 
     public final String id;
     public final String displayName;
@@ -134,6 +159,7 @@ public enum BuildingType {
         }
         // Everything else but houses, storehouses and towers waits for Age II, as do the gods' own buildings.
         return this == HOUSE || this == GOBLIN_CAVE
+            || this == TOWER_HOUSE
             || this == STOREHOUSE
             || this == TOWER
             || this == TOWN_HALL
@@ -146,9 +172,11 @@ public enum BuildingType {
         return this == QUARRY ? Upgrade.TUNNEL_MINING : null;
     }
 
-    /** Whether it is one of the gods' strongholds: the knights' fortresses, or the Bandos bastion. */
+    /** Whether it is one of the gods' strongholds: the knights' fortresses, the Bandos bastion or Armadyl's eyrie. */
     public boolean isFortress() {
-        return this == WHITE_KNIGHTS_FORTRESS || this == BLACK_KNIGHTS_FORTRESS || this == BANDOS_BASTION;
+        return this == WHITE_KNIGHTS_FORTRESS || this == BLACK_KNIGHTS_FORTRESS
+            || this == BANDOS_BASTION
+            || this == ARMADYL_EYRIE;
     }
 
     /**
@@ -170,6 +198,12 @@ public enum BuildingType {
             case BANDOS_TEMPLE:
             case BANDOS_BASTION:
                 return Faction.BANDOS;
+            case TOWER_HOUSE:
+            case ARMADYL_TEMPLE:
+            case OBSERVATORY:
+            case ROOST:
+            case ARMADYL_EYRIE:
+                return Faction.ARMADYL;
             default:
                 return null;
         }
@@ -177,11 +211,23 @@ public enum BuildingType {
 
     /**
      * Whether a faction's teams go without it though every god's may build it: Bandos's goblins dig caves rather than
-     * build houses, and train in a war pit rather than a barracks, an archery range or stables.
+     * build houses, and train in a war pit rather than a barracks, an archery range or stables; Armadyl's people live
+     * in tower houses, and keep no horses, their aviansie being their raiders.
      */
     public boolean shunnedBy(Faction faction) {
+        if (faction == Faction.ARMADYL) {
+            return this == HOUSE || this == STABLES;
+        }
         return faction == Faction.BANDOS
             && (this == HOUSE || this == BARRACKS || this == ARCHERY_RANGE || this == STABLES);
+    }
+
+    /**
+     * How high above the ground round it it has to stand to be built, in blocks (see
+     * {@link com.warofthegods.building.Heights}): a roost has to be on a hill or a cliff edge; 0 for anything else.
+     */
+    public int minHeight() {
+        return this == ROOST ? 4 : 0;
     }
 
     /** The units it trains for a team of the faction: a Bandos town center trains slaves and goblins, not workers. */
@@ -338,7 +384,7 @@ public enum BuildingType {
         if (this == TOWN_HALL) {
             return Config.townCenterPopulation + (level - 1) * Config.townCenterPopulation / 2;
         }
-        if (this == HOUSE || this == GOBLIN_CAVE) {
+        if (this == HOUSE || this == GOBLIN_CAVE || this == TOWER_HOUSE) {
             return Config.housePopulation;
         }
         return 0;

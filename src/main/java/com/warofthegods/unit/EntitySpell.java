@@ -37,8 +37,16 @@ public class EntitySpell extends EntityThrowable {
     /** Which spell it is, kept where the client sees it to draw its particles. */
     private static final int WATCH_SPELL = 20;
 
+    /** How hard a wind strike throws back whoever it hits. */
+    private static final double WIND_PUSH = 0.6;
+
     private String teamId = "";
     private float damage;
+    /**
+     * How far round where it hits a strike also hurts the caster's enemies, at its full damage, as Wingman Skree's
+     * wind does; 0 for only what it hits. A fireball's own burst is apart from this. Not saved.
+     */
+    private double splash;
 
     public EntitySpell(World world) {
         super(world);
@@ -73,6 +81,11 @@ public class EntitySpell extends EntityThrowable {
     @Override
     protected float func_70182_d() {
         return SPEED;
+    }
+
+    /** Has it hurt the caster's enemies within so many blocks of where it hits too, at its full damage. */
+    public void setSplash(double splash) {
+        this.splash = splash;
     }
 
     /** Sends it at the middle of the target. */
@@ -125,13 +138,20 @@ public class EntitySpell extends EntityThrowable {
                 if (hit.entityHit instanceof EntityLivingBase) {
                     ((EntityLivingBase) hit.entityHit).addPotionEffect(new PotionEffect(spell.potion, spell.ticks, 0));
                 }
-            } else if (hit.entityHit.attackEntityFrom(DamageSource.causeIndirectMagicDamage(this, getThrower()), damage)
-                && (spell == Spell.FIRE || spell == Spell.FIREBALL)) {
-                    hit.entityHit.setFire(spell == Spell.FIREBALL ? FIREBALL_FIRE_SECONDS : FIRE_SECONDS);
+            } else
+                if (hit.entityHit.attackEntityFrom(DamageSource.causeIndirectMagicDamage(this, getThrower()), damage)) {
+                    if (spell == Spell.FIRE || spell == Spell.FIREBALL) {
+                        hit.entityHit.setFire(spell == Spell.FIREBALL ? FIREBALL_FIRE_SECONDS : FIRE_SECONDS);
+                    }
+                    if (spell == Spell.WIND) {
+                        blowBack(hit.entityHit);
+                    }
                 }
         }
         if (spell == Spell.FIREBALL) {
             splash(hit.entityHit);
+        } else if (splash > 0 && !spell.isCurse()) {
+            gust(hit.entityHit, spell);
         }
         burst(spell);
         setDead();
@@ -154,6 +174,33 @@ public class EntitySpell extends EntityThrowable {
                 DamageSource.causeIndirectMagicDamage(this, getThrower()),
                 damage * FIREBALL_SPLASH_SHARE)) {
                 living.setFire(FIREBALL_FIRE_SECONDS);
+            }
+        }
+    }
+
+    /** A wind strike throws whoever it hits back, the way it was flying, and a little up. */
+    private void blowBack(Entity struck) {
+        double flat = Math.sqrt(motionX * motionX + motionZ * motionZ);
+        if (flat > 0.01) {
+            struck.addVelocity(motionX / flat * WIND_PUSH, 0.2, motionZ / flat * WIND_PUSH);
+            struck.velocityChanged = true;
+        }
+    }
+
+    /** Wingman Skree's strike hurts the caster's enemies round where it hits as hard as what it hit. */
+    private void gust(Entity struck, Spell spell) {
+        List<?> near = worldObj.getEntitiesWithinAABBExcludingEntity(this, boundingBox.expand(splash, splash, splash));
+        for (Object object : near) {
+            if (!(object instanceof EntityLivingBase) || object == struck || object == getThrower()) {
+                continue;
+            }
+            EntityLivingBase living = (EntityLivingBase) object;
+            if (isFriend(living) || living.getDistanceSqToEntity(this) > splash * splash) {
+                continue;
+            }
+            if (living.attackEntityFrom(DamageSource.causeIndirectMagicDamage(this, getThrower()), damage)
+                && spell == Spell.WIND) {
+                blowBack(living);
             }
         }
     }

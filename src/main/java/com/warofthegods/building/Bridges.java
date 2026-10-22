@@ -44,11 +44,11 @@ final class Bridges {
         return ((piece.rotation & 1) == 0 ? piece.minX : piece.minZ) % 2 == 0;
     }
 
-    /** Planks of the team's god: oak for Saradomin, spruce for Zamorak, dark oak for Bandos. */
+    /** Planks of the team's god: oak for Saradomin, spruce for Zamorak, dark oak for Bandos, birch for Armadyl. */
     private static int plankMeta(Game game, Building piece) {
         Team team = game.getTeam(piece.team);
         Faction faction = team == null ? Faction.SARADOMIN : team.getFaction();
-        return faction == Faction.ZAMORAK ? 1 : faction == Faction.BANDOS ? 5 : 0;
+        return faction == Faction.ZAMORAK ? 1 : faction == Faction.BANDOS ? 5 : faction == Faction.ARMADYL ? 2 : 0;
     }
 
     /** Whether a post may go down through the block: water, air or plants, nothing solid. */

@@ -47,7 +47,7 @@ NAMES = ("lesser_demon", "greater_demon", "black_demon", "centaur", "zamorak_sta
 # name after the faction's.
 SKINS = {"white_knight": "white_knight", "black_knight": "black_knight", "elite_black_knight": "black_knight_elite",
          "justiciar": "white_knight_elite"}
-FACTIONS = ("saradomin", "zamorak", "bandos")
+FACTIONS = ("saradomin", "zamorak", "bandos", "armadyl")
 ICONS = ("zamorak_staff", "silverlight")
 GLOW = "_glow"
 # Blockbench's models stand on y = 0 with y up; the game's hang from y = 24 with y down, x the other way about.

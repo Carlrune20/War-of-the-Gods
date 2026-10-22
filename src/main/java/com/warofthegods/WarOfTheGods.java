@@ -41,6 +41,7 @@ import com.warofthegods.unit.EntityTeamArrow;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.EntityWildMob;
 import com.warofthegods.unit.Hunting;
+import com.warofthegods.unit.Justice;
 import com.warofthegods.unit.Mobs;
 import com.warofthegods.unit.PlayerPrayers;
 import com.warofthegods.unit.UnitCommands;
@@ -148,16 +149,14 @@ public class WarOfTheGods {
         for (Faction god : Faction.values()) {
             hilts[god.ordinal()] = new ItemArtifact(god.id + "_hilt", "Fit it to a godsword blade to make a godsword");
             GameRegistry.registerItem(hilts[god.ordinal()], god.id + "_hilt");
-            godswords[god.ordinal()] = new ItemGodsword(god);
+            // Armadyl's godsword strikes in a way of its own, rather than with one of the others' gifts.
+            godswords[god.ordinal()] = god == Faction.ARMADYL ? new ItemArmadylGodsword() : new ItemGodsword(god);
             GameRegistry.registerItem(godswords[god.ordinal()], ItemGodsword.registryName(god));
             GameRegistry
                 .addShapelessRecipe(new ItemStack(godswords[god.ordinal()]), godswordBlade, hilts[god.ordinal()]);
         }
-        armadylHilt = new ItemArtifact("armadyl_hilt", "Fit it to a godsword blade to make a godsword");
-        GameRegistry.registerItem(armadylHilt, "armadyl_hilt");
-        armadylGodsword = new ItemArmadylGodsword();
-        GameRegistry.registerItem(armadylGodsword, ItemGodsword.registryName("armadyl"));
-        GameRegistry.addShapelessRecipe(new ItemStack(armadylGodsword), godswordBlade, armadylHilt);
+        armadylHilt = hilts[Faction.ARMADYL.ordinal()];
+        armadylGodsword = (ItemArmadylGodsword) godswords[Faction.ARMADYL.ordinal()];
         armadylCrossbow = new ItemArmadylCrossbow();
         GameRegistry.registerItem(armadylCrossbow, "armadyl_crossbow");
     }
@@ -192,6 +191,7 @@ public class WarOfTheGods {
         MinecraftForge.EVENT_BUS.register(silverlight);
         MinecraftForge.EVENT_BUS.register(darkBow);
         MinecraftForge.EVENT_BUS.register(new ArmorKnockback());
+        MinecraftForge.EVENT_BUS.register(new Justice());
         MinecraftForge.EVENT_BUS.register(godswords[Faction.SARADOMIN.ordinal()]);
         MinecraftForge.EVENT_BUS.register(armadylGodsword);
         PlayerPrayers prayers = new PlayerPrayers();
