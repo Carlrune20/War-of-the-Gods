@@ -30,6 +30,7 @@ import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.Resource;
+import com.warofthegods.game.SafeMode;
 import com.warofthegods.game.Settlement;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.Tree;
@@ -136,8 +137,9 @@ public final class WebMap {
 
         ticks++;
         // Built only when someone is watching, as it holds every unit, mob and building, and written out once for both.
-        boolean toBrowsers = server != null && server.hasViewers() && ticks % Config.webStateTicks == 0;
-        boolean toCommanders = commanders.any() && ticks % Config.rtsStateTicks == 0;
+        boolean toBrowsers = server != null && server.hasViewers()
+            && ticks % SafeMode.stretch(Config.webStateTicks) == 0;
+        boolean toCommanders = commanders.any() && ticks % SafeMode.stretch(Config.rtsStateTicks) == 0;
         if (toBrowsers || toCommanders) {
             String state = stateMessage(game, world).toString();
             if (toBrowsers) {
