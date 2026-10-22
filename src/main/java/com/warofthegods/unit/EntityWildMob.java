@@ -28,7 +28,8 @@ import com.warofthegods.Config;
  * One of Forinthry's wild creatures (see {@link WildKind}): a ghost, a hill giant, a hellhound, a deadly red spider, a
  * gargoyle, a chromatic dragon or a bandit. They are hostile mobs as zombies are, spawned in the Wilderness and round
  * its ruins by {@link Mobs}, and they go after players and units alike. Dragons neither fly nor breathe fire: they
- * wander, and bite and claw. A red spider's bite poisons, a giant's club and a dragon's blow throw their victim back,
+ * wander, and bite and claw. A red spider's bite poisons, a giant's cleaver and a dragon's blow throw their victim
+ * back,
  * arrows and spells mostly pass through ghosts, and a gargoyle's stone turns some of every blow.
  */
 public class EntityWildMob extends EntityMob {

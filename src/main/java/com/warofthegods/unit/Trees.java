@@ -316,7 +316,7 @@ public final class Trees {
     }
 
     /**
-     * The nearest standing tree as above, of the same sort as a worker was at (a giant mushroom or a tree for wood)
+     * The nearest standing tree as above, of the same sort as a worker was at (a mushroom or a tree for wood)
      * if there is one in range, else of either.
      */
     public static int[] nearest(World world, Game game, double x, double z, int range, Boolean mushroom) {

@@ -99,19 +99,23 @@ game runs at a time, and it lasts until an op starts a new one.
 **Forinthry** is the burnt north of the world, where the God Wars were fought. Teams start and settle as on
 Misthalin, but there is no river, and the land is hostile:
 
-- **Charred terrain.** Charred earth, drifts of ash, scorched stone and crags of glowing ember rock, with dead charred
-  trees standing alone or in groves. There is no grass, though animals graze round the towns as on Misthalin.
+- **Charred terrain.** Mostly black ground of charred earth, scorched stone and glowing ember rock, with rocky crags,
+  patches of bare earth where no grass grows, and dead dark oak trees without leaves, alone or in groves. Its biome,
+  the Wilderness, never rains, and its few small ponds are a murky green-blue. Animals still graze round the towns.
+- **Lava.** Rivers of lava wind across the land, with fords to cross them, and there are lava lakes and small lava
+  potholes. Now and then the lava forms a small maze, about one for every 500 by 500 blocks of map (at least one),
+  with a chest of loot in its middle cell that hellhounds guard.
 - **Always night.** The sun never rises on Forinthry, until it gets shaders of its own.
-- **Lava mazes.** Square mazes of ash paths between channels of lava, about one for every 300 blocks of map width (at
-  least two). Each has a gateway in the middle of every side, and a chest of loot in its middle cell that hellhounds
-  guard.
+- **The old fortress.** One great walled ruin per game, 55 blocks across (on a big map now and then a second): a
+  curtain wall with towers and a gatehouse round the burnt-out keep, barracks, chapel, smithy, prison, stable and
+  storehouse, all hung with cobwebs and full of chests. Ghosts, skeletons, zombies and deadly red spiders haunt it.
 - **Ruins**, more of them and more dangerous than Misthalin's: the great **Graveyard of Shadows** where ghosts walk,
-  ruined **fortresses** held by hill giants and gargoyles, **bandit camps** with up to four bandits, and smaller
-  ruins (haunted graveyards, burnt chapels and houses, broken watchtowers and altars of Zamorak) with ghosts,
-  hellhounds or deadly red spiders in their cobwebs. Every ruin has a chest of loot.
-- **Giant mushrooms** grow over the charred ground and are Forinthry's food. Select workers and right-click one to
-  harvest it with hoes, just as trees are chopped: each holds 50 food, and the workers carry it home and go on to the
-  next mushroom.
+  **bandit camps** with up to four bandits, and smaller ruins (haunted graveyards, burnt chapels and houses, broken
+  watchtowers and altars of Zamorak) with ghosts, hellhounds or deadly red spiders in their cobwebs. Every ruin has a
+  chest of loot.
+- **Mushrooms**, red and brown, grow in clumps over the ground and are Forinthry's food. Select workers and
+  right-click one to harvest it with hoes, just as trees are chopped: each holds 50 food, and the workers carry it
+  home and go on to the next mushroom.
 
 Its creatures replace the zombies and skeletons, twice as many and spawning twice as often, anywhere outside towns:
 
@@ -120,7 +124,7 @@ Its creatures replace the zombies and skeletons, twice as many and spawning twic
 | Ghost | 24 | 4 | Arrows and spells mostly pass through it. Comes in twos and threes. |
 | Deadly red spider | 18 | 3 | Its bite poisons. Twos and threes. |
 | Hellhound | 50 | 7 | Fireproof. Twos and threes. |
-| Hill giant | 90 | 10 | Its club throws you back. Alone or in pairs. |
+| Hill giant | 90 | 10 | Its cleaver throws you back. Alone or in pairs. |
 | Gargoyle | 80 | 9 | Stone: takes less from blows and arrows. Fireproof. Alone or in pairs. |
 | Green / blue / red / black dragon | 200 / 240 / 280 / 360 | 12 / 13 / 14 / 16 | Always alone. They do not fly or breathe fire: they wander, and bite and claw, throwing you back. |
 | Bandit | 26 | 5 | Only in bandit camps. |

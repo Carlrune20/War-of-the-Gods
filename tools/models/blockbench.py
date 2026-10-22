@@ -102,6 +102,13 @@ def box_faces(u, v, w, h, d, mirror):
 # ---------------------------------------------------------------- export
 
 
+def png_size(path):
+    """A PNG's width and height, from its header: a texture can be painted finer than its model's units."""
+    with open(path, "rb") as file:
+        header = file.read(24)
+    return int.from_bytes(header[16:20], "big"), int.from_bytes(header[20:24], "big")
+
+
 def to_blockbench(name, model, texture, team=None):
     """The model's JSON as a Blockbench project, with its texture and team mask (paths to PNGs) inside it."""
     tex_w, tex_h = model["texture"]
@@ -175,8 +182,8 @@ def to_blockbench(name, model, texture, team=None):
             "folder": "",
             "namespace": "",
             "id": str(len(textures)),
-            "width": tex_w,
-            "height": tex_h,
+            "width": png_size(path)[0],
+            "height": png_size(path)[1],
             "uv_width": tex_w,
             "uv_height": tex_h,
             "particle": False,

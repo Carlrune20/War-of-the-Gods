@@ -253,7 +253,7 @@ public class EntityUnit extends EntityCreature {
     private int treeY;
     private int treeZ;
     private int chopTicks;
-    /** Whether the tree it last chopped was a giant mushroom, so it looks for another of those next; null if none. */
+    /** Whether the tree it last chopped was a mushroom, so it looks for another of those next; null if none. */
     private Boolean harvesting;
     /** The gold mine a worker mines. */
     private int mineId;
@@ -1832,7 +1832,7 @@ public class EntityUnit extends EntityCreature {
         chopTicks = 0;
         Tree tree = Trees.track(worldObj, game, treeX, treeY, treeZ);
         long[] wood = new long[carrying.length];
-        // A giant mushroom gives food, cut off it with a hoe; a tree wood.
+        // A mushroom gives food, gathered with a hoe; a tree wood.
         Resource gives = mushroom ? Resource.FOOD : Resource.WOOD;
         wood[gives.ordinal()] = game.chopTree(tree, Config.chopWood);
         // Cracks spread up the trunk as it is chopped.

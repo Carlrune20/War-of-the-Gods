@@ -8,8 +8,8 @@ public enum WildKind {
 
     /** Floats about the graveyards reaching for the living; arrows and spells mostly pass through it. */
     GHOST("ghost", "Ghost", "ghost", "ghost", 24, 4, 0.26, 0.6F, 1.9F, 1.0F, false),
-    /** Nearly twice a man's height, slow, with a club that knocks men flying. */
-    HILL_GIANT("hill_giant", "Hill giant", "hill_giant", "hill_giant", 90, 10, 0.22, 1.1F, 3.4F, 1.8F, false),
+    /** Nearly twice a man's height, slow, with a cleaver that knocks men flying. */
+    HILL_GIANT("hill_giant", "Hill giant", "hill_giant", "hill_giant", 90, 10, 0.22, 1.1F, 3.4F, 1.6F, false),
     /** Zamorak's hound, quick and fireproof, hunting in packs. */
     HELLHOUND("hellhound", "Hellhound", "hellhound", "hellhound", 50, 7, 0.32, 1.0F, 1.3F, 1.0F, true),
     /** Fast, and its bite poisons. */
@@ -17,11 +17,11 @@ public enum WildKind {
     /** Stone through and through: everything does it less harm, and fire none. */
     GARGOYLE("gargoyle", "Gargoyle", "gargoyle", "gargoyle", 80, 9, 0.24, 0.9F, 2.5F, 1.3F, true),
     /** The chromatic dragons: they do not fly or breathe fire, but wander, and bite and claw whatever comes near. */
-    GREEN_DRAGON("green_dragon", "Green dragon", "dragon", "dragon_green", 200, 12, 0.24, 2.0F, 2.4F, 1.3F, true),
-    BLUE_DRAGON("blue_dragon", "Blue dragon", "dragon", "dragon_blue", 240, 13, 0.24, 2.0F, 2.4F, 1.3F, true),
-    RED_DRAGON("red_dragon", "Red dragon", "dragon", "dragon", 280, 14, 0.24, 2.0F, 2.4F, 1.3F, true),
-    BLACK_DRAGON("black_dragon", "Black dragon", "dragon", "dragon_black", 360, 16, 0.24, 2.0F, 2.4F, 1.3F, true),
-    /** Keeps the bandits' camps, with a short sword. */
+    GREEN_DRAGON("green_dragon", "Green dragon", "dragon", "dragon_green", 200, 12, 0.24, 2.0F, 2.4F, 1.15F, true),
+    BLUE_DRAGON("blue_dragon", "Blue dragon", "dragon", "dragon_blue", 240, 13, 0.24, 2.0F, 2.4F, 1.15F, true),
+    RED_DRAGON("red_dragon", "Red dragon", "dragon", "dragon", 280, 14, 0.24, 2.0F, 2.4F, 1.15F, true),
+    BLACK_DRAGON("black_dragon", "Black dragon", "dragon", "dragon_black", 360, 16, 0.24, 2.0F, 2.4F, 1.15F, true),
+    /** Keeps the bandits' camps, with a dagger. */
     BANDIT("bandit", "Bandit", "bandit", "bandit", 26, 5, 0.27, 0.6F, 1.8F, 1.0F, false);
 
     public final String id;

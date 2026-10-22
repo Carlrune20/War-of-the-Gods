@@ -141,7 +141,7 @@ public class Config {
     public static int woodPerLog = 25;
     public static int treeWoodMin = 100;
     public static int treeWoodMax = 200;
-    /** Food in one of Forinthry's giant mushrooms, which workers harvest with hoes as they chop trees. */
+    /** Food in one of Forinthry's mushrooms, which workers harvest with hoes as they chop trees. */
     public static int mushroomFood = 50;
     /** Wood a worker chops per chopSeconds. */
     public static int chopWood = 4;
@@ -652,7 +652,7 @@ public class Config {
             .getInt("treeWoodMin", buildings, treeWoodMin, 1, 100000, "Least wood a tree holds.");
         treeWoodMax = configuration.getInt("treeWoodMax", buildings, treeWoodMax, 1, 100000, "Most wood a tree holds.");
         mushroomFood = configuration
-            .getInt("mushroomFood", buildings, mushroomFood, 1, 100000, "Food in a giant mushroom of Forinthry.");
+            .getInt("mushroomFood", buildings, mushroomFood, 1, 100000, "Food in a mushroom of Forinthry.");
         chopWood = configuration
             .getInt("chopWood", buildings, chopWood, 1, 10000, "Wood a worker chops off a tree at a time.");
         chopSeconds = configuration

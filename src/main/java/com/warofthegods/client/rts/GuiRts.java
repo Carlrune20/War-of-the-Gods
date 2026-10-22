@@ -1623,7 +1623,7 @@ public final class GuiRts extends GuiScreen {
             }
             RtsState.TreeInfo tree = trackedTreeNear(block);
             if (Trees.isMushroom(mc.theWorld.getBlock(block[0], block[1], block[2]))) {
-                // Forinthry's giant mushrooms are harvested for food, as trees are chopped for wood.
+                // Forinthry's mushrooms are harvested for food, as trees are chopped for wood.
                 String food = " · " + (tree == null ? Config.mushroomFood : tree.wood)
                     + "/"
                     + (tree == null ? Config.mushroomFood : tree.maxWood)
