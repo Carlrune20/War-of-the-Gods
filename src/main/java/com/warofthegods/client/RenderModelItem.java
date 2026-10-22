@@ -183,7 +183,7 @@ public class RenderModelItem implements IItemRenderer {
         JsonModel drawn = stage < 0 ? model : pulling[stage];
         Minecraft.getMinecraft().renderEngine.bindTexture(stage < 0 ? texture : pullingTextures[stage]);
         drawn.render(scale);
-        drawn.renderGlow(scale);
+        drawn.renderGlow(scale, false);
         Minecraft.getMinecraft().renderEngine.bindTexture(TextureMap.locationItemsTexture);
         GL11.glPopMatrix();
     }
