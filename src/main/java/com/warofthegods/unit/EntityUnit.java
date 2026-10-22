@@ -762,6 +762,12 @@ public class EntityUnit extends EntityCreature {
         return order == Order.CHOP ? new int[] { treeX, treeY, treeZ } : null;
     }
 
+    /** Whether the worker is picking mushrooms, for food, rather than felling trees for wood. */
+    public boolean isHarvesting() {
+        return order == Order.CHOP
+            && (Trees.isMushroom(worldObj.getBlock(treeX, treeY, treeZ)) || Boolean.TRUE.equals(harvesting));
+    }
+
     /** The gold mine a worker mines, or 0. */
     public int getMineId() {
         return order == Order.MINE ? mineId : 0;
@@ -1777,8 +1783,10 @@ public class EntityUnit extends EntityCreature {
             return;
         }
         if (!Trees.isTrunk(worldObj.getBlock(treeX, treeY, treeZ))) {
-            // Felled, by this worker or another: on to the next.
-            int[] next = Trees.nearest(worldObj, game, treeX + 0.5, treeZ + 0.5, NEXT_TREE_RANGE, harvesting);
+            // Felled, by this worker or another: on to the next of the same sort, so a woodcutter does not wander off
+            // picking mushrooms nor a picker off felling trees.
+            int[] next = harvesting == null ? Trees.nearest(worldObj, game, treeX + 0.5, treeZ + 0.5, NEXT_TREE_RANGE)
+                : Trees.nearestOnly(worldObj, game, treeX + 0.5, treeZ + 0.5, NEXT_TREE_RANGE, harvesting);
             if (next != null) {
                 orderChop(next[0], next[1], next[2]);
             } else if (getCarried() > 0) {

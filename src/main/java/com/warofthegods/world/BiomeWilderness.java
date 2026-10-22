@@ -11,12 +11,16 @@ import cpw.mods.fml.relauncher.SideOnly;
 
 /**
  * Forinthry's biome, the Wilderness: dry and hot, never rained on, with nothing that spawns of itself, its few ponds
- * a murky green-blue and what little grows there a burnt brown. Its id is {@link Config#wildernessBiomeId}.
+ * stagnant, a murky olive green with bubbles welling up in them (see {@code MurkyWater}), and what little grows there a
+ * burnt brown. Its id is {@link Config#wildernessBiomeId}.
  */
 public class BiomeWilderness extends BiomeGenBase {
 
-    /** The pools' tint, a stagnant green-blue rather than the overworld's clear blue. */
-    private static final int WATER = 0x4A9E86;
+    /**
+     * The ponds' tint over 1.7.10's blue water, as the swamp's is but far stronger: a dark, stagnant olive green rather
+     * than the overworld's clear blue.
+     */
+    private static final int WATER = 0x707C1C;
     private static final int GROWTH = 0x5A4A2E;
 
     private static BiomeWilderness instance;

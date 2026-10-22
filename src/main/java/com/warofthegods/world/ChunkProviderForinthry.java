@@ -21,8 +21,9 @@ import com.warofthegods.building.Ruins;
  * The terrain of a Forinthry map, the Wilderness burnt black in the God Wars. The ground is black, charred earth broken
  * by patches of scorched stone and glowing ember rock, with craggy hills of it here and there, and patches of bare
  * brown earth where only dead bushes grow, rising in places into rolling hills. Lava runs through it all: winding
- * rivers that cross and split round islands, broken by fords, cutting canyons through the hills under ledges of rock
- * that arch out over them; lakes, and small potholes. {@link Forinthry} lays out the lakes, a few murky green ponds and
+ * rivers that cross and split round islands, broken by fords, cutting canyons through the hills whose banks curve in
+ * over them; lakes, and small potholes, glazed with obsidian where the lava meets the rock. {@link Forinthry} lays out
+ * the lakes, a few murky green ponds and
  * the old fortresses. Dead trees stand bare, alone or in groves, and mushrooms grow in clumps, and in patches round
  * where each team starts. Like Misthalin, the land goes on across the margin round the playable area
  * and then stops, cut off sheer.
@@ -240,13 +241,20 @@ public class ChunkProviderForinthry implements IChunkProvider {
                     liquid = Blocks.lava;
                     liquidTop = RIVER;
                     ground = liquidTop - 1 - (riverDepth(river, gx, gz) > 2 ? 1 : 0);
-                    // Under a high bank, a ledge of rock reaching out over the lava, which meets the one from the
-                    // other bank where the canyon is narrow.
+                    // The bank curves in over the lava: the higher it stands, the further its lip reaches out and
+                    // the deeper it is undercut, meeting the other bank's where the canyon is narrow.
                     int[] bank = bankBeside(columns, river, gx, gz);
-                    if (bank != null && bank[0] - liquidTop >= 7 + 3 * (bank[1] - 1)
-                        && rockNoise.fbm(x / 9.0 + 200, z / 9.0 + 200, 2) > -0.15) {
-                        ledgeTo = bank[0];
-                        ledgeFrom = bank[0] - (bank[1] == 1 ? 2 : 1);
+                    if (bank != null) {
+                        int rise = bank[0] - liquidTop;
+                        // Never so far that the lips close over the river: two blocks of it stay open between.
+                        int reach = Math.min(
+                            Math.min(3, (riverWidth(river, gx, gz) - 2) / 2),
+                            (int) Math.floor(rise / 3.0 + rockNoise.fbm(x / 9.0 + 200, z / 9.0 + 200, 2) * 0.8));
+                        if (bank[1] <= reach) {
+                            int under = (int) Math.ceil(rise * Math.sqrt((bank[1] - 0.5) / reach));
+                            ledgeFrom = liquidTop + Math.max(2, under);
+                            ledgeTo = bank[0] - (bank[1] > 1 ? 1 : 0);
+                        }
                     }
                 }
                 boolean bank = liquid == null && lavaNear(columns, river, gx, gz);
@@ -316,8 +324,23 @@ public class ChunkProviderForinthry implements IChunkProvider {
                     metadata[index + y] = (byte) meta;
                 }
                 for (int y = ledgeFrom; y <= ledgeTo; y++) {
-                    blocks[index + y] = y == ledgeTo && random.nextInt(3) == 0 ? ModBlocks.emberRock
-                        : ModBlocks.scorchedStone;
+                    // Obsidian on the underside, where the lava's heat glazed it.
+                    blocks[index + y] = y == ledgeFrom && random.nextInt(4) > 0 ? Blocks.obsidian
+                        : y == ledgeTo && random.nextInt(3) == 0 ? ModBlocks.emberRock : ModBlocks.scorchedStone;
+                }
+                // Obsidian where the ground meets lava: the bank beside a river or lake down to below the lava's top,
+                // and here and there a river's bed.
+                if (liquid == null) {
+                    int lavaTop = lavaBeside(columns, river, gx, gz);
+                    for (int y = Math.max(3, lavaTop - 2); lavaTop >= 0 && y <= Math.min(ground, lavaTop); y++) {
+                        if (random.nextInt(4) > 0) {
+                            blocks[index + y] = Blocks.obsidian;
+                            metadata[index + y] = 0;
+                        }
+                    }
+                } else if (liquid == Blocks.lava && ground > 2 && random.nextInt(3) == 0) {
+                    blocks[index + ground] = Blocks.obsidian;
+                    metadata[index + ground] = 0;
                 }
             }
         }
@@ -329,6 +352,28 @@ public class ChunkProviderForinthry implements IChunkProvider {
     }
 
     /** How many blocks a river column is from its nearer bank, up to 3. */
+    /**
+     * How wide the river is across a column: the shorter of its runs along x and along z, and across the diagonals,
+     * as far as the grid reaches.
+     */
+    private static int riverWidth(boolean[][] river, int gx, int gz) {
+        int narrowest = Integer.MAX_VALUE;
+        for (int[] step : new int[][] { { 1, 0 }, { 0, 1 }, { 1, 1 }, { 1, -1 } }) {
+            int run = 1;
+            for (int sign = -1; sign <= 1; sign += 2) {
+                int ax = gx + sign * step[0];
+                int az = gz + sign * step[1];
+                while (ax >= 0 && ax < GRID && az >= 0 && az < GRID && river[ax][az]) {
+                    run++;
+                    ax += sign * step[0];
+                    az += sign * step[1];
+                }
+            }
+            narrowest = Math.min(narrowest, run);
+        }
+        return narrowest;
+    }
+
     private static int riverDepth(boolean[][] river, int gx, int gz) {
         for (int d = 1; d <= 2; d++) {
             for (int dx = -d; dx <= d; dx++) {
@@ -343,11 +388,11 @@ public class ChunkProviderForinthry implements IChunkProvider {
     }
 
     /**
-     * The highest ground on the bank within two blocks of a river column and how far it is, 1 or 2; null in the
+     * The highest ground on the bank within three blocks of a river column and how far it is, 1 to 3; null in the
      * middle of a wide river.
      */
     private static int[] bankBeside(Column[][] columns, boolean[][] river, int gx, int gz) {
-        for (int d = 1; d <= 2; d++) {
+        for (int d = 1; d <= BORDER; d++) {
             int highest = -1;
             for (int dx = -d; dx <= d; dx++) {
                 for (int dz = -d; dz <= d; dz++) {
@@ -362,6 +407,22 @@ public class ChunkProviderForinthry implements IChunkProvider {
             }
         }
         return null;
+    }
+
+    /** The top of the lava right beside a column, of a river or a lake, or -1 if there is none. */
+    private static int lavaBeside(Column[][] columns, boolean[][] river, int gx, int gz) {
+        int top = -1;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                Column column = columns[gx + dx][gz + dz];
+                if (river[gx + dx][gz + dz]) {
+                    top = Math.max(top, RIVER);
+                } else if (column.liquid == Blocks.lava) {
+                    top = Math.max(top, column.liquidTop);
+                }
+            }
+        }
+        return top;
     }
 
     /** Whether lava lies within two blocks of a column, for the glowing rock along its banks. */

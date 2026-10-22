@@ -19,6 +19,9 @@ public final class Forinthry {
     /** Blocks across the old fortress, as tools/structures/wilderness.py draws it, and how many variants it draws. */
     public static final int KEEP_SIZE = 55;
     public static final int KEEP_VARIANTS = 3;
+    /** Blocks square of map to each old fortress, and how far apart their corners keep at least. */
+    private static final int KEEP_AREA = 500;
+    private static final int KEEP_SPACING = 160;
     /** Blocks round where a team starts that nothing here comes nearer than. */
     public static final int BASE_ROOM = 44;
 
@@ -101,18 +104,15 @@ public final class Forinthry {
         this.bases = GameWorld.basesOf(area, seed, teams);
         int size = Math.max(area.getMaxX() - area.getMinX(), area.getMaxZ() - area.getMinZ()) + 1;
         Random random = new Random(seed * 41 + 11);
-        // One old fortress always; now and then a second, more often on a big map, and on the biggest a third.
-        int keepCount = 1;
-        if (random.nextDouble() < (size >= 1000 ? 0.5 : 0.15)) {
-            keepCount++;
-            if (size >= 2000 && random.nextDouble() < 0.15) {
-                keepCount++;
-            }
-        }
-        for (int attempt = 0; attempt < 600 && keeps.size() < keepCount; attempt++) {
+        // About one old fortress for every KEEP_AREA blocks square of map, one at least, spread apart; their
+        // variants taken in turn from a random one, so neighbours differ.
+        double share = size * (double) size / ((double) KEEP_AREA * KEEP_AREA) * (0.8 + random.nextDouble() * 0.4);
+        int keepCount = Math.max(1, (int) Math.round(share));
+        int variant = random.nextInt(KEEP_VARIANTS);
+        for (int attempt = 0; attempt < 300 * keepCount && keeps.size() < keepCount; attempt++) {
             int[] spot = spot(random, size, KEEP_SIZE, EASE + 4);
-            if (spot != null && roomFor(spot[0], spot[1], KEEP_SIZE, 24)) {
-                keeps.add(new Keep(spot[0], spot[1], random.nextInt(4), 1 + random.nextInt(KEEP_VARIANTS)));
+            if (spot != null && roomFor(spot[0], spot[1], KEEP_SIZE, 24) && farFromKeeps(spot[0], spot[1])) {
+                keeps.add(new Keep(spot[0], spot[1], random.nextInt(4), 1 + variant++ % KEEP_VARIANTS));
             }
         }
         // Lava lakes, many, and a few green ponds.
@@ -174,6 +174,15 @@ public final class Forinthry {
         for (Pool pool : pools) {
             int reach = (int) Math.ceil(pool.radius * 1.4);
             if (overlap(minX, minZ, span, pool.centerX - reach, pool.centerZ - reach, 2 * reach, spacing)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean farFromKeeps(int minX, int minZ) {
+        for (Keep keep : keeps) {
+            if (Math.hypot(keep.minX - minX, keep.minZ - minZ) < KEEP_SPACING) {
                 return false;
             }
         }

@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityCreature;
@@ -57,8 +58,9 @@ import cpw.mods.fml.common.gameevent.TickEvent;
  *
  * <p>
  * Forinthry, the Wilderness, has its own creatures instead (see {@link EntityWildMob}): ghosts, hill giants,
- * hellhounds, red spiders, gargoyles and chromatic dragons roam it, twice as many and twice as often as Misthalin's
- * undead, anywhere outside towns, and its ruins are haunted by ghosts, giants, bandits or hellhounds by their kind.
+ * hellhounds, red spiders, gargoyles and chromatic dragons roam it, in bigger groups and far more often than
+ * Misthalin's undead, about eight times as many, anywhere outside towns, and its ruins are haunted by ghosts, giants,
+ * bandits or hellhounds by their kind.
  */
 public final class Mobs {
 
@@ -219,7 +221,7 @@ public final class Mobs {
     /** Most zombies and skeletons walking round a ruin at once. */
     private static final int RUIN_UNDEAD = 3;
     /** Most bandits in a camp, and hill giants and gargoyles round a fortress, at once. */
-    private static final int RUIN_BANDITS = 4;
+    private static final int RUIN_BANDITS = 6;
     private static final int RUIN_GIANTS = 2;
     /** Most of the old fortress's ghosts, undead and spiders about it at once. */
     private static final int RUIN_FORTRESS = 8;
@@ -287,7 +289,11 @@ public final class Mobs {
                 seen |= distance < RUIN_HIDDEN * RUIN_HIDDEN;
             }
             if (near && !seen) {
-                spawnAtRuin(game, world, ruin);
+                // Bandits keep their camp as a band, all of them there at once; the rest turn up one at a time.
+                int count = ruin.haunt == Ruin.BANDITS ? most - counts.getOrDefault(ruin.id, 0) : 1;
+                for (int i = 0; i < count; i++) {
+                    spawnAtRuin(game, world, ruin);
+                }
             }
         }
     }
@@ -306,6 +312,26 @@ public final class Mobs {
         return false;
     }
 
+    /**
+     * The y to stand at in the column x, z within a few blocks of y: on solid ground, not liquid, with room to stand,
+     * under a tent's roof or a lookout's deck as well as in the open; -1 if there is none.
+     */
+    private static int floorNear(WorldServer world, int x, int y, int z) {
+        for (int dy = 0; dy <= 3; dy = dy > 0 ? -dy : 1 - dy) {
+            int at = y + dy;
+            Block below = world.getBlock(x, at - 1, z);
+            if (below.getMaterial()
+                .isSolid()
+                && !below.getMaterial()
+                    .isLiquid()
+                && world.isAirBlock(x, at, z)
+                && world.isAirBlock(x, at + 1, z)) {
+                return at;
+            }
+        }
+        return -1;
+    }
+
     /** The ruin a mob haunts, or null if it is gone. */
     private static Ruin ruinOf(Game game, EntityLiving mob) {
         int id = mob.getEntityData()
@@ -319,15 +345,13 @@ public final class Mobs {
     }
 
     private void spawnAtRuin(Game game, WorldServer world, Ruin ruin) {
-        for (int attempt = 0; attempt < 6; attempt++) {
+        for (int attempt = 0; attempt < 12; attempt++) {
             // Spiders in among the walls, the undead in and round the ruin.
             int spread = ruin.haunt == Ruin.SPIDERS ? 0 : 3;
             int x = ruin.minX - spread + random.nextInt(ruin.sizeX + 2 * spread);
             int z = ruin.minZ - spread + random.nextInt(ruin.sizeZ + 2 * spread);
-            int y = world.getTopSolidOrLiquidBlock(x, z);
-            if (Math.abs(y - ruin.groundY - 1) > 2 || world.getBlock(x, y - 1, z)
-                .getMaterial()
-                .isLiquid()) {
+            int y = floorNear(world, x, ruin.groundY + 1, z);
+            if (y < 0) {
                 continue;
             }
             EntityLiving mob = ruinMob(game, world, ruin.haunt);
@@ -383,7 +407,8 @@ public final class Mobs {
 
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || ++ticks % Math.max(10, Config.mobSpawnSeconds * 10) != 0) {
+        if (event.phase != TickEvent.Phase.END
+            || ++ticks % Math.max(5, Config.mobSpawnSeconds * 20 / WILD_TRIES) != 0) {
             return;
         }
         Game game = DimensionManager.getWorld(0) == null ? null : GameManager.getGame();
@@ -391,12 +416,13 @@ public final class Mobs {
         if (game == null || world == null || Config.maxMobs <= 0 || SafeMode.isActive()) {
             return;
         }
-        // The Wilderness gets a try every half interval, everywhere else every whole one.
+        // The Wilderness gets WILD_TRIES tries an interval, everywhere else one; with its bigger groups, about eight
+        // times as many mobs come, up to eight times as many at once.
         boolean wild = wilderness(game);
-        if (!wild && ticks % Math.max(20, Config.mobSpawnSeconds * 20) != 0) {
+        if (!wild && ticks % (Math.max(5, Config.mobSpawnSeconds * 20 / WILD_TRIES) * WILD_TRIES) != 0) {
             return;
         }
-        int maxMobs = wild ? Config.maxMobs * 2 : Config.maxMobs;
+        int maxMobs = wild ? Config.maxMobs * WILD_MOBS : Config.maxMobs;
         List<EntityLiving> hostile = new ArrayList<>();
         List<EntityLiving> haunting = new ArrayList<>();
         for (EntityLiving mob : Units.get()
@@ -462,7 +488,7 @@ public final class Mobs {
         for (EntityLiving mob : hostile) {
             nearby += mob.getDistanceSq(x, mob.posY, z) < 48 * 48 ? 1 : 0;
         }
-        if (nearby >= (wilderness(game) ? MAX_NEARBY * 2 : MAX_NEARBY)) {
+        if (nearby >= (wilderness(game) ? MAX_NEARBY * 4 : MAX_NEARBY)) {
             return null;
         }
         int y = world.getTopSolidOrLiquidBlock(x, z);
@@ -529,7 +555,10 @@ public final class Mobs {
     private static final WildKind[] WILD = { WildKind.GHOST, WildKind.RED_SPIDER, WildKind.HELLHOUND,
         WildKind.HILL_GIANT, WildKind.GARGOYLE, null };
     private static final int[] WILD_WEIGHTS = { 24, 22, 20, 14, 10, 10 };
-    private static final int[][] WILD_GROUPS = { { 2, 3 }, { 2, 3 }, { 2, 3 }, { 1, 2 }, { 1, 2 }, { 1, 1 } };
+    private static final int[][] WILD_GROUPS = { { 4, 6 }, { 4, 6 }, { 3, 6 }, { 2, 3 }, { 2, 3 }, { 1, 1 } };
+    /** Tries at a spawn the Wilderness gets for each one elsewhere, and how many times as many mobs it holds. */
+    private static final int WILD_TRIES = 4;
+    private static final int WILD_MOBS = 8;
     private static final WildKind[] DRAGONS = { WildKind.GREEN_DRAGON, WildKind.BLUE_DRAGON, WildKind.RED_DRAGON,
         WildKind.BLACK_DRAGON };
 
@@ -547,8 +576,8 @@ public final class Mobs {
         int[] group = WILD_GROUPS[pick];
         int size = Math.min(group[0] + random.nextInt(group[1] - group[0] + 1), room);
         for (int i = 0; i < size; i++) {
-            int x = spot[0] + (i == 0 ? 0 : random.nextInt(7) - 3);
-            int z = spot[2] + (i == 0 ? 0 : random.nextInt(7) - 3);
+            int x = spot[0] + (i == 0 ? 0 : random.nextInt(9) - 4);
+            int z = spot[2] + (i == 0 ? 0 : random.nextInt(9) - 4);
             int y = world.getTopSolidOrLiquidBlock(x, z);
             if (Math.abs(y - spot[1]) > 3 || onBuilding(game, x, z, BUILDING_MARGIN)
                 || world.getBlock(x, y - 1, z)

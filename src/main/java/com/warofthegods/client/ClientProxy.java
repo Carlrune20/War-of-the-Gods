@@ -62,6 +62,7 @@ public class ClientProxy extends CommonProxy {
         MobRenderers.register();
         PrayerHud.register();
         GodswordPose.register();
+        MurkyWater.register();
         RtsClient.init();
     }
 

@@ -312,21 +312,12 @@ public final class Trees {
      * top, so trees on hills and in hollows are found as well as those level with x, z.
      */
     public static int[] nearest(World world, Game game, double x, double z, int range) {
-        return nearest(world, game, x, z, range, null);
+        return nearestOf(world, game, x, z, range, null);
     }
 
-    /**
-     * The nearest standing tree as above, of the same sort as a worker was at (a mushroom or a tree for wood)
-     * if there is one in range, else of either.
-     */
-    public static int[] nearest(World world, Game game, double x, double z, int range, Boolean mushroom) {
-        if (mushroom != null) {
-            int[] same = nearestOf(world, game, x, z, range, mushroom);
-            if (same != null) {
-                return same;
-            }
-        }
-        return nearestOf(world, game, x, z, range, null);
+    /** The nearest standing tree as above of one sort only: mushrooms if mushroom, else trees for wood. */
+    public static int[] nearestOnly(World world, Game game, double x, double z, int range, boolean mushroom) {
+        return nearestOf(world, game, x, z, range, mushroom);
     }
 
     private static int[] nearestOf(World world, Game game, double x, double z, int range, Boolean mushroom) {

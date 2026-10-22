@@ -147,7 +147,7 @@ public class EntityWildMob extends EntityMob {
     protected String getLivingSound() {
         switch (kind) {
             case GHOST:
-                return "mob.endermen.idle";
+                return "mob.blaze.breathe";
             case HILL_GIANT:
                 return "mob.zombie.say";
             case HELLHOUND:
@@ -167,7 +167,7 @@ public class EntityWildMob extends EntityMob {
     protected String getHurtSound() {
         switch (kind) {
             case GHOST:
-                return "mob.endermen.hit";
+                return "mob.blaze.hit";
             case HILL_GIANT:
                 return "mob.zombie.hurt";
             case HELLHOUND:
@@ -187,7 +187,7 @@ public class EntityWildMob extends EntityMob {
     protected String getDeathSound() {
         switch (kind) {
             case GHOST:
-                return "mob.endermen.death";
+                return "mob.blaze.death";
             case HILL_GIANT:
                 return "mob.zombie.death";
             case HELLHOUND:
@@ -208,11 +208,14 @@ public class EntityWildMob extends EntityMob {
         return kind.isDragon() ? 0.6F : 1.0F;
     }
 
-    /** Big things sound deep, a ghost hollow. */
+    /** Big things sound deep; a ghost breathes like a blaze, at its own pitch. */
     @Override
     protected float getSoundPitch() {
+        if (kind == WildKind.GHOST) {
+            return super.getSoundPitch();
+        }
         float pitch = kind == WildKind.HILL_GIANT || kind == WildKind.GARGOYLE ? 0.55F
-            : kind == WildKind.GHOST ? 0.6F : kind.isDragon() ? 1.3F : kind == WildKind.HELLHOUND ? 0.75F : 1.0F;
+            : kind.isDragon() ? 1.3F : kind == WildKind.HELLHOUND ? 0.75F : 1.0F;
         return pitch + (rand.nextFloat() - rand.nextFloat()) * 0.1F;
     }
 
