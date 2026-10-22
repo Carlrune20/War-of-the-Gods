@@ -394,6 +394,9 @@ public class RenderUnit extends RenderBiped {
             demonModel.renderAgain(scale);
             GL11.glDepthFunc(GL11.GL_LEQUAL);
             GL11.glColor4f(1, 1, 1, 1);
+            // Its eyes glow in the dark.
+            bindTexture(demonTexture(DEMON, (EntityUnit) entity));
+            demonModel.renderGlow(scale);
             return;
         }
         if (mainModel == centaurModel) {

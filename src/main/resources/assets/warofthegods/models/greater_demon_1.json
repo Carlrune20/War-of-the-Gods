@@ -754,7 +754,7 @@
     -3.0
    ],
    "rotation": [
-    0.18,
+    0.0,
     0.0,
     0.0
    ],
@@ -850,7 +850,7 @@
    "boxes": [
     {
      "uv": [
-      0,
+      32,
       0
      ],
      "from": [
@@ -868,7 +868,7 @@
     },
     {
      "uv": [
-      4,
+      36,
       0
      ],
      "from": [
@@ -878,7 +878,7 @@
      ],
      "size": [
       1,
-      6,
+      7,
       1
      ],
      "inflate": -0.05,
@@ -886,7 +886,7 @@
     },
     {
      "uv": [
-      32,
+      40,
       0
      ],
      "from": [
@@ -904,7 +904,7 @@
     },
     {
      "uv": [
-      36,
+      63,
       0
      ],
      "from": [
@@ -923,34 +923,52 @@
    ]
   },
   {
-   "name": "horn_right",
+   "name": "eyes",
    "parent": "head",
    "pivot": [
-    -3.0,
-    -4.5,
-    -3.5
+    0.0,
+    0.0,
+    0.0
    ],
    "rotation": [
-    3.08629,
-    1.13609,
-    1.75409
+    0.0,
+    0.0,
+    0.0
    ],
-   "glow": false,
+   "glow": true,
    "boxes": [
     {
      "uv": [
-      64,
-      41
+      0,
+      0
      ],
      "from": [
-      -1.5,
-      -4,
-      -1.5
+      -3,
+      -5,
+      -6.05
      ],
      "size": [
-      3,
-      5,
-      3
+      2,
+      1,
+      0
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      4,
+      0
+     ],
+     "from": [
+      1,
+      -5,
+      -6.05
+     ],
+     "size": [
+      2,
+      1,
+      0
      ],
      "inflate": 0.0,
      "mirror": false
@@ -958,106 +976,107 @@
    ]
   },
   {
-   "name": "horn_right_2",
-   "parent": "horn_right",
-   "pivot": [
-    0.0,
-    -3.6,
-    0.0
-   ],
-   "rotation": [
-    -0.25,
-    0.0,
-    0.55
-   ],
-   "glow": false,
-   "boxes": [
-    {
-     "uv": [
-      100,
-      49
-     ],
-     "from": [
-      -1,
-      -4.5,
-      -1
-     ],
-     "size": [
-      2,
-      5,
-      2
-     ],
-     "inflate": 0.2,
-     "mirror": false
-    }
-   ]
-  },
-  {
-   "name": "horn_left",
+   "name": "right_horn0",
    "parent": "head",
    "pivot": [
-    3.0,
-    -4.5,
-    -3.5
+    -2.5,
+    -6.5,
+    -3.0
    ],
    "rotation": [
-    3.08629,
-    -1.13609,
-    -1.75409
+    -0.2,
+    0.0,
+    -0.6
    ],
    "glow": false,
    "boxes": [
     {
      "uv": [
-      76,
-      41
+      86,
+      0
      ],
      "from": [
-      -1.5,
-      -4,
-      -1.5
+      -1,
+      -1,
+      -1
      ],
      "size": [
-      3,
-      5,
-      3
+      2,
+      1,
+      2
      ],
-     "inflate": 0.0,
+     "inflate": -0.1,
+     "mirror": false
+    },
+    {
+     "uv": [
+      69,
+      0
+     ],
+     "from": [
+      -0.5,
+      -2,
+      -0.5
+     ],
+     "size": [
+      1,
+      1,
+      1
+     ],
+     "inflate": -0.05,
      "mirror": false
     }
    ]
   },
   {
-   "name": "horn_left_2",
-   "parent": "horn_left",
+   "name": "left_horn0",
+   "parent": "head",
    "pivot": [
-    0.0,
-    -3.6,
-    0.0
+    2.5,
+    -6.5,
+    -3.0
    ],
    "rotation": [
-    -0.25,
+    -0.2,
     0.0,
-    -0.55
+    0.6
    ],
    "glow": false,
    "boxes": [
     {
      "uv": [
-      116,
-      49
+      108,
+      0
      ],
      "from": [
       -1,
-      -4.5,
+      -1,
       -1
      ],
      "size": [
       2,
-      5,
+      1,
       2
      ],
-     "inflate": 0.2,
+     "inflate": -0.1,
+     "mirror": false
+    },
+    {
+     "uv": [
+      94,
+      0
+     ],
+     "from": [
+      -0.5,
+      -2,
+      -0.5
+     ],
+     "size": [
+      1,
+      1,
+      1
+     ],
+     "inflate": -0.05,
      "mirror": false
     }
    ]
@@ -1362,6 +1381,59 @@
    ]
   },
   {
+   "name": "right_elbows_spike0",
+   "parent": "right_forearm",
+   "pivot": [
+    0.0,
+    1.0,
+    2.0
+   ],
+   "rotation": [
+    -1.9,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      116,
+      0
+     ],
+     "from": [
+      -1,
+      -2,
+      -1
+     ],
+     "size": [
+      2,
+      2,
+      2
+     ],
+     "inflate": -0.1,
+     "mirror": false
+    },
+    {
+     "uv": [
+      124,
+      0
+     ],
+     "from": [
+      -0.5,
+      -4,
+      -0.5
+     ],
+     "size": [
+      1,
+      2,
+      1
+     ],
+     "inflate": -0.05,
+     "mirror": false
+    }
+   ]
+  },
+  {
    "name": "left_arm",
    "parent": "body",
    "pivot": [
@@ -1656,6 +1728,59 @@
       1
      ],
      "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
+   "name": "left_elbows_spike0",
+   "parent": "left_forearm",
+   "pivot": [
+    0.0,
+    1.0,
+    2.0
+   ],
+   "rotation": [
+    -1.9,
+    0.0,
+    0.0
+   ],
+   "glow": false,
+   "boxes": [
+    {
+     "uv": [
+      0,
+      1
+     ],
+     "from": [
+      -1,
+      -2,
+      -1
+     ],
+     "size": [
+      2,
+      2,
+      2
+     ],
+     "inflate": -0.1,
+     "mirror": false
+    },
+    {
+     "uv": [
+      69,
+      2
+     ],
+     "from": [
+      -0.5,
+      -4,
+      -0.5
+     ],
+     "size": [
+      1,
+      2,
+      1
+     ],
+     "inflate": -0.05,
      "mirror": false
     }
    ]

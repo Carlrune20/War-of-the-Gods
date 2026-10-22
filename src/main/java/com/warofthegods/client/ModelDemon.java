@@ -13,7 +13,7 @@ import com.warofthegods.client.model.JsonModel;
  * tools/models/blockbench.py); this only moves them. It walks with a heavy swing of its arms, its tail swaying behind
  * it and its wings stirring slowly; it opens its jaw and rakes with its right claw when it strikes, and throws up its
  * arm when it hurls a fireball. Each comes in four looks (lesser_demon_1.json to black_demon_4.json, drawn by
- * tools/models/demons.py), one picked at random for each demon when it is trained.
+ * tools/models/demons.py), one picked at random for each demon when it is trained, its eyes glowing.
  */
 public class ModelDemon extends ModelBiped {
 
@@ -67,6 +67,11 @@ public class ModelDemon extends ModelBiped {
     /** Draws it over again, on top of itself, for its team's color. */
     public void renderAgain(float scale) {
         model.render(scale);
+    }
+
+    /** Draws its eyes over again, glowing. */
+    public void renderGlow(float scale) {
+        model.renderGlow(scale);
     }
 
     @Override

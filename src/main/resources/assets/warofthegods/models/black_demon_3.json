@@ -754,7 +754,7 @@
     -3.0
    ],
    "rotation": [
-    0.18,
+    0.22,
     0.0,
     0.0
    ],
@@ -1114,6 +1114,59 @@
    ]
   },
   {
+   "name": "eyes",
+   "parent": "head",
+   "pivot": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rotation": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "glow": true,
+   "boxes": [
+    {
+     "uv": [
+      0,
+      0
+     ],
+     "from": [
+      -3,
+      -5,
+      -6.05
+     ],
+     "size": [
+      2,
+      1,
+      0
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    },
+    {
+     "uv": [
+      4,
+      0
+     ],
+     "from": [
+      1,
+      -5,
+      -6.05
+     ],
+     "size": [
+      2,
+      1,
+      0
+     ],
+     "inflate": 0.0,
+     "mirror": false
+    }
+   ]
+  },
+  {
    "name": "right_arm",
    "parent": "body",
    "pivot": [
@@ -1413,94 +1466,6 @@
    ]
   },
   {
-   "name": "right_elbows_spike0",
-   "parent": "right_forearm",
-   "pivot": [
-    0.0,
-    1.0,
-    2.0
-   ],
-   "rotation": [
-    -1.9,
-    0.0,
-    0.0
-   ],
-   "glow": false,
-   "boxes": [
-    {
-     "uv": [
-      0,
-      0
-     ],
-     "from": [
-      -1,
-      -2,
-      -1
-     ],
-     "size": [
-      2,
-      2,
-      2
-     ],
-     "inflate": -0.1,
-     "mirror": false
-    },
-    {
-     "uv": [
-      32,
-      0
-     ],
-     "from": [
-      -0.5,
-      -4,
-      -0.5
-     ],
-     "size": [
-      1,
-      2,
-      1
-     ],
-     "inflate": -0.05,
-     "mirror": false
-    }
-   ]
-  },
-  {
-   "name": "right_wrists_band0",
-   "parent": "right_forearm",
-   "pivot": [
-    0.0,
-    0.0,
-    0.0
-   ],
-   "rotation": [
-    0.0,
-    0.0,
-    0.0
-   ],
-   "glow": false,
-   "boxes": [
-    {
-     "uv": [
-      108,
-      0
-     ],
-     "from": [
-      -2,
-      5.5,
-      -2
-     ],
-     "size": [
-      4,
-      2,
-      4
-     ],
-     "inflate": 0.35,
-     "mirror": false
-    }
-   ]
-  },
-  {
    "name": "left_arm",
    "parent": "body",
    "pivot": [
@@ -1795,94 +1760,6 @@
       1
      ],
      "inflate": 0.0,
-     "mirror": false
-    }
-   ]
-  },
-  {
-   "name": "left_elbows_spike0",
-   "parent": "left_forearm",
-   "pivot": [
-    0.0,
-    1.0,
-    2.0
-   ],
-   "rotation": [
-    -1.9,
-    0.0,
-    0.0
-   ],
-   "glow": false,
-   "boxes": [
-    {
-     "uv": [
-      36,
-      0
-     ],
-     "from": [
-      -1,
-      -2,
-      -1
-     ],
-     "size": [
-      2,
-      2,
-      2
-     ],
-     "inflate": -0.1,
-     "mirror": false
-    },
-    {
-     "uv": [
-      63,
-      0
-     ],
-     "from": [
-      -0.5,
-      -4,
-      -0.5
-     ],
-     "size": [
-      1,
-      2,
-      1
-     ],
-     "inflate": -0.05,
-     "mirror": false
-    }
-   ]
-  },
-  {
-   "name": "left_wrists_band0",
-   "parent": "left_forearm",
-   "pivot": [
-    0.0,
-    0.0,
-    0.0
-   ],
-   "rotation": [
-    0.0,
-    0.0,
-    0.0
-   ],
-   "glow": false,
-   "boxes": [
-    {
-     "uv": [
-      109,
-      38
-     ],
-     "from": [
-      -2,
-      5.5,
-      -2
-     ],
-     "size": [
-      4,
-      2,
-      4
-     ],
-     "inflate": 0.35,
      "mirror": false
     }
    ]
@@ -2820,41 +2697,6 @@
    ]
   },
   {
-   "name": "right_ankles_band0",
-   "parent": "right_foot",
-   "pivot": [
-    0.0,
-    0.0,
-    0.0
-   ],
-   "rotation": [
-    0.0,
-    0.0,
-    0.0
-   ],
-   "glow": false,
-   "boxes": [
-    {
-     "uv": [
-      86,
-      0
-     ],
-     "from": [
-      -1.5,
-      2.5,
-      -1.5
-     ],
-     "size": [
-      3,
-      2,
-      3
-     ],
-     "inflate": 0.35,
-     "mirror": false
-    }
-   ]
-  },
-  {
    "name": "left_leg",
    "parent": null,
    "pivot": [
@@ -3095,41 +2937,6 @@
       2
      ],
      "inflate": 0.0,
-     "mirror": false
-    }
-   ]
-  },
-  {
-   "name": "left_ankles_band0",
-   "parent": "left_foot",
-   "pivot": [
-    0.0,
-    0.0,
-    0.0
-   ],
-   "rotation": [
-    0.0,
-    0.0,
-    0.0
-   ],
-   "glow": false,
-   "boxes": [
-    {
-     "uv": [
-      114,
-      6
-     ],
-     "from": [
-      -1.5,
-      2.5,
-      -1.5
-     ],
-     "size": [
-      3,
-      2,
-      3
-     ],
-     "inflate": 0.35,
      "mirror": false
     }
    ]
