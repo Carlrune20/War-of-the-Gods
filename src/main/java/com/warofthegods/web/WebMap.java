@@ -246,6 +246,9 @@ public final class WebMap {
             if (kind.requiredUpgrade() != null) {
                 kindJson.addProperty("requires", kind.requiredUpgrade().id);
             }
+            if (kind.age() > 1) {
+                kindJson.addProperty("age", kind.age());
+            }
             unitKinds.add(kind.id, kindJson);
         }
         json.add("unitKinds", unitKinds);
@@ -425,6 +428,15 @@ public final class WebMap {
                 json.add("upgrades", upgrades);
                 if (team.isRevealed()) {
                     json.addProperty("revealed", true);
+                }
+                double[] eye = world == null ? null : team.getEye(world.getTotalWorldTime());
+                if (eye != null) {
+                    // Where Armadyl's eye watches for the team, and how far round.
+                    JsonObject eyeJson = new JsonObject();
+                    eyeJson.addProperty("x", round(eye[0]));
+                    eyeJson.addProperty("z", round(eye[1]));
+                    eyeJson.addProperty("radius", Buildings.EYE_RADIUS);
+                    json.add("eye", eyeJson);
                 }
                 if (team.isAi()) {
                     // "full" or "economy": how much of the team the computer plays.

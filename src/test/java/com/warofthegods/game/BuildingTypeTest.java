@@ -117,4 +117,17 @@ class BuildingTypeTest {
         assertEquals("Tier I", BuildingType.ageName(1));
         assertEquals("Tier III", BuildingType.ageName(3));
     }
+
+    @Test
+    void armadylBuildsTowerHousesAndARoostButNoStables() {
+        assertFalse(BuildingType.HOUSE.buildableBy(Faction.ARMADYL));
+        assertFalse(BuildingType.STABLES.buildableBy(Faction.ARMADYL));
+        assertTrue(BuildingType.TOWER_HOUSE.buildableBy(Faction.ARMADYL));
+        assertTrue(BuildingType.ROOST.buildableBy(Faction.ARMADYL));
+        assertFalse(BuildingType.ROOST.buildableBy(Faction.ZAMORAK));
+        assertEquals(4, BuildingType.ROOST.minHeight());
+        assertEquals(0, BuildingType.HOUSE.minHeight());
+        assertTrue(BuildingType.ARMADYL_EYRIE.isFortress());
+        assertTrue(BuildingType.ARMADYL_EYRIE.trains.contains(UnitKind.KREEARRA));
+    }
 }

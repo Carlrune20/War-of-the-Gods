@@ -53,6 +53,7 @@ import com.warofthegods.shop.Shop;
 import com.warofthegods.unit.EntityTeamArrow;
 import com.warofthegods.unit.EntityTrebuchetStone;
 import com.warofthegods.unit.EntityUnit;
+import com.warofthegods.unit.Justice;
 import com.warofthegods.unit.Units;
 import com.warofthegods.web.WebMap;
 import com.warofthegods.world.GameWorld;
@@ -72,6 +73,11 @@ public final class Buildings {
 
     /** Ticks between looking over all buildings. */
     private static final int INTERVAL = 10;
+    /** Armadyl's eye: what each look costs in favor, how far round its spot it sees, for how long, how often. */
+    public static final int EYE_FAVOR = 3;
+    public static final double EYE_RADIUS = 24;
+    public static final int EYE_TICKS = 200;
+    public static final int EYE_COOLDOWN = 6000;
     /** Blocks from a gate's middle within which the team's own people and its allies open it. */
     private static final double GATE_REACH = 7;
     /** Blocks kept free between buildings. */
@@ -197,6 +203,7 @@ public final class Buildings {
         train(game);
         harvest(game);
         worship(game, world);
+        glowEyes(game, world);
         research(game);
         shoot(game, world);
         gates(game, world);
@@ -396,6 +403,16 @@ public final class Buildings {
      * half the size, rounded down.
      */
     public Plan plan(Game game, WorldServer world, BuildingType type, int centerX, int centerZ, int rotation) {
+        return plan(game, world, type, centerX, centerZ, rotation, null);
+    }
+
+    /**
+     * As {@link #plan(Game, WorldServer, BuildingType, int, int, int)}, for a team of the faction: Armadyl's teams
+     * build
+     * on ground twice as steep as others, their foundations filling the slope. Null for any god's rules.
+     */
+    public Plan plan(Game game, WorldServer world, BuildingType type, int centerX, int centerZ, int rotation,
+        Faction faction) {
         rotation &= 3;
         Schematic schematic = schematic(type);
         if (type == BuildingType.TOWN_HALL) {
@@ -466,11 +483,14 @@ public final class Buildings {
         String problem = null;
         if (site.water > MAX_WATER) {
             problem = "That is too wet to build on";
-        } else if (site.slope > MAX_SLOPE) {
+        } else if (site.slope > (faction == Faction.ARMADYL ? MAX_SLOPE * 2 : MAX_SLOPE)) {
             problem = "That ground is too steep";
         } else if (site.groundY - schematic.ground < 1 || site.groundY - schematic.ground + schematic.height > 255) {
             problem = "That is too high or too low";
-        }
+        } else if (type.minHeight() > 0
+            && Heights.at(world, minX + sizeX / 2.0, minZ + sizeZ / 2.0, site.groundY) < type.minHeight()) {
+                problem = "A " + type.displayName.toLowerCase() + " has to stand on a hill or a cliff edge";
+            }
         return new Plan(type, minX, minZ, sizeX, sizeZ, rotation, site.groundY, problem);
     }
 
@@ -577,7 +597,7 @@ public final class Buildings {
                 double angle = 2 * Math.PI * step / 16;
                 int x = cx + (int) Math.round(Math.cos(angle) * ring);
                 int z = cz + (int) Math.round(Math.sin(angle) * ring);
-                Plan plan = plan(game, world, type, x, z, step / 4);
+                Plan plan = plan(game, world, type, x, z, step / 4, team.getFaction());
                 if (plan.problem == null) {
                     return plan;
                 }
@@ -862,8 +882,13 @@ public final class Buildings {
                         continue;
                     }
                     unit.pray(temple);
-                    seconds = unit.getKind() == UnitKind.GOBLIN_PRIEST ? Config.goblinPriestFavorSeconds
-                        : Config.priestFavorSeconds;
+                    if (unit.getKind() == UnitKind.ARMADYL_PRIEST) {
+                        seconds = Heights.isHigh(world, temple) ? Config.armadylPriestHighFavorSeconds
+                            : Config.armadylPriestFavorSeconds;
+                    } else {
+                        seconds = unit.getKind() == UnitKind.GOBLIN_PRIEST ? Config.goblinPriestFavorSeconds
+                            : Config.priestFavorSeconds;
+                    }
                 } else {
                     continue;
                 }
@@ -881,13 +906,39 @@ public final class Buildings {
         }
     }
 
-    /** The finished temple of its team and god a priest stands idle by, chaos or Bandos, or null. */
+    /** A glowing eye over each spot Armadyl's eye watches, so the team watched can see it is being scouted. */
+    private static void glowEyes(Game game, WorldServer world) {
+        long now = world.getTotalWorldTime();
+        for (Team team : game.getTeams()) {
+            double[] eye = team.getEye(now);
+            if (eye == null) {
+                continue;
+            }
+            double y = world.getHeightValue((int) Math.floor(eye[0]), (int) Math.floor(eye[1])) + 8;
+            for (int i = 0; i < 16; i++) {
+                double angle = 2 * Math.PI * i / 16;
+                world.func_147487_a(
+                    "magicCrit",
+                    eye[0] + Math.cos(angle) * 2,
+                    y + Math.sin(angle),
+                    eye[1],
+                    1,
+                    0,
+                    0,
+                    0,
+                    0);
+            }
+            world.func_147487_a("enchantmenttable", eye[0], y, eye[1], 12, 0.3, 0.3, 0.3, 0.5);
+        }
+    }
+
+    /** The finished temple of its team and god a priest stands idle by, chaos, Bandos or Armadyl, or null. */
     private static Building templeOf(Game game, EntityUnit priest) {
         if (priest.getOrder() != EntityUnit.Order.IDLE) {
             return null;
         }
         BuildingType temple = priest.getKind() == UnitKind.GOBLIN_PRIEST ? BuildingType.BANDOS_TEMPLE
-            : BuildingType.CHAOS_TEMPLE;
+            : priest.getKind() == UnitKind.ARMADYL_PRIEST ? BuildingType.ARMADYL_TEMPLE : BuildingType.CHAOS_TEMPLE;
         for (Building building : game.getBuildings()) {
             if (building.type == temple && building.isComplete()
                 && building.team.equals(priest.getTeamId())
@@ -1642,6 +1693,12 @@ public final class Buildings {
             if (team.has(Upgrade.GUARD_TOWER)) {
                 range += Config.guardTowerRange;
             }
+            if (team.getFaction() == Faction.ARMADYL && Heights.isHigh(GameWorld.getWorld(), building)) {
+                range += Config.highTowerRange;
+            }
+            if (team.has(Upgrade.KEEN_SIGHT)) {
+                range += 2;
+            }
         }
         return team.has(Upgrade.FLETCHING) ? range + 4 : range;
     }
@@ -1665,7 +1722,7 @@ public final class Buildings {
                 double out = 14 + step * 2;
                 int x = (int) Math.round(center.getCenterX() + signX * (center.sizeX / 2.0 + out));
                 int z = (int) Math.round(center.getCenterZ() + signZ * (center.sizeZ / 2.0 + out));
-                plan = plan(game, world, BuildingType.TOWER, x, z, center.rotation);
+                plan = plan(game, world, BuildingType.TOWER, x, z, center.rotation, team.getFaction());
             }
             if (plan.problem != null) {
                 continue;
@@ -1737,6 +1794,9 @@ public final class Buildings {
             WorldServer world = DimensionManager.getWorld(GameWorld.dimensionId());
             AttackAlerts.get()
                 .buildingAttacked(game, building, attacker, world == null ? 0 : world.getTotalWorldTime());
+        }
+        if (attacker != null && amount > 0) {
+            Justice.buildingHit(game, building, attacker);
         }
         if (building.damage(amount)) {
             destroy(game, building, cause);

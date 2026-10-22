@@ -1061,7 +1061,7 @@ public class CommandRts extends CommandBase {
             int z = MathHelper.floor_double(coordinate(sender, args[3], false));
             int rotation = args.length > 4 ? parseIntBounded(sender, args[4], 0, 3) : 0;
             plan = Buildings.get()
-                .plan(game, world, type, x, z, rotation);
+                .plan(game, world, type, x, z, rotation, team.getFaction());
             if (plan.problem != null) {
                 throw new CommandException(plan.problem);
             }

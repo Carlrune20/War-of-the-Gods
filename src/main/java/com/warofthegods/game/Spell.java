@@ -4,7 +4,8 @@ import net.minecraft.potion.Potion;
 
 /**
  * The spells wizards and mages cast: the four elemental strikes, which hurt, fire setting the target alight too, and
- * the curses, which hurt no one but weaken an enemy for a few seconds, so it hits softer, or confuse it with nausea.
+ * Armadyl's wind throwing it back, and the curses, which hurt no one but weaken an enemy for a few seconds, so it hits
+ * softer, or confuse it with nausea.
  * Ids are sent to clients by ordinal, so only append new values.
  */
 public enum Spell {
@@ -21,7 +22,12 @@ public enum Spell {
      * A lesser demon's fireball: a great ball of flame that bursts where it lands, burning whoever it hits and the
      * caster's enemies round them, but no blocks. Wizards do not cast it.
      */
-    FIREBALL("fireball", "Fireball", 10, 0, 0, "flame", 0xFF5A14);
+    FIREBALL("fireball", "Fireball", 10, 0, 0, "flame", 0xFF5A14),
+    /**
+     * Armadyl's wind strike, cast by aviansie mages and Wingman Skree: a gust that hurts and throws whoever it hits
+     * back a little. Wizards do not cast it.
+     */
+    WIND("wind", "Wind strike", 6, 0, 0, "cloud", 0xC8F0FF);
 
     /** The spells wizards cast, picking among them. */
     public static final Spell[] WIZARD_SPELLS = { AIR, WATER, EARTH, FIRE, WEAKEN, CONFUSE };

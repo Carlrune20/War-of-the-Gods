@@ -13,7 +13,9 @@ import java.util.Map;
  * and swords their iron ones, plate armor padded armor, fire arrows fletching, guard towers watch towers and tunnel
  * mining, which lets workers dig quarries, runite pickaxes. Siege weapons at the armory let a stronghold build
  * trebuchets. Each is
- * researched once and lasts the game. Ids are stored in save data, so only add new values.
+ * researched once and lasts the game. Armadyl's teams research his eye and keen sight at the observatory, updrafts at
+ * the roost, his armour for aviansie at the eyrie, divine law at his temple and his crossbows at the armory. Ids are
+ * stored in save data, so only add new values.
  */
 public enum Upgrade {
 
@@ -76,7 +78,23 @@ public enum Upgrade {
         BuildingType.ARMORY, 3, null, 300, 600, 600, 90),
     ARMED_GOBLINS("armed_goblins", "Armed goblins",
         "Goblins carry axes: they hit as hard as their swords upgrades let them, and hit buildings three times as hard",
-        BuildingType.TOWN_HALL, 2, null, 50, 75, 0, 25);
+        BuildingType.TOWN_HALL, 2, null, 50, 75, 0, 25),
+    ARMADYLS_EYE("armadyls_eye", "Armadyl's eye",
+        "The observatory can show a far spot of the map for 10 seconds, once every 5 minutes, for 3 favor a look; "
+            + "the team watched sees the eye",
+        BuildingType.OBSERVATORY, 3, null, 0, 200, 300, 60),
+    KEEN_SIGHT("keen_sight", "Keen sight", "Archers and towers see and shoot 2 farther", BuildingType.OBSERVATORY, 2,
+        null, 150, 0, 150, 40),
+    UPDRAFTS("updrafts", "Updrafts", "Aviansie fly a quarter faster", BuildingType.ROOST, 2, null, 200, 0, 200, 5, 45),
+    ARMADYL_ARMOUR("armadyl_armour", "Armadyl armour",
+        "Aviansie wear Armadyl armour, white and teal with gold trim, and have half again as much health",
+        BuildingType.ARMADYL_EYRIE, 3, null, 400, 0, 600, 15, 90),
+    ARMADYL_CROSSBOWS("armadyl_crossbows", "Armadyl crossbows",
+        "Archers carry Armadyl crossbows and shoot 2 harder, as fast as before", BuildingType.ARMORY, 3, null, 0, 300,
+        400, 60),
+    DIVINE_LAW("divine_law", "Divine law",
+        "Armadyl grants favor for slaying anyone who attacked your team in the last 60 seconds, not 30",
+        BuildingType.ARMADYL_TEMPLE, 3, null, 300, 0, 300, 60);
 
     public final String id;
     public final String displayName;
@@ -119,6 +137,9 @@ public enum Upgrade {
 
     /** The only faction whose teams research it, or null when every team can. */
     public Faction faction() {
+        if (this == ARMADYL_CROSSBOWS) {
+            return Faction.ARMADYL;
+        }
         return this == ARMED_GOBLINS ? Faction.BANDOS : at.faction();
     }
 

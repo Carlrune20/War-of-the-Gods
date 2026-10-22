@@ -297,6 +297,10 @@
     const PLAYER_SIGHT = 48;
     const BUILDING_SIGHT = 40;
     const LOOKOUT_SIGHT = 60;
+    // Armadyl's fliers see farther than units on the ground, and his observatory farther than a watch tower.
+    const FLIER_SIGHT = UNIT_SIGHT + 12;
+    const OBSERVATORY_SIGHT = LOOKOUT_SIGHT * 2;
+    const FLIERS = new Set(["aviansie_ranger", "aviansie_warrior", "aviansie_mage", "kilisa", "geerin", "skree", "kreearra"]);
     const FOG_INTERVAL_MS = 250;
     const FOG_SAVE_MS = 5000;
 
@@ -448,7 +452,7 @@
             const visible = new Uint8Array(fog.explored.length);
             for (const u of message.units || []) {
                 if (friends.has(u.team)) {
-                    fogSee(visible, u.x, u.z, UNIT_SIGHT);
+                    fogSee(visible, u.x, u.z, FLIERS.has(u.kind) ? FLIER_SIGHT : UNIT_SIGHT);
                 }
             }
             for (const p of message.players || []) {
@@ -459,9 +463,13 @@
             for (const b of message.buildings || []) {
                 if (friends.has(b.team)) {
                     const lookout = b.complete && (b.type === "tower" || b.type === "town_hall" || b.range > 0);
-                    fogSee(visible, b.x + b.sizeX / 2, b.z + b.sizeZ / 2,
-                        (lookout ? LOOKOUT_SIGHT : BUILDING_SIGHT) + Math.max(b.sizeX, b.sizeZ) / 2);
+                    const sight = b.complete && b.type === "observatory" ? OBSERVATORY_SIGHT
+                        : lookout ? LOOKOUT_SIGHT : BUILDING_SIGHT;
+                    fogSee(visible, b.x + b.sizeX / 2, b.z + b.sizeZ / 2, sight + Math.max(b.sizeX, b.sizeZ) / 2);
                 }
+            }
+            if (team.eye) {
+                fogSee(visible, team.eye.x, team.eye.z, team.eye.radius);
             }
             let changed = false;
             for (let i = 0; i < visible.length; i++) {
@@ -1296,9 +1304,11 @@
             // Some need an upgrade first, as a trebuchet needs siege weapons.
             const needed = kind.requires && !(team.upgrades || []).includes(kind.requires)
                 ? (state.game.upgrades || {})[kind.requires] || {name: kind.requires} : null;
+            const tooEarly = (kind.age || 1) > (team.age || 1);
             const train = squareButton("face/" + team.faction + "/" + kindId, kindId,
                 kind.name + " (" + costText(kind.cost) + ")\n"
                 + (needed ? "Needs " + needed.name + ": research it first"
+                    : tooEarly ? "Needs Age " + "I".repeat(kind.age) + " first"
                     : heroTaken ? kind.name + " is already with your team; train him again once he falls"
                     : full ? (team.population < state.game.unitsPerTeam ? "Build houses to house more units"
                         : "Your team has the most units it can have")
@@ -1314,7 +1324,7 @@
                             + (buildings > 1 ? " at " + buildings + " buildings" : ""));
                     }
                 });
-            train.disabled = !!needed || heroTaken || full || !canAfford(team, kind.cost)
+            train.disabled = !!needed || tooEarly || heroTaken || full || !canAfford(team, kind.cost)
                 || !trainers.some((b) => (b.queue || []).length < 10);
             const waiting = trainers.reduce((n, b) => n + (b.queue || []).filter((k) => k === kindId).length, 0);
             actions.append(withBadge(train, waiting ? String(waiting) : ""));
@@ -1331,6 +1341,9 @@
                 b.classList.add("small");
                 actions.append(i === 0 ? withBar(b, "") : b);
             });
+        }
+        if (building.type === "observatory" && building.complete && (team.upgrades || []).includes("armadyls_eye")) {
+            actions.append(el("span", "note", "Right-click to open Armadyl's eye there (3 favor)"));
         }
         if ((type.trains || []).length) {
             const n = rallyGroups.get(building.id);
@@ -2146,7 +2159,9 @@
             if (state.selected.size) {
                 order(px, py, hit, shift);
             } else if (button === 2 && state.selectedBuildings.size) {
-                setRally(px, py, hit);
+                if (!openEye(px, py, hit)) {
+                    setRally(px, py, hit);
+                }
             }
             return;
         }
@@ -2346,6 +2361,34 @@
             }
         }
         return null;
+    }
+
+    // A selected finished observatory of a team that has Armadyl's eye, or null.
+    function eyeObservatory() {
+        const team = myTeam();
+        if (!team || !(team.upgrades || []).includes("armadyls_eye")) {
+            return null;
+        }
+        return selectedBuildingList().find((b) => b.type === "observatory" && b.complete && b.team === team.id) || null;
+    }
+
+    // Right-click with an observatory selected, once the team has Armadyl's eye: it looks there.
+    function openEye(px, py, hit) {
+        const observatory = eyeObservatory();
+        if (!observatory) {
+            return false;
+        }
+        const ground = hit ? [hit.thing.drawX, hit.thing.drawY, hit.thing.drawZ] : groundUnder(px, py);
+        if (ground) {
+            orderMark = {x: ground[0], y: ground[1], z: ground[2], color: [0.6, 0.9, 0.95, 1], time: performance.now()};
+            send("buildings.eye", {building: observatory.id, x: ground[0], z: ground[2]}).then((reply) => {
+                if (reply) {
+                    showToast("Armadyl's eye opens");
+                }
+            });
+            view.dirty = true;
+        }
+        return true;
     }
 
     // Right-click with buildings selected: their new units go there, or join the control group of the unit clicked.

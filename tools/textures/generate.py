@@ -904,7 +904,7 @@ def shade_of(color, factor):
 
 # Armadyl's skins, by the name of the unit that wears them; written only for Armadyl, whose units have their own.
 ARMADYL_SKINS = ((follower, "worker"), (armadyl_warrior, "soldier"), (armadyl_archer, "archer"),
-                 (armadyl_priest, "priest"), (guardian, "guardian"))
+                 (armadyl_priest, "armadyl_priest"), (guardian, "guardian"))
 
 
 def tradigee(faction):

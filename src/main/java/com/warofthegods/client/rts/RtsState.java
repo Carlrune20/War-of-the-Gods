@@ -34,6 +34,8 @@ public final class RtsState {
         public final List<String> factions = new ArrayList<>();
         /** The upgrade a team has to research before training it, or null. */
         public String requires;
+        /** The age a team has to be in to train it. */
+        public int age = 1;
 
         public boolean trainableBy(String faction) {
             return factions.isEmpty() || factions.contains(faction);
@@ -128,6 +130,8 @@ public final class RtsState {
         public boolean revealed;
         /** "full" or "economy" while the computer plays the team, else null. */
         public String ai;
+        /** Where Armadyl's eye watches for the team, as x, z, radius; null while it is closed. */
+        public double[] eye;
     }
 
     /** Something with a place in the world: a unit, player or mob. */
@@ -180,6 +184,14 @@ public final class RtsState {
         /** Whether it builds: a worker or slave, or one of Bandos's goblins, who fight too. */
         public boolean canBuild() {
             return isWorker() || "goblin".equals(kind) || "goblin_thrower".equals(kind);
+        }
+
+        /** Whether it flies: an aviansie, or one of Armadyl's heroes. */
+        public boolean flies() {
+            return kind != null && (kind.startsWith("aviansie_") || "kilisa".equals(kind)
+                || "geerin".equals(kind)
+                || "skree".equals(kind)
+                || "kreearra".equals(kind));
         }
 
         public boolean isTrebuchet() {
@@ -331,6 +343,7 @@ public final class RtsState {
             kindInfo.hero = bool(kind, "hero");
             kindInfo.animal = bool(kind, "animal");
             kindInfo.requires = kind.has("requires") ? string(kind, "requires") : null;
+            kindInfo.age = kind.has("age") ? integer(kind, "age") : 1;
             for (JsonElement faction : array(kind, "factions")) {
                 kindInfo.factions.add(faction.getAsString());
             }
@@ -461,6 +474,10 @@ public final class RtsState {
             info.defeated = team.has("defeated");
             info.countdown = team.has("countdown") ? integer(team, "countdown") : -1;
             info.revealed = bool(team, "revealed");
+            if (team.has("eye")) {
+                JsonObject eye = team.getAsJsonObject("eye");
+                info.eye = new double[] { number(eye, "x"), number(eye, "z"), number(eye, "radius") };
+            }
             info.ai = team.has("ai") ? string(team, "ai") : null;
             teams.add(info);
             teamsById.put(info.id, info);

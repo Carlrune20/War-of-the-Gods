@@ -4,14 +4,16 @@ import net.minecraft.util.EnumChatFormatting;
 
 /**
  * Whose god a team follows, which decides how its buildings and units look. Saradomin's people build plain, human
- * stone and timber; Zamorak's build dark and sinister; Bandos's goblins heap up ugly cobblestone and dig caves. Ids
- * are stored in save data, so only add new values.
+ * stone and timber; Zamorak's build dark and sinister; Bandos's goblins heap up ugly cobblestone and dig caves;
+ * Armadyl's people build tall in white stone, on high ground, and his aviansie fly. Ids are stored in save data, so
+ * only add new values.
  */
 public enum Faction {
 
     SARADOMIN("saradomin", "Saradomin"),
     ZAMORAK("zamorak", "Zamorak"),
-    BANDOS("bandos", "Bandos");
+    BANDOS("bandos", "Bandos"),
+    ARMADYL("armadyl", "Armadyl");
 
     public final String id;
     public final String displayName;
@@ -21,9 +23,12 @@ public enum Faction {
         this.displayName = displayName;
     }
 
-    /** Red and the dark colors follow Zamorak, the greens Bandos, every other color Saradomin. */
+    /** Red and the dark colors follow Zamorak, the greens Bandos, the teals Armadyl, every other color Saradomin. */
     public static Faction forColor(EnumChatFormatting color) {
         switch (color) {
+            case AQUA:
+            case DARK_AQUA:
+                return ARMADYL;
             case GREEN:
             case DARK_GREEN:
                 return BANDOS;

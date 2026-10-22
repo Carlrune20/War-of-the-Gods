@@ -62,7 +62,8 @@ public class RenderUnit extends RenderBiped {
     static {
         for (UnitKind kind : UnitKind.values()) {
             if (kind.creatureModel() != null) {
-                String[] looks = kind.showsArmor() ? new String[] { "", "_padded", "_plate" } : new String[] { "" };
+                String[] looks = kind.showsArmor() ? new String[] { "", "_padded", "_plate" }
+                    : kind.eliteUpgrade() != null ? new String[] { "", "_elite" } : new String[] { "" };
                 for (String look : looks) {
                     String name = kind.id + look;
                     CREATURE.put(name, new ResourceLocation(WarOfTheGods.MODID, "textures/models/" + name + ".png"));
@@ -74,11 +75,16 @@ public class RenderUnit extends RenderBiped {
     }
 
     /**
-     * The name of the texture one of Bandos's creatures is drawn with: a goblin or hobgoblin wearing its team's armor,
-     * which the server puts on it as it does on a warrior, is drawn in padded or plate armor of its own instead.
+     * The name of the texture one of Bandos's creatures or Armadyl's aviansie is drawn with: a goblin or hobgoblin
+     * wearing its team's armor, which the server puts on it as it does on a warrior, is drawn in padded or plate armor
+     * of its own instead, and an aviansie whose team has Armadyl armour in that.
      */
     private static String creatureTexture(EntityUnit unit) {
         UnitKind kind = unit.getWatchedKind();
+        // Aviansie in Armadyl armour.
+        if (kind.eliteUpgrade() != null && unit.isWatchedElite()) {
+            return kind.id + "_elite";
+        }
         ItemStack chest = kind.showsArmor() ? unit.getEquipmentInSlot(3) : null;
         if (chest != null && chest.getItem() == Items.iron_chestplate) {
             return kind.id + "_plate";
@@ -119,7 +125,7 @@ public class RenderUnit extends RenderBiped {
     static {
         for (Faction faction : Faction.values()) {
             for (UnitKind kind : UnitKind.values()) {
-                if (kind.eliteUpgrade() != null && !kind.hasOwnModel()) {
+                if (kind.eliteUpgrade() != null && !kind.hasOwnModel() && kind.creatureModel() == null) {
                     ELITE_SKINS.put(
                         faction.id + "_" + kind.id,
                         new ResourceLocation(

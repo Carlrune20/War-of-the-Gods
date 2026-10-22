@@ -50,6 +50,10 @@ public class Team {
     private boolean aiEconomy;
     /** Whether the whole map has been shown to the team, as though explored, for testing. */
     private boolean revealed;
+    /** Where Armadyl's eye watches for the team, until when, and when it can open again; not saved. */
+    private double[] eye;
+    private long eyeUntil;
+    private long eyeReadyAt;
 
     Team(Game game, String name, EnumChatFormatting color) {
         this.game = game;
@@ -182,6 +186,23 @@ public class Team {
     public void setRevealed(boolean revealed) {
         this.revealed = revealed;
         game.changed();
+    }
+
+    /** Where Armadyl's eye watches for the team at the world time, as x, z; null while it is closed. */
+    public double[] getEye(long now) {
+        return eye != null && now < eyeUntil ? eye : null;
+    }
+
+    /** The world time Armadyl's eye can open again for the team. */
+    public long getEyeReadyAt() {
+        return eyeReadyAt;
+    }
+
+    /** Opens Armadyl's eye over x, z for so many ticks, after which it stays shut for the rest of the cooldown. */
+    public void openEye(double x, double z, long now, int ticks, int cooldown) {
+        eye = new double[] { x, z };
+        eyeUntil = now + ticks;
+        eyeReadyAt = now + cooldown;
     }
 
     public String getColoredName() {

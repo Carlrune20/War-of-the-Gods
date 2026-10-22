@@ -151,11 +151,12 @@ Nothing else hostile spawns. All of this can be changed in the config (see [Host
 
 ## Teams and gods
 
-Every team follows a god: Saradomin, Zamorak or Bandos. Ops pick each team's god in the lobby, clicking the god's
-button to go through them. `/rts quickgame` shares the gods out in turn: red Zamorak, blue Saradomin, green Bandos. A
-team made with `/rts team create` follows Zamorak if its colour is red or dark, Bandos if it is green, and Saradomin
-otherwise. An op can change it at any time with `/rts team faction`. Bandos's teams play differently; see
-[Bandos](buildings-and-units.md#bandos).
+Every team follows a god: Saradomin, Zamorak, Bandos or Armadyl. Ops pick each team's god in the lobby, clicking the
+god's button to go through them. `/rts quickgame` shares the gods out in turn: red Zamorak, blue Saradomin, green
+Bandos, then Armadyl. A team made with `/rts team create` follows Zamorak if its colour is red or dark, Bandos if it
+is green, Armadyl if it is aqua or dark aqua, and Saradomin otherwise. An op can change it at any time with
+`/rts team faction`. Bandos's and Armadyl's teams play differently; see [Bandos](buildings-and-units.md#bandos) and
+[Armadyl](buildings-and-units.md#armadyl).
 
 Each god's buildings change with the tiers:
 
@@ -166,6 +167,7 @@ Each god's buildings change with the tiers:
   temple and the military buildings. They have dark oak roofs.
 - **Bandos's goblins** build ugly and in a hurry: heaps of cobblestone and mossy cobble propped up with dark wood,
   with more cracked and mossy stone brick in later tiers.
+- **Armadyl's towns** are eyries of white stone brick, quartz and birch, built tall on hills and cliff edges.
 
 Each god's banners hang on its buildings: Saradomin's star in white on blue or blue on white, and Zamorak's mark in red
 on black or black on red. Zamorak's buildings have plain wooden doors anyone can open, so players can walk into the

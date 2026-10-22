@@ -21,6 +21,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemArmor;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.pathfinding.PathNavigate;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.IIcon;
@@ -236,6 +237,12 @@ public class EntityUnit extends EntityCreature {
     /** Health and damage an Elite Black Knight or a Justiciar has over a plain knight. */
     private static final int ELITE_HEALTH = 20;
     private static final int ELITE_DAMAGE = 3;
+    /** How much tougher Armadyl's armour makes an aviansie. */
+    private static final double ARMOUR_HEALTH_FACTOR = 1.5;
+    /** How far round where Skree's spells land they hit. */
+    private static final double SKREE_SPLASH = 2;
+    /** How far below it a target has to be for an archer of Armadyl or an aviansie ranger to shoot it from above. */
+    private static final double HIGH_SHOT = 4;
     /** What an unarmed goblin's punch does to a unit, half a warrior's blow before upgrades. */
     private static final double PUNCH_DAMAGE = 0.5;
     /** Times less an unarmed goblin's punch does to a building than an armed goblin's axe. */
@@ -538,6 +545,10 @@ public class EntityUnit extends EntityCreature {
      */
     private Item tool() {
         Team team = team();
+        // Aviansie and Armadyl's heroes carry the bow, sword or staff their model has in hand.
+        if (kind.flies()) {
+            return null;
+        }
         // Blue wizards hold a staff, Zamorak mages Zamorak's own and dark wizards nothing, casting from bare hands;
         // priests and monks a holy book; a demon its claws, and a centaur the bow its model has in hand.
         if (kind.isCaster()) {
@@ -561,7 +572,10 @@ public class EntityUnit extends EntityCreature {
             return AXES[tier(team, Upgrade.FORGED_BLADES, Upgrade.TEMPERED_STEEL)];
         }
         if (kind.ranged) {
-            return Items.bow;
+            // Armadyl's archers shoot his crossbows once their team has them.
+            return kind == UnitKind.ARCHER && team != null && team.has(Upgrade.ARMADYL_CROSSBOWS)
+                ? WarOfTheGods.armadylCrossbow
+                : Items.bow;
         }
         if (kind == UnitKind.TRADIGEE) {
             return Items.diamond_sword;
@@ -600,7 +614,9 @@ public class EntityUnit extends EntityCreature {
     /** Keeps name, skin and strength in step with the team's name, color, faction and upgrades. */
     void updateTeam(Team team) {
         // Just the unit's name, such as Goblin; the team color on the tag already says whose it is.
-        String name = team.getColor() + (kind.hero ? kind.displayName : kind.eliteName(eliteTier(kind, team)));
+        int tier = eliteTier(kind, team);
+        String name = team.getColor()
+            + (kind.hero ? kind.displayName : tier > 0 ? kind.eliteName(tier) : kind.nameFor(team.getFaction()));
         // Logs and admin commands still tell units apart by team and number, as Red goblin 82.
         label = kind.hero ? kind.displayName
             : team.getName() + " "
@@ -651,6 +667,9 @@ public class EntityUnit extends EntityCreature {
         if (kind == UnitKind.LESSER_DEMON) {
             health += DEMON_HEALTH[tier];
             damage += DEMON_DAMAGE[tier];
+        } else if (tier > 0 && kind.eliteUpgrade() == Upgrade.ARMADYL_ARMOUR) {
+            // Armadyl's armour only guards; it does not hit harder.
+            health *= ARMOUR_HEALTH_FACTOR;
         } else if (tier > 0) {
             health += ELITE_HEALTH;
             damage += ELITE_DAMAGE;
@@ -1605,16 +1624,27 @@ public class EntityUnit extends EntityCreature {
             setPrayer(Prayer.always(kind));
         }
         drewThisTick = false;
+        landing = false;
+        if (diveTicks > 0) {
+            diveTicks--;
+        }
+        if (kind == UnitKind.KREEARRA) {
+            tickWingBeat();
+        }
         // Wedged in a block, as can happen when a building goes up round a unit or it is pushed into terrain: out
         // to the nearest open ground.
         // Wandering about on top of a tree's leaves, which it can walk on but not find its way down from, is as bad.
-        buriedTicks = isEntityInsideOpaqueBlock() || order != Order.CHOP && onLeaves() ? buriedTicks + 1 : 0;
+        buriedTicks = !kind.flies() && (isEntityInsideOpaqueBlock() || order != Order.CHOP && onLeaves())
+            ? buriedTicks + 1
+            : 0;
         if (buriedTicks >= 20) {
             buriedTicks = 0;
             rescue();
         }
         tickOrder();
-        watchStuck();
+        if (!kind.flies()) {
+            watchStuck();
+        }
         if (!drewThisTick && drawTicks > 0) {
             drawTicks = 0;
             setDrawing(false);
@@ -2281,6 +2311,9 @@ public class EntityUnit extends EntityCreature {
                 return;
             }
         }
+        if (kind.landsToFight() && building.distanceTo(posX, posZ) <= LAND_RANGE) {
+            landing = true;
+        }
         if (building.distanceTo(posX, posZ) <= buildingReach()) {
             getNavigator().clearPathEntity();
             getLookHelper().setLookPosition(building.getCenterX(), building.groundY + 1, building.getCenterZ(), 30, 30);
@@ -2337,10 +2370,28 @@ public class EntityUnit extends EntityCreature {
         return kind.ranged ? ARCHER_BUILDING_RANGE : Buildings.REACH;
     }
 
-    /** How far an archer shoots, with its team's upgrades. */
+    /** How far an archer shoots, with its team's upgrades; Armadyl's archers see and shoot farther. */
     double archerRange() {
         Team team = team();
-        return ARCHER_RANGE + kind.extraRange + (team != null && team.has(Upgrade.FLETCHING) ? 4 : 0);
+        double range = ARCHER_RANGE + kind.extraRange + (team != null && team.has(Upgrade.FLETCHING) ? 4 : 0);
+        if (team != null && team.getFaction() == Faction.ARMADYL && kind == UnitKind.ARCHER) {
+            range += 2;
+        }
+        if (team != null && team.has(Upgrade.KEEN_SIGHT)
+            && (kind == UnitKind.ARCHER || kind == UnitKind.AVIANSIE_RANGER)) {
+            range += 2;
+        }
+        return range;
+    }
+
+    /** Whether it is an archer of Armadyl or an aviansie ranger well above the target, to shoot farther and harder. */
+    private boolean shootsFromAbove(EntityLivingBase target) {
+        if (target == null || posY - target.posY < HIGH_SHOT) {
+            return false;
+        }
+        Team team = team();
+        return kind == UnitKind.AVIANSIE_RANGER
+            || kind == UnitKind.ARCHER && team != null && team.getFaction() == Faction.ARMADYL;
     }
 
     /** Range at which a guarding unit notices enemies: farther for archers, who shoot from where they stand. */
@@ -2352,7 +2403,8 @@ public class EntityUnit extends EntityCreature {
     private boolean inReach(EntityLivingBase target) {
         double distanceSq = getDistanceSq(target.posX, target.boundingBox.minY, target.posZ);
         if (kind.ranged) {
-            return distanceSq <= archerRange() * archerRange();
+            double range = archerRange() + (shootsFromAbove(target) ? 2 : 0);
+            return distanceSq <= range * range;
         }
         return distanceSq <= meleeReachSq(target, 1);
     }
@@ -2370,7 +2422,11 @@ public class EntityUnit extends EntityCreature {
         EntityTeamArrow arrow = new EntityTeamArrow(worldObj, this);
         arrow.aim(
             victim,
-            Config.archerDamage + kind.extraArrowDamage + (team != null && team.has(Upgrade.FLETCHING) ? 1 : 0));
+            Config.archerDamage + kind.extraArrowDamage
+                + (team != null && team.has(Upgrade.FLETCHING) ? 1 : 0)
+                + (kind == UnitKind.ARCHER && team != null && team.has(Upgrade.ARMADYL_CROSSBOWS) ? 2 : 0)
+                + (shootsFromAbove(victim) ? 1 : 0)
+                + (kind == UnitKind.KREEARRA && lieutenantLives() ? LIEUTENANT_BONUS : 0));
         arrow.setFlaming(team != null && team.has(Upgrade.FIRE_ARROWS));
         if (kind.throwsAxes()) {
             // An axe-thrower throws the axe in its hand, with a swing of its arm.
@@ -2390,6 +2446,10 @@ public class EntityUnit extends EntityCreature {
         float damage = spell.isCurse() ? 0
             : spell.damage + (kind == UnitKind.ZAMORAK_MAGE ? MAGE_EXTRA_DAMAGE : kind.extraArrowDamage);
         EntitySpell bolt = new EntitySpell(worldObj, this, teamId, spell, damage);
+        if (kind == UnitKind.SKREE) {
+            // Skree's gusts blow over everyone round where they land.
+            bolt.setSplash(SKREE_SPLASH);
+        }
         bolt.aim(victim);
         worldObj.spawnEntityInWorld(bolt);
         playSound(spell == Spell.FIRE ? "mob.ghast.fireball" : "random.fizz", 0.6F, 1.2F + rand.nextFloat() * 0.3F);
@@ -2491,7 +2551,23 @@ public class EntityUnit extends EntityCreature {
                 return;
             }
         }
-        if (kind.ranged && distanceSq <= archerRange() * archerRange() && getEntitySenses().canSee(current)) {
+        if (!kind.ranged && current instanceof EntityUnit && ((EntityUnit) current).isAirborne() && !isAirborne()) {
+            // Out of reach of its sword: let it go.
+            target = null;
+            targetId = null;
+            if (defending) {
+                backToPost();
+            } else {
+                nextAttack();
+            }
+            return;
+        }
+        if (kind.landsToFight() && Math.hypot(current.posX - posX, current.posZ - posZ) <= LAND_RANGE
+            && !(current instanceof EntityUnit && ((EntityUnit) current).isAirborne())) {
+            landing = true;
+        }
+        double reach = archerRange() + (shootsFromAbove(current) ? 2 : 0);
+        if (kind.ranged && distanceSq <= reach * reach && getEntitySenses().canSee(current)) {
             getNavigator().clearPathEntity();
             if (drawBow()) {
                 shoot(current);
@@ -2610,6 +2686,11 @@ public class EntityUnit extends EntityCreature {
     private void walkToward(double x, double z) {
         if (distanceTo(x, z) > 3) {
             triedToMove = true;
+        }
+        if (kind.flies()) {
+            // Straight there, over whatever is in the way.
+            getNavigator().tryMoveToXYZ(x, posY, z, SPEED);
+            return;
         }
         double[] next = nextWaypoint(x, z);
         if (next == null) {
@@ -2813,7 +2894,7 @@ public class EntityUnit extends EntityCreature {
         planTicks = 0;
         route = null;
         getNavigator().clearPathEntity();
-        if (stalls == 2) {
+        if (stalls == 2 && !kind.flies()) {
             // Stuck in a hole, on a ledge or in a corner of a building: a hop out to open ground, as in Millenaire.
             rescue();
         }
@@ -2892,6 +2973,194 @@ public class EntityUnit extends EntityCreature {
         return Math.sqrt(dx * dx + dz * dz);
     }
 
+    // ---------------------------------------------------------------- flight
+
+    /** How high over the ground, trees and roofs included, fliers keep, and how fast they fly, in blocks a tick. */
+    private static final double FLY_HEIGHT = 5;
+    private static final double FLY_SPEED = 0.3;
+    /** How much faster updrafts make them. */
+    private static final double UPDRAFT_SPEED = 1.25;
+    /** How close to what it fights, across the ground, an aviansie warrior comes down to fight it on foot. */
+    private static final double LAND_RANGE = 6;
+    /** How high over the ground a flier is out of reach of blows. */
+    private static final double AIRBORNE = 2.5;
+    /** What the first blow after a dive adds, Kilisa's more, and how long after landing it has to land. */
+    private static final int DIVE_BONUS = 4;
+    private static final int KILISA_DIVE_BONUS = 6;
+    private static final int DIVE_TICKS = 60;
+    /** How often Kree'arra beats his wings, how far that throws enemies round him, and how hard it hits them. */
+    private static final int WING_BEAT_TICKS = 300;
+    private static final double WING_BEAT_RANGE = 6;
+    private static final double WING_BEAT_PUSH = 1.2;
+    private static final float WING_BEAT_DAMAGE = 3;
+    /** What Kree'arra's shots add while one of his lieutenants lives. */
+    private static final int LIEUTENANT_BONUS = 3;
+
+    /** Where a flier is flying to, made when first asked for. */
+    private FlightNavigator flight;
+    /** Whether it comes down this tick to fight on foot, decided afresh each tick by what it fights. */
+    private boolean landing;
+    private boolean wasAirborne;
+    private int diveTicks;
+    private int wingTicks = WING_BEAT_TICKS;
+
+    /** Whether it is an aviansie or one of Armadyl's heroes, which fly; a client goes by the kind it is watched as. */
+    private boolean flying() {
+        UnitKind watched = worldObj.isRemote ? getWatchedKind() : kind;
+        return watched != null && watched.flies();
+    }
+
+    /** Whether it is a flier up in the air, out of reach of swords and spears. */
+    public boolean isAirborne() {
+        if (!flying() || isInWater()) {
+            return false;
+        }
+        int ground = worldObj.getTopSolidOrLiquidBlock(MathHelper.floor_double(posX), MathHelper.floor_double(posZ));
+        return posY - ground > AIRBORNE;
+    }
+
+    /** Fliers find their way by a heading straight at where they go, rather than a path over the ground. */
+    @Override
+    public PathNavigate getNavigator() {
+        if (kind != null && kind.flies() && !worldObj.isRemote) {
+            if (flight == null) {
+                flight = new FlightNavigator(this, worldObj);
+            }
+            return flight;
+        }
+        return super.getNavigator();
+    }
+
+    /** Fliers fly, without falling; everything else walks. */
+    @Override
+    public void moveEntityWithHeading(float strafe, float forward) {
+        if (!flying()) {
+            super.moveEntityWithHeading(strafe, forward);
+            return;
+        }
+        if (worldObj.isRemote) {
+            // The server says where it is; in between, it glides on as it was going rather than falling.
+            moveEntity(motionX, motionY, motionZ);
+            motionX *= 0.91;
+            motionY *= 0.91;
+            motionZ *= 0.91;
+        } else {
+            fly();
+        }
+        fallDistance = 0;
+        // Its wings beat as legs would walk.
+        prevLimbSwingAmount = limbSwingAmount;
+        double dx = posX - prevPosX;
+        double dz = posZ - prevPosZ;
+        float swing = Math.min(1, MathHelper.sqrt_double(dx * dx + dz * dz) * 4);
+        limbSwingAmount += (swing - limbSwingAmount) * 0.4F;
+        limbSwing += limbSwingAmount;
+    }
+
+    /**
+     * A tick of flight: toward where it is going, keeping {@link #FLY_HEIGHT} over the ground under it and just
+     * ahead, or down to the ground when it lands to fight; up over anything it flies into.
+     */
+    private void fly() {
+        Team team = team();
+        double speed = FLY_SPEED * (team != null && team.has(Upgrade.UPDRAFTS) ? UPDRAFT_SPEED : 1);
+        double[] goal = flight == null ? null : flight.goal();
+        double wantX = 0;
+        double wantZ = 0;
+        if (goal != null) {
+            Game game = GameManager.getGame();
+            if (game != null) {
+                goal[0] = Math.max(game.getMinX() + 0.5, Math.min(game.getMaxX() + 0.5, goal[0]));
+                goal[1] = Math.max(game.getMinZ() + 0.5, Math.min(game.getMaxZ() + 0.5, goal[1]));
+            }
+            double dx = goal[0] - posX;
+            double dz = goal[1] - posZ;
+            double distance = Math.sqrt(dx * dx + dz * dz);
+            if (distance < 0.5) {
+                flight.arrived();
+            } else {
+                double step = Math.min(speed, distance);
+                wantX = dx / distance * step;
+                wantZ = dz / distance * step;
+                rotationYaw = (float) (Math.atan2(dz, dx) * 180 / Math.PI) - 90;
+                renderYawOffset = rotationYaw;
+            }
+        }
+        // Half its way each tick toward the speed it wants, so knockback and gusts still throw it about.
+        motionX = motionX * 0.5 + wantX * 0.5;
+        motionZ = motionZ * 0.5 + wantZ * 0.5;
+        if (landing) {
+            motionY = onGround ? 0 : -FLY_SPEED;
+        } else {
+            int x = MathHelper.floor_double(posX);
+            int z = MathHelper.floor_double(posZ);
+            double ground = Math.max(
+                worldObj.getHeightValue(x, z),
+                worldObj.getHeightValue(
+                    MathHelper.floor_double(posX + wantX * 8),
+                    MathHelper.floor_double(posZ + wantZ * 8)));
+            motionY = Math.max(-FLY_SPEED, Math.min(FLY_SPEED, (ground + FLY_HEIGHT - posY) * 0.2));
+            if (isCollidedHorizontally) {
+                motionY = FLY_SPEED;
+            }
+        }
+        moveEntity(motionX, motionY, motionZ);
+        boolean airborne = isAirborne();
+        if (wasAirborne && !airborne && landing) {
+            // Down on the enemy from above: the first blow lands harder.
+            diveTicks = DIVE_TICKS;
+        }
+        wasAirborne = airborne;
+    }
+
+    /** Whether one of Kree'arra's lieutenants lives on his team: Flight Kilisa, Wingman Skree or Flockleader Geerin. */
+    private boolean lieutenantLives() {
+        for (EntityUnit unit : Units.get()
+            .getLoaded()) {
+            if (unit.teamId != null && unit.teamId.equals(teamId)
+                && (unit.kind == UnitKind.KILISA || unit.kind == UnitKind.SKREE || unit.kind == UnitKind.GEERIN)
+                && unit.isEntityAlive()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Every so often Kree'arra beats his wings and throws the enemies round him back, hurting them. */
+    private void tickWingBeat() {
+        if (--wingTicks > 0) {
+            return;
+        }
+        List<EntityLivingBase> thrown = new ArrayList<>();
+        for (Object object : worldObj.getEntitiesWithinAABB(
+            EntityLivingBase.class,
+            boundingBox.expand(WING_BEAT_RANGE, WING_BEAT_RANGE, WING_BEAT_RANGE))) {
+            EntityLivingBase other = (EntityLivingBase) object;
+            if (other != this && other.isEntityAlive()
+                && getDistanceToEntity(other) <= WING_BEAT_RANGE
+                && Units.get()
+                    .isEnemy(this, other)) {
+                thrown.add(other);
+            }
+        }
+        if (thrown.isEmpty()) {
+            // Not yet; he beats them once there is someone to throw.
+            wingTicks = 20;
+            return;
+        }
+        wingTicks = WING_BEAT_TICKS;
+        swingItem();
+        playSound("mob.enderdragon.wings", 1.5F, 0.8F);
+        for (EntityLivingBase other : thrown) {
+            double dx = other.posX - posX;
+            double dz = other.posZ - posZ;
+            double distance = Math.max(0.5, Math.sqrt(dx * dx + dz * dz));
+            other.attackEntityFrom(DamageSource.causeMobDamage(this), WING_BEAT_DAMAGE);
+            other.addVelocity(dx / distance * WING_BEAT_PUSH, 0.4, dz / distance * WING_BEAT_PUSH);
+            other.velocityChanged = true;
+        }
+    }
+
     // ---------------------------------------------------------------- combat
 
     @Override
@@ -2902,6 +3171,10 @@ public class EntityUnit extends EntityCreature {
             damage *= SPEAR_VS_RIDERS;
         }
         damage += WarFavor.heroBonus(this);
+        if (diveTicks > 0) {
+            damage += kind == UnitKind.KILISA ? KILISA_DIVE_BONUS : DIVE_BONUS;
+            diveTicks = 0;
+        }
         return victim.attackEntityFrom(DamageSource.causeMobDamage(this), damage);
     }
 
@@ -2929,6 +3202,13 @@ public class EntityUnit extends EntityCreature {
         }
         if (attacker != null && Units.get()
             .isAlly(this, attacker)) {
+            return false;
+        }
+        // Up in the air, a flier is out of reach of blows, but for those of other fliers up there with it.
+        if (attacker instanceof EntityLivingBase && source.getSourceOfDamage() == attacker
+            && !source.isMagicDamage()
+            && isAirborne()
+            && !(attacker instanceof EntityUnit && ((EntityUnit) attacker).isAirborne())) {
             return false;
         }
         // Heroes hit myth units, such as lesser demons, twice as hard, blows and arrows alike.

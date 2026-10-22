@@ -195,9 +195,21 @@ STEEL = (170, 172, 180)
 STEEL_LIGHT = (214, 216, 222)
 STAFF_GEM = (90, 180, 230)
 
-# By look: feathers (light, mid, dark), eye, helmet, skirt, pauldron paint, weapon, wing steel, leg plates.
+TEAL = (70, 150, 156)
+
+# By look: feathers (light, mid, dark), eye, helmet, skirt, pauldron paint, weapon, wing steel, leg plates, and
+# whether it wears Armadyl armour: a white helm, white plates and teal-edged pauldrons, as aviansie do once their
+# team has researched it. The first look, aviansie, is the model's own; aviansie_ranger is the ranger's as the game
+# names it, and an _elite look is a kind's in Armadyl armour.
 LOOKS = {
     "aviansie": ((FEATHER_LIGHT, FEATHER, FEATHER_DARK), EYE, False, WHITE, False, "spear", False, GREY),
+    "aviansie_ranger": ((FEATHER_LIGHT, FEATHER, FEATHER_DARK), EYE, False, WHITE, False, "spear", False, GREY),
+    "aviansie_ranger_elite": ((FEATHER_LIGHT, FEATHER, FEATHER_DARK), EYE, True, WHITE, True, "spear", False, WHITE,
+                              True),
+    "aviansie_warrior_elite": ((FEATHER_LIGHT, FEATHER, FEATHER_DARK), EYE, True, WHITE, True, None, False, WHITE,
+                               True),
+    "aviansie_mage_elite": ((FEATHER_LIGHT, FEATHER, FEATHER_DARK), EYE, True, (96, 110, 170), True, "staff", False,
+                            WHITE, True),
     "aviansie_warrior": ((FEATHER_LIGHT, FEATHER, FEATHER_DARK), EYE, False, WHITE, True, None, False, GREY),
     "aviansie_mage": ((FEATHER_LIGHT, FEATHER, FEATHER_DARK), EYE, False, (96, 110, 170), False, "staff", False, GREY),
     "kilisa": ((FEATHER_LIGHT, FEATHER, FEATHER_DARK), EYE, True, WHITE, False, "jagged", False, GREY_DARK),
@@ -354,8 +366,25 @@ def color_or_clear(on, paint):
     return paint if on else clear
 
 
+def armadyl_helm(face, x, y, w, h):
+    """Armadyl's helm: Kree'arra's steel helm made in white, its eye slits edged in teal."""
+    if face == "bottom":
+        return None
+    if face == "front":
+        if y >= 4 and 1 <= x <= w - 2:
+            return None
+        if y == 3 and (1 <= x <= 2 or w - 3 <= x <= w - 2):
+            return SLIT
+        if y == 2 and 1 <= x <= w - 2:
+            return TEAL
+    if face in ("left", "right") and y >= 5 and ((face == "left" and x < 3) or (face == "right" and x > w - 4)):
+        return None
+    return metal(WHITE)(face, x, y, w, h)
+
+
 def aviansie(kind="aviansie"):
-    colors, eye, helmet, skirt_color, pauldrons, weapon, steel_wings, plates = LOOKS[kind]
+    colors, eye, helmet, skirt_color, pauldrons, weapon, steel_wings, plates = LOOKS[kind][:8]
+    armoured = len(LOOKS[kind]) > 8 and LOOKS[kind][8]
     light, mid, dark = colors
     m = Model("aviansie", 128, 128, seed=37)
 
@@ -366,7 +395,7 @@ def aviansie(kind="aviansie"):
     upper.box(-1.5, -1.5, -5, 3, 3, 5, beak)
     upper.box(-1, 1.5, -5, 2, 2, 1, beak)                                       # its hooked point
     upper.box(-1, 1.5, -4, 2, 1, 3, tongue)                                     # the open mouth's red tongue
-    head.box(-3, -7, -3.5, 6, 5, 7, color_or_clear(helmet, helm), inflate=0.4)
+    head.box(-3, -7, -3.5, 6, 5, 7, color_or_clear(helmet, armadyl_helm if armoured else helm), inflate=0.4)
     crest = head.child("crest", pivot=(0, -7.4, -2.5), rotation=(-0.45, 0, 0))
     crest.box(-0.5, -4, -1, 1, 4, 6, color_or_clear(helmet, gold))
 
@@ -380,8 +409,8 @@ def aviansie(kind="aviansie"):
         arm = m.part("%s_arm" % name, pivot=(side * 6, 3, 0))
         arm.box(-1.5, -1.5, -1.5, 3, 12, 3, feathers(colors), mirror=side > 0)
         arm.box(-1.5, 5, -1.5, 3, 4, 3, metal(STEEL), inflate=0.35)            # the bracer
-        arm.box(-2, -2.5, -2, 4, 3, 4, color_or_clear(pauldrons, trimmed(WHITE if kind != "kreearra" else STEEL,
-                                                                          sides=True)), inflate=0.5)
+        pauldron = TEAL if armoured else WHITE if kind != "kreearra" else STEEL
+        arm.box(-2, -2.5, -2, 4, 3, 4, color_or_clear(pauldrons, trimmed(pauldron, sides=True)), inflate=0.5)
         for i in range(3):                                                      # the talons of the hand
             finger = arm.child("%s_finger%d" % (name, i), pivot=(side * 0.9 * (i - 1), 10.5, -1))
             finger.box(-0.5, 0, -0.5, 1, 2, 1, talon)

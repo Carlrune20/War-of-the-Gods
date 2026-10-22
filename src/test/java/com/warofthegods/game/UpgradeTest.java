@@ -21,5 +21,9 @@ class UpgradeTest {
         assertNull(Upgrade.FORTIFIED_WALLS.faction());
         assertSame(Faction.ZAMORAK, Upgrade.GREATER_DEMONS.faction());
         assertSame(Faction.SARADOMIN, Upgrade.JUSTICIARS.faction());
+        assertSame(Faction.ARMADYL, Upgrade.ARMADYL_ARMOUR.faction());
+        assertSame(Faction.ARMADYL, Upgrade.ARMADYL_CROSSBOWS.faction());
+        assertSame(BuildingType.ARMORY, Upgrade.ARMADYL_CROSSBOWS.at);
+        assertSame(BuildingType.OBSERVATORY, Upgrade.ARMADYLS_EYE.at);
     }
 }

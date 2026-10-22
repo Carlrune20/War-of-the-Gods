@@ -190,7 +190,8 @@ public final class PlayerPrayers {
         }
         for (Building building : game.getBuildings(team)) {
             if ((building.type == BuildingType.CHAOS_TEMPLE || building.type == BuildingType.MONASTERY
-                || building.type == BuildingType.BANDOS_TEMPLE) && building.isComplete()
+                || building.type == BuildingType.BANDOS_TEMPLE
+                || building.type == BuildingType.ARMADYL_TEMPLE) && building.isComplete()
                 && building.distanceTo(player.posX, player.posZ) <= TEMPLE_REACH) {
                 return building;
             }

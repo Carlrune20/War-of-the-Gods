@@ -58,6 +58,15 @@ public class Config {
         unitCosts.put(UnitKind.GRIMSPIKE, new long[] { 200, 0, 300, 0 });
         unitCosts.put(UnitKind.GRAARDOR, new long[] { 400, 0, 600, 20 });
         unitCosts.put(UnitKind.TREBUCHET, new long[] { 0, 400, 0, 0 });
+        unitCosts.put(UnitKind.ARMADYL_PRIEST, new long[] { 50, 0, 30, 0 });
+        unitCosts.put(UnitKind.AVIANSIE_RANGER, new long[] { 60, 0, 80, 3 });
+        unitCosts.put(UnitKind.AVIANSIE_WARRIOR, new long[] { 80, 0, 100, 4 });
+        unitCosts.put(UnitKind.AVIANSIE_MAGE, new long[] { 80, 0, 120, 5 });
+        unitCosts.put(UnitKind.GUARDIAN, new long[] { 60, 0, 75, 0 });
+        unitCosts.put(UnitKind.KILISA, new long[] { 250, 0, 350, 0 });
+        unitCosts.put(UnitKind.GEERIN, new long[] { 250, 0, 350, 0 });
+        unitCosts.put(UnitKind.SKREE, new long[] { 250, 0, 350, 0 });
+        unitCosts.put(UnitKind.KREEARRA, new long[] { 400, 0, 600, 30 });
     }
 
     public static int unitsPerTeam = 100;
@@ -98,6 +107,11 @@ public class Config {
         defaults(BuildingType.WAR_PIT, new long[] { 0, 150, 50 }, 800, 25);
         defaults(BuildingType.BANDOS_TEMPLE, new long[] { 0, 150, 100 }, 900, 30);
         defaults(BuildingType.BANDOS_BASTION, new long[] { 0, 300, 400 }, 4500, 90);
+        defaults(BuildingType.TOWER_HOUSE, new long[] { 0, 60, 0 }, 300, 14);
+        defaults(BuildingType.ARMADYL_TEMPLE, new long[] { 0, 150, 100 }, 900, 30);
+        defaults(BuildingType.OBSERVATORY, new long[] { 0, 120, 100 }, 700, 30);
+        defaults(BuildingType.ROOST, new long[] { 0, 175, 75 }, 700, 30);
+        defaults(BuildingType.ARMADYL_EYRIE, new long[] { 0, 300, 400 }, 4000, 90);
     }
 
     /** Food, Wood and Gold the town center costs to go up to level 2, and to level 3. */
@@ -127,6 +141,25 @@ public class Config {
     public static int monkFavorSeconds = 90;
     /** Seconds a goblin priest praying at a Bandos temple takes to earn a favor: Bandos grants most of his for war. */
     public static int goblinPriestFavorSeconds = 90;
+    /**
+     * Seconds a priest of Armadyl praying at his temple takes to earn a favor, and at a temple standing high on a hill
+     * (see armadylHighGround).
+     */
+    public static int armadylPriestFavorSeconds = 60;
+    public static int armadylPriestHighFavorSeconds = 40;
+    /**
+     * Armadyl's justice: favor his teams earn for each enemy they kill who attacked them first within this many
+     * seconds, or justiceSecondsDivineLaw once they have divine law.
+     */
+    public static int justiceFavor = 1;
+    public static int justiceSeconds = 30;
+    public static int justiceSecondsDivineLaw = 60;
+    /**
+     * Blocks above the ground round it one of Armadyl's buildings has to stand to count as on high ground, where his
+     * towers shoot farther and his temple prays faster; and how much farther the towers shoot there.
+     */
+    public static int armadylHighGround = 8;
+    public static int highTowerRange = 4;
     /**
      * Bandos's favor for war: a favor for every so many enemy units, or wild mobs, his teams kill within
      * warFavorRange blocks of one of their goblin priests, and favor for every enemy building they raze.
@@ -598,6 +631,56 @@ public class Config {
             1,
             3600,
             "Seconds a goblin priest praying at a Bandos temple takes to earn its team a favor; a temple has room for 5.");
+        armadylPriestFavorSeconds = configuration.getInt(
+            "armadylPriestFavorSeconds",
+            units,
+            armadylPriestFavorSeconds,
+            1,
+            3600,
+            "Seconds a priest of Armadyl praying at his temple takes to earn its team a favor; a temple has room for 5.");
+        armadylPriestHighFavorSeconds = configuration.getInt(
+            "armadylPriestHighFavorSeconds",
+            units,
+            armadylPriestHighFavorSeconds,
+            1,
+            3600,
+            "Seconds a priest of Armadyl takes to earn a favor at a temple of his standing on high ground.");
+        justiceFavor = configuration.getInt(
+            "justiceFavor",
+            units,
+            justiceFavor,
+            0,
+            100,
+            "Favor Armadyl grants a team for each enemy it kills who attacked it first; 0 for none.");
+        justiceSeconds = configuration.getInt(
+            "justiceSeconds",
+            units,
+            justiceSeconds,
+            1,
+            3600,
+            "Seconds after an enemy attacks an Armadyl team within which killing it earns Armadyl's favor.");
+        justiceSecondsDivineLaw = configuration.getInt(
+            "justiceSecondsDivineLaw",
+            units,
+            justiceSecondsDivineLaw,
+            1,
+            3600,
+            "As justiceSeconds, once the team has researched divine law.");
+        armadylHighGround = configuration.getInt(
+            "armadylHighGround",
+            buildings,
+            armadylHighGround,
+            0,
+            256,
+            "Blocks above the ground round it one of Armadyl's buildings has to stand for its towers to shoot farther"
+                + " and its temple to pray faster.");
+        highTowerRange = configuration.getInt(
+            "highTowerRange",
+            buildings,
+            highTowerRange,
+            0,
+            64,
+            "Blocks farther one of Armadyl's towers shoots on high ground.");
         killsPerFavor = configuration.getInt(
             "killsPerFavor",
             units,

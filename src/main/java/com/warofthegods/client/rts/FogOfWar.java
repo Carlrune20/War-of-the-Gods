@@ -24,6 +24,9 @@ final class FogOfWar {
     private static final double PLAYER_SIGHT = 48;
     private static final double BUILDING_SIGHT = 40;
     private static final double LOOKOUT_SIGHT = 60;
+    /** Armadyl's fliers see farther than units on the ground, and his observatory farther than a watch tower. */
+    private static final double FLIER_SIGHT = UNIT_SIGHT + 12;
+    private static final double OBSERVATORY_SIGHT = LOOKOUT_SIGHT * 2;
     /** Client ticks between working out what is visible. */
     private static final int INTERVAL = 5;
     /** Sky and block light, packed as the lightmap takes them, for ground in sight and ground only explored. */
@@ -103,7 +106,7 @@ final class FogOfWar {
         for (RtsState.UnitInfo unit : state.units.values()) {
             if (friends.contains(unit.team)) {
                 double[] at = client.positionOf(unit, 1);
-                see(now, at[0], at[2], UNIT_SIGHT);
+                see(now, at[0], at[2], unit.flies() ? FLIER_SIGHT : UNIT_SIGHT);
             }
         }
         for (RtsState.PlayerInfo player : state.players.values()) {
@@ -115,12 +118,17 @@ final class FogOfWar {
             if (friends.contains(building.team)) {
                 boolean lookout = building.complete
                     && ("tower".equals(building.type) || "town_hall".equals(building.type) || building.range > 0);
+                double sight = building.complete && "observatory".equals(building.type) ? OBSERVATORY_SIGHT
+                    : lookout ? LOOKOUT_SIGHT : BUILDING_SIGHT;
                 see(
                     now,
                     building.x + building.sizeX / 2.0,
                     building.z + building.sizeZ / 2.0,
-                    (lookout ? LOOKOUT_SIGHT : BUILDING_SIGHT) + Math.max(building.sizeX, building.sizeZ) / 2.0);
+                    sight + Math.max(building.sizeX, building.sizeZ) / 2.0);
             }
+        }
+        if (team.eye != null) {
+            see(now, team.eye[0], team.eye[1], team.eye[2]);
         }
         boolean changed = false;
         for (int i = 0; i < now.length; i++) {

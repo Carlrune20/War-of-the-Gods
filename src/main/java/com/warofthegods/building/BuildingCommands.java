@@ -1,6 +1,7 @@
 package com.warofthegods.building;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
@@ -14,6 +15,7 @@ import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.Upgrade;
+import com.warofthegods.rts.AttackAlerts;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.UnitCommands;
 import com.warofthegods.unit.Units;
@@ -47,6 +49,7 @@ import com.warofthegods.world.GameWorld;
  *   {type: "buildings.cancel", building: id, index}  take the unit at that place off the training queue, giving
  *       back what it cost; with research: true instead, stop what the building researches or its level-up
  *   {type: "buildings.destroy", buildings: [id...]}  take the team's own buildings or building sites down at once
+ *   {type: "buildings.eye", building: id, x, z}  open Armadyl's eye from an observatory over x, z, paying its favor
  * </pre>
  */
 public final class BuildingCommands {
@@ -67,6 +70,7 @@ public final class BuildingCommands {
         WebCommand.register("buildings.gate", BuildingCommands::gate);
         WebCommand.register("buildings.cancel", BuildingCommands::cancel);
         WebCommand.register("buildings.destroy", BuildingCommands::destroy);
+        WebCommand.register("buildings.eye", BuildingCommands::eye);
     }
 
     /** The viewer's own building the request names, or null after replying why not. */
@@ -270,7 +274,8 @@ public final class BuildingCommands {
                 type,
                 (int) Math.floor(x),
                 (int) Math.floor(z),
-                UnitCommands.intField(request.body, "rotation", 0));
+                UnitCommands.intField(request.body, "rotation", 0),
+                team.getFaction());
         if (plan.problem != null) {
             request.replyError(plan.problem);
             return;
@@ -414,6 +419,71 @@ public final class BuildingCommands {
         request.reply(reply);
     }
 
+    /**
+     * Armadyl's eye: an observatory of a team with the upgrade sees round any spot on the map for a while, once every
+     * few minutes and for some favor; the teams with units or buildings there are warned they are watched.
+     */
+    private static void eye(WebRequest request) {
+        Team team = UnitCommands.commander(request);
+        Building building = team == null ? null : ownBuilding(request, team);
+        if (building == null) {
+            return;
+        }
+        if (building.type != BuildingType.OBSERVATORY || !building.isComplete()) {
+            request.replyError("Armadyl's eye opens from a finished observatory");
+            return;
+        }
+        if (!team.has(Upgrade.ARMADYLS_EYE)) {
+            request.replyError("Research Armadyl's eye at the observatory first");
+            return;
+        }
+        Double x = UnitCommands.doubleField(request.body, "x");
+        Double z = UnitCommands.doubleField(request.body, "z");
+        if (x == null || z == null) {
+            request.replyError("Say where to look");
+            return;
+        }
+        Game game = GameManager.getGame();
+        long now = GameWorld.getWorld()
+            .getTotalWorldTime();
+        if (now < team.getEyeReadyAt()) {
+            request.replyError("Armadyl's eye opens again in " + (team.getEyeReadyAt() - now + 19) / 20 + " s");
+            return;
+        }
+        Map<Resource, Long> cost = new EnumMap<>(Resource.class);
+        cost.put(Resource.FAVOR, (long) Buildings.EYE_FAVOR);
+        if (!team.spend(cost)) {
+            request.replyError("Armadyl's eye costs " + Buildings.EYE_FAVOR + " favor");
+            return;
+        }
+        double ex = Math.max(game.getMinX() + 0.5, Math.min(game.getMaxX() + 0.5, x));
+        double ez = Math.max(game.getMinZ() + 0.5, Math.min(game.getMaxZ() + 0.5, z));
+        team.openEye(ex, ez, now, Buildings.EYE_TICKS, Buildings.EYE_COOLDOWN);
+        for (Team other : game.getTeams()) {
+            if (other != team && watches(game, other, ex, ez)) {
+                AttackAlerts.get()
+                    .watched(other, ex, ez);
+            }
+        }
+        request.reply(WebJson.message("buildings.eye"));
+    }
+
+    /** Whether the team has a unit or building within Armadyl's eye of x, z. */
+    private static boolean watches(Game game, Team team, double x, double z) {
+        for (Building building : game.getBuildings(team)) {
+            if (building.distanceTo(x, z) <= Buildings.EYE_RADIUS) {
+                return true;
+            }
+        }
+        for (EntityUnit unit : Units.get()
+            .getUnits(team)) {
+            if (Math.hypot(unit.posX - x, unit.posZ - z) <= Buildings.EYE_RADIUS) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static void rally(WebRequest request) {
         Team team = UnitCommands.commander(request);
         if (team == null) {
@@ -505,6 +575,10 @@ public final class BuildingCommands {
         }
         if (!kind.unlockedFor(team)) {
             Upgrade needed = kind.requiredUpgrade();
+            if (needed == null || team.has(needed)) {
+                request.replyError("Your team has to reach Age " + (kind.age() >= 3 ? "III" : "II") + " first");
+                return;
+            }
             request.replyError(
                 "Research " + needed.displayName.toLowerCase()
                     + " at the "

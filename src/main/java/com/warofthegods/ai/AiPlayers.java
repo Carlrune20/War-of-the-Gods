@@ -991,11 +991,11 @@ public final class AiPlayers {
             GoldMine mine = quarryMine(game, team, state);
             plan = mine == null ? null
                 : Buildings.get()
-                    .plan(game, world, type, (int) mine.getCenterX(), (int) mine.getCenterZ(), 0);
+                    .plan(game, world, type, (int) mine.getCenterX(), (int) mine.getCenterZ(), 0, team.getFaction());
             plan = plan == null || plan.problem != null ? null : plan;
         } else {
             plan = near == null ? Buildings.get()
-                .findSpot(game, world, team, type) : spotNear(game, world, type, near[0], near[1]);
+                .findSpot(game, world, team, type) : spotNear(game, world, team, type, near[0], near[1]);
         }
         if (plan == null && spread) {
             plan = Buildings.get()
@@ -1350,7 +1350,8 @@ public final class AiPlayers {
     }
 
     /** The nearest spot round x, z a building of the type fits, a few blocks out and further; or null. */
-    private static Buildings.Plan spotNear(Game game, WorldServer world, BuildingType type, double x, double z) {
+    private static Buildings.Plan spotNear(Game game, WorldServer world, Team team, BuildingType type, double x,
+        double z) {
         for (int ring = 8; ring <= OUTPOST_RANGE; ring += 3) {
             for (int step = 0; step < 16; step++) {
                 double angle = 2 * Math.PI * step / 16;
@@ -1361,7 +1362,8 @@ public final class AiPlayers {
                         type,
                         (int) Math.round(x + Math.cos(angle) * ring),
                         (int) Math.round(z + Math.sin(angle) * ring),
-                        step / 4);
+                        step / 4,
+                        team.getFaction());
                 if (plan.problem == null) {
                     return plan;
                 }
@@ -1556,6 +1558,8 @@ public final class AiPlayers {
                 return new BuildingType[] { BuildingType.CHAOS_TEMPLE };
             case BANDOS:
                 return new BuildingType[] { BuildingType.BANDOS_TEMPLE };
+            case ARMADYL:
+                return new BuildingType[] { BuildingType.ARMADYL_TEMPLE, BuildingType.ROOST };
             default:
                 return new BuildingType[] { BuildingType.MONASTERY, BuildingType.WIZARDS_TOWER };
         }
@@ -1568,13 +1572,18 @@ public final class AiPlayers {
                 return BuildingType.BLACK_KNIGHTS_FORTRESS;
             case BANDOS:
                 return BuildingType.BANDOS_BASTION;
+            case ARMADYL:
+                return BuildingType.ARMADYL_EYRIE;
             default:
                 return BuildingType.WHITE_KNIGHTS_FORTRESS;
         }
     }
 
-    /** What the team builds for a house or a barracks: Bandos's goblin caves and war pits. */
+    /** What the team builds for a house or a barracks: Bandos's goblin caves and war pits, Armadyl's tower houses. */
     private static BuildingType own(Team team, BuildingType type) {
+        if (team.getFaction() == Faction.ARMADYL && type == BuildingType.HOUSE) {
+            return BuildingType.TOWER_HOUSE;
+        }
         if (team.getFaction() == Faction.BANDOS) {
             if (type == BuildingType.HOUSE) {
                 return BuildingType.GOBLIN_CAVE;
@@ -2029,7 +2038,8 @@ public final class AiPlayers {
         for (Building building : game.getBuildings(team)) {
             UnitKind kind = building.type == BuildingType.CHAOS_TEMPLE ? UnitKind.CHAOS_PRIEST
                 : building.type == BuildingType.BANDOS_TEMPLE ? UnitKind.GOBLIN_PRIEST
-                    : building.type == BuildingType.MONASTERY ? UnitKind.MONK : null;
+                    : building.type == BuildingType.ARMADYL_TEMPLE ? UnitKind.ARMADYL_PRIEST
+                        : building.type == BuildingType.MONASTERY ? UnitKind.MONK : null;
             if (kind == null || !building.isComplete()
                 || building.getQueue()
                     .size() >= QUEUE
@@ -2076,7 +2086,8 @@ public final class AiPlayers {
                             .nextInt(3) == 0 ? UnitKind.ZAMORAK_MAGE : UnitKind.DARK_WIZARD)
                             : building.type == BuildingType.WIZARDS_TOWER ? UnitKind.BLUE_WIZARD
                                 : building.type == BuildingType.GOBLIN_CAVE ? UnitKind.GOBLIN
-                                    : building.type == BuildingType.WAR_PIT ? warPitFighter() : null;
+                                    : building.type == BuildingType.WAR_PIT ? warPitFighter()
+                                        : building.type == BuildingType.ROOST ? roostFighter(team) : null;
             if (trains != null) {
                 if (team.spend(trains.cost())) {
                     building.enqueue(trains, true);
@@ -2104,6 +2115,15 @@ public final class AiPlayers {
                 }
             }
         }
+    }
+
+    /** Mostly aviansie rangers from a roost, and once the team is in its third age warriors and mages too. */
+    private static UnitKind roostFighter(Team team) {
+        int roll = ThreadLocalRandom.current()
+            .nextInt(4);
+        UnitKind kind = roll < 2 ? UnitKind.AVIANSIE_RANGER
+            : roll < 3 ? UnitKind.AVIANSIE_WARRIOR : UnitKind.AVIANSIE_MAGE;
+        return kind.unlockedFor(team) ? kind : UnitKind.AVIANSIE_RANGER;
     }
 
     /** Mostly hobgoblins and goblin axe-throwers from a war pit, and now and then an ork. */

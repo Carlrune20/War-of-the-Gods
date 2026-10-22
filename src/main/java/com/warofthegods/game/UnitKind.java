@@ -97,7 +97,35 @@ public enum UnitKind {
      * slowly, and from far off hurls stones that burst where they land, smashing buildings and hurting enemies round
      * them. It is sturdy, but rolls so slowly and fights so poorly up close that it needs guarding.
      */
-    TREBUCHET("trebuchet", "Trebuchet", "trebuchet", 2.5, 0, 0, 22, 8, true, false);
+    TREBUCHET("trebuchet", "Trebuchet", "trebuchet", 2.5, 0, 0, 22, 8, true, false),
+    /**
+     * Armadyl's priest in white and teal: casts weak air strikes, never curses, and prays at a temple of Armadyl while
+     * idle there, earning favor; trained at the temple.
+     */
+    ARMADYL_PRIEST("armadyl_priest", "Priest of Armadyl", "armadylPriest", 1, 0, 0, 0, 1, true, false),
+    /** An aviansie of Armadyl that flies over walls and shoots from the air; trained at the roost for favor. */
+    AVIANSIE_RANGER("aviansie_ranger", "Aviansie ranger", "aviansieRanger", 1, 0, 2, 0, 2, true, false),
+    /**
+     * An aviansie that flies over walls and dives to land and fight, its first blow after landing harder; trained at
+     * the roost from Age III for favor.
+     */
+    AVIANSIE_WARRIOR("aviansie_warrior", "Aviansie warrior", "aviansieWarrior", 2, 4, 0, 0, 2, false, false),
+    /** An aviansie that flies and casts wind strikes that throw enemies back; trained at the roost from Age III. */
+    AVIANSIE_MAGE("aviansie_mage", "Aviansie mage", "aviansieMage", 1.5, 0, 3, 0, 2, true, false),
+    /** Armadyl's knight, a Guardian of Armadyl in white and gold plate; trained at Armadyl's eyrie. */
+    GUARDIAN("guardian", "Guardian of Armadyl", "guardian", 2, 3, 0, 0, 2, false, false),
+    /** Kree'arra's melee lieutenant of the God Wars: flies, and dives to fight, his dive harder still. At the eyrie. */
+    KILISA("kilisa", "Flight Kilisa", "kilisa", 6, 5, 0, 0, 4, false, true),
+    /** Kree'arra's ranged lieutenant: flies, and shoots farther than any archer. At the eyrie. */
+    GEERIN("geerin", "Flockleader Geerin", "geerin", 5, 0, 5, 8, 4, true, true),
+    /** Kree'arra's mage lieutenant: flies, and his wind strikes hit everyone round the target too. At the eyrie. */
+    SKREE("skree", "Wingman Skree", "skree", 5, 0, 5, 0, 4, true, true),
+    /**
+     * Armadyl's general in the God Wars, the biggest aviansie, for favor: never lands, shoots wind and arrows, every so
+     * often beats his wings to throw every enemy near him back, and hits harder while one of his lieutenants lives. At
+     * Armadyl's eyrie.
+     */
+    KREEARRA("kreearra", "Kree'arra", "kreearra", 10, 0, 7, 4, 4, true, true);
 
     public final String id;
     public final String displayName;
@@ -157,9 +185,32 @@ public enum UnitKind {
         return this == CHAOS_PRIEST || this == MONK;
     }
 
-    /** Whether it prays for favor while idle by its god's temple: a chaos priest, or a goblin priest. */
+    /** Whether it prays for favor while idle by its god's temple: a chaos priest, a goblin priest or Armadyl's. */
     public boolean praysAtTemple() {
-        return this == CHAOS_PRIEST || this == GOBLIN_PRIEST;
+        return this == CHAOS_PRIEST || this == GOBLIN_PRIEST || this == ARMADYL_PRIEST;
+    }
+
+    /**
+     * Whether it flies: Armadyl's aviansie and their heroes, who hover over the ground, go straight over walls, water
+     * and cliffs, and cannot be reached by blows while they are in the air.
+     */
+    public boolean flies() {
+        return this == AVIANSIE_RANGER || this == AVIANSIE_WARRIOR
+            || this == AVIANSIE_MAGE
+            || this == KILISA
+            || this == GEERIN
+            || this == SKREE
+            || this == KREEARRA;
+    }
+
+    /** Whether it flies but lands to fight up close, as aviansie warriors and Flight Kilisa do. */
+    public boolean landsToFight() {
+        return flies() && !ranged;
+    }
+
+    /** The age its team has to be in to train it: Age III for aviansie warriors and mages, else any. */
+    public int age() {
+        return this == AVIANSIE_WARRIOR || this == AVIANSIE_MAGE ? 3 : 1;
     }
 
     /** Whether it is a siege engine rather than a living thing: the trebuchet. */
@@ -172,9 +223,12 @@ public enum UnitKind {
         return this == TREBUCHET ? Upgrade.SIEGE_WEAPONS : null;
     }
 
-    /** Whether the team has researched what training this needs, such as siege weapons for a trebuchet. */
+    /**
+     * Whether the team has researched what training this needs, such as siege weapons for a trebuchet, and reached the
+     * age it needs.
+     */
     public boolean unlockedFor(Team team) {
-        return requiredUpgrade() == null || team.has(requiredUpgrade());
+        return (requiredUpgrade() == null || team.has(requiredUpgrade())) && team.getAge() >= age();
     }
 
     /** Whether it gathers food, wood and gold and carries them home: workers, and Bandos's slaves. */
@@ -205,6 +259,16 @@ public enum UnitKind {
             case GRIMSPIKE:
             case GRAARDOR:
                 return Faction.BANDOS;
+            case ARMADYL_PRIEST:
+            case AVIANSIE_RANGER:
+            case AVIANSIE_WARRIOR:
+            case AVIANSIE_MAGE:
+            case GUARDIAN:
+            case KILISA:
+            case GEERIN:
+            case SKREE:
+            case KREEARRA:
+                return Faction.ARMADYL;
             default:
                 return null;
         }
@@ -224,7 +288,10 @@ public enum UnitKind {
             || this == BLUE_WIZARD
             || this == GOBLIN_PRIEST
             || this == SPIRITUAL_MAGE
-            || this == STEELWILL;
+            || this == STEELWILL
+            || this == ARMADYL_PRIEST
+            || this == AVIANSIE_MAGE
+            || this == SKREE;
     }
 
     /** The spells it casts, in no order; it picks among them. */
@@ -237,6 +304,13 @@ public enum UnitKind {
         }
         if (this == SPIRITUAL_MAGE || this == STEELWILL) {
             return new Spell[] { Spell.EARTH, Spell.FIRE };
+        }
+        // Armadyl's casters know only air: his priests its weak strike, his aviansie wind that throws back.
+        if (this == ARMADYL_PRIEST) {
+            return new Spell[] { Spell.AIR };
+        }
+        if (this == AVIANSIE_MAGE || this == SKREE) {
+            return new Spell[] { Spell.WIND };
         }
         return isCaster() ? Spell.WIZARD_SPELLS : new Spell[0];
     }
@@ -292,6 +366,14 @@ public enum UnitKind {
                 return "graardor";
             case OGRE:
                 return "ogre";
+            case AVIANSIE_RANGER:
+            case AVIANSIE_WARRIOR:
+            case AVIANSIE_MAGE:
+            case KILISA:
+            case GEERIN:
+            case SKREE:
+            case KREEARRA:
+                return "aviansie";
             default:
                 return null;
         }
@@ -308,14 +390,23 @@ public enum UnitKind {
         return this == ORK ? 0.75 : this == OGRE ? 0.7 : this == GRAARDOR ? 0.8 : 1;
     }
 
-    /** How many times as hard as others its blows hit buildings: an ork half again, an ogre twice. */
+    /**
+     * How many times as hard as others its blows hit buildings: an ork half again, an ogre twice, and aviansie, who
+     * raid rather than knock towns down, a quarter.
+     */
     public double buildingDamageFactor() {
+        if (flies()) {
+            return 0.25;
+        }
         return this == ORK ? 1.5 : this == OGRE ? 2 : 1;
     }
 
     /** Whether it is a myth unit, a creature of its god's that costs favor: heroes hit it twice as hard. */
     public boolean isMyth() {
-        return this == LESSER_DEMON || this == CENTAUR;
+        return this == LESSER_DEMON || this == CENTAUR
+            || this == AVIANSIE_RANGER
+            || this == AVIANSIE_WARRIOR
+            || this == AVIANSIE_MAGE;
     }
 
     /** Whether it is drawn with a model of its own rather than as a man: a lesser demon and a centaur. */
@@ -356,6 +447,13 @@ public enum UnitKind {
         if (this == OGRE) {
             return 1.5F;
         }
+        // Aviansie stand a little taller than a man, their heroes taller, and Kree'arra twice as tall.
+        if (this == KREEARRA) {
+            return 2.0F;
+        }
+        if (flies()) {
+            return hero ? 1.3F : 1.1F;
+        }
         return hero ? 1.15F : 1;
     }
 
@@ -365,13 +463,15 @@ public enum UnitKind {
     }
 
     /**
-     * Whether nothing knocks it back: a lesser demon, knights in their plate, elite or not, Sir Tradigee among them,
-     * Bandos's orks, ogres and General Graardor, and a trebuchet.
+     * Whether nothing knocks it back: a lesser demon, knights in their plate, elite or not, Sir Tradigee and the
+     * Guardians of Armadyl among them, Bandos's orks, ogres and General Graardor, Kree'arra, and a trebuchet.
      */
     public boolean isUnshakable() {
         return this == LESSER_DEMON || this == TREBUCHET
             || this == WHITE_KNIGHT
             || this == BLACK_KNIGHT
+            || this == GUARDIAN
+            || this == KREEARRA
             || this == TRADIGEE
             || this == ORK
             || this == OGRE
@@ -402,9 +502,12 @@ public enum UnitKind {
     /**
      * The upgrade that makes it elite, with its own look and name and more strength: Elite Black Knights for Black
      * Knights and Justiciars for White Knights at their fortress, greater demons for lesser demons at the chaos
-     * temple; null for the rest.
+     * temple, Armadyl armour for aviansie at Armadyl's eyrie; null for the rest.
      */
     public Upgrade eliteUpgrade() {
+        if (this == AVIANSIE_RANGER || this == AVIANSIE_WARRIOR || this == AVIANSIE_MAGE) {
+            return Upgrade.ARMADYL_ARMOUR;
+        }
         return this == BLACK_KNIGHT ? Upgrade.ELITE_BLACK_KNIGHTS
             : this == WHITE_KNIGHT ? Upgrade.JUSTICIARS : this == LESSER_DEMON ? Upgrade.GREATER_DEMONS : null;
     }
@@ -424,18 +527,38 @@ public enum UnitKind {
         if (this == LESSER_DEMON) {
             return tier >= 2 ? "Black demon" : tier == 1 ? "Greater demon" : displayName;
         }
+        if (tier > 0 && eliteUpgrade() == Upgrade.ARMADYL_ARMOUR) {
+            return "Armoured " + displayName.toLowerCase();
+        }
         return tier == 0 ? displayName
             : this == BLACK_KNIGHT ? "Elite Black Knight" : this == WHITE_KNIGHT ? "Justiciar" : displayName;
     }
 
     /** How several are named, such as archers; a hero by his own name, as a team has only one. */
     public String plural() {
+        if (this == ARMADYL_PRIEST) {
+            return "priests of Armadyl";
+        }
+        if (this == GUARDIAN) {
+            return "Guardians of Armadyl";
+        }
         return hero ? displayName : this == CAVALRY ? id : lowerName() + "s";
     }
 
-    /** Its name in the middle of a sentence: lower case, but for the god's name in Zamorak mage. */
+    /** Its name in the middle of a sentence: lower case, but for the god's name in Zamorak mage and the like. */
     public String lowerName() {
+        if (this == ARMADYL_PRIEST) {
+            return "priest of Armadyl";
+        }
+        if (this == GUARDIAN) {
+            return "Guardian of Armadyl";
+        }
         return this == ZAMORAK_MAGE ? displayName : displayName.toLowerCase();
+    }
+
+    /** What its kind is called on a team of the faction: Armadyl's workers are his followers. */
+    public String nameFor(Faction faction) {
+        return this == WORKER && faction == Faction.ARMADYL ? "Follower" : displayName;
     }
 
     /** Ticks training one takes. */
@@ -454,6 +577,9 @@ public enum UnitKind {
         if ("sir_tradigee".equalsIgnoreCase(id) || "tragidee".equalsIgnoreCase(id)
             || "sir_tragidee".equalsIgnoreCase(id)) {
             return TRADIGEE;
+        }
+        if ("kree'arra".equalsIgnoreCase(id) || "kree_arra".equalsIgnoreCase(id)) {
+            return KREEARRA;
         }
         for (UnitKind kind : values()) {
             if (kind.id.equalsIgnoreCase(id) || kind.name()
