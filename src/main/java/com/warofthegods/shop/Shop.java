@@ -264,7 +264,7 @@ public final class Shop {
                 boolean affordable = team != null && team.canAfford(ware.cost());
                 lore.add((affordable ? EnumChatFormatting.GREEN : EnumChatFormatting.RED) + "Costs " + costText(ware));
                 if (ware.age > age) {
-                    lore.add(EnumChatFormatting.RED + "Needs Age " + roman(ware.age));
+                    lore.add(EnumChatFormatting.RED + "Needs Tier " + roman(ware.age));
                 } else {
                     lore.add(EnumChatFormatting.GRAY + "Click to buy");
                 }
@@ -275,7 +275,7 @@ public final class Shop {
                 for (Resource resource : Resource.values()) {
                     lore.add(resource.color + resource.displayName + ": " + team.getResource(resource));
                 }
-                lore.add(EnumChatFormatting.GRAY + "Age " + roman(age));
+                lore.add(EnumChatFormatting.GRAY + "Tier " + roman(age));
                 label(shown, EnumChatFormatting.GOLD + team.getName() + "'s stores", lore);
             } else if (slot == SELL_SLOT && stall.buysOres) {
                 shown = new ItemStack(Blocks.hopper);
@@ -312,7 +312,7 @@ public final class Shop {
         }
         ItemStack goods = goods(ware, team);
         if (ware.age > team.getAge()) {
-            tell(player, EnumChatFormatting.RED + goods.getDisplayName() + " needs Age " + roman(ware.age) + ".");
+            tell(player, EnumChatFormatting.RED + goods.getDisplayName() + " needs Tier " + roman(ware.age) + ".");
             return;
         }
         if (!team.spend(ware.cost())) {

@@ -18,9 +18,9 @@
 Each team gets a town center when a game starts. Town centers are spread around the middle of the map, each facing it.
 A town center is a camp in a fenced ring round a campfire, with a longhouse, a lodge and a granary:
 
-- **Age I:** log cabins with thatch.
-- **Age II:** framed houses over stone.
-- **Age III:** stone halls, quartz or graystone, behind a low wall.
+- **Tier I:** log cabins with thatch.
+- **Tier II:** framed houses over stone.
+- **Tier III:** stone halls, quartz or graystone, behind a low wall.
 
 A town center trains workers and takes in what they gather.
 
@@ -48,27 +48,27 @@ mostly dry and not too steep. Foundations fill in dips, and anything above the b
 
 | Building | What it does | Costs (default) | Health | Build time (one worker) |
 |---|---|---|---|---|
-| Town center | Trains workers, takes in what they gather, houses 10 units and 5 more each age; shoots arrows from Age II; researches fortified walls; goes on a settlement nobody holds | 300 Wood, 200 Gold | 1500 | 60 s |
+| Town center | Trains workers, takes in what they gather, houses 10 units and 5 more each tier; shoots arrows from Tier II; researches fortified walls; goes on a settlement nobody holds | 300 Wood, 200 Gold | 1500 | 60 s |
 | House | Houses 5 more units | 60 Wood | 300 | 12 s |
-| Farm | A worker there gathers food: 5 every 5 s, one worker per farm; needs Age II | 75 Wood | 300 | 15 s |
+| Farm | A worker there gathers food: 5 every 5 s, one worker per farm; needs Tier II | 75 Wood | 300 | 15 s |
 | Storehouse | Takes in what workers gather; researches economic upgrades, and tunnel mining for quarries | 100 Wood | 600 | 20 s |
-| Barracks | Trains warriors; needs Age II | 150 Wood, 50 Gold | 800 | 25 s |
-| Archery range | Trains archers; needs Age II | 150 Wood | 700 | 25 s |
-| Stables | Trains cavalry, and tame horses for players to ride; needs Age II | 175 Wood, 50 Gold | 800 | 30 s |
-| Chaos temple | Zamorak's teams only, Age II: trains chaos priests, who pray there for favor, dark wizards and Zamorak mages; researches greater and black demons | 150 Wood, 100 Gold | 900 | 30 s |
-| Stone circle | Zamorak's teams only, Age II: an old ring of grey standing stones, raised by dark wizards, not workers; four dark wizards standing in it summon a lesser demon | 100 Gold | 600 | at once |
-| Monastery | Saradomin's teams only, Age II: trains monks, who earn favor just by living | 150 Wood, 75 Gold | 800 | 30 s |
-| Wizards' tower | Saradomin's teams only, Age II: trains blue wizards | 100 Wood, 150 Gold | 900 | 30 s |
-| Armory | Researches military upgrades; needs Age II | 120 Wood, 60 Gold | 700 | 25 s |
-| Tower | Watches over the land round it; with watch towers (Age II) shoots arrows at enemies within 16 blocks, and with guard towers (Age III) within 24; researches both | 50 Wood, 100 Gold | 900 | 25 s |
+| Barracks | Trains warriors; needs Tier II | 150 Wood, 50 Gold | 800 | 25 s |
+| Archery range | Trains archers; needs Tier II | 150 Wood | 700 | 25 s |
+| Stables | Trains cavalry, and tame horses for players to ride; needs Tier II | 175 Wood, 50 Gold | 800 | 30 s |
+| Chaos temple | Zamorak's teams only, Tier II: trains chaos priests, who pray there for favor, dark wizards and Zamorak mages; researches greater and black demons | 150 Wood, 100 Gold | 900 | 30 s |
+| Stone circle | Zamorak's teams only, Tier II: an old ring of grey standing stones, raised by dark wizards, not workers; four dark wizards standing in it summon a lesser demon | 100 Gold | 600 | at once |
+| Monastery | Saradomin's teams only, Tier II: trains monks, who earn favor just by living | 150 Wood, 75 Gold | 800 | 30 s |
+| Wizards' tower | Saradomin's teams only, Tier II: trains blue wizards | 100 Wood, 150 Gold | 900 | 30 s |
+| Armory | Researches military upgrades; needs Tier II | 120 Wood, 60 Gold | 700 | 25 s |
+| Tower | Watches over the land round it; with watch towers (Tier II) shoots arrows at enemies within 16 blocks, and with guard towers (Tier III) within 24; researches both | 50 Wood, 100 Gold | 900 | 25 s |
 | Wall | Keeps enemies out; laid out from one point to another, a 5 by 5 piece at a time | 10 Gold a piece | 600 a segment, 800 a post | 10 s a piece |
 | Gate | A wall segment your own units and allies walk through; it opens as they come near | 40 Gold | 600 | at once |
-| White Knights' castle | Saradomin's teams only, Age III: a white stone castle that trains White Knights and Sir Tradigee, and shoots a volley of 4 arrows a second at the nearest enemies within 20 blocks | 300 Wood, 400 Gold | 4000 | 90 s |
-| Quarry | Age III, after tunnel mining: dug into a mined out gold mine, where up to 3 workers get 2 gold each every 5 s for ever | 500 Wood | 500 | 20 s |
-| Kinshra fortress | Zamorak's teams only, Age III: the Black Knights' graystone keep that trains Black Knights and Sagittare, and shoots a volley of 4 arrows a second at the nearest enemies within 20 blocks | 300 Wood, 400 Gold | 4000 | 90 s |
+| White Knights' castle | Saradomin's teams only, Tier III: a white stone castle that trains White Knights and Sir Tradigee, and shoots a volley of 4 arrows a second at the nearest enemies within 20 blocks | 300 Wood, 400 Gold | 4000 | 90 s |
+| Quarry | Tier III, after tunnel mining: dug into a mined out gold mine, where up to 3 workers get 2 gold each every 5 s for ever | 500 Wood | 500 | 20 s |
+| Kinshra fortress | Zamorak's teams only, Tier III: the Black Knights' graystone keep that trains Black Knights and Sagittare, and shoots a volley of 4 arrows a second at the nearest enemies within 20 blocks | 300 Wood, 400 Gold | 4000 | 90 s |
 
 **Quarries.** A quarry needs the storehouse to have researched tunnel mining (400 Food and 400 Wood, after runite
-pickaxes), and costs 500 Wood in Age III. Up to three workers work a quarry like a farm. They bring in 2 gold each per
+pickaxes), and costs 500 Wood in Tier III. Up to three workers work a quarry like a farm. They bring in 2 gold each per
 harvest for ever, more with the pickaxe upgrades.
 
 **Knights' fortresses.** Each one belongs to its god: only Saradomin's teams can build the White Knights' castle, and
@@ -77,11 +77,11 @@ only Zamorak's the Kinshra fortress.
 ## Towers
 
 Each team starts with four towers, one well off each corner of its town center, so between them they cover the ground
-round it. Towers can be built from Age I.
+round it. Towers can be built from Tier I.
 
-- **Watch towers** (Age II, researched at a tower): every tower of the team shoots, one arrow a second, flying as fast
+- **Watch towers** (Tier II, researched at a tower): every tower of the team shoots, one arrow a second, flying as fast
   and hitting as hard as an archer's.
-- **Guard towers** (Age III): towers see enemies and shoot 8 blocks farther.
+- **Guard towers** (Tier III): towers see enemies and shoot 8 blocks farther.
 
 ## Walls and gates
 
@@ -101,8 +101,8 @@ units and its allies' and stay shut to enemies, who have to break them down.
 
 **Wall materials.** Walls start as wood.
 
-- Stone walls, researched at the town center in Age II, rebuild every wall of the team in cobblestone.
-- Citadel walls, researched in Age III, rebuild them in stone brick (graystone for Zamorak).
+- Stone walls, researched at the town center in Tier II, rebuild every wall of the team in cobblestone.
+- Citadel walls, researched in Tier III, rebuild them in stone brick (graystone for Zamorak).
 - Stone and citadel walls have two and three times the health respectively.
 
 ## Upgrades
@@ -113,28 +113,28 @@ the team has that one.
 | Upgrade | At | Does |
 |---|---|---|
 | Iron swords | Armory | Warriors carry iron swords and hit 2 harder |
-| Runite swords | Armory, Age III, after iron swords | Warriors carry runite swords and hit 2 harder again |
+| Runite swords | Armory, Tier III, after iron swords | Warriors carry runite swords and hit 2 harder again |
 | Fletching | Armory | Archers and towers shoot 1 harder and 4 farther |
-| Fire arrows | Armory, Age II, after fletching | Archers' arrows set enemies they hit on fire for a few seconds; they never set the team or its allies alight |
+| Fire arrows | Armory, Tier II, after fletching | Archers' arrows set enemies they hit on fire for a few seconds; they never set the team or its allies alight |
 | Padded armor | Armory | Warriors and archers have 6 more health, and wear leather in their team's colour |
-| Plate armor | Armory, Age II, after padded armor | Warriors and archers have 8 more health, and wear iron |
+| Plate armor | Armory, Tier II, after padded armor | Warriors and archers have 8 more health, and wear iron |
 | Bigger baskets | Storehouse | Workers carry 10 more |
 | Iron axes | Storehouse | Workers chop half again as fast |
 | Iron pickaxes | Storehouse | Workers mine gold half again as fast |
 | Iron hoes | Storehouse | Farms yield half again as much |
-| Runite axes / pickaxes / hoes | Storehouse, Age III, after the iron one | Twice as fast or as much as with stone tools |
-| Masonry | Storehouse, Age II | Buildings have a fifth more health |
-| Tunnel mining | Storehouse, Age III, after runite pickaxes, for 400 Food and 400 Wood | Workers can dig quarries into mined out gold mines |
-| Fortified walls | Town center, Age II, for 150 Wood and 150 Gold | Buildings have half again as much health |
-| Watch towers | Tower, Age II, for 100 Wood and 100 Gold | Towers shoot arrows at enemies |
-| Guard towers | Tower, Age III, after watch towers, for 150 Wood and 200 Gold | Towers see and shoot 8 farther |
-| Stone walls | Town center, Age II, for 100 Wood and 150 Gold | Walls and gates are rebuilt in stone, with twice the health |
-| Citadel walls | Town center, Age III, after stone walls, for 150 Wood and 300 Gold | Walls and gates are rebuilt in stone brick, or graystone, with three times the health |
-| Armed goblins | Bandos's town center, Age II, for 50 Food and 75 Wood (25 s) | Goblins take up axes: they hit as hard as the swords upgrades let them and hit buildings three times as hard as with their fists |
+| Runite axes / pickaxes / hoes | Storehouse, Tier III, after the iron one | Twice as fast or as much as with stone tools |
+| Masonry | Storehouse, Tier II | Buildings have a fifth more health |
+| Tunnel mining | Storehouse, Tier III, after runite pickaxes, for 400 Food and 400 Wood | Workers can dig quarries into mined out gold mines |
+| Fortified walls | Town center, Tier II, for 150 Wood and 150 Gold | Buildings have half again as much health |
+| Watch towers | Tower, Tier II, for 100 Wood and 100 Gold | Towers shoot arrows at enemies |
+| Guard towers | Tower, Tier III, after watch towers, for 150 Wood and 200 Gold | Towers see and shoot 8 farther |
+| Stone walls | Town center, Tier II, for 100 Wood and 150 Gold | Walls and gates are rebuilt in stone, with twice the health |
+| Citadel walls | Town center, Tier III, after stone walls, for 150 Wood and 300 Gold | Walls and gates are rebuilt in stone brick, or graystone, with three times the health |
+| Armed goblins | Bandos's town center, Tier II, for 50 Food and 75 Wood (25 s) | Goblins take up axes: they hit as hard as the swords upgrades let them and hit buildings three times as hard as with their fists |
 | Elite Black Knights | Kinshra fortress, for 400 Food and 600 Gold | Black Knights have 20 more health and hit 3 harder, and wear gold-trimmed black plate and a red cape with Zamorak's sign |
 | Justiciars | White Knights' castle, for 400 Food and 600 Gold | White Knights become justiciars, with 20 more health and hitting 3 harder, in gold-trimmed silver plate with a crowned helm and a blue tabard |
-| Greater demons | Chaos temple, Age II, for 300 Food, 400 Gold and 20 Favor | Lesser demons become greater demons: bat-winged and a head taller, with 40 more health and hitting 3 harder |
-| Black demons | Chaos temple, Age III, after greater demons, for 500 Food, 700 Gold and 40 Favor | Greater demons become black demons: black, with bone-white horns and claws, taller still, with 100 more health than a lesser demon and hitting 6 harder |
+| Greater demons | Chaos temple, Tier II, for 300 Food, 400 Gold and 20 Favor | Lesser demons become greater demons: bat-winged and a head taller, with 40 more health and hitting 3 harder |
+| Black demons | Chaos temple, Tier III, after greater demons, for 500 Food, 700 Gold and 40 Favor | Greater demons become black demons: black, with bone-white horns and claws, taller still, with 100 more health than a lesser demon and hitting 6 harder |
 
 ## Building health and damage
 
@@ -186,7 +186,7 @@ as fast as they would build it.
 - Warriors and archers wear the armor upgrades from helmet to boots: leather in the team's colour with padded armor, and iron with plate (dark iron for Zamorak).
 - Workers hold the tool for their job: a hoe at a farm, a pickaxe at a gold mine, an axe for building and chopping, and a
   sword for hunting. They swing it as they work. Their tools are stone until the storehouse researches iron ones, and
-  runite after that in Age III. They hold what they carry only on the way to a store.
+  runite after that in Tier III. They hold what they carry only on the way to a store.
 
 ## Knights, heroes and cavalry
 
@@ -202,7 +202,7 @@ Black Knights elite and White Knights justiciars.
 
 ## Siege
 
-**Siege weapons** is an Age III armory upgrade (300 Food, 600 Wood, 600 Gold, 90 s). After it, each god's stronghold,
+**Siege weapons** is an Tier III armory upgrade (300 Food, 600 Wood, 600 Gold, 90 s). After it, each god's stronghold,
 the White Knights' castle, the Kinshra fortress or the Bandos bastion, builds **trebuchets** for 400 Wood each, taking
 eight times as long as a warrior to train.
 
@@ -238,7 +238,7 @@ and trail their element's particles. Fire sets what it hits alight.
   - **confuse** gives it nausea for 6 seconds
 - Like arrows, spells fly on past friends.
 - Zamorak mages carry a Zamorak staff and know only fire.
-- A player on a Zamorak team can buy a Zamorak staff at the armory in Age III (50 Wood, 150 Gold); anyone else has to
+- A player on a Zamorak team can buy a Zamorak staff at the armory in Tier III (50 Wood, 150 Gold); anyone else has to
   find one in a [ruin chest](#ruin-chests-and-artifacts). Right-click to cast a fire strike, once a second.
 
 **Stone circles and lesser demons.** Dark wizards raise stone circles. Select dark wizards (and no workers), and the
@@ -254,17 +254,17 @@ Bandos, the Big High War God, is the third god, his armies goblins and their kin
 differently from Saradomin's and Zamorak's:
 
 - **No houses, barracks, archery ranges or stables.** In their place:
-  - the **goblin cave** (free, slow to build, 150 health, Age I) houses as many units as a house and trains goblins
-  - the **war pit** (Age II) trains goblin axe-throwers, hobgoblins and orks
-  - the **Bandos temple** (Age II) trains goblin priests
-  - the **Bandos bastion**, his fortress (Age III), trains ogres, the spiritual warrior, ranger and mage, and his heroes
+  - the **goblin cave** (free, slow to build, 150 health, Tier I) houses as many units as a house and trains goblins
+  - the **war pit** (Tier II) trains goblin axe-throwers, hobgoblins and orks
+  - the **Bandos temple** (Tier II) trains goblin priests
+  - the **Bandos bastion**, his fortress (Tier III), trains ogres, the spiritual warrior, ranger and mage, and his heroes
 - **Slaves** gather instead of workers. The town center trains slaves and goblins, and no workers. Slaves build too.
 - **Goblins and axe-throwers build** as well as fight, but take no part in gathering.
 
 | Unit | Health | Notes |
 |---|---|---|
 | Slave | as a worker | a worn-out man in rags; gathers and builds |
-| Goblin | 0.6× | builds; fights bare-handed, punching for half a warrior's blow and hitting buildings a third as hard, until the town center researches armed goblins in Age II and they take up axes |
+| Goblin | 0.6× | builds; fights bare-handed, punching for half a warrior's blow and hitting buildings a third as hard, until the town center researches armed goblins in Tier II and they take up axes |
 | Goblin axe-thrower | 0.6× | throws axes, short range; builds |
 | Hobgoblin | 1.5× | a spearman: double damage against cavalry and other fast units |
 | Ork | 3× | heavy and slow, hits buildings hard, cannot be knocked back |
@@ -306,7 +306,7 @@ out:
 
 - **Dark bow.** Looses two arrows at once, using up two (one if that is all you have), and each hits much harder than a
   bow's. Both land, even on the same target.
-- **Godsword blade.** Useless alone. Buy the hilt of your team's god at your armory (Age III, 300 gold) and put the two
+- **Godsword blade.** Useless alone. Buy the hilt of your team's god at your armory (Tier III, 300 gold) and put the two
   together in a crafting grid to make a godsword, which hits for 12, to a runite sword's 7:
   - **Zamorak godsword** sets whoever it hits alight.
   - **Saradomin godsword** heals you by 5% of the damage it deals.

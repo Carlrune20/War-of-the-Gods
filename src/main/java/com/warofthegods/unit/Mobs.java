@@ -40,6 +40,7 @@ import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.Ruin;
+import com.warofthegods.game.SafeMode;
 import com.warofthegods.world.GameWorld;
 
 import cpw.mods.fml.common.eventhandler.Event;
@@ -343,7 +344,7 @@ public final class Mobs {
         }
         Game game = DimensionManager.getWorld(0) == null ? null : GameManager.getGame();
         WorldServer world = DimensionManager.getWorld(GameWorld.dimensionId());
-        if (game == null || world == null || Config.maxMobs <= 0) {
+        if (game == null || world == null || Config.maxMobs <= 0 || SafeMode.isActive()) {
             return;
         }
         List<EntityLiving> hostile = new ArrayList<>();

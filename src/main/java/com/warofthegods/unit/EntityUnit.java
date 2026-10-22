@@ -38,6 +38,7 @@ import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.GoldMine;
 import com.warofthegods.game.Resource;
+import com.warofthegods.game.SafeMode;
 import com.warofthegods.game.Spell;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.Tree;
@@ -1710,7 +1711,7 @@ public class EntityUnit extends EntityCreature {
             return;
         }
         if (getNavigator().noPath() && --planTicks <= 0) {
-            planTicks = 20;
+            planTicks = SafeMode.stretch(20);
             walkToward(goalX, goalZ);
         }
         if (!madeProgress() && !nextMove()) {
@@ -1722,7 +1723,7 @@ public class EntityUnit extends EntityCreature {
     private void tickBombard() {
         if (distanceTo(goalX, goalZ) > archerRange()) {
             if (getNavigator().noPath() && --planTicks <= 0) {
-                planTicks = 20;
+                planTicks = SafeMode.stretch(20);
                 walkToward(goalX, goalZ);
             }
             if (!madeProgress()) {
@@ -1856,7 +1857,7 @@ public class EntityUnit extends EntityCreature {
         if (away > CHOP_REACH && !(away <= LEAVES_REACH && touchingLeaves())) {
             working = false;
             if (getNavigator().noPath() && --planTicks <= 0) {
-                planTicks = 20;
+                planTicks = SafeMode.stretch(20);
                 // To the side of the trunk facing the worker; the trunk itself is solid.
                 double distance = Math.max(0.01, Math.sqrt(dx * dx + dz * dz));
                 walkToward(treeX + 0.5 - dx / distance * 1.2, treeZ + 0.5 - dz / distance * 1.2);
@@ -1938,7 +1939,7 @@ public class EntityUnit extends EntityCreature {
         if (mine.distanceTo(posX, posZ) > MINE_REACH) {
             working = false;
             if (getNavigator().noPath() && --planTicks <= 0) {
-                planTicks = 20;
+                planTicks = SafeMode.stretch(20);
                 double[] spot = mine.nearestOutside(posX, posZ);
                 walkToward(spot[0], spot[1]);
             }
@@ -2014,7 +2015,7 @@ public class EntityUnit extends EntityCreature {
         }
         if (distanceTo(spot[0] + 0.5, spot[2] + 0.5) > TORCH_REACH || Math.abs(posY - spot[1]) > 3) {
             if (getNavigator().noPath() && --planTicks <= 0) {
-                planTicks = 20;
+                planTicks = SafeMode.stretch(20);
                 walkToward(spot[0] + 0.5, spot[2] + 0.5);
             }
             if (!madeProgress()) {
@@ -2087,7 +2088,7 @@ public class EntityUnit extends EntityCreature {
         if (distanceTo(carcass.x, carcass.z) > CARVE_REACH) {
             working = false;
             if (getNavigator().noPath() && --planTicks <= 0) {
-                planTicks = 20;
+                planTicks = SafeMode.stretch(20);
                 walkToward(carcass.x, carcass.z);
             }
             if (!madeProgress()) {
@@ -2426,7 +2427,7 @@ public class EntityUnit extends EntityCreature {
     /** Walks toward the nearest side of a building; gives up and guards when stuck too long. */
     private void walkTo(Building building) {
         if (getNavigator().noPath() && --planTicks <= 0) {
-            planTicks = 20;
+            planTicks = SafeMode.stretch(20);
             double[] spot = building.nearestOutside(posX, posZ);
             walkToward(spot[0], spot[1]);
         }
@@ -2462,7 +2463,7 @@ public class EntityUnit extends EntityCreature {
                 getNavigator().clearPathEntity();
             } else {
                 if (getNavigator().noPath() && --planTicks <= 0) {
-                    planTicks = 20;
+                    planTicks = SafeMode.stretch(20);
                     walkToward(spotX, spotZ);
                 }
                 if (!madeProgress()) {
@@ -2514,7 +2515,7 @@ public class EntityUnit extends EntityCreature {
             hasPost = true;
         }
         if (kind.fights() && stance != Stance.PASSIVE && --scanTicks <= 0) {
-            scanTicks = 10 + rand.nextInt(5);
+            scanTicks = SafeMode.stretch(10 + rand.nextInt(5));
             EntityLivingBase enemy = Units.get()
                 .findEnemyNear(this, guardRange());
             if (enemy != null && (stance != Stance.HOLD || inReach(enemy))) {
@@ -2534,7 +2535,7 @@ public class EntityUnit extends EntityCreature {
             }
         }
         if (distanceTo(postX, postZ) > 2 && getNavigator().noPath() && --planTicks <= 0) {
-            planTicks = 40;
+            planTicks = SafeMode.stretch(40);
             walkToward(postX, postZ);
         }
     }

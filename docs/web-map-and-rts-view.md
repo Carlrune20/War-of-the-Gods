@@ -55,7 +55,7 @@ out on a large map it draws a lot of blocks, which older phones may find slow.
 | Control | What it does |
 |---|---|
 | Town center | Select your town center |
-| Click one of your buildings | Select it and see its health. A site shows how far it is built. A town center, barracks, archery range or stables shows its Train buttons and training progress: each click queues one more, shift-click 5, up to 10 waiting; they train one at a time. Level takes it up a level (on the town center, Advance takes the town to the next age). An armory or storehouse shows the upgrades it researches. |
+| Click one of your buildings | Select it and see its health. A site shows how far it is built. A town center, barracks, archery range or stables shows its Train buttons and training progress: each click queues one more, shift-click 5, up to 10 waiting; they train one at a time. Level takes it up a level (on the town center, Advance takes the town to the next tier). An armory or storehouse shows the upgrades it researches. |
 | Farm / House / Barracks / ... | With workers selected: a see-through copy follows the pointer, pale where it fits and red where it does not (in the in-game view it shows the building's own blocks). R or Rotate turns it a quarter round, click places it, and right-click or Esc cancels. Shift-click places more, and the workers build them one after another in the order they were placed. Shift-right-click a building site to add it to their list. |
 | Wall | With workers selected: click where the wall starts, or one of your towers, then where it ends (or another tower). A see-through wall follows the pointer, red where it does not fit, and the bar shows its pieces and cost. Shift-click to go on with the next wall from where this one ended. |
 | Make gate | With one of your finished wall segments selected: turn it into a gate at once, for gold. |
@@ -112,7 +112,7 @@ panels, buttons and tooltips as on the web map are drawn over the real world. No
 | Minimap (bottom right) | Click or drag to move the camera there. Right-click to send the selected units there. It shows the map as far as your client has seen it or the server has sent its surface, with buildings, units and hostile mobs, and the part in view outlined. |
 | Torches | With workers selected: click two corners of an area for them to light up. |
 | Wall / Make gate | With workers selected: click where a wall starts and where it ends, or two of your towers. With a wall segment selected, Make gate. As on the web map. |
-| B | The team menu, in the view or in person: join or leave a team. Ops click a player to move them, or fill or shuffle the teams. |
+| B | The team menu, in the view or in person: join or leave a team. Ops click a player to move them, or fill or shuffle the teams. While no game is running, B opens the new game lobby for ops. |
 | T or / | Chat, without leaving the view. |
 | V, or Esc with nothing selected | Back to playing in person. |
 

@@ -1,6 +1,6 @@
 # How to play
 
-This guide covers the flow of a game: starting one, the map, gathering, ages, and how a game ends.
+This guide covers the flow of a game: starting one, the map, gathering, tiers, and how a game ends.
 For the buildings and units, see [Buildings and units](buildings-and-units.md). For giving orders, see
 [Orders and combat](orders-and-combat.md).
 
@@ -18,8 +18,8 @@ A game with no enemy teams is fine too: build and fight the wilderness mobs.
 
 ## The lobby
 
-An op opens the lobby with `/rts newgame` or the **New game** button in the team menu (press **B**). That ends the
-running game, and the lobby comes up on everyone's screen. Anyone who closes it, or logs in while it is open, gets
+An op opens the lobby with `/rts newgame` or the **New game** button in the team menu (press **B**). While no game is
+running, B on its own opens the lobby for an op. Opening it ends the running game, and the lobby comes up on everyone's screen. Anyone who closes it, or logs in while it is open, gets
 it back with B. It starts with the teams of the game that just ended, and everyone on the team they were on.
 
 Only ops change the settings:
@@ -116,15 +116,15 @@ team made with `/rts team create` follows Zamorak if its colour is red or dark, 
 otherwise. An op can change it at any time with `/rts team faction`. Bandos's teams play differently; see
 [Bandos](buildings-and-units.md#bandos).
 
-Each god's buildings change with the ages:
+Each god's buildings change with the tiers:
 
-- **Saradomin's towns** grow like Falador. They are oak in Age I, then white plaster in an oak frame over stone brick
-  and cobble in Age II, and white quartz in Age III. Their houses have red brick roofs from Age II.
-- **Zamorak**, god of chaos and strength, has his people build hard and plain. Buildings are spruce in Age I, spruce
-  over stone brick and cobble in Age II, and in Age III graystone, like Varrock's walls, for the town center, the
+- **Saradomin's towns** grow like Falador. They are oak in Tier I, then white plaster in an oak frame over stone brick
+  and cobble in Tier II, and white quartz in Tier III. Their houses have red brick roofs from Tier II.
+- **Zamorak**, god of chaos and strength, has his people build hard and plain. Buildings are spruce in Tier I, spruce
+  over stone brick and cobble in Tier II, and in Tier III graystone, like Varrock's walls, for the town center, the
   temple and the military buildings. They have dark oak roofs.
 - **Bandos's goblins** build ugly and in a hurry: heaps of cobblestone and mossy cobble propped up with dark wood,
-  with more cracked and mossy stone brick in later ages.
+  with more cracked and mossy stone brick in later tiers.
 
 Each god's banners hang on its buildings: Saradomin's star in white on blue or blue on white, and Zamorak's mark in red
 on black or black on red. Zamorak's buildings have plain wooden doors anyone can open, so players can walk into the
@@ -137,7 +137,7 @@ and red. Each unit has a band of its team's colour round its arms and waist, and
 
 **Food** comes from farms and from hunting.
 
-- Workers at a farm gather food: 5 every 5 seconds, one worker per farm. Farms need Age II.
+- Workers at a farm gather food: 5 every 5 seconds, one worker per farm. Farms need Tier II.
 - To hunt, select workers and right-click a cow, pig, sheep or chicken. They run it down, then carve food off the
   carcass, 6 every 3 seconds, and carry it home 20 at a time, coming back until it is gone. A cow gives 300 food, a
   pig 250, a sheep 200 and a chicken 100. Then they go after the nearest animal around.
@@ -175,19 +175,19 @@ mound (south-west of Varrock).
 - A mine that runs out is left as bare grey rock. Its workers go on to the nearest mine within 64 blocks.
 - Training takes 5 seconds per unit, one at a time per building.
 
-## Ages
+## Tiers
 
-A team's town center sets its age. Taking it up a level advances the whole town:
+A team's town center sets its tier. Taking it up a level advances the whole town:
 
-- **Age II** costs 200 Food, 200 Wood and 150 Gold.
-- **Age III** costs 400 Food, 300 Wood and 400 Gold.
+- **Tier II** costs 200 Food, 200 Wood and 150 Gold.
+- **Tier III** costs 400 Food, 300 Wood and 400 Gold.
 
-Every other building of the team takes on the new age's look at once, and buildings put up later look the age too.
+Every other building of the team takes on the new tier's look at once, and buildings put up later look the tier too.
 Nothing else about them changes.
 
-- **Age I** has no military and no farms. Workers build, chop, mine and hunt. The town center shoots arrows at enemies
+- **Tier I** has no military and no farms. Workers build, chop, mine and hunt. The town center shoots arrows at enemies
   in range. Towers stand watch but do not shoot.
-- **Age II** brings the town center 5 more housing for units, opens the second row of upgrades, and unlocks barracks,
+- **Tier II** brings the town center 5 more housing for units, opens the second row of upgrades, and unlocks barracks,
   archery ranges, stables, farms, armories, and each god's temples and towers. For more health, research fortified
   walls at the town center.
 
@@ -197,7 +197,7 @@ Commanders kit themselves out at shop chests, paid for from their team's resourc
 bought. Right-click the chest in your own finished town center or armory to open its shop, then click a ware to buy
 it.
 
-| Shop | Age | Wares |
+| Shop | Tier | Wares |
 |---|---|---|
 | Town center | I | Cooked beef, porkchops or chicken x8 (25, 25, 20 food), bread or baked potatoes x8 (15 food), apples x8 (10 food); torches x16 (5 wood), planks x32 (15 wood), cobblestone x32 (10 gold), ladders x8 (5 wood), fences x16 (10 wood), crafting table (5 wood), furnace (5 gold); stone sword (10 wood, 5 gold), stone pickaxe, axe and shovel (10 wood each); leather armor dyed in the team's colour, the cap a leather cowl (12, 20, 16 and 12 gold) |
 | Armory | II | Iron sword (40 gold), iron pickaxe, axe and shovel (30 gold each), iron armor, a silver full helm and plate; Zamorak's teams get dark iron instead (50, 80, 70 and 40 gold), bow (20 wood, 10 gold), arrows x16 (10 wood) |
@@ -233,4 +233,4 @@ See [Ruin chests and artifacts](buildings-and-units.md#ruin-chests-and-artifacts
 - **Winning.** Once every team still standing is allied with all the others, they have won. Everyone is told, the web
   map and the in-game view show it, and the game is over until an op starts a new one.
 
-A team's age stays when it loses its town centers.
+A team's tier stays when it loses its town centers.

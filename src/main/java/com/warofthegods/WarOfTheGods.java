@@ -16,6 +16,7 @@ import com.warofthegods.command.Lobby;
 import com.warofthegods.command.TeamCommands;
 import com.warofthegods.game.Faction;
 import com.warofthegods.game.PlayerEvents;
+import com.warofthegods.game.SafeMode;
 import com.warofthegods.game.WinConditions;
 import com.warofthegods.item.ArmorKnockback;
 import com.warofthegods.item.ItemArtifact;
@@ -159,6 +160,9 @@ public class WarOfTheGods {
 
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
+        FMLCommonHandler.instance()
+            .bus()
+            .register(new SafeMode());
         FMLCommonHandler.instance()
             .bus()
             .register(new PlayerEvents());

@@ -2004,7 +2004,7 @@ public final class GuiRts extends GuiScreen {
     }
 
     static String ageName(int age) {
-        return "Age " + roman(age);
+        return "Tier " + roman(age);
     }
 
     private static String roman(int level) {
@@ -2698,7 +2698,7 @@ public final class GuiRts extends GuiScreen {
                     (center ? "Advance to " + ageName(building.level + 1) : "Level " + (building.level + 1)) + " ("
                         + RtsState.costText(next.cost)
                         + ")\n"
-                        + (centerReady ? "Takes " + next.seconds + "s; every building takes on the new age's look"
+                        + (centerReady ? "Takes " + next.seconds + "s; every building takes on the new tier's look"
                             : "Your town has to reach " + ageName(building.level + 1) + " first"),
                     shift -> {
                         JsonObject body = new JsonObject();

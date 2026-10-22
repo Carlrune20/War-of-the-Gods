@@ -675,7 +675,7 @@ public final class RtsClient {
     @SubscribeEvent
     public void onKeyInput(InputEvent.KeyInputEvent event) {
         if (teamsKey.isPressed() && mc.currentScreen == null && mc.thePlayer != null) {
-            mc.displayGuiScreen(lobby != null ? new GuiLobby(this) : new GuiTeams(this));
+            mc.displayGuiScreen(lobby != null ? new GuiLobby(this) : new GuiTeams(this, true));
             return;
         }
         if (toggleKey.isPressed() && mc.currentScreen == null) {
