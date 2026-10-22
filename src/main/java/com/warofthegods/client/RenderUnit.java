@@ -21,6 +21,7 @@ import org.lwjgl.opengl.GL11;
 import com.warofthegods.WarOfTheGods;
 import com.warofthegods.game.Faction;
 import com.warofthegods.game.UnitKind;
+import com.warofthegods.game.UnitLooks;
 import com.warofthegods.unit.EntityUnit;
 import com.warofthegods.unit.Prayer;
 
@@ -119,6 +120,33 @@ public class RenderUnit extends RenderBiped {
         }
     }
 
+    /**
+     * The skins of the kinds that come in several looks (see {@link UnitLooks}), by faction and kind as SKINS has them,
+     * one to each look.
+     */
+    private static final Map<String, ResourceLocation[]> LOOK_SKINS = new HashMap<>();
+    /** The blue wizards' pointed hats, one to each of their looks. */
+    private static final ResourceLocation[] WIZARD_HATS = new ResourceLocation[UnitLooks.LOOKS];
+
+    static {
+        for (Faction faction : Faction.values()) {
+            for (UnitKind kind : UnitKind.values()) {
+                ResourceLocation[] skins = new ResourceLocation[UnitLooks.count(faction, kind)];
+                for (int i = 0; i < skins.length; i++) {
+                    skins[i] = new ResourceLocation(
+                        WarOfTheGods.MODID,
+                        "textures/entity/unit/" + faction.id + "_" + kind.id + "_" + (i + 1) + ".png");
+                }
+                if (skins.length > 0) {
+                    LOOK_SKINS.put(faction.id + "_" + kind.id, skins);
+                }
+            }
+        }
+        for (int i = 0; i < WIZARD_HATS.length; i++) {
+            WIZARD_HATS[i] = new ResourceLocation(WarOfTheGods.MODID, "textures/models/wizard_hat_" + (i + 1) + ".png");
+        }
+    }
+
     /** Elite Black Knights' and Justiciars' skins, by faction and the knight's own kind. */
     private static final Map<String, ResourceLocation> ELITE_SKINS = new HashMap<>();
 
@@ -163,6 +191,7 @@ public class RenderUnit extends RenderBiped {
     private final ModelCentaur centaurModel = new ModelCentaur();
     private final ModelKnight knightModel = new ModelKnight();
     private final ModelCreature creatureModel = new ModelCreature();
+    private final ModelArmor wizardHat = new ModelArmor("wizard_hat");
     private final RenderTrebuchet trebuchet = new RenderTrebuchet();
     /** The horse drawn under each rider, kept only to be drawn; it is in no world's entity list. */
     private final Map<EntityUnit, EntityHorse> horses = new WeakHashMap<>();
@@ -348,6 +377,10 @@ public class RenderUnit extends RenderBiped {
             return CREATURE.get(creatureTexture(unit));
         }
         String key = unit.getWatchedFaction().id + "_" + unit.getWatchedKind().id;
+        ResourceLocation[] looks = LOOK_SKINS.get(key);
+        if (looks != null && !unit.isWatchedElite()) {
+            return looks[unit.getWatchedLook() % looks.length];
+        }
         return unit.isWatchedElite() && ELITE_SKINS.containsKey(key) ? ELITE_SKINS.get(key) : SKINS.get(key);
     }
 
@@ -408,6 +441,17 @@ public class RenderUnit extends RenderBiped {
             // The plume, in the team's color, from the skin still bound.
             GL11.glColor3f((color >> 16 & 255) / 255F, (color >> 8 & 255) / 255F, (color & 255) / 255F);
             knightModel.renderPlume(scale);
+        }
+        if (kind == UnitKind.BLUE_WIZARD && mainModel == manModel) {
+            // His pointed hat, to match his look.
+            bindTexture(WIZARD_HATS[((EntityUnit) entity).getWatchedLook() % WIZARD_HATS.length]);
+            wizardHat.onGround = mainModel.onGround;
+            wizardHat.isRiding = mainModel.isRiding;
+            wizardHat.isChild = mainModel.isChild;
+            wizardHat.isSneak = modelBipedMain.isSneak;
+            wizardHat.heldItemRight = modelBipedMain.heldItemRight;
+            wizardHat.aimedBow = modelBipedMain.aimedBow;
+            wizardHat.render(entity, swing, swingAmount, age, yaw, pitch, scale);
         }
         bindTexture(OVERLAY);
         overlayModel.onGround = mainModel.onGround;

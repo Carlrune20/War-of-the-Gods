@@ -438,8 +438,8 @@ def monk(faction):
 
 
 def dark_wizard(faction):
-    """A dark wizard: black robes trimmed in purple, under a dark hood."""
-    return robed((32, 30, 40), (100, 40, 130), hood=(26, 24, 32), hair=(30, 26, 28), beard=(70, 66, 70))
+    """A dark wizard: black robes edged in a lighter black, under a dark hood."""
+    return robed((32, 30, 36), (58, 56, 62), hood=(26, 24, 30), hair=(30, 26, 28), beard=(70, 66, 70))
 
 
 def zamorak_mage(faction):
@@ -1834,6 +1834,9 @@ def main():
         path = os.path.join(SKINS, "armadyl_%s.png" % name)
         skin(kind, "armadyl").save(path)
         written.append(path)
+    # The looks units of some kinds are told apart by, and the blue wizards' hats.
+    import looks
+    written += looks.write()
     overlay().save(os.path.join(SKINS, "team_overlay.png"))
     icons(args.minecraft_jar).save(ICONS)
     os.makedirs(ITEMS, exist_ok=True)
