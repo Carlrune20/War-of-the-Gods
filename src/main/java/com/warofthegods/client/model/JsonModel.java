@@ -11,7 +11,6 @@ import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.ModelBase;
 import net.minecraft.client.model.ModelRenderer;
-import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.resources.IReloadableResourceManager;
 import net.minecraft.client.resources.IResourceManager;
 import net.minecraft.client.resources.IResourceManagerReloadListener;
@@ -19,13 +18,13 @@ import net.minecraft.util.ResourceLocation;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.lwjgl.opengl.GL11;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.warofthegods.WarOfTheGods;
+import com.warofthegods.client.Glow;
 
 /**
  * A box model made by tools/models/generate.py: a tree of named parts, each turning about its pivot, holding boxes laid
@@ -336,24 +335,19 @@ public final class JsonModel {
     }
 
     /**
-     * Draws the parts that glow over again at full brightness, unlit, on top of themselves as just drawn; nothing
-     * when no part glows.
+     * Draws the parts that glow over again on top of themselves as just drawn, as {@link Glow} draws them, an entity's
+     * through the shaders' program; nothing when no part glows.
      */
-    public void renderGlow(float scale) {
+    public void renderGlow(float scale, boolean entity) {
         if (glowing.isEmpty()) {
             return;
         }
         for (ModelRenderer boxes : geometry) {
             boxes.showModel = glowing.contains(boxes);
         }
-        float lastX = OpenGlHelper.lastBrightnessX;
-        float lastY = OpenGlHelper.lastBrightnessY;
-        OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240, 240);
-        GL11.glDisable(GL11.GL_LIGHTING);
-        GL11.glDepthFunc(GL11.GL_LEQUAL);
+        Glow.begin(entity);
         render(scale);
-        GL11.glEnable(GL11.GL_LIGHTING);
-        OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, lastX, lastY);
+        Glow.end();
         for (ModelRenderer boxes : geometry) {
             boxes.showModel = true;
         }

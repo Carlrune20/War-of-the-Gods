@@ -1,5 +1,6 @@
 package com.warofthegods.client;
 
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -32,7 +33,8 @@ import com.warofthegods.unit.Prayer;
  * model of its own (see {@link ModelDemon}) and stands tallest of all, its belt and arm bands in its team's color; so
  * does a centaur (see {@link ModelCentaur}), its blanket, belt, quiver strap and arm bands in its team's color. A
  * hero's protection
- * prayer shows above his name while it is up. Knights wear full plate with a plume in their team's color, and their
+ * prayer shows above his name while it is up. Demons' and centaurs' eyes glow, and Sagittare's glow orange under his
+ * hood (see {@link Glow}). Knights wear full plate with a plume in their team's color, and their
  * elite upgrades change their armor. Cavalry sit on a horse, white for Saradomin and black for Zamorak, drawn
  * with the horse's own model; it is part of the unit, not a horse of its own. A trebuchet is drawn by
  * {@link RenderTrebuchet}.
@@ -45,6 +47,8 @@ public class RenderUnit extends RenderBiped {
     /** The lesser, greater and black demon's own textures, and where on them their team's color goes. */
     private static final ResourceLocation[] DEMON = demonTextures("");
     private static final ResourceLocation[] DEMON_TEAM = demonTextures("_team");
+    /** Their eyes, which glow; see tools/textures/eyes.py. */
+    private static final ResourceLocation[] DEMON_EYES = demonTextures("_eyes");
     /** A centaur's own texture, and where on it its team's color goes. */
     private static final ResourceLocation CENTAUR = new ResourceLocation(
         WarOfTheGods.MODID,
@@ -52,6 +56,21 @@ public class RenderUnit extends RenderBiped {
     private static final ResourceLocation CENTAUR_TEAM = new ResourceLocation(
         WarOfTheGods.MODID,
         "textures/models/centaur_team.png");
+    private static final ResourceLocation CENTAUR_EYES = new ResourceLocation(
+        WarOfTheGods.MODID,
+        "textures/models/centaur_eyes.png");
+    /** Sagittare's eyes, which glow orange under his hood, by faction. */
+    private static final Map<Faction, ResourceLocation> SAGITTARE_EYES = new EnumMap<>(Faction.class);
+
+    static {
+        for (Faction faction : Faction.values()) {
+            SAGITTARE_EYES.put(
+                faction,
+                new ResourceLocation(
+                    WarOfTheGods.MODID,
+                    "textures/entity/unit/" + faction.id + "_" + UnitKind.SAGITTARE.id + "_eyes.png"));
+        }
+    }
     private static final Map<String, ResourceLocation> SKINS = new HashMap<>();
     /**
      * Bandos's creatures' textures, and where on them their team's color goes, by texture name: the unit kind's id,
@@ -425,6 +444,11 @@ public class RenderUnit extends RenderBiped {
             demonModel.renderAgain(scale);
             GL11.glDepthFunc(GL11.GL_LEQUAL);
             GL11.glColor4f(1, 1, 1, 1);
+            // Its eyes, glowing.
+            bindTexture(DEMON_EYES[Math.min(DEMON_EYES.length - 1, ((EntityUnit) entity).getWatchedEliteTier())]);
+            Glow.begin(true);
+            demonModel.renderAgain(scale);
+            Glow.end();
             return;
         }
         if (mainModel == centaurModel) {
@@ -435,12 +459,24 @@ public class RenderUnit extends RenderBiped {
             centaurModel.renderAgain(scale);
             GL11.glDepthFunc(GL11.GL_LEQUAL);
             GL11.glColor4f(1, 1, 1, 1);
+            // His eyes, glowing.
+            bindTexture(CENTAUR_EYES);
+            Glow.begin(true);
+            centaurModel.renderAgain(scale);
+            Glow.end();
             return;
         }
         if (mainModel == knightModel && knightModel.isPlumed()) {
             // The plume, in the team's color, from the skin still bound.
             GL11.glColor3f((color >> 16 & 255) / 255F, (color >> 8 & 255) / 255F, (color & 255) / 255F);
             knightModel.renderPlume(scale);
+        }
+        if (kind == UnitKind.SAGITTARE && mainModel == manModel) {
+            // His eyes, glowing orange under his hood.
+            bindTexture(SAGITTARE_EYES.get(((EntityUnit) entity).getWatchedFaction()));
+            Glow.begin(true);
+            manModel.bipedHeadwear.render(scale);
+            Glow.end();
         }
         if (kind == UnitKind.BLUE_WIZARD && mainModel == manModel) {
             // His pointed hat, to match his look.

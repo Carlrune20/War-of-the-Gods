@@ -49,7 +49,7 @@ public class ModelWild extends ModelBase {
 
     /** Draws its glowing parts, such as a ghost's eyes, again at full brightness. */
     public void renderGlow(float scale) {
-        model.renderGlow(scale);
+        model.renderGlow(scale, true);
     }
 
     @Override
