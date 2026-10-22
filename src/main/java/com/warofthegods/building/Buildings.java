@@ -1831,8 +1831,9 @@ public final class Buildings {
                         world.setBlock(x, y, z, Blocks.air, 0, 2);
                     }
                 }
-                if (world.getBlock(x, building.groundY, z) != Blocks.grass) {
-                    world.setBlock(x, building.groundY, z, Blocks.grass, 0, 2);
+                Block ground = Schematic.groundBlock(world);
+                if (world.getBlock(x, building.groundY, z) != ground) {
+                    world.setBlock(x, building.groundY, z, ground, 0, 2);
                 }
             }
         }

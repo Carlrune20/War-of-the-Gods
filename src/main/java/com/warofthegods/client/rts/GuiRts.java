@@ -1040,6 +1040,10 @@ public final class GuiRts extends GuiScreen {
         if (state().buildingAt(x + 0.5, z + 0.5) != null) {
             return null;
         }
+        // The ground under the pointer may have a mushroom on it, which the pick passes through.
+        if (Trees.isMushroom(mc.theWorld.getBlock(x, y + 1, z))) {
+            y++;
+        }
         long key = ((long) x << 36) ^ ((long) (y & 0xFF) << 28) ^ (z & 0xFFFFFFFL);
         if (key != treeKey || mc.theWorld.getTotalWorldTime() - treeTime > 20) {
             // Only logs and leaves that grew on a tree; those of buildings, walls and ruins are no tree's.

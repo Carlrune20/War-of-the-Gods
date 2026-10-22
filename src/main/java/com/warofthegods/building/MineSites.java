@@ -127,6 +127,9 @@ public final class MineSites {
                     if (block == Blocks.rail && (rotation & 1) == 1) {
                         meta ^= 1;
                     }
+                    if (block == Blocks.grass) {
+                        block = Schematic.groundBlock(world);
+                    }
                     if (block != null) {
                         world.setBlock(wx, mine.groundY + y, wz, block, meta, 2);
                     } else if (y > 0) {

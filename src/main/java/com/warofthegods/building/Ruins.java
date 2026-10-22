@@ -17,6 +17,7 @@ import com.warofthegods.game.Ruin;
 import com.warofthegods.game.Settlement;
 import com.warofthegods.web.WebMap;
 import com.warofthegods.world.ChunkProviderRts;
+import com.warofthegods.world.Forinthry;
 import com.warofthegods.world.GameWorld;
 import com.warofthegods.world.Misthalin;
 
@@ -88,6 +89,18 @@ public final class Ruins {
      * then a few small ones together, all haunted the same way if at all. Everything stays inside the chunk and the
      * ones east and south of it, which are already there, so no further chunks are generated for it.
      */
+    /**
+     * Puts the part of one of Forinthry's old fortresses inside the chunks being filled in, about chunk chunkX,
+     * chunkZ, on ground levelled at groundY, and marks the fortress as a ruin the first time a piece of it goes in.
+     */
+    public static void oldFortress(WorldServer world, Forinthry.Keep keep, int groundY, int chunkX, int chunkZ,
+        long seed) {
+        Game game = GameWorld.currentGame();
+        if (game != null && game.getMapTeams() > 0) {
+            ForinthryRuins.oldFortress(game, world, keep, groundY, chunkX, chunkZ, seed);
+        }
+    }
+
     public static void populate(WorldServer world, int chunkX, int chunkZ, long seed) {
         Game game = GameWorld.currentGame();
         if (game == null || Config.ruinEvery <= 0 || game.getMapTeams() == 0) {
@@ -377,7 +390,7 @@ public final class Ruins {
         for (int y = Math.max(top, groundY + HEIGHT); y > groundY; y--) {
             world.setBlock(x, y, z, Blocks.air, 0, 2);
         }
-        world.setBlock(x, groundY, z, Blocks.grass, 0, 2);
+        world.setBlock(x, groundY, z, Schematic.groundBlock(world), 0, 2);
     }
 
     // ---------------------------------------------------------------- stone

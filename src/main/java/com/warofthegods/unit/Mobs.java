@@ -220,6 +220,8 @@ public final class Mobs {
     /** Most bandits in a camp, and hill giants and gargoyles round a fortress, at once. */
     private static final int RUIN_BANDITS = 4;
     private static final int RUIN_GIANTS = 2;
+    /** Most of the old fortress's ghosts, undead and spiders about it at once. */
+    private static final int RUIN_FORTRESS = 8;
     /** How far a ruin's mobs keep round it; one that wanders further off with nothing to chase is gone. */
     private static final int RUIN_REACH = 16;
     /** A ruin's mobs turn up only while a player or unit is this near, and none nearer than {@link #RUIN_HIDDEN}. */
@@ -265,7 +267,9 @@ public final class Mobs {
                 continue;
             }
             int most = ruin.haunt == Ruin.SPIDERS ? RUIN_SPIDERS
-                : ruin.haunt == Ruin.BANDITS ? RUIN_BANDITS : ruin.haunt == Ruin.GIANTS ? RUIN_GIANTS : RUIN_UNDEAD;
+                : ruin.haunt == Ruin.BANDITS ? RUIN_BANDITS
+                    : ruin.haunt == Ruin.GIANTS ? RUIN_GIANTS
+                        : ruin.haunt == Ruin.FORTRESS ? RUIN_FORTRESS : RUIN_UNDEAD;
             if (counts.getOrDefault(ruin.id, 0) >= most) {
                 continue;
             }
@@ -363,6 +367,12 @@ public final class Mobs {
                 return new EntityWildMob(world, WildKind.BANDIT);
             case Ruin.HELLHOUNDS:
                 return new EntityWildMob(world, WildKind.HELLHOUND);
+            case Ruin.FORTRESS: {
+                int roll = random.nextInt(20);
+                return roll < 6 ? new EntityWildMob(world, WildKind.GHOST)
+                    : roll < 11 ? new EntityWildMob(world, WildKind.RED_SPIDER)
+                        : roll < 16 ? new EntitySkeleton(world) : new EntityZombie(world);
+            }
             default:
                 return random.nextInt(3) == 0 ? new EntitySkeleton(world) : new EntityZombie(world);
         }

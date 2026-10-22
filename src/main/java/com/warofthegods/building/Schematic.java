@@ -19,6 +19,7 @@ import net.minecraft.world.World;
 
 import com.warofthegods.block.BlockBanner;
 import com.warofthegods.block.ModBlocks;
+import com.warofthegods.world.GameWorld;
 
 /**
  * A structure from an MCEdit .schematic file, as the beta map editor saves them: blocks and metadata in y, z, x
@@ -183,7 +184,17 @@ public final class Schematic {
      * structure on its footprint is cleared, so it does not end up buried in a hill or floating over a dip.
      */
     public void paste(World world, int minX, int minZ, int groundY, int rotation) {
+        paste(world, minX, minZ, groundY, rotation, null);
+    }
+
+    /**
+     * As {@link #paste(World, int, int, int, int)}, but only the part of it inside clip, a box of x from clip[0] and
+     * z from clip[1] up to but not including clip[2] and clip[3], or all of it when clip is null: a structure bigger
+     * than the chunks being made goes into the world a piece at a time as they are.
+     */
+    public void paste(World world, int minX, int minZ, int groundY, int rotation, int[] clip) {
         int baseY = groundY - ground;
+        boolean wild = GameWorld.isWilderness(world);
         // Solid blocks and air first, then what hangs on them: torches, doors, ladders, signs, crops.
         for (int pass = 0; pass < 2; pass++) {
             for (int y = 0; y < height; y++) {
@@ -193,7 +204,7 @@ public final class Schematic {
                 }
                 for (int z = 0; z < length; z++) {
                     for (int x = 0; x < width; x++) {
-                        Block block = block(x, y, z);
+                        Block block = wild ? wilderness(block(x, y, z)) : block(x, y, z);
                         boolean attached = block != Blocks.air && !block.isOpaqueCube()
                             && !block.getMaterial()
                                 .isLiquid();
@@ -203,7 +214,7 @@ public final class Schematic {
                         int[] at = rotate(x, z, rotation);
                         int wx = minX + at[0];
                         int wz = minZ + at[1];
-                        if (block == Blocks.air && world.isAirBlock(wx, wy, wz)) {
+                        if (!within(clip, wx, wz) || block == Blocks.air && world.isAirBlock(wx, wy, wz)) {
                             continue;
                         }
                         world.setBlock(wx, wy, wz, block, rotateMeta(block, meta(x, y, z), rotation), 2);
@@ -211,10 +222,13 @@ public final class Schematic {
                 }
             }
         }
-        fillAndClear(world, minX, minZ, baseY, rotation);
+        fillAndClear(world, minX, minZ, baseY, rotation, clip);
         for (int i = 0; i < signPositions.size(); i++) {
             int[] p = signPositions.get(i);
             int[] at = rotate(p[0], p[2], rotation);
+            if (!within(clip, minX + at[0], minZ + at[1])) {
+                continue;
+            }
             TileEntity tile = world.getTileEntity(minX + at[0], baseY + p[1], minZ + at[1]);
             if (tile instanceof TileEntitySign) {
                 String[] text = signTexts.get(i);
@@ -227,12 +241,19 @@ public final class Schematic {
         }
     }
 
-    private void fillAndClear(World world, int minX, int minZ, int baseY, int rotation) {
+    private static boolean within(int[] clip, int x, int z) {
+        return clip == null || x >= clip[0] && z >= clip[1] && x < clip[2] && z < clip[3];
+    }
+
+    private void fillAndClear(World world, int minX, int minZ, int baseY, int rotation, int[] clip) {
         for (int z = 0; z < length; z++) {
             for (int x = 0; x < width; x++) {
                 int[] at = rotate(x, z, rotation);
                 int wx = minX + at[0];
                 int wz = minZ + at[1];
+                if (!within(clip, wx, wz)) {
+                    continue;
+                }
                 int lowest = -1;
                 for (int y = 0; y < height; y++) {
                     if (blockId(x, y, z) != 0) {
@@ -258,6 +279,27 @@ public final class Schematic {
                 }
             }
         }
+    }
+
+    /**
+     * The block that stands for one in the Wilderness, where nothing green grows: charred earth for grass, and nothing
+     * for tall grass and flowers.
+     */
+    static Block wilderness(Block block) {
+        if (block == Blocks.grass) {
+            return ModBlocks.charredEarth;
+        }
+        if (block == Blocks.tallgrass || block == Blocks.red_flower
+            || block == Blocks.yellow_flower
+            || block == Blocks.double_plant) {
+            return Blocks.air;
+        }
+        return block;
+    }
+
+    /** The ground's top block where a building or feature is cleared: grass, or charred earth in the Wilderness. */
+    public static Block groundBlock(World world) {
+        return GameWorld.isWilderness(world) ? ModBlocks.charredEarth : Blocks.grass;
     }
 
     /** Ground a foundation can rest on: anything solid that is not part of a tree. */

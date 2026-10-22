@@ -2,8 +2,9 @@
 (ForinthryRuins.java), more threatening than Misthalin's:
 
     graveyard_of_shadows_<n>  a great walled graveyard round a mausoleum, haunted by ghosts and skeletons
-    fortress_<n>              the ruin of a big fortress: a curtain wall with corner towers, a gatehouse and a keep,
-                              where hill giants and gargoyles lair
+    old_fortress              the old fortress, 55 across: a curtain wall with towers and a gatehouse round the
+                              burnt-out keep, barracks, chapel, smithy, prison, stable and storehouse, hung with
+                              cobwebs; one or two to a map, haunted by ghosts, the undead and red spiders
     graveyard_<n>             a small walled graveyard
     chapel_<n>                a burnt chapel
     house_<n>                 a burnt-out house of some outpost
@@ -18,14 +19,15 @@ if they had always been there. The game adds the chests (RuinLoot.java) and the 
 
 import random
 
-from generate import (AIR, BANNER_EMBLEM, BANNER_NORTH, BANNER_TOP, BANNER_ZAMORAK, BROWN, CARPET, COBBLE,
-                      COBBLE_WALL, COBWEB, FENCE, FIRE, GRAVEL, GRAY, GRAYSTONE, GRAYSTONE_SLAB, GRAYSTONE_STAIRS, HAY,
-                      IRON_BARS, LADDER, LOG, LOG2, MOSSY, NETHER_BRICK, NETHER_STAIRS, NETHERRACK, OBSIDIAN, PLANKS,
-                      RED, SKULL, SLAB, SOUL_SAND, STONE_BRICK, STONE_BRICK_STAIRS, TORCH, UP_EAST, UP_NORTH, UP_SOUTH,
-                      UP_WEST, UPSIDE_DOWN, WOOD_SLAB, WOOL, Struct, tidy)
+from generate import (AIR, ANVIL, BANNER_EMBLEM, BANNER_NORTH, BANNER_TOP, BANNER_ZAMORAK, BOOKSHELF, BROWN, CARPET,
+                      CAULDRON, CHEST, COBBLE, COBBLE_WALL, COBWEB, DEAD_BUSH, DIRT, FENCE, FIRE, FURNACE, GRAVEL,
+                      GRAY, GRAYSTONE, GRAYSTONE_SLAB, GRAYSTONE_STAIRS, HAY, IRON_BARS, LADDER, LOG, LOG2, MOSSY,
+                      NETHERRACK, NETHER_BRICK, NETHER_STAIRS, OBSIDIAN, PLANKS, RED, SKULL, SLAB, SOUL_SAND,
+                      STONE_BRICK, STONE_BRICK_STAIRS, TORCH, UPSIDE_DOWN, UP_EAST, UP_NORTH, UP_SOUTH, UP_WEST,
+                      WOOD_SLAB, WOOL, Struct, tidy)
 
 # Forinthry's own blocks, by the ids ModBlocks.java gives them in schematics.
-CHARRED_EARTH, ASH, SCORCHED, EMBER, CHARRED_LOG = 212, 213, 214, 215, 216
+CHARRED_EARTH, ASH, SCORCHED, EMBER = 212, 213, 214, 215
 
 BRICK, MOSSY_BRICK, CRACKED_BRICK = (STONE_BRICK, 0), (STONE_BRICK, 1), (STONE_BRICK, 2)
 
@@ -34,12 +36,14 @@ BRICK, MOSSY_BRICK, CRACKED_BRICK = (STONE_BRICK, 0), (STONE_BRICK, 1), (STONE_B
 
 
 def ground(s, rng, ash_share=0.35, extra=()):
-    """The ground layer and a foundation under it: charred earth and ash, with what else is given mixed in."""
+    """The ground layer and a foundation under it: charred earth, scorched stone and a little ash, with what else is
+    given mixed in."""
     for x in range(s.w):
         for z in range(s.l):
             s.set(x, -1, z, (SCORCHED, 0))
+            # Mostly charred earth and scorched stone; ash only here and there.
             roll = rng.random()
-            block = (ASH, 0) if roll < ash_share else (CHARRED_EARTH, 0)
+            block = (ASH, 0) if roll < ash_share / 3 else (SCORCHED, 0) if roll < 0.2 else (CHARRED_EARTH, 0)
             for share, other in extra:
                 if rng.random() < share:
                     block = other
@@ -292,82 +296,328 @@ def tower(s, rng, cx, cz, height, stone):
             column(s, cx + dx, cz + dz, max(1, top), stone, rng)
 
 
-def fortress(seed):
-    """The ruin of a big fortress from the God Wars, of the kind that stood all over Forinthry: a curtain wall two
-    thick, crumbling from seven high to two, with broken towers at the corners and a gatehouse on the front; in the
-    yard the shell of a keep, its walls fallen in, a stair climbing a broken wall, and rubble everywhere. Zamorak's
-    tattered banner still hangs over the gate. Hill giants and gargoyles lair in it."""
+def webs_in(s, rng, count, x0, z0, x1, z1, y0=2, y1=5):
+    """Cobwebs in a box of a structure, in its corners and under what roof is left."""
+    placed = 0
+    for _ in range(count * 40):
+        if placed >= count:
+            break
+        x, z, y = rng.randint(x0, x1), rng.randint(z0, z1), rng.randint(y0, y1)
+        if not s.inside(x, y, z) or s.get(x, y, z) != AIR:
+            continue
+        around = sum(1 for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1))
+                     if s.inside(x + dx, y, z + dz) and s.get(x + dx, y, z + dz)[0] not in (0, COBWEB, TORCH))
+        above = s.inside(x, y + 1, z) and s.get(x, y + 1, z)[0] not in (0, COBWEB)
+        if around >= 2 or around >= 1 and above or above and rng.random() < 0.3:
+            s.set(x, y, z, (COBWEB, 0))
+            placed += 1
+
+
+def big_tower(s, rng, cx, cz, height, stone):
+    """A round tower seven across, hollow, with arrow slits, the stubs of its floors and its top broken off."""
+    for dx in range(-3, 4):
+        for dz in range(-3, 4):
+            if abs(dx) + abs(dz) >= 5:
+                continue
+            x, z = cx + dx, cz + dz
+            if not (0 <= x < s.w and 0 <= z < s.l):
+                continue
+            edge = abs(dx) == 3 or abs(dz) == 3 or abs(dx) + abs(dz) == 4
+            if not edge:
+                for y in range(1, height + 2):
+                    if s.inside(x, y, z):
+                        s.set(x, y, z, AIR)
+                s.set(x, 0, z, rng.choice([BRICK, CRACKED_BRICK, (SCORCHED, 0)]))
+                # What is left of the floors, burnt through.
+                for y in (5, 10):
+                    if y < height - 1 and rng.random() < 0.45:
+                        s.set(x, y, z, (WOOD_SLAB, 5))
+                continue
+            top = height - rng.randint(0, 4)
+            column(s, x, z, max(2, top), stone, rng)
+            if (dx == 0 or dz == 0) and top > 4:
+                for y in (3, 8):
+                    if y < top - 1:
+                        s.set(x, y, z, AIR)
+
+
+def hall(s, rng, x0, z0, x1, z1, low, high, stone, doors, roof=0.5, floor=None):
+    """A building of the old fortress, burnt out: walls one thick broken to between low and high, doorways and
+    window gaps through them, the charred beams of its roof where the walls still hold them and patches of the roof
+    on them. Gives back the height of its roof beams."""
+    walls = ring(x0, z0, x1, z1)
+    for (x, z), h in zip(walls, crumbling(len(walls), low, high, rng)):
+        column(s, x, z, h, stone, rng)
+    for x in range(x0 + 1, x1):
+        for z in range(z0 + 1, z1):
+            s.set(x, 0, z, floor(rng) if floor else rng.choice([BRICK, CRACKED_BRICK, (COBBLE, 0), (SCORCHED, 0)]))
+    # Window gaps, every few blocks along each wall, where the wall is still high enough to have them.
+    for i, (x, z) in enumerate(walls):
+        corner = x in (x0, x1) and z in (z0, z1)
+        if not corner and i % 4 == 2 and s.get(x, 4, z) != AIR:
+            s.set(x, 3, z, AIR)
+            if rng.random() < 0.3:
+                s.set(x, 3, z, (IRON_BARS, 0))
+    for dx, dz in doors:
+        for y in (1, 2, 3):
+            s.set(dx, y, dz, AIR)
+        s.set(dx, 0, dz, BRICK)
+    # Roof beams across the shorter span, where both ends still stand that high.
+    beam_y = low + 1
+    across_x = x1 - x0 <= z1 - z0
+    span = range(z0 + 2, z1 - 1, 3) if across_x else range(x0 + 2, x1 - 1, 3)
+    for at in span:
+        a = (x0, at) if across_x else (at, z0)
+        b = (x1, at) if across_x else (at, z1)
+        if s.get(a[0], beam_y - 1, a[1]) == AIR or s.get(b[0], beam_y - 1, b[1]) == AIR:
+            # Fallen in: the beam's burnt pieces on the floor.
+            for i in range(rng.randint(1, 3)):
+                x = rng.randint(x0 + 1, x1 - 1) if across_x else at
+                z = at if across_x else rng.randint(z0 + 1, z1 - 1)
+                s.set(x, 1, z, (WOOD_SLAB, 5))
+            continue
+        for i in range(1, (x1 - x0 if across_x else z1 - z0)):
+            x = x0 + i if across_x else at
+            z = at if across_x else z0 + i
+            s.set(x, beam_y, z, (LOG2, 1 | (4 if across_x else 8)))
+            # What is left of the roof boards on it.
+            if rng.random() < roof:
+                for d in (-1, 1):
+                    rx, rz = (x, z + d) if across_x else (x + d, z)
+                    if x0 < rx < x1 and z0 < rz < z1 and rng.random() < roof:
+                        s.set(rx, beam_y, rz, (WOOD_SLAB, 5 | 8))
+    return beam_y
+
+
+def chest(s, x, y, z, facing):
+    """A chest, which the game fills with the ruin's loot."""
+    s.set(x, y, z, (CHEST, facing))
+
+
+def old_fortress(seed):
+    """The old fortress, the greatest ruin in Forinthry and one of few: a whole walled stronghold of the God Wars,
+    fifty-five blocks across. A curtain wall two thick runs round it, crumbling, with great round towers at its
+    corners and the middle of its sides, a gatehouse with its portcullis rusted half down, and breaches where the
+    wall has fallen. Inside stand the buildings of the garrison, burnt out and hung with cobwebs: the keep with its
+    great hall and the stubs of its upper floor, the barracks, the chapel and its graves, the smithy, the prison
+    with its cells, a stable and a storehouse, round a yard with a dry well. Ghosts walk it, with skeletons and
+    zombies, and deadly red spiders nest in its webs."""
     rng = random.Random(seed)
-    s = Struct(27, 27, 14, 1)
-    ground(s, rng, 0.25, [(0.15, (GRAVEL, 0)), (0.12, BRICK)])
-    x0, z0, x1, z1 = 2, 2, s.w - 3, s.l - 3
+    s = Struct(55, 55, 18, 1)
+    ground(s, rng, 0.1, [(0.1, (GRAVEL, 0)), (0.06, BRICK), (0.04, CRACKED_BRICK)])
     mid = s.w // 2
+    x0, z0, x1, z1 = 2, 2, s.w - 3, s.l - 3
+    # The road in from the gate to the keep, and across the yard.
+    for z in range(0, 31):
+        for x in range(mid - 2, mid + 3):
+            if rng.random() < 0.8:
+                s.set(x, 0, z, (GRAVEL, 0) if rng.random() < 0.6 else rng.choice([BRICK, CRACKED_BRICK, (COBBLE, 0)]))
+    for x in range(6, 49):
+        for z in (25, 26):
+            if rng.random() < 0.6:
+                s.set(x, 0, z, (GRAVEL, 0) if rng.random() < 0.6 else CRACKED_BRICK)
+
+    # The curtain wall.
     outer = ring(x0, z0, x1, z1)
+    for (x, z), h in zip(outer, crumbling(len(outer), 3, 9, rng)):
+        column(s, x, z, h, old_stone, rng)
     inner = ring(x0 + 1, z0 + 1, x1 - 1, z1 - 1)
-    heights = crumbling(len(outer), 2, 7, rng)
-    for (x, z), h in zip(outer, heights):
+    for (x, z), h in zip(inner, crumbling(len(inner), 2, 8, rng)):
         column(s, x, z, h, old_stone, rng)
-    inner_heights = crumbling(len(inner), 1, 6, rng)
-    for (x, z), h in zip(inner, inner_heights):
-        column(s, x, z, h, old_stone, rng)
-    # Breaches through the wall on the back and the sides.
-    for bx, bz, along_x in ((rng.randint(x0 + 4, x1 - 6), z1, True), (x0, rng.randint(z0 + 4, z1 - 6), False),
-                            (x1, rng.randint(z0 + 4, z1 - 6), False)):
-        for i in range(3):
-            for y in range(1, 15):
+    # Breaches.
+    for bx, bz, along_x in ((rng.randint(10, 20), z1, True), (x0, rng.randint(10, 18), False),
+                            (x1, rng.randint(36, 44), False)):
+        width = rng.randint(3, 5)
+        for i in range(width):
+            for y in range(1, 19):
                 for t in (0, -1 if bz == z1 or bx == x1 else 1):
                     x = bx + (i if along_x else t)
                     z = bz + (t if along_x else i)
                     if s.inside(x, y, z):
                         s.set(x, y, z, AIR)
-        rubble(s, rng, 6, max(0, bx - 3), max(0, bz - 3), min(s.w - 1, bx + 5), min(s.l - 1, bz + 5))
-    # Corner towers.
-    for cx, cz in ((x0, z0), (x1, z0), (x0, z1), (x1, z1)):
-        tower(s, rng, cx, cz, rng.randint(7, 12), old_stone)
-    # The gatehouse: two towers either side of a gateway three wide, an arch over it, the banner above.
-    for y in range(1, 15):
+        rubble(s, rng, 10, max(0, bx - 4), max(0, bz - 4), min(s.w - 1, bx + 7), min(s.l - 1, bz + 7))
+
+    # Towers: the corners, the middle of the sides and back, and the gatehouse.
+    for cx, cz in ((x0 + 1, z0 + 1), (x1 - 1, z0 + 1), (x0 + 1, z1 - 1), (x1 - 1, z1 - 1)):
+        big_tower(s, rng, cx, cz, rng.randint(11, 17), old_stone)
+    for cx, cz in ((x0 + 1, mid), (x1 - 1, mid)):
+        big_tower(s, rng, cx, cz, rng.randint(9, 13), old_stone)
+    for cx in (mid - 5, mid + 5):
+        big_tower(s, rng, cx, z0 + 1, rng.randint(12, 15), old_stone)
+    # The gateway through them, an arch over it, the portcullis rusted half down, Zamorak's torn banner.
+    for y in range(1, 19):
         for x in (mid - 1, mid, mid + 1):
-            for z in (z0, z0 + 1):
-                s.set(x, y, z, AIR)
-    tower(s, rng, mid - 4, z0, rng.randint(8, 11), old_stone)
-    tower(s, rng, mid + 4, z0, rng.randint(8, 11), old_stone)
+            for z in range(0, z0 + 5):
+                if s.inside(x, y, z):
+                    s.set(x, y, z, AIR)
+    for x in (mid - 2, mid - 1, mid, mid + 1, mid + 2):
+        for z in (z0, z0 + 1, z0 + 2):
+            for y in (5, 6, 7):
+                s.set(x, y, z, old_stone(rng))
+        s.set(x, 8, z0, (SLAB, 5) if rng.random() < 0.6 else AIR)
+    for x in (mid - 1, mid + 1):
+        s.set(x, 4, z0, (STONE_BRICK_STAIRS, (UP_WEST if x < mid else UP_EAST) | UPSIDE_DOWN))
     for x in (mid - 1, mid, mid + 1):
-        s.set(x, 5, z0, old_stone(rng))
-        s.set(x, 4, z0, (STONE_BRICK_STAIRS, UP_SOUTH | UPSIDE_DOWN) if x == mid else old_stone(rng))
-        s.set(x, 6, z0, (SLAB, 5))
-    # Torn: the top and the emblem are left, the bottom burnt away.
-    s.set(mid, 5, z0 - 1, (BANNER_ZAMORAK, BANNER_TOP << 2 | BANNER_NORTH))
-    s.set(mid, 4, z0 - 1, (BANNER_ZAMORAK, BANNER_EMBLEM << 2 | BANNER_NORTH))
-    for x in (mid - 2, mid + 2):
+        s.set(x, 4, z0 + 1, (IRON_BARS, 0))
+        if x != mid + 1:
+            s.set(x, 3, z0 + 1, (IRON_BARS, 0))
+    s.set(mid, 6, z0 - 1, (BANNER_ZAMORAK, BANNER_TOP << 2 | BANNER_NORTH))
+    s.set(mid, 5, z0 - 1, (BANNER_ZAMORAK, BANNER_EMBLEM << 2 | BANNER_NORTH))
+    for x in (mid - 9, mid + 9):
         brazier(s, x, z0 - 2)
-    # The keep: nine across in the middle of the yard, its walls fallen to different heights, a doorway on the
-    # front and a stair up its back wall to nowhere.
-    kx0, kz0 = mid - 4, mid - 2
-    kx1, kz1 = mid + 4, mid + 6
-    keep = ring(kx0, kz0, kx1, kz1)
-    keep_heights = crumbling(len(keep), 2, 10, rng)
-    for (x, z), h in zip(keep, keep_heights):
-        column(s, x, z, h, dark_stone, rng)
+
+    # The keep: the great hall in front, the lord's rooms behind, and the stubs of the floor above both.
+    kx0, kz0, kx1, kz1 = mid - 9, 30, mid + 9, 47
+    beam = hall(s, rng, kx0, kz0, kx1, kz1, 7, 13, dark_stone, [(mid, kz0), (mid - 1, kz0), (mid + 1, kz0)], 0.2,
+                floor=lambda r: r.choice([BRICK, BRICK, CRACKED_BRICK, (GRAYSTONE, 0)]))
     for x in range(kx0 + 1, kx1):
         for z in range(kz0 + 1, kz1):
-            s.set(x, 0, z, rng.choice([BRICK, CRACKED_BRICK, (GRAYSTONE, 0), (SCORCHED, 0)]))
-    for y in range(1, 15):
-        s.set(mid, y, kz0, AIR)
-        s.set(mid - 1, y, kz0, AIR)
-    for i in range(5):
-        s.set(kx0 + 1 + i, 1 + i, kz1 - 1, (STONE_BRICK_STAIRS, UP_EAST))
+            if s.get(x, beam, z) == AIR and rng.random() < 0.45:
+                s.set(x, beam, z, (PLANKS, 5) if rng.random() < 0.5 else (WOOD_SLAB, 5 | 8))
+    # Buttresses down the hall, and the wall between the hall and the rooms behind with its doorway.
+    for z in range(kz0, kz1 + 1, 4):
+        for x in (kx0 - 1, kx1 + 1):
+            column(s, x, z, rng.randint(3, 8), dark_stone, rng)
+    inner_wall = [(x, 41) for x in range(kx0 + 1, kx1)]
+    for (x, z), h in zip(inner_wall, crumbling(len(inner_wall), 3, beam - 1, rng)):
+        column(s, x, z, h, dark_stone, rng)
+    for y in (1, 2, 3):
+        s.set(mid, y, 41, AIR)
+    # The throne on its dais at the back of the hall, braziers either side, and the hall's long table, burnt.
+    for x in range(mid - 2, mid + 3):
+        s.set(x, 1, 39, (GRAYSTONE_SLAB, 0))
+    s.set(mid, 2, 39, (GRAYSTONE_STAIRS, UP_SOUTH))
+    s.set(mid - 1, 2, 39, (COBBLE_WALL, 0))
+    s.set(mid + 1, 2, 39, (COBBLE_WALL, 0))
+    for x in (mid - 4, mid + 4):
+        brazier(s, x, 39)
+    for z in range(33, 37):
+        for x in (mid - 4, mid + 4):
+            if rng.random() < 0.7:
+                s.set(x, 1, z, (WOOD_SLAB, 5 | 8) if rng.random() < 0.7 else (FENCE, 0))
+    # A stair up the side to the broken floor.
+    for i in range(beam - 1):
+        s.set(kx1 - 1, 1 + i, kz0 + 2 + i, (STONE_BRICK_STAIRS, UP_SOUTH))
         for y in range(1, 1 + i):
-            s.set(kx0 + 1 + i, y, kz1 - 1, BRICK)
-    # A fallen roof beam or two, and rubble inside the keep and round the yard.
-    rubble(s, rng, 10, kx0 + 1, kz0 + 1, kx1 - 1, kz1 - 2, dark_stone)
-    rubble(s, rng, 24, x0 + 2, z0 + 2, x1 - 2, z1 - 2)
-    # A well in the yard, gone dry and choked with ash.
-    wx, wz = x0 + 4, z1 - 5
-    for dx, dz in ((0, 0), (1, 0), (2, 0), (0, 1), (2, 1), (0, 2), (1, 2), (2, 2)):
-        s.set(wx + dx, 1, wz + dz, (COBBLE, 0) if rng.random() < 0.6 else (MOSSY, 0))
-    s.set(wx + 1, 0, wz + 1, (ASH, 0))
-    # Embers still glowing in the stones here and there.
-    for _ in range(8):
+            s.set(kx1 - 1, y, kz0 + 2 + i, BRICK)
+    # The rooms behind: bookshelves fallen, a bed burnt, and the lord's chests.
+    for x in range(kx0 + 1, kx0 + 5):
+        if rng.random() < 0.6:
+            s.set(x, 1, kz1 - 1, (BOOKSHELF, 0))
+    s.set(kx1 - 2, 1, kz1 - 1, (WOOL, RED))
+    s.set(kx1 - 3, 1, kz1 - 1, (WOOL, RED))
+    chest(s, mid + 2, 1, kz1 - 1, 2)
+    chest(s, kx0 + 1, 1, 42, 5)
+    for x, z in ((kx0 + 1, kz0 + 1), (kx1 - 1, kz1 - 1)):
+        s.set(x, 1, z, (SKULL, 1))
+    webs_in(s, rng, 30, kx0 + 1, kz0 + 1, kx1 - 1, kz1 - 1, 2, beam + 2)
+
+    # The barracks along the west wall: burnt bunks down both sides.
+    bx0, bz0, bx1, bz1 = 6, 7, 15, 22
+    hall(s, rng, bx0, bz0, bx1, bz1, 4, 6, old_stone, [(bx1, 14), (bx1, 15)], 0.5)
+    for z in range(bz0 + 2, bz1 - 1, 2):
+        for x in (bx0 + 1, bx1 - 1):
+            if s.get(x, 1, z) == AIR and rng.random() < 0.8:
+                s.set(x, 1, z, (WOOD_SLAB, 5) if rng.random() < 0.7 else (WOOL, rng.choice([RED, BROWN])))
+    chest(s, bx0 + 1, 1, bz0 + 1, 5)
+    s.set(bx0 + 1, 1, bz1 - 1, (FENCE, 0))
+    webs_in(s, rng, 14, bx0 + 1, bz0 + 1, bx1 - 1, bz1 - 1)
+
+    # The chapel along the east wall, its altar at the north end, and its graves outside.
+    cx0, cz0, cx1, cz1 = 39, 6, 48, 21
+    hall(s, rng, cx0, cz0, cx1, cz1, 4, 8, old_stone, [(cx0, 15), (cx0, 16)], 0.35)
+    s.set(43, 1, cz0 + 1, (STONE_BRICK, 3))
+    s.set(44, 1, cz0 + 1, (STONE_BRICK, 3))
+    s.set(43, 2, cz0 + 1, (SKULL, 1))
+    s.set(45, 1, cz0 + 1, (SLAB, 5))
+    for z in range(cz0 + 4, cz1 - 2, 2):
+        for x in (cx0 + 2, cx0 + 3, cx1 - 3, cx1 - 2):
+            if rng.random() < 0.6:
+                s.set(x, 1, z, (WOOD_SLAB, 5) if rng.random() < 0.6 else (FENCE, 0))
+    chest(s, cx1 - 1, 1, cz0 + 1, 4)
+    webs_in(s, rng, 14, cx0 + 1, cz0 + 1, cx1 - 1, cz1 - 1)
+    for gx in range(32, 37, 2):
+        for gz in (8, 12, 16):
+            if rng.random() < 0.8:
+                gravestone(s, rng, gx, gz)
+
+    # The smithy: an anvil, a cauldron, a furnace gone cold, weapon racks.
+    sx0, sz0, sx1, sz1 = 39, 28, 47, 36
+    hall(s, rng, sx0, sz0, sx1, sz1, 3, 6, old_stone, [(sx0, 31), (sx0, 32)], 0.4)
+    s.set(sx1 - 2, 1, sz0 + 2, (ANVIL, 0))
+    s.set(sx1 - 1, 1, sz0 + 1, (FURNACE, 4))
+    s.set(sx1 - 1, 1, sz0 + 3, (CAULDRON, 0))
+    for z in range(sz0 + 5, sz1):
+        s.set(sx1 - 1, 1, z, (FENCE, 0))
+    chest(s, sx0 + 2, 1, sz1 - 1, 2)
+    webs_in(s, rng, 8, sx0 + 1, sz0 + 1, sx1 - 1, sz1 - 1)
+
+    # The prison: cells behind iron bars down one side, a skeleton or two left in them.
+    px0, pz0, px1, pz1 = 6, 28, 15, 39
+    hall(s, rng, px0, pz0, px1, pz1, 4, 6, dark_stone, [(px1, 33), (px1, 34)], 0.6)
+    for z in range(pz0 + 1, pz1):
+        if z in (31, 35):
+            for x in range(px0 + 1, px0 + 4):
+                s.set(x, 1, z, dark_stone(rng))
+                s.set(x, 2, z, dark_stone(rng))
+        else:
+            for y in (1, 2):
+                if rng.random() < 0.85:
+                    s.set(px0 + 4, y, z, (IRON_BARS, 0))
+    for z in (29, 33, 37):
+        if rng.random() < 0.7:
+            s.set(px0 + 1, 1, z, (SKULL, 1))
+    chest(s, px1 - 1, 1, pz1 - 1, 2)
+    webs_in(s, rng, 12, px0 + 1, pz0 + 1, px1 - 1, pz1 - 1, 2, 4)
+
+    # The stable at the back on the west, its stalls and rotten hay.
+    tx0, tz0, tx1, tz1 = 6, 42, 16, 49
+    hall(s, rng, tx0, tz0, tx1, tz1, 2, 4, old_stone, [(11, tz0), (12, tz0)], 0.3)
+    for x in range(tx0 + 2, tx1 - 1, 3):
+        for z in range(tz0 + 3, tz1):
+            s.set(x, 1, z, (FENCE, 0))
+    for _ in range(5):
+        x, z = rng.randint(tx0 + 1, tx1 - 1), rng.randint(tz0 + 4, tz1 - 1)
+        if s.get(x, 1, z) == AIR:
+            s.set(x, 1, z, (HAY, 0))
+    webs_in(s, rng, 6, tx0 + 1, tz0 + 1, tx1 - 1, tz1 - 1, 2, 3)
+
+    # The storehouse at the back on the east: barrels and crates, mostly burnt, and the garrison's stores.
+    ux0, uz0, ux1, uz1 = 38, 41, 48, 49
+    hall(s, rng, ux0, uz0, ux1, uz1, 4, 6, old_stone, [(ux0, 44), (ux0, 45)], 0.5)
+    for _ in range(10):
+        x, z = rng.randint(ux0 + 2, ux1 - 1), rng.randint(uz0 + 1, uz1 - 1)
+        if s.get(x, 1, z) == AIR:
+            s.set(x, 1, z, rng.choice([(PLANKS, 5), (LOG2, 1), (WOOD_SLAB, 5), (HAY, 0)]))
+    chest(s, ux1 - 1, 1, uz0 + 1, 4)
+    chest(s, ux1 - 1, 1, uz1 - 1, 4)
+    webs_in(s, rng, 12, ux0 + 1, uz0 + 1, ux1 - 1, uz1 - 1)
+
+    # The yard: a dry well, a burnt cart, a gibbet, rubble and dead bushes.
+    wx, wz = 20, 15
+    for dx in range(3):
+        for dz in range(3):
+            if (dx, dz) != (1, 1):
+                s.set(wx + dx, 1, wz + dz, (COBBLE, 0) if rng.random() < 0.6 else (MOSSY, 0))
+    s.set(wx + 1, 0, wz + 1, (OBSIDIAN, 0))
+    for dx, dz in ((0, 0), (2, 0), (0, 2), (2, 2)):
+        if rng.random() < 0.6:
+            s.set(wx + dx, 2, wz + dz, (FENCE, 0))
+    for y in range(1, 5):
+        s.set(33, y, 23, (FENCE, 0))
+    s.set(34, 4, 23, (FENCE, 0))
+    for x in (19, 20):
+        s.set(x, 1, 21, (WOOD_SLAB, 5))
+    s.set(18, 1, 21, (LOG2, 5))
+    rubble(s, rng, 40, 5, 5, s.w - 6, s.l - 6)
+    for _ in range(12):
+        x, z = rng.randint(4, s.w - 5), rng.randint(4, s.l - 5)
+        if s.get(x, 1, z) == AIR and s.get(x, 0, z)[0] == CHARRED_EARTH:
+            s.set(x, 0, z, (DIRT, 1))
+            s.set(x, 1, z, (DEAD_BUSH, 0))
+    # Cobwebs in the towers and the angles of the walls too.
+    webs(s, rng, 30)
+    for _ in range(14):
         x, z = rng.randrange(s.w), rng.randrange(s.l)
         if s.get(x, 0, z)[0] in (CHARRED_EARTH, ASH):
             s.set(x, 0, z, (EMBER, 0))
@@ -607,10 +857,9 @@ VARIANTS = 2
 
 def structures():
     """Every Forinthry ruin by its file name, as Structs."""
-    out = {}
+    out = {"old_fortress": old_fortress(700)}
     for n in range(1, VARIANTS + 1):
         out["graveyard_of_shadows_%d" % n] = graveyard_of_shadows(600 + n)
-        out["fortress_%d" % n] = fortress(700 + n)
         out["bandit_camp_%d" % n] = bandit_camp(800 + n)
         for name, build in (("graveyard", small_graveyard), ("chapel", chapel), ("house", house),
                             ("watchtower", watchtower), ("chaos_altar", chaos_altar)):

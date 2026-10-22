@@ -121,10 +121,41 @@ final class RuinLoot {
         }
         world.setBlock(spot[0], y, spot[1], Blocks.chest, random.nextInt(4) + 2, 2);
         TileEntity tile = world.getTileEntity(spot[0], y, spot[1]);
-        if (!(tile instanceof TileEntityChest)) {
-            return;
+        if (tile instanceof TileEntityChest) {
+            fill((TileEntityChest) tile, ruin, random);
         }
-        TileEntityChest chest = (TileEntityChest) tile;
+    }
+
+    /**
+     * Fills the empty chests a ruin's structure brought with it, in the part of it in clip (x from clip[0], z from
+     * clip[1], up to clip[2] and clip[3]), as the old fortress has in its buildings.
+     */
+    static void fillChests(WorldServer world, Ruin ruin, int[] clip, Random random) {
+        for (int x = Math.max(clip[0], ruin.minX); x < Math.min(clip[2], ruin.minX + ruin.sizeX); x++) {
+            for (int z = Math.max(clip[1], ruin.minZ); z < Math.min(clip[3], ruin.minZ + ruin.sizeZ); z++) {
+                for (int y = Math.max(1, ruin.groundY - 3); y <= Math.min(255, ruin.groundY + 24); y++) {
+                    if (world.getBlock(x, y, z) != Blocks.chest) {
+                        continue;
+                    }
+                    TileEntity tile = world.getTileEntity(x, y, z);
+                    if (tile instanceof TileEntityChest && empty((TileEntityChest) tile)) {
+                        fill((TileEntityChest) tile, ruin, random);
+                    }
+                }
+            }
+        }
+    }
+
+    private static boolean empty(TileEntityChest chest) {
+        for (int slot = 0; slot < chest.getSizeInventory(); slot++) {
+            if (chest.getStackInSlot(slot) != null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static void fill(TileEntityChest chest, Ruin ruin, Random random) {
         WeightedRandomChestContent
             .generateChestContents(random, loot(), chest, MIN_STACKS + random.nextInt(MAX_STACKS - MIN_STACKS + 1));
         for (Object[] rare : rarities()) {
@@ -134,9 +165,9 @@ final class RuinLoot {
                     "A {} lies in a chest in the {} at {} {} {}",
                     ((Item) rare[0]).getItemStackDisplayName(new ItemStack((Item) rare[0])),
                     ruin.design,
-                    spot[0],
-                    y,
-                    spot[1]);
+                    chest.xCoord,
+                    chest.yCoord,
+                    chest.zCoord);
             }
         }
     }

@@ -20,8 +20,8 @@ import com.warofthegods.web.WebMap;
 /**
  * Trees workers chop for wood. A tree is the logs joined to the foot of a trunk; it holds wood by its number of
  * logs, within limits, and once the wood is all chopped out it falls: its logs and leaves are gone. Forinthry's dead
- * trees are charred logs with no leaves, and its giant mushrooms count as trees too: their stems are logs and their
- * caps leaves, and they hold {@link Config#mushroomFood} food instead of wood, which workers harvest with hoes.
+ * trees are dark oak trunks with no leaves on the Wilderness's burnt ground. Mushrooms count as trees too, a trunk
+ * of one block: each holds {@link Config#mushroomFood} food instead of wood, which workers harvest with hoes.
  */
 public final class Trees {
 
@@ -32,13 +32,25 @@ public final class Trees {
     private Trees() {}
 
     public static boolean isLog(Block block) {
-        return block == Blocks.log || block == Blocks.log2
-            || block != null && (block == ModBlocks.charredLog || block == ModBlocks.mushroomStem);
+        return block == Blocks.log || block == Blocks.log2;
     }
 
-    /** Whether the block is a giant mushroom's stem or cap, which gives food rather than wood. */
+    /** Whether the block is a mushroom, which gives food rather than wood. */
     public static boolean isMushroom(Block block) {
-        return block != null && (block == ModBlocks.mushroomStem || block == ModBlocks.mushroomCap);
+        return block == Blocks.red_mushroom || block == Blocks.brown_mushroom;
+    }
+
+    /** Whether the block is what workers cut at: a log, or a mushroom, a trunk of its own. */
+    public static boolean isTrunk(Block block) {
+        return isLog(block) || isMushroom(block);
+    }
+
+    /** The Wilderness's burnt ground, where dead trees stand with no leaves. */
+    private static boolean isBurntGround(Block block, int meta) {
+        return block == ModBlocks.charredEarth || block == ModBlocks.scorchedStone
+            || block == ModBlocks.emberRock
+            || block == ModBlocks.ash
+            || block == Blocks.dirt && meta != 0;
     }
 
     private static boolean isLeaves(Block block) {
@@ -55,16 +67,20 @@ public final class Trees {
 
     /**
      * Whether the trunk with its foot at x, y, z is a tree that grew there: it stands on earth and has leaves of its
-     * own. Logs in buildings, walls and ruins stand on stone, planks or nothing, and have no leaves on them. Charred
-     * trees and giant mushrooms only grow in the Wilderness, so any of them standing on the ground is one.
+     * own. Logs in buildings, walls and ruins stand on stone, planks or nothing, and have no leaves on them. A dark
+     * oak trunk on the Wilderness's burnt ground is a dead tree, leaves or none, and a mushroom on solid ground is one
+     * too.
      */
     public static boolean isTree(World world, int x, int y, int z) {
         Block ground = world.getBlock(x, y - 1, z);
         Block foot = world.getBlock(x, y, z);
-        if (foot == ModBlocks.charredLog || foot == ModBlocks.mushroomStem) {
+        if (isMushroom(foot)) {
             return ground.getMaterial()
-                .isSolid() && !isLog(ground)
-                && !isLeaves(ground);
+                .isSolid() && !isLeaves(ground);
+        }
+        if (foot == Blocks.log2 && (world.getBlockMetadata(x, y, z) & 3) == 1
+            && isBurntGround(ground, world.getBlockMetadata(x, y - 1, z))) {
+            return true;
         }
         if (ground != Blocks.grass && ground != Blocks.dirt && ground != Blocks.mycelium) {
             return false;
@@ -86,7 +102,7 @@ public final class Trees {
      */
     public static int[] treeOf(World world, int x, int y, int z) {
         Block block = world.getBlock(x, y, z);
-        if (isLog(block)) {
+        if (isTrunk(block)) {
             int[] foot = footOf(world, x, y, z);
             return foot != null && isTree(world, foot[0], foot[1], foot[2]) ? foot : null;
         }
@@ -133,7 +149,7 @@ public final class Trees {
                     int cy = by + dy;
                     int cz = bz + dz;
                     if (cy < 1 || cy > 255
-                        || !isLog(world.getBlock(cx, cy, cz))
+                        || !isTrunk(world.getBlock(cx, cy, cz))
                         || game.getBuildingAt(cx + 0.5, cz + 0.5) != null) {
                         continue;
                     }
@@ -154,6 +170,11 @@ public final class Trees {
 
     /** Follows a log down its trunk to the log standing on the ground; null if it does not stand on ground. */
     public static int[] footOf(World world, int x, int y, int z) {
+        if (isMushroom(world.getBlock(x, y, z))) {
+            Block ground = world.getBlock(x, y - 1, z);
+            return ground.getMaterial()
+                .isSolid() && !isLeaves(ground) ? new int[] { x, y, z } : null;
+        }
         for (int i = 0; i < 40 && y > 1; i++) {
             if (isLog(world.getBlock(x, y - 1, z))) {
                 y--;
@@ -183,6 +204,10 @@ public final class Trees {
     /** Every log of the tree with its trunk's foot at x, y, z. */
     public static List<int[]> logs(World world, int x, int y, int z) {
         List<int[]> logs = new ArrayList<>();
+        if (isMushroom(world.getBlock(x, y, z))) {
+            logs.add(new int[] { x, y, z });
+            return logs;
+        }
         Set<Long> seen = new HashSet<>();
         ArrayDeque<int[]> queue = new ArrayDeque<>();
         queue.add(new int[] { x, y, z });
@@ -230,14 +255,22 @@ public final class Trees {
 
     /** Whether the tree still stands: its foot is a log. */
     public static boolean stands(World world, Tree tree) {
-        return isLog(world.getBlock(tree.x, tree.y, tree.z));
+        return isTrunk(world.getBlock(tree.x, tree.y, tree.z));
     }
 
     /** Fells a tree that has no wood left: its logs go, and the leaves around them. */
     public static void fell(World world, Game game, Tree tree) {
-        List<int[]> logs = logs(world, tree.x, tree.y, tree.z);
-        Block trunk = isLog(world.getBlock(tree.x, tree.y, tree.z)) ? world.getBlock(tree.x, tree.y, tree.z)
+        Block trunk = isTrunk(world.getBlock(tree.x, tree.y, tree.z)) ? world.getBlock(tree.x, tree.y, tree.z)
             : Blocks.log;
+        if (isMushroom(trunk)) {
+            // Picked: only the mushroom goes.
+            world.setBlock(tree.x, tree.y, tree.z, Blocks.air, 0, 2);
+            world.playAuxSFX(2001, tree.x, tree.y, tree.z, Block.getIdFromBlock(trunk));
+            game.removeTree(tree);
+            WebMap.blocksChanged(world, tree.x - 1, tree.z - 1, tree.x + 1, tree.z + 1);
+            return;
+        }
+        List<int[]> logs = logs(world, tree.x, tree.y, tree.z);
         int minX = tree.x;
         int maxX = tree.x;
         int minZ = tree.z;
@@ -328,11 +361,12 @@ public final class Trees {
      * on the ground. Null if the column reaches the ground without one.
      */
     private static int[] trunkFoot(World world, int x, int z) {
+        // A mushroom lets the light through, so it stands just above where the height map ends.
         int top = world.getChunkFromBlockCoords(x, z)
-            .getHeightValue(x & 15, z & 15) - 1;
+            .getHeightValue(x & 15, z & 15);
         for (int y = Math.min(255, top); y > 1; y--) {
             Block block = world.getBlock(x, y, z);
-            if (isLog(block)) {
+            if (isTrunk(block)) {
                 Block below = world.getBlock(x, y - 1, z);
                 if (!isLog(below) && below.getMaterial()
                     .isSolid() && !isLeaves(below)) {

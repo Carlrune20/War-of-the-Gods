@@ -23,10 +23,11 @@ public class WorldProviderRts extends WorldProvider {
 
     @Override
     protected void registerWorldChunkManager() {
-        worldChunkMgr = new WorldChunkManagerHell(BiomeGenBase.plains, 0.5F);
         if (!worldObj.isRemote) {
             game = GameWorld.currentGame();
         }
+        boolean wild = GameWorld.mapOf(game) == GameMap.FORINTHRY && BiomeWilderness.get() != null;
+        worldChunkMgr = new WorldChunkManagerHell(wild ? BiomeWilderness.get() : BiomeGenBase.plains, wild ? 0 : 0.5F);
     }
 
     @Override
@@ -50,6 +51,15 @@ public class WorldProviderRts extends WorldProvider {
             return time - Math.floorMod(time, 24000L) + MIDNIGHT;
         }
         return super.getWorldTime();
+    }
+
+    /** The sun's place in the sky by the time; on Forinthry the server too keeps it at midnight, for its light. */
+    @Override
+    public float calculateCelestialAngle(long time, float partialTicks) {
+        if (GameWorld.mapOf(game) == GameMap.FORINTHRY) {
+            return super.calculateCelestialAngle(MIDNIGHT, 0);
+        }
+        return super.calculateCelestialAngle(time, partialTicks);
     }
 
     @Override

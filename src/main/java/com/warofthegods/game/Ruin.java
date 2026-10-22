@@ -20,7 +20,8 @@ public final class Ruin {
     public final String design;
     /**
      * What lurks there: {@link #QUIET}, {@link #SPIDERS} or {@link #UNDEAD}, and in Forinthry {@link #GHOSTS},
-     * {@link #GIANTS}, {@link #BANDITS} or {@link #HELLHOUNDS}; spiders there are deadly red spiders.
+     * {@link #GIANTS}, {@link #BANDITS}, {@link #HELLHOUNDS} or {@link #FORTRESS}; spiders there are deadly red
+     * spiders.
      */
     public final int haunt;
 
@@ -35,6 +36,8 @@ public final class Ruin {
     public static final int BANDITS = 5;
     /** Hellhounds: Zamorak's altars in Forinthry. */
     public static final int HELLHOUNDS = 6;
+    /** Ghosts, the undead and red spiders: Forinthry's old fortress. */
+    public static final int FORTRESS = 7;
 
     public Ruin(int id, int minX, int minZ, int sizeX, int sizeZ, int groundY, String design, int haunt) {
         this.id = id;

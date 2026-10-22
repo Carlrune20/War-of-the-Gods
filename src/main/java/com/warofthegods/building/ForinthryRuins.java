@@ -15,12 +15,14 @@ import com.warofthegods.world.Forinthry;
 import com.warofthegods.world.GameWorld;
 
 /**
- * The ruins of Forinthry, more threatening than Misthalin's: the great Graveyard of Shadows where ghosts walk, the
- * ruins of big fortresses where hill giants and gargoyles lair, bandits' camps, and smaller ruins (graveyards,
+ * The ruins of Forinthry, more threatening than Misthalin's: the great Graveyard of Shadows where ghosts walk, the old
+ * fortress, a walled town of cobwebbed ruins full of ghosts, the undead and red spiders, bandits' camps, and smaller
+ * ruins (graveyards,
  * burnt chapels and houses, broken watchtowers and Zamorak's altars) with red spiders in their cobwebs, ghosts or
  * hellhounds. Each is a schematic made by tools/structures/wilderness.py, in a few variants, laid out as the world is
  * generated just as {@link Ruins} lays out Misthalin's, and haunted the same way (see {@code Mobs}). Each lava maze
- * also gets a chest of loot in its middle, which hellhounds guard.
+ * also gets a chest of loot in its middle, which hellhounds guard. The old fortresses are too big for that: {@link
+ * Forinthry} picks where they go, and each goes in a chunk at a time as the chunks it covers are filled in.
  */
 final class ForinthryRuins {
 
@@ -28,7 +30,6 @@ final class ForinthryRuins {
     enum Design {
 
         GRAVEYARD_OF_SHADOWS("graveyard_of_shadows", "Graveyard of Shadows", 2, true, false),
-        FORTRESS("fortress", "ruined fortress", 2, true, false),
         BANDIT_CAMP("bandit_camp", "bandit camp", 3, true, false),
         GRAVEYARD("graveyard", "haunted graveyard", 2, false, true),
         CHAPEL("chapel", "burnt chapel", 2, false, true),
@@ -54,7 +55,7 @@ final class ForinthryRuins {
 
     /** How many variants of each design tools/structures/wilderness.py draws. */
     private static final int VARIANTS = 2;
-    /** Blocks kept clear between a ruin and a lava maze. */
+    /** Blocks kept clear between a ruin and a lava maze, lake, pond or old fortress. */
     private static final int MAZE_SPACING = 6;
     private static final int TRIES = 6;
     private static final int MAX_SLOPE = 3;
@@ -123,8 +124,6 @@ final class ForinthryRuins {
         switch (design) {
             case GRAVEYARD_OF_SHADOWS:
                 return Ruin.GHOSTS;
-            case FORTRESS:
-                return Ruin.GIANTS;
             case BANDIT_CAMP:
                 return Ruin.BANDITS;
             case CHAOS_ALTAR:
@@ -152,7 +151,7 @@ final class ForinthryRuins {
             int minX = baseX + from + random.nextInt(room);
             int minZ = baseZ + from + random.nextInt(room);
             if (!Ruins.clear(game, minX, minZ, sizeX, sizeZ)
-                || layout != null && layout.nearMaze(minX, minZ, sizeX, sizeZ, MAZE_SPACING)
+                || layout != null && layout.nearFeature(minX, minZ, sizeX, sizeZ, MAZE_SPACING)
                 || nearStart(game, layout, minX + sizeX / 2.0, minZ + sizeZ / 2.0)) {
                 continue;
             }
@@ -167,6 +166,34 @@ final class ForinthryRuins {
                 return;
             }
         }
+    }
+
+    /**
+     * The part of an old fortress inside the chunks being filled in, its chests stocked, and the fortress marked as a
+     * ruin the first time a part of it goes in.
+     */
+    static void oldFortress(Game game, WorldServer world, Forinthry.Keep keep, int groundY, int chunkX, int chunkZ,
+        long seed) {
+        int[] clip = { chunkX * 16 + 8, chunkZ * 16 + 8, chunkX * 16 + 24, chunkZ * 16 + 24 };
+        Ruin ruin = null;
+        for (Ruin other : game.getRuins()) {
+            if (other.minX == keep.minX && other.minZ == keep.minZ && other.haunt == Ruin.FORTRESS) {
+                ruin = other;
+            }
+        }
+        if (ruin == null) {
+            ruin = game.addRuin(
+                keep.minX,
+                keep.minZ,
+                Forinthry.KEEP_SIZE,
+                Forinthry.KEEP_SIZE,
+                groundY,
+                "old fortress",
+                Ruin.FORTRESS);
+        }
+        schematic("old_fortress").paste(world, keep.minX, keep.minZ, groundY, keep.rotation, clip);
+        WebMap.blocksChanged(world, clip[0] - 1, clip[1] - 1, clip[2], clip[3]);
+        RuinLoot.fillChests(world, ruin, clip, new Random(seed * 17 + chunkX * 31L + chunkZ));
     }
 
     /** Whether a spot is near where a team starts, though it has not started there yet. */

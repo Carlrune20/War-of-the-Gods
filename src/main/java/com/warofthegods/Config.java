@@ -18,6 +18,8 @@ public class Config {
     public static int defaultTeamCount = 2;
     public static boolean allowSelfJoin = true;
     public static int gameDimensionId = 77;
+    /** Biome id of Forinthry's Wilderness, which tints its water. */
+    public static int wildernessBiomeId = 120;
     public static int mapMargin = 48;
     public static final long[] startingResources = { 200, 200, 100 };
 
@@ -365,6 +367,13 @@ public class Config {
             2,
             100000,
             "Dimension id of the world games are played in. Change it if another mod uses the same id.");
+        wildernessBiomeId = configuration.getInt(
+            "wildernessBiomeId",
+            Configuration.CATEGORY_GENERAL,
+            wildernessBiomeId,
+            40,
+            255,
+            "Biome id of Forinthry's Wilderness. Change it if another mod uses the same id.");
         mapMargin = configuration.getInt(
             "mapMargin",
             Configuration.CATEGORY_GENERAL,

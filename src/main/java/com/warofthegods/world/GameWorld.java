@@ -47,6 +47,11 @@ public final class GameWorld {
         return world.provider.dimensionId == dimensionId();
     }
 
+    /** Whether the world is the game world of a game on Forinthry, the Wilderness, where nothing green grows. */
+    public static boolean isWilderness(World world) {
+        return !world.isRemote && isGameWorld(world) && mapOf(currentGame()) == GameMap.FORINTHRY;
+    }
+
     /** Registers the game dimension, reusing its id as the id of its provider type. */
     public static void register() {
         int id = dimensionId();

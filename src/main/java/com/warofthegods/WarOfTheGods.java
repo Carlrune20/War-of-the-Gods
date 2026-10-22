@@ -45,6 +45,7 @@ import com.warofthegods.unit.Units;
 import com.warofthegods.unit.WarFavor;
 import com.warofthegods.web.WebMap;
 import com.warofthegods.web.WebServer;
+import com.warofthegods.world.BiomeWilderness;
 import com.warofthegods.world.DimensionSync;
 import com.warofthegods.world.GameWorld;
 import com.warofthegods.world.MapBorder;
@@ -109,6 +110,7 @@ public class WarOfTheGods {
         zamorakStaff = new ItemZamorakStaff();
         GameRegistry.registerItem(zamorakStaff, "zamorak_staff");
         ModBlocks.register();
+        BiomeWilderness.register();
         silverlight = new ItemSilverlight();
         GameRegistry.registerItem(silverlight, "silverlight");
         for (int slot = 0; slot < darkIron.length; slot++) {
