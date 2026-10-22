@@ -572,8 +572,7 @@ public final class GuiRts extends GuiScreen {
             double[] feet = project(at[0], at[1], at[2]);
             double[] head = project(at[0], at[1] + at[3], at[2]);
             // Half the width it is drawn at, measured across the screen.
-            double halfWidth = thing instanceof RtsState.MobInfo ? Math.max(0.3, ((RtsState.MobInfo) thing).width / 2)
-                : 0.3;
+            double halfWidth = Math.max(0.3, at[4]);
             double[] side = project(at[0] + right[0] * halfWidth, at[1], at[2] + right[2] * halfWidth);
             if (feet == null || head == null || side == null) {
                 continue;

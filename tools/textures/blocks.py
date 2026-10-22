@@ -239,6 +239,32 @@ BANDOS_SMALL = [
     "..##....",
 ]
 
+# Armadyl's sign: two wings joined at their roots in a U, their feathers fanning up and out.
+ARMADYL = [
+    "#.#......#.#",
+    "####....####",
+    ".###....###.",
+    "#.##....##.#",
+    "####....####",
+    ".###....###.",
+    "..##....##..",
+    "..###..###..",
+    "...######...",
+    "....####....",
+    "............",
+    "............",
+]
+ARMADYL_SMALL = [
+    "#.#..#.#",
+    "###..###",
+    ".##..##.",
+    "###..###",
+    ".##..##.",
+    "..####..",
+    "...##...",
+    "........",
+]
+
 BLUE = (40, 66, 168)
 WHITE = (236, 236, 230)
 GOLD = (222, 180, 52)
@@ -248,6 +274,8 @@ DARK_RED = (104, 18, 18)
 GREEN = (74, 106, 42)
 BROWN = (106, 74, 42)
 DARK_BROWN = (62, 42, 24)
+SKY = (62, 116, 206)
+DARK_SKY = (30, 58, 120)
 ROD = (92, 64, 36)
 ROD_END = (200, 164, 60)
 
@@ -259,6 +287,8 @@ BANNERS = {
     "zamorak_inverted": (RED, BLACK, (60, 10, 10), BLACK, ZAMORAK, ZAMORAK_SMALL),
     "bandos": (GREEN, BROWN, DARK_BROWN, BROWN, BANDOS, BANDOS_SMALL),
     "bandos_inverted": (BROWN, GREEN, (36, 52, 20), GREEN, BANDOS, BANDOS_SMALL),
+    "armadyl": (WHITE, SKY, DARK_SKY, GOLD, ARMADYL, ARMADYL_SMALL),
+    "armadyl_inverted": (SKY, WHITE, DARK_SKY, GOLD, ARMADYL, ARMADYL_SMALL),
 }
 
 
