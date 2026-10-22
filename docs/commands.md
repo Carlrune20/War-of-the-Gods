@@ -60,7 +60,7 @@ Everyone can use `/rts`. Commands marked **(op)** need operator rights.
 |---|---|
 | `/rts buildings [team]` | List buildings and building sites with their health, how far each site is built and how many workers work each farm. |
 | `/rts build <team> <type> [x z] [rotation]` | (op) Lay out a building site for free (farm, house, barracks, archery_range, stables, storehouse, armory, tower, town center, or for their own god's teams white_knights_castle, monastery and wizards_tower or kinshra_fortress, chaos_temple and stone_circle), near the town center unless x z is given (a town center goes on the nearest settlement nobody holds), and send the team's idle workers to build it, or for a stone circle its dark wizards. |
-| `/rts upgrade <building id>` | (op) Take a town center, and with it its whole town, into the next age at once, for free. |
+| `/rts upgrade <building id>` | (op) Take a town center, and with it its whole town, into the next tier at once, for free. |
 | `/rts research <team> <upgrade>` | (op) Give a team an upgrade at once, such as `forged_blades` or `fortified_walls`. |
 | `/rts wall <team> <x1> <z1> <x2> <z2>` | (op) Lay out a wall from one point to another for free, running up to the team's towers at either end, and send the team's idle workers to build it. |
 | `/rts gate <building id>` | (op) Make a finished wall segment a gate, for free. |
