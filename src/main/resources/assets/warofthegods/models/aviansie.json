@@ -362,7 +362,7 @@
    "name": "right_finger1",
    "parent": "right_arm",
    "pivot": [
-    -0.0,
+    0.0,
     10.5,
     -1.0
    ],
