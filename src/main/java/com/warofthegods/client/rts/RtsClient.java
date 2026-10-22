@@ -56,6 +56,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import com.warofthegods.Config;
+import com.warofthegods.client.ShaderPack;
 import com.warofthegods.game.BridgeLine;
 import com.warofthegods.game.UnitKind;
 import com.warofthegods.game.WallLine;
@@ -186,7 +187,12 @@ public final class RtsClient {
                 world.provider.setSkyRenderer(this);
             }
             if (active && camera != null) {
-                terrain.render(RtsClient.this, partialTicks);
+                ShaderPack.beginPlain();
+                try {
+                    terrain.render(RtsClient.this, partialTicks);
+                } finally {
+                    ShaderPack.endPlain();
+                }
             }
         }
     };
@@ -894,7 +900,12 @@ public final class RtsClient {
     @SubscribeEvent
     public void onRenderWorldLast(RenderWorldLastEvent event) {
         if (active && camera != null) {
-            worldRenderer.render(event.partialTicks);
+            ShaderPack.beginPlain();
+            try {
+                worldRenderer.render(event.partialTicks);
+            } finally {
+                ShaderPack.endPlain();
+            }
         }
     }
 

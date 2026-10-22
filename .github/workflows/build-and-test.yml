@@ -51,6 +51,11 @@ jobs:
           python3 tools/models/blockbench.py import
           python3 tools/textures/eyes.py
 
+      - name: Compile the shader pack's programs
+        run: |
+          sudo apt-get install -y -qq glslang-tools > /dev/null
+          python3 .github/scripts/shader-check.py shaderpack/shaders
+
       - name: Build
         run: ./gradlew --stacktrace build
 
@@ -73,6 +78,12 @@ jobs:
         with:
           name: mod-jar
           path: build/libs/*.jar
+
+      - name: Upload shader pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: shader-pack
+          path: build/shaderpack/WarOfTheGods.zip
 
   # A .bbmodel uploaded on its own on a branch of this repository gets the mod's files built from it committed next to
   # it, so they are in the source once merged and a build without Python (gradlew on a checkout) has the edit too.

@@ -1,5 +1,6 @@
 package com.warofthegods.client;
 
+import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.MinecraftForgeClient;
 
 import com.warofthegods.CommonProxy;
@@ -18,8 +19,8 @@ import com.warofthegods.unit.EntityWildMob;
 import cpw.mods.fml.client.registry.RenderingRegistry;
 
 /**
- * Client setup: how units, commanders' bodies, carcasses, armor and the mod's own items are drawn, and the in-game
- * RTS view.
+ * Client setup: how units, commanders' bodies, carcasses, armor and the mod's own items are drawn, the in-game RTS
+ * view, and the shader pack.
  */
 public class ClientProxy extends CommonProxy {
 
@@ -67,6 +68,8 @@ public class ClientProxy extends CommonProxy {
         GodswordPose.register();
         MurkyWater.register();
         RtsClient.init();
+        ShaderPack.install(Minecraft.getMinecraft().mcDataDir);
+        ShaderPack.register();
     }
 
     @Override

@@ -20,6 +20,8 @@ public class Config {
     public static int gameDimensionId = 77;
     /** Biome id of Forinthry's Wilderness, which tints its water. */
     public static int wildernessBiomeId = 120;
+    /** Whether the client puts the mod's shader pack in its shaderpacks folder when OptiFine is installed. */
+    public static boolean installShaderPack = true;
     public static int mapMargin = 48;
     public static final long[] startingResources = { 200, 200, 100 };
 
@@ -415,6 +417,13 @@ public class Config {
             40,
             255,
             "Biome id of Forinthry's Wilderness. Change it if another mod uses the same id.");
+        installShaderPack = configuration.getBoolean(
+            "installShaderPack",
+            Configuration.CATEGORY_GENERAL,
+            installShaderPack,
+            "Whether the client puts the War of the Gods shader pack, with a look of its own for each map, in its"
+                + " shaderpacks folder when OptiFine is installed, keeping it up to date with the mod. Pick it in"
+                + " Video Settings > Shaders. Set on the client.");
         mapMargin = configuration.getInt(
             "mapMargin",
             Configuration.CATEGORY_GENERAL,

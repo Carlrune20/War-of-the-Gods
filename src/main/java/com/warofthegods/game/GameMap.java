@@ -1,6 +1,9 @@
 package com.warofthegods.game;
 
-/** The maps a game can be played on. Ids are stored in save data, so only add new values. */
+/**
+ * The maps a game can be played on. Ids are stored in save data, and the shader pack knows each map by its place here,
+ * so only add new values, at the end.
+ */
 public enum GameMap {
 
     /** Grassland and forest with a river across it and three stone bridges. */

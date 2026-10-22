@@ -25,6 +25,7 @@ A game with no enemy teams is fine too. You can build and fight the wilderness m
 | [Orders and combat](docs/orders-and-combat.md) | Stances, formations, fighting, archers, cavalry, torches |
 | [Commands](docs/commands.md) | The full `/rts` command reference, grouped by what it does |
 | [Web map and in-game view](docs/web-map-and-rts-view.md) | How to command your army from the browser or from inside the game |
+| [Shaders](docs/shaders.md) | The OptiFine shader pack with a look for each map, and how to use it |
 | [Hosting](docs/hosting.md) | The config file, web map settings, HTTPS, and Docker |
 | [Developing](docs/developing.md) | Building, tests, CI, generated assets, and editing models in Blockbench |
 
