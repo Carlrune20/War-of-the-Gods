@@ -18,8 +18,8 @@ A game with no enemy teams is fine too: build and fight the wilderness mobs.
 
 ## The lobby
 
-An op opens the lobby with `/rts newgame` or the **New game** button in the team menu (press **B**). That ends the
-running game, and the lobby comes up on everyone's screen. Anyone who closes it, or logs in while it is open, gets
+An op opens the lobby with `/rts newgame` or the **New game** button in the team menu (press **B**). While no game is
+running, B on its own opens the lobby for an op. Opening it ends the running game, and the lobby comes up on everyone's screen. Anyone who closes it, or logs in while it is open, gets
 it back with B. It starts with the teams of the game that just ended, and everyone on the team they were on.
 
 Only ops change the settings:

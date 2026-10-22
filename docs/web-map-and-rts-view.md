@@ -112,7 +112,7 @@ panels, buttons and tooltips as on the web map are drawn over the real world. No
 | Minimap (bottom right) | Click or drag to move the camera there. Right-click to send the selected units there. It shows the map as far as your client has seen it or the server has sent its surface, with buildings, units and hostile mobs, and the part in view outlined. |
 | Torches | With workers selected: click two corners of an area for them to light up. |
 | Wall / Make gate | With workers selected: click where a wall starts and where it ends, or two of your towers. With a wall segment selected, Make gate. As on the web map. |
-| B | The team menu, in the view or in person: join or leave a team. Ops click a player to move them, or fill or shuffle the teams. |
+| B | The team menu, in the view or in person: join or leave a team. Ops click a player to move them, or fill or shuffle the teams. While no game is running, B opens the new game lobby for ops. |
 | T or / | Chat, without leaving the view. |
 | V, or Esc with nothing selected | Back to playing in person. |
 
