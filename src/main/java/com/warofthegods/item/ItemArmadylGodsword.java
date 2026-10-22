@@ -41,7 +41,8 @@ public class ItemArmadylGodsword extends ItemGodsword {
             return;
         }
         ItemStack held = ((EntityLivingBase) attacker).getHeldItem();
-        if (held == null || held.getItem() != this || event.ammount <= 0
+        if (held == null || held.getItem() != this
+            || event.ammount <= 0
             || attacker.worldObj.rand.nextInt(STRONG_ONE_IN) != 0) {
             return;
         }
