@@ -21,7 +21,7 @@ import com.warofthegods.game.Ruin;
  * The old chests left in ruins: most ruins have one, against a wall where there is one, holding what was left behind
  * there: ores, food, building materials, a few weapons and pieces of armor, and arrows. Now and then one holds
  * something rare: a piece of runite armor, a runite sword or axe, or, rarer still, the dark bow, a godsword blade, a
- * prayer book, the dragon scimitar or a piece of dragon armor.
+ * prayer book, the dragon scimitar, a piece of dragon armor, the Armadyl hilt or the Armadyl crossbow.
  */
 final class RuinLoot {
 
@@ -75,6 +75,8 @@ final class RuinLoot {
             { WarOfTheGods.prayerBook, 50 }, { WarOfTheGods.dragonScimitar, 30 }, { WarOfTheGods.dragonArmor[0], 20 },
             { WarOfTheGods.dragonArmor[1], 15 }, { WarOfTheGods.dragonArmor[2], 15 },
             { WarOfTheGods.dragonArmor[3], 20 },
+            // Armadyl's, whom no team follows yet: his hilt, to make his godsword, and his crossbow.
+            { WarOfTheGods.armadylHilt, 15 }, { WarOfTheGods.armadylCrossbow, 20 },
             // Runite, Minecraft's diamond, twice as often as dragon or more.
             { Items.diamond_helmet, 60 }, { Items.diamond_chestplate, 40 }, { Items.diamond_leggings, 45 },
             { Items.diamond_boots, 60 }, { Items.diamond_sword, 60 }, { Items.diamond_axe, 40 }, };

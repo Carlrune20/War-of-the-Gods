@@ -554,6 +554,9 @@ KNIGHTS = {
     # Bright white plate, the scabbard's strap across the chest.
     "white": dict(plate=(228, 228, 232), dark=(176, 178, 186), light=(250, 250, 252), trim=(204, 204, 212),
                   slit=(26, 26, 30), legs=(220, 220, 226), boots=(196, 196, 204), strap=(46, 40, 36)),
+    # A Guardian of Armadyl: white plate edged in gold, grey legs and boots.
+    "guardian": dict(plate=(230, 230, 234), dark=(178, 178, 188), light=(250, 250, 252), trim=(222, 186, 52),
+                     slit=(30, 28, 34), legs=(150, 150, 160), boots=(110, 110, 120), strap=None),
     # A justiciar: pale silver plate with gold edges over a blue tabard, olive boots.
     "justiciar": dict(plate=(206, 202, 218), dark=(150, 146, 168), light=(234, 232, 242), trim=(224, 184, 86),
                       slit=(30, 26, 34), legs=(58, 54, 58), boots=(98, 96, 40), strap=None, cloth=(96, 102, 172),
@@ -569,7 +572,7 @@ def knight(style):
     plate, dark, light, trim, slit = c["plate"], c["dark"], c["light"], c["trim"], c["slit"]
     justiciar = style == "justiciar"
     elite = style == "black_elite"
-    gilded = elite or justiciar
+    gilded = elite or justiciar or style == "guardian"
 
     def body(face, x, y, w, h):
         if face in ("top", "bottom"):
@@ -769,6 +772,139 @@ def justiciar(faction):
 def elite_black_knight(faction):
     """What the Elite Black Knights upgrade turns Black Knights into."""
     return knight("black_elite")
+
+
+# ---------------------------------------------------------------- Armadyl's people
+#
+# Armadyl's followers dress in white and pale grey, trimmed in gold and sky blue, as his temple's priests and his
+# armour are.
+
+ARMADYL_WHITE = (226, 224, 216)
+ARMADYL_GREY = (150, 152, 164)
+ARMADYL_GOLD = (216, 180, 56)
+ARMADYL_BLUE = (70, 120, 190)
+
+
+def follower(faction):
+    """Armadyl's follower, his worker: a white tunic to the knee with a sky-blue sash, grey trousers, a leather
+    apron and a blue headband."""
+    hair = (110, 76, 44)
+
+    def body(face, x, y, w, h):
+        if face == "top":
+            return ARMADYL_WHITE
+        if face == "bottom":
+            return ARMADYL_GREY
+        if y == 7:
+            return ARMADYL_BLUE
+        if face == "front" and 2 <= x <= 5 and y >= 3:
+            return (122, 88, 56)
+        if face == "front" and y == 0 and 3 <= x <= 4:
+            return SKIN
+        return ARMADYL_WHITE
+
+    def arm(face, x, y, w, h):
+        if face == "bottom" or y >= 8:
+            return SKIN
+        return ARMADYL_WHITE
+
+    def leg(face, x, y, w, h):
+        if face == "bottom" or y >= 10:
+            return (84, 62, 40)
+        if y < 3:
+            return ARMADYL_WHITE
+        return ARMADYL_GREY
+
+    def hat(face, x, y, w, h):
+        if face in ("top", "bottom"):
+            return None
+        return ARMADYL_BLUE if y == 2 else None
+
+    return {"head": face_fn(hair), "hat": hat, "body": body, "arm": arm, "leg": leg}
+
+
+def armadyl_warrior(faction):
+    """Armadyl's warrior: a white shirt with a gold collar, grey trousers and boots."""
+    parts = warrior("saradomin")
+    plain = parts["body"]
+
+    def body(face, x, y, w, h):
+        if face in ("front", "back", "left", "right") and y < 8:
+            if face == "front" and y == 0 and 2 <= x <= 5:
+                return ARMADYL_GOLD
+            return ARMADYL_WHITE
+        if y >= 10 or face == "bottom":
+            return ARMADYL_GREY
+        if face == "top":
+            return ARMADYL_WHITE
+        return plain(face, x, y, w, h)
+
+    def arm(face, x, y, w, h):
+        if face == "bottom" or y >= 10:
+            return SKIN
+        return ARMADYL_GOLD if y == 9 else ARMADYL_WHITE
+
+    def leg(face, x, y, w, h):
+        if face == "bottom" or y >= 9:
+            return (70, 70, 80)
+        return shade_of(ARMADYL_GREY, 0.85) if face == "front" and x == 3 else ARMADYL_GREY
+
+    parts.update(body=body, arm=arm, leg=leg)
+    return parts
+
+
+def armadyl_archer(faction):
+    """Armadyl's archer, the best in the God Wars: a white hood edged in gold, a pale leather jerkin over a white
+    shirt, a sky-blue strap to the quiver, grey trousers."""
+    parts = archer("saradomin")
+    jerkin, leather = (196, 176, 140), (150, 126, 90)
+    plain_body = parts["body"]
+
+    def body(face, x, y, w, h):
+        if face == "front" and x == y - 1 and y <= 8:
+            return ARMADYL_BLUE
+        color = plain_body(face, x, y, w, h)
+        return {(112, 82, 50): jerkin, (84, 58, 34): leather}.get(color, color)
+
+    def hat(face, x, y, w, h):
+        if face == "bottom":
+            return None
+        if face == "front":
+            if y < 2 or x in (0, 7):
+                return ARMADYL_GOLD if y == 1 and 0 < x < 7 else ARMADYL_WHITE
+            return None
+        if face in ("left", "right") and y > 6:
+            return None
+        return ARMADYL_WHITE
+
+    def leg(face, x, y, w, h):
+        if face == "bottom" or y >= 8:
+            return (90, 70, 46)
+        return ARMADYL_GREY
+
+    parts.update(body=body, hat=hat, leg=leg)
+    return parts
+
+
+def armadyl_priest(faction):
+    """A priest of Armadyl: a white robe trimmed in gold, a sky-blue hood, and Armadyl's sign in blue on the
+    breast."""
+    return robed((232, 230, 224), ARMADYL_GOLD, hood=ARMADYL_BLUE, emblem=ARMADYL_BLUE, hair=(150, 140, 130),
+                 beard=(170, 160, 150))
+
+
+def guardian(faction):
+    """A Guardian of Armadyl, his knight: white plate edged in gold, worn on the White Knight's model."""
+    return knight("guardian")
+
+
+def shade_of(color, factor):
+    return tuple(max(0, min(255, int(c * factor))) for c in color)
+
+
+# Armadyl's skins, by the name of the unit that wears them; written only for Armadyl, whose units have their own.
+ARMADYL_SKINS = ((follower, "worker"), (armadyl_warrior, "soldier"), (armadyl_archer, "archer"),
+                 (armadyl_priest, "priest"), (guardian, "guardian"))
 
 
 def tradigee(faction):
@@ -1694,6 +1830,10 @@ def main():
                 continue
             skin(kind, faction).save(path)
             written.append(path)
+    for kind, name in ARMADYL_SKINS:
+        path = os.path.join(SKINS, "armadyl_%s.png" % name)
+        skin(kind, "armadyl").save(path)
+        written.append(path)
     overlay().save(os.path.join(SKINS, "team_overlay.png"))
     icons(args.minecraft_jar).save(ICONS)
     os.makedirs(ITEMS, exist_ok=True)

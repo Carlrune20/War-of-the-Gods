@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Builds War of the Gods' own box models: the lesser demon, the centaur, Zamorak's staff, Silverlight, and Bandos's
-goblin, hobgoblin, ork and ogre (see creatures.py), and Forinthry's wild creatures (see wild.py).
+"""Builds War of the Gods' own box models: the lesser demon, the centaur, Zamorak's staff, Silverlight, Bandos's
+goblin, hobgoblin, ork and ogre (see creatures.py), Armadyl's aviansie, crossbow and armour (see armadyl.py), and
+Forinthry's wild creatures (see wild.py).
 
     python3 tools/models/generate.py [--preview DIR]
 
@@ -21,6 +22,7 @@ from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import armadyl  # noqa: E402
 import armor  # noqa: E402
 import artifacts  # noqa: E402
 import blockbench  # noqa: E402
@@ -900,7 +902,7 @@ def silverlight():
 # ---------------------------------------------------------------- output
 
 MODELS_BUILT = {"lesser_demon": lesser_demon, "centaur": centaur, "zamorak_staff": zamorak_staff, "silverlight": silverlight,
-                **artifacts.ARTIFACTS}
+                **artifacts.ARTIFACTS, **armadyl.MODELS}
 ICONS = {"zamorak_staff", "silverlight"}
 ICON_SIZE = 32
 
@@ -949,8 +951,9 @@ def build_wild(preview):
 
 
 def build_creatures(preview):
-    """Bandos's creatures: one model each, and a texture and team mask for each kind that wears it."""
-    for name, (build, kinds) in creatures.CREATURES.items():
+    """Bandos's creatures and Armadyl's aviansie: one model each, and a texture and team mask for each kind that wears
+    it."""
+    for name, (build, kinds) in {**creatures.CREATURES, **armadyl.CREATURES}.items():
         model = build(kinds[0])
         texture, mask = model.paint()
         if blockbench.edited(name, json.loads(model.to_json()), {name + ".png": texture, name + "_team.png": mask}):
@@ -1025,6 +1028,29 @@ def build_armor(preview):
         armor.icon(armor.picture("dragon", piece)).save(os.path.join(ITEMS, "dragon_%s.png" % item))
 
 
+# Armadyl's artifacts' icons, from RuneScape's own pictures in icons/ as the other artifacts' are.
+PICTURE_ICONS = ("armadyl_godsword", "armadyl_hilt", "armadyl_crossbow")
+# Armadyl armour's icons, drawn from the model: each piece by the parts it is made of.
+ARMADYL_PIECES = {"armadyl_chestplate": ("body", "right_arm", "left_arm"),
+                  "armadyl_leggings": ("skirt", "right_leg", "left_leg", "right_boot", "left_boot")}
+
+
+def build_armadyl_icons():
+    for name in PICTURE_ICONS:
+        armor.icon(Image.open(os.path.join(armor.ICONS, name + ".png")).convert("RGBA")).save(
+            os.path.join(ITEMS, name + ".png"))
+    helmet = armadyl.armadyl_helmet()
+    texture, _ = helmet.paint()
+    big = boxmodel.render(helmet, texture, size=256, yaw=30, pitch=12, margin=0.04)
+    armor.icon(big).save(os.path.join(ITEMS, "armadyl_helmet.png"))
+    for name, parts in ARMADYL_PIECES.items():
+        model = armadyl.armadyl_armor()
+        texture, _ = model.paint()
+        model.roots = [part for part in model.roots if part.name in parts]
+        big = boxmodel.render(model, texture, size=256, yaw=20, pitch=8, margin=0.04)
+        armor.icon(big).save(os.path.join(ITEMS, name + ".png"))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--preview", help="also draw each model into this folder")
@@ -1075,6 +1101,7 @@ def main():
     build_creatures(args.preview)
     build_wild(args.preview)
     build_armor(args.preview)
+    build_armadyl_icons()
 
 
 if __name__ == "__main__":

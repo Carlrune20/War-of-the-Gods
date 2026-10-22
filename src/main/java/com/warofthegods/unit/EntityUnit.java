@@ -180,6 +180,12 @@ public class EntityUnit extends EntityCreature {
      * gaps a rider does, though it is drawn much bigger.
      */
     private static final float TREBUCHET_HEIGHT = 4.0F;
+    /**
+     * How wide and tall a trebuchet is to hit, click on and stop short of, nearer the size it is drawn: its frame is
+     * seven blocks by eleven and its towers ten high.
+     */
+    private static final float TREBUCHET_HIT_WIDTH = 6.0F;
+    private static final float TREBUCHET_HIT_HEIGHT = 9.0F;
     /** Damage a worker's hit does to an animal it hunts. */
     private static final float HUNT_DAMAGE = 5;
     /** How far a worker looks for another animal once a carcass is eaten up. */
@@ -1498,6 +1504,66 @@ public class EntityUnit extends EntityCreature {
         if (width != wide || height != tall) {
             setSize(wide, tall);
         }
+        // Drawn far wider than its box, it is still drawn while its middle is out of view.
+        ignoreFrustumCheck = hitWidth(kind, tier) > wide;
+    }
+
+    /**
+     * How wide it is to hit, click on and stop short of: as wide as it is drawn, wider than it is to bump into, which
+     * stays narrow so it fits through the gaps a man or a rider does. A trebuchet is as big as its frame, and a
+     * demon, ogre, General Graardor or anything else drawn bigger than a man as broad as its shoulders.
+     */
+    public static float hitWidth(UnitKind kind, int tier) {
+        if (kind.isSiege()) {
+            return TREBUCHET_HIT_WIDTH;
+        }
+        float scale = kind.scale(tier);
+        if (kind == UnitKind.CENTAUR || kind.isMounted()) {
+            return Math.max(1.4F, scale);
+        }
+        return scale >= 1.25F || kind.hasOwnModel() ? scale : 0.6F;
+    }
+
+    /** How tall it is to hit and click on, as tall as it is drawn. */
+    public static float hitHeight(UnitKind kind, int tier) {
+        if (kind.isSiege()) {
+            return TREBUCHET_HIT_HEIGHT;
+        }
+        return kind == UnitKind.CENTAUR ? CENTAUR_HEIGHT : 1.8F * Math.max(1, kind.scale(tier));
+    }
+
+    /** How much further than its bounding box it reaches out on each side, to be hit as wide as it is drawn. */
+    public float hitMargin() {
+        return Math.max(0, (hitWidth(getWatchedKind(), getWatchedEliteTier()) - width) / 2);
+    }
+
+    /** A player's blows and clicks land anywhere on it as it is drawn, not only on the narrow box it moves in. */
+    @Override
+    public float getCollisionBorderSize() {
+        return Math.max(super.getCollisionBorderSize(), hitMargin());
+    }
+
+    /** Seen from as far off as something its drawn size is. */
+    @Override
+    public boolean isInRangeToRenderDist(double distanceSq) {
+        UnitKind watched = getWatchedKind();
+        int tier = getWatchedEliteTier();
+        double size = (hitWidth(watched, tier) * 2 + hitHeight(watched, tier)) / 3 * 64 * renderDistanceWeight;
+        return distanceSq < size * size;
+    }
+
+    /**
+     * The square of how close it has to be to hit the target with a blow, measured to the target's middle: a
+     * man's reach and the target's half breadth as it is drawn, so it stops at the side of a trebuchet or a demon
+     * rather than walking into it. Slack is added to the square of a man's reach, as when it only looks whether it
+     * could.
+     */
+    private double meleeReachSq(EntityLivingBase target, double slack) {
+        double reach = Math.sqrt(width * 2 * width * 2 + target.width + slack);
+        if (target instanceof EntityUnit) {
+            reach += ((EntityUnit) target).hitMargin();
+        }
+        return reach * reach;
     }
 
     /** A chaos priest praying at a temple faces it and now and then raises its hands, sparks rising round it. */
@@ -2288,8 +2354,7 @@ public class EntityUnit extends EntityCreature {
         if (kind.ranged) {
             return distanceSq <= archerRange() * archerRange();
         }
-        double reach = width * 2 * width * 2 + target.width;
-        return distanceSq <= reach + 1;
+        return distanceSq <= meleeReachSq(target, 1);
     }
 
     private void shoot(EntityLivingBase victim) {
@@ -2434,8 +2499,7 @@ public class EntityUnit extends EntityCreature {
             progressTicks = 0;
             return;
         }
-        double reach = width * 2 * width * 2 + current.width;
-        if (!kind.ranged && distanceSq <= reach) {
+        if (!kind.ranged && distanceSq <= meleeReachSq(current, 0)) {
             if (attackCooldown <= 0 && getEntitySenses().canSee(current)) {
                 attackCooldown = 20;
                 swingItem();

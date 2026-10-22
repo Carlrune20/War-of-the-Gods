@@ -17,14 +17,15 @@ public final class ModBlocks {
     /** Ids of the mod's blocks in schematics, as tools/structures/generate.py writes them. */
     public static final int GRAYSTONE_ID = 200, GRAYSTONE_SLAB_ID = 201, GRAYSTONE_DOUBLE_SLAB_ID = 202,
         GRAYSTONE_STAIRS_ID = 203, WOOD_DOOR_ID = 204, BANNER_ID = 205, STATIC_FIRE_ID = 209, BANDOS_BANNER_ID = 210,
-        CHARRED_EARTH_ID = 212, ASH_ID = 213, SCORCHED_STONE_ID = 214, EMBER_ROCK_ID = 215, LAST_ID = 215;
+        ARMADYL_BANNER_ID = 212, CHARRED_EARTH_ID = 214, ASH_ID = 215, SCORCHED_STONE_ID = 216, EMBER_ROCK_ID = 217,
+        LAST_ID = 217;
 
     /**
-     * The banners' kinds, in the order of their ids: Saradomin's and Zamorak's from {@link #BANNER_ID}, Bandos's, which
-     * came after the fire, from {@link #BANDOS_BANNER_ID}.
+     * The banners' kinds, in the order of their ids: Saradomin's and Zamorak's from {@link #BANNER_ID}, then Bandos's
+     * and Armadyl's, which came after the fire, from {@link #BANDOS_BANNER_ID}.
      */
     public static final String[] BANNER_KINDS = { "saradomin", "saradomin_inverted", "zamorak", "zamorak_inverted",
-        "bandos", "bandos_inverted" };
+        "bandos", "bandos_inverted", "armadyl", "armadyl_inverted" };
 
     public static Block graystoneBricks;
     public static BlockGraystoneSlab graystoneSlab;

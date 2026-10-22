@@ -259,8 +259,8 @@ crypt with a ladder down inside them. Their walls are thick with coal and iron o
 diamond or a few, low down. Sell what you dig out, or smelt it and make armor yourself.
 
 **Chests in ruins.** Most ruins also have an old chest of loot: ores, food, building materials, weapons, armor and
-arrows. A few hold something rare: the dark bow, a godsword blade, a prayer book, the dragon scimitar, a Zamorak staff
-or dragon armor.
+arrows. A few hold something rare: the dark bow, a godsword blade, a prayer book, the dragon scimitar, a Zamorak staff,
+dragon armor, the Armadyl hilt or the Armadyl crossbow.
 See [Ruin chests and artifacts](buildings-and-units.md#ruin-chests-and-artifacts).
 
 ## Winning and losing

@@ -27,7 +27,7 @@ from generate import (AIR, ANVIL, BLACK, BOOKSHELF, BROWN, CARPET, CAULDRON, CHE
                       TORCH, UPSIDE_DOWN, UP_EAST, UP_NORTH, UP_SOUTH, UP_WEST, WOOD_SLAB, WOOL, Struct, tidy)
 
 # Forinthry's own blocks, by the ids ModBlocks.java gives them in schematics.
-CHARRED_EARTH, ASH, SCORCHED, EMBER = 212, 213, 214, 215
+CHARRED_EARTH, ASH, SCORCHED, EMBER = 214, 215, 216, 217
 
 BRICK, MOSSY_BRICK, CRACKED_BRICK = (STONE_BRICK, 0), (STONE_BRICK, 1), (STONE_BRICK, 2)
 

@@ -19,6 +19,8 @@ import com.warofthegods.game.PlayerEvents;
 import com.warofthegods.game.SafeMode;
 import com.warofthegods.game.WinConditions;
 import com.warofthegods.item.ArmorKnockback;
+import com.warofthegods.item.ItemArmadylCrossbow;
+import com.warofthegods.item.ItemArmadylGodsword;
 import com.warofthegods.item.ItemArtifact;
 import com.warofthegods.item.ItemDarkBow;
 import com.warofthegods.item.ItemDarkIronArmor;
@@ -93,6 +95,13 @@ public class WarOfTheGods {
     /** By the god's ordinal: the hilts armories sell, and the godswords made with them and a blade. */
     public static final ItemArtifact[] hilts = new ItemArtifact[Faction.values().length];
     public static final ItemGodsword[] godswords = new ItemGodsword[Faction.values().length];
+    /**
+     * Armadyl's hilt and godsword, and his crossbow: no team follows Armadyl yet, so his hilt is found in ruins'
+     * chests rather than sold, as the crossbow is.
+     */
+    public static ItemArtifact armadylHilt;
+    public static ItemArmadylGodsword armadylGodsword;
+    public static ItemArmadylCrossbow armadylCrossbow;
 
     @SidedProxy(clientSide = "com.warofthegods.client.ClientProxy", serverSide = "com.warofthegods.CommonProxy")
     public static CommonProxy proxy;
@@ -144,6 +153,13 @@ public class WarOfTheGods {
             GameRegistry
                 .addShapelessRecipe(new ItemStack(godswords[god.ordinal()]), godswordBlade, hilts[god.ordinal()]);
         }
+        armadylHilt = new ItemArtifact("armadyl_hilt", "Fit it to a godsword blade to make a godsword");
+        GameRegistry.registerItem(armadylHilt, "armadyl_hilt");
+        armadylGodsword = new ItemArmadylGodsword();
+        GameRegistry.registerItem(armadylGodsword, ItemGodsword.registryName("armadyl"));
+        GameRegistry.addShapelessRecipe(new ItemStack(armadylGodsword), godswordBlade, armadylHilt);
+        armadylCrossbow = new ItemArmadylCrossbow();
+        GameRegistry.registerItem(armadylCrossbow, "armadyl_crossbow");
     }
 
     @Mod.EventHandler
@@ -177,6 +193,7 @@ public class WarOfTheGods {
         MinecraftForge.EVENT_BUS.register(darkBow);
         MinecraftForge.EVENT_BUS.register(new ArmorKnockback());
         MinecraftForge.EVENT_BUS.register(godswords[Faction.SARADOMIN.ordinal()]);
+        MinecraftForge.EVENT_BUS.register(armadylGodsword);
         PlayerPrayers prayers = new PlayerPrayers();
         FMLCommonHandler.instance()
             .bus()
