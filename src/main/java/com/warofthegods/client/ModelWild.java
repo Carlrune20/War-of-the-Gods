@@ -72,14 +72,15 @@ public class ModelWild extends ModelBase {
 
     private void biped(float step, float breathe, float blow, float age) {
         if (kind == WildKind.GHOST) {
-            // It floats, bobbing, its arms reaching out and drifting, its robe trailing as it goes.
+            // It floats a little off the ground, bobbing, its legs drifting as it goes and its arms reaching out.
             float bob = MathHelper.sin(age * 0.1F) * 1.2F - 1.5F;
-            for (String part : new String[] { "body", "head", "left_arm", "right_arm" }) {
+            for (String part : new String[] { "body", "head", "left_arm", "right_arm", "left_leg", "right_leg" }) {
                 model.move(part, 0, bob, 0);
             }
             model.turn("left_arm", MathHelper.sin(age * 0.08F) * 0.1F - blow * 0.6F, 0, 0);
             model.turn("right_arm", MathHelper.cos(age * 0.08F) * 0.1F - blow * 0.6F, 0, 0);
-            model.turn("body", Math.abs(step) * 0.15F, 0, 0);
+            model.turn("right_leg", step * 0.5F, 0, 0);
+            model.turn("left_leg", -step * 0.5F, 0, 0);
             return;
         }
         float heavy = kind == WildKind.HILL_GIANT || kind == WildKind.GARGOYLE ? 0.8F : 1;

@@ -101,18 +101,22 @@ Misthalin, but there is no river, and the land is hostile:
 
 - **Charred terrain.** Mostly black ground of charred earth, scorched stone and glowing ember rock, with rocky crags,
   patches of bare earth where no grass grows, and dead dark oak trees without leaves, alone or in groves. Its biome,
-  the Wilderness, never rains, and its few small ponds are a murky green-blue. Animals still graze round the towns.
-- **Lava.** Rivers of lava wind across the land, with fords to cross them, and there are lava lakes and small lava
-  potholes. Now and then the lava forms a small maze, about one for every 500 by 500 blocks of map (at least one),
-  with a chest of loot in its middle cell that hellhounds guard.
+  the Wilderness, never rains, and its few small ponds are a murky green-blue. Hills rise here and there.
+- **Lava.** Rivers of lava wind across the land and cross each other, now and then leaving a small island between
+  them, with fords to cross them. Where a river runs through the hills it cuts a canyon, its cliffs overhanging the
+  lava. There are lava lakes and small lava potholes too.
+- **No animals.** Nothing grazes on Forinthry: instead a ring of mushroom patches grows round each team's town
+  center for its first food.
 - **Always night.** The sun never rises on Forinthry, until it gets shaders of its own.
-- **The old fortress.** One great walled ruin per game, 55 blocks across (on a big map now and then a second): a
-  curtain wall with towers and a gatehouse round the burnt-out keep, barracks, chapel, smithy, prison, stable and
-  storehouse, all hung with cobwebs and full of chests. Ghosts, skeletons, zombies and deadly red spiders haunt it.
-- **Ruins**, more of them and more dangerous than Misthalin's: the great **Graveyard of Shadows** where ghosts walk,
-  **bandit camps** with up to four bandits, and smaller ruins (haunted graveyards, burnt chapels and houses, broken
-  watchtowers and altars of Zamorak) with ghosts, hellhounds or deadly red spiders in their cobwebs. Every ruin has a
-  chest of loot.
+- **The old fortress.** One great walled ruin per game, 55 blocks across (on a big map now and then a second), in
+  one of three layouts: a curtain wall with towers and a gatehouse round the burnt-out keep, with barracks, a chapel,
+  smithy, prison, stable or storehouse in its yard, all hung with cobwebs and full of chests. No god's banner flies
+  over it: the Wilderness is no one's. Ghosts, skeletons, zombies and deadly red spiders haunt it.
+- **Ruins**, more of them and more dangerous than Misthalin's: the great **Graveyards of Shadows** where ghosts walk,
+  their graves, crypts and mausoleums laid out at random, **bandit camps** of tents, a lookout, a cage and a stash round
+  a fire, laid out anew each time, with up to four bandits, and smaller ruins (haunted graveyards, burnt chapels and
+  houses, broken watchtowers and altars of Zamorak) with ghosts, hellhounds or deadly red spiders in their cobwebs.
+  Every ruin has a chest of loot.
 - **Mushrooms**, red and brown, grow in clumps over the ground and are Forinthry's food. Select workers and
   right-click one to harvest it with hoes, just as trees are chopped: each holds 50 food, and the workers carry it
   home and go on to the next mushroom.

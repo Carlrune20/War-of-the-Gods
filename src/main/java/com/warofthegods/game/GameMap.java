@@ -6,8 +6,8 @@ public enum GameMap {
     /** Grassland and forest with a river across it and three stone bridges. */
     MISTHALIN("misthalin", "Misthalin"),
     /**
-     * The Wilderness north of Edgeville, burnt black in the God Wars: charred earth and ash, dead trees, lava mazes,
-     * mushrooms to eat, and far more that wants the players dead. It is always night there.
+     * The Wilderness north of Edgeville, burnt black in the God Wars: charred earth and stone, dead trees, lava
+     * rivers, mushrooms to eat, and far more that wants the players dead. It is always night there.
      */
     FORINTHRY("forinthry", "Forinthry");
 

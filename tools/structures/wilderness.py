@@ -10,7 +10,8 @@
     house_<n>                 a burnt-out house of some outpost
     watchtower_<n>            a broken watchtower
     chaos_altar_<n>           a ring of black stone round an altar of Zamorak
-    bandit_camp_<n>           a bandits' camp: a palisade round tents, a fire, a lookout and a cage
+    camp_<piece>_<n>          the pieces of a bandits' camp, which the game lays out together round the fire:
+                              camp_fire, camp_tent (six kinds), camp_lookout, camp_cage and camp_stash
 
 Each comes in a few variants, n = 1, 2, ..., drawn with different seeds; the small ones also come with cobwebs, as
 _webs, for when red spiders lurk in them. They stand on Forinthry's charred earth and ash, so they sit in the map as
@@ -19,12 +20,11 @@ if they had always been there. The game adds the chests (RuinLoot.java) and the 
 
 import random
 
-from generate import (AIR, ANVIL, BANNER_EMBLEM, BANNER_NORTH, BANNER_TOP, BANNER_ZAMORAK, BOOKSHELF, BROWN, CARPET,
-                      CAULDRON, CHEST, COBBLE, COBBLE_WALL, COBWEB, DEAD_BUSH, DIRT, FENCE, FIRE, FURNACE, GRAVEL,
-                      GRAY, GRAYSTONE, GRAYSTONE_SLAB, GRAYSTONE_STAIRS, HAY, IRON_BARS, LADDER, LOG, LOG2, MOSSY,
-                      NETHERRACK, NETHER_BRICK, NETHER_STAIRS, OBSIDIAN, PLANKS, RED, SKULL, SLAB, SOUL_SAND,
-                      STONE_BRICK, STONE_BRICK_STAIRS, TORCH, UPSIDE_DOWN, UP_EAST, UP_NORTH, UP_SOUTH, UP_WEST,
-                      WOOD_SLAB, WOOL, Struct, tidy)
+from generate import (AIR, ANVIL, BLACK, BOOKSHELF, BROWN, CARPET, CAULDRON, CHEST, COBBLE, COBBLE_WALL, COBWEB,
+                      DEAD_BUSH, DIRT, FENCE, NETHER_FENCE, FIRE, FURNACE, GRAVEL, GRAY, GRAYSTONE, GRAYSTONE_SLAB,
+                      GRAYSTONE_STAIRS, HAY, IRON_BARS, LADDER, LOG, LOG2, MOSSY, NETHERRACK, NETHER_BRICK,
+                      NETHER_STAIRS, OBSIDIAN, PLANKS, RED, SKULL, SLAB, SOUL_SAND, STONE_BRICK, STONE_BRICK_STAIRS,
+                      TORCH, UPSIDE_DOWN, UP_EAST, UP_NORTH, UP_SOUTH, UP_WEST, WOOD_SLAB, WOOL, Struct, tidy)
 
 # Forinthry's own blocks, by the ids ModBlocks.java gives them in schematics.
 CHARRED_EARTH, ASH, SCORCHED, EMBER = 212, 213, 214, 215
@@ -168,115 +168,206 @@ def gravestone(s, rng, x, z, facing_z=True):
 # ---------------------------------------------------------------- the graveyard of shadows
 
 
-def graveyard_of_shadows(seed):
-    """The Graveyard of Shadows: a great graveyard walled with iron railings between stone pillars, its gate on the
-    front flanked by braziers, rows of graves either side of a gravel walk, and at the back a mausoleum of dark
-    graystone with a stepped roof, its door open on a sarcophagus. Skulls sit on the pillars; the ground is soul sand
-    and ash. Ghosts walk here."""
+def graveyard(seed, w, l, grand, with_webs=False):
+    """A graveyard laid out at random, so no two are alike: a boundary of railings, a low wall or a broken fence with
+    a gate somewhere along its front and gaps knocked through it; a gravel walk wandering in from the gate; graves in
+    clusters and rows facing this way and that, and alone, some dug open; dead trees, obelisks and statues; and in a
+    grand one a mausoleum somewhere at the back and perhaps the way down into a crypt."""
     rng = random.Random(seed)
-    s = Struct(25, 21, 10, 1)
-    ground(s, rng, 0.4, [(0.18, (SOUL_SAND, 0)), (0.06, (GRAVEL, 0))])
-    x0, z0, x1, z1 = 0, 0, s.w - 1, s.l - 1
-    mid = s.w // 2
-    # The railing: stone pillars every four, iron bars between, broken through in places.
-    for i, (x, z) in enumerate(ring(x0, z0, x1, z1)):
-        gate = z == z0 and abs(x - mid) <= 1
-        if gate:
+    s = Struct(w, l, 10 if grand else 6, 1)
+    ground(s, rng, 0.3, [(0.2, (SOUL_SAND, 0)), (0.06, (GRAVEL, 0)), (0.05, (DIRT, 1))])
+    x0, z0, x1, z1 = 0, 0, w - 1, l - 1
+    taken = set()
+
+    def take(ax, az, bx, bz, margin=0):
+        for x in range(ax - margin, bx + margin + 1):
+            for z in range(az - margin, bz + margin + 1):
+                taken.add((x, z))
+
+    def free(ax, az, bx, bz):
+        return all(1 <= x <= w - 2 and 1 <= z <= l - 2 and (x, z) not in taken
+                   for x in range(ax, bx + 1) for z in range(az, bz + 1))
+
+    # The boundary.
+    style = rng.choice(("railing", "wall", "fence") if grand else ("wall", "fence", "wall"))
+    gate = rng.randint(3, w - 5)
+    for x, z in ring(x0, z0, x1, z1):
+        if z == z0 and gate <= x <= gate + 2:
             continue
-        pillar = (x - x0) % 4 == 0 and z in (z0, z1) or (z - z0) % 4 == 0 and x in (x0, x1)
-        if pillar:
-            column(s, x, z, rng.randint(2, 3), old_stone, rng)
-            if rng.random() < 0.35 and s.get(x, 3, z) == AIR and s.get(x, 2, z)[0] != SLAB:
-                s.set(x, 3, z, (SKULL, 1))
-        elif rng.random() < 0.8:
-            s.set(x, 1, z, (IRON_BARS, 0))
-            if rng.random() < 0.6:
-                s.set(x, 2, z, (IRON_BARS, 0))
-        elif rng.random() < 0.5:
-            s.set(x, 1, z, (SLAB, 5))
-    # Braziers either side of the gate.
-    brazier(s, mid - 2, z0 + 1)
-    brazier(s, mid + 2, z0 + 1)
-    # The walk up the middle to the mausoleum.
-    for z in range(z0 + 1, z1 - 7):
-        for x in (mid - 1, mid, mid + 1):
-            s.set(x, 0, z, (GRAVEL, 0) if rng.random() < 0.7 else (COBBLE, 0))
-    # Rows of graves either side of the walk.
-    for z in range(z0 + 3, z1 - 9, 4):
-        for x in list(range(x0 + 2, mid - 2, 2)) + list(range(mid + 3, x1 - 1, 2)):
+        if style == "railing":
+            pillar = (x - x0) % 4 == 0 and z in (z0, z1) or (z - z0) % 4 == 0 and x in (x0, x1)
+            if pillar:
+                column(s, x, z, rng.randint(2, 3), old_stone, rng)
+                if rng.random() < 0.3 and s.get(x, 3, z) == AIR and s.get(x, 2, z)[0] != SLAB:
+                    s.set(x, 3, z, (SKULL, 1))
+            elif rng.random() < 0.8:
+                s.set(x, 1, z, (IRON_BARS, 0))
+                if rng.random() < 0.5:
+                    s.set(x, 2, z, (IRON_BARS, 0))
+        elif style == "wall":
             if rng.random() < 0.85:
-                gravestone(s, rng, x, z)
-    # Graves along the sides, beside the mausoleum.
-    for z in range(z1 - 8, z1 - 1, 3):
-        for x in (x0 + 2, x0 + 4, x1 - 4, x1 - 2):
-            if rng.random() < 0.7:
-                gravestone(s, rng, x, z)
-    # The mausoleum: 7 wide and 7 deep at the back, its door facing the gate.
-    mx0, mx1, mz0, mz1 = mid - 3, mid + 3, z1 - 7, z1 - 1
+                s.set(x, 1, z, old_stone(rng) if rng.random() < 0.6 else (COBBLE_WALL, 1))
+                if rng.random() < 0.25:
+                    s.set(x, 2, z, (SLAB, 5))
+        elif rng.random() < 0.7:
+            s.set(x, 1, z, (NETHER_FENCE, 0) if rng.random() < 0.7 else (COBBLE_WALL, 1))
+    for _ in range(rng.randint(1, 3)):
+        x, z = rng.choice(ring(x0, z0, x1, z1))
+        for d in range(rng.randint(1, 3)):
+            for y in (1, 2, 3):
+                xx, zz = (x + d, z) if z in (z0, z1) else (x, z + d)
+                if s.inside(xx, y, zz):
+                    s.set(xx, y, zz, AIR)
+    if grand and rng.random() < 0.7:
+        brazier(s, gate - 1, z0 + 1)
+        brazier(s, gate + 3, z0 + 1)
+        take(gate - 1, z0 + 1, gate + 3, z0 + 1)
+    take(gate, z0, gate + 2, z0 + 2)
+
+    # The mausoleum and crypt of a grand graveyard, somewhere toward the back.
+    goal = (rng.randint(3, w - 4), l - 3)
+    if grand:
+        mw, ml = rng.choice((5, 7)), rng.choice((5, 7))
+        mx0 = rng.choice((2, (w - mw) // 2, w - 2 - mw))
+        mz0 = l - 2 - ml - rng.randint(0, 2)
+        mausoleum(s, rng, mx0, mz0, mx0 + mw - 1, mz0 + ml - 1)
+        take(mx0, mz0, mx0 + mw - 1, mz0 + ml - 1, 1)
+        goal = (mx0 + mw // 2, mz0 - 2)
+        if rng.random() < 0.6:
+            for _ in range(30):
+                cx, cz = rng.randint(2, w - 5), rng.randint(4, l - 5)
+                if free(cx - 1, cz - 1, cx + 3, cz + 3):
+                    crypt(s, rng, cx, cz)
+                    take(cx, cz, cx + 2, cz + 2, 1)
+                    break
+
+    # A gravel walk wandering in from the gate.
+    x, z = gate + 1, z0 + 1
+    while z < goal[1] and (x, z) not in taken - {(gate + 1, z0 + 1), (gate, z0 + 1), (gate + 2, z0 + 1)}:
+        for dx in (0, 1) if rng.random() < 0.6 else (0,):
+            if s.inside(x + dx, 0, z) and 0 < x + dx < w - 1:
+                s.set(x + dx, 0, z, (GRAVEL, 0) if rng.random() < 0.75 else (COBBLE, 0))
+                taken.add((x + dx, z))
+        z += 1
+        if rng.random() < 0.3:
+            x = max(2, min(w - 3, x + (1 if goal[0] > x else -1 if goal[0] < x else rng.choice((-1, 1)))))
+
+    # Features: dead trees, obelisks, statues.
+    for _ in range(rng.randint(1, 3 if grand else 2)):
+        for _ in range(30):
+            fx, fz = rng.randint(2, w - 3), rng.randint(2, l - 3)
+            if free(fx - 1, fz - 1, fx + 1, fz + 1):
+                kind = rng.random()
+                if kind < 0.45:
+                    for y in range(1, rng.randint(3, 6)):
+                        s.set(fx, y, fz, (LOG2, 1))
+                    top = max(y for y in range(1, 7) if s.get(fx, y, fz)[0] == LOG2)
+                    for dx, dz, axis in ((1, 0, 4), (-1, 0, 4), (0, 1, 8), (0, -1, 8)):
+                        if rng.random() < 0.35:
+                            s.set(fx + dx, top - rng.randint(0, 1), fz + dz, (LOG2, 1 | axis))
+                elif kind < 0.75:
+                    s.set(fx, 1, fz, (GRAYSTONE, 0))
+                    s.set(fx, 2, fz, (GRAYSTONE, 2))
+                    if rng.random() < 0.6:
+                        s.set(fx, 3, fz, (COBBLE_WALL, 0))
+                else:
+                    s.set(fx, 1, fz, (STONE_BRICK, 3))
+                    s.set(fx, 2, fz, (COBBLE_WALL, 1))
+                    s.set(fx, 3, fz, (SKULL, 1))
+                take(fx, fz, fx, fz, 1)
+                break
+
+    # Graves: clusters in rows, each facing its own way, and some alone.
+    def grave(gx, gz, facing_z, open_grave=False):
+        foot = (gx, gz + 2) if facing_z else (gx + 2, gz)
+        if not free(gx, gz, foot[0], foot[1]):
+            return False
+        if open_grave:
+            s.set(gx, 1, gz, (COBBLE_WALL, 1) if rng.random() < 0.5 else (SLAB, 5))
+            for px, pz in ((gx, gz + 1), (gx, gz + 2)) if facing_z else ((gx + 1, gz), (gx + 2, gz)):
+                s.set(px, 0, pz, AIR)
+                s.set(px, -1, pz, (SOUL_SAND, 0) if rng.random() < 0.5 else (WOOD_SLAB, 5))
+            side = (gx + 1, gz + 1) if facing_z else (gx + 1, gz + 1)
+            if free(*side, *side):
+                s.set(side[0], 1, side[1], (DIRT, 1))
+        else:
+            gravestone(s, rng, gx, gz, facing_z)
+        take(gx, gz, foot[0], foot[1])
+        return True
+
+    area = (w - 2) * (l - 2)
+    clusters = max(2, area // (45 if grand else 40))
+    for _ in range(clusters):
+        cx, cz = rng.randint(2, w - 4), rng.randint(2, l - 4)
+        facing_z = rng.random() < 0.6
+        rows, cols = rng.randint(1, 3), rng.randint(2, 4)
+        gap = rng.choice((2, 2, 3))
+        for r in range(rows):
+            for c in range(cols):
+                if rng.random() < 0.15:
+                    continue
+                if facing_z:
+                    gx, gz = cx + c * gap, cz + r * 4
+                else:
+                    gx, gz = cx + r * 4, cz + c * gap
+                grave(gx, gz, facing_z, rng.random() < 0.08)
+    for _ in range(area // 30):
+        grave(rng.randint(2, w - 4), rng.randint(2, l - 4), rng.random() < 0.5, rng.random() < 0.15)
+    # Skulls and bones lying about.
+    for _ in range(rng.randint(1, 4)):
+        x, z = rng.randint(1, w - 2), rng.randint(1, l - 2)
+        if (x, z) not in taken and s.get(x, 1, z) == AIR:
+            s.set(x, 1, z, (SKULL, 1))
+    if with_webs or grand:
+        webs(s, rng, (8 if grand else 5) if with_webs else 3)
+    tidy(s)
+    return s
+
+
+def mausoleum(s, rng, mx0, mz0, mx1, mz1):
+    """A mausoleum of dark graystone with a stepped roof, its door open on a sarcophagus."""
+    mid = (mx0 + mx1) // 2
     for x in range(mx0, mx1 + 1):
         for z in range(mz0, mz1 + 1):
             s.set(x, 0, z, (GRAYSTONE, 0))
-            edge = x in (mx0, mx1) or z in (mz0, mz1)
-            if edge:
+            if x in (mx0, mx1) or z in (mz0, mz1):
                 top = 5 if rng.random() < 0.85 else rng.randint(3, 4)
                 for y in range(1, top + 1):
                     corner = x in (mx0, mx1) and z in (mz0, mz1)
                     s.set(x, y, z, (STONE_BRICK, 3) if corner and y in (1, 5) else dark_stone(rng))
-    # Its doorway, two high, and a step up to it.
     for y in (1, 2, 3):
         s.set(mid, y, mz0, AIR if y < 3 else (GRAYSTONE_STAIRS, UP_SOUTH | UPSIDE_DOWN))
     s.set(mid, 1, mz0 - 1, (GRAYSTONE_STAIRS, UP_SOUTH))
-    # The stepped roof: a rim of slabs, then a block layer, then a cap.
     for x in range(mx0, mx1 + 1):
         for z in range(mz0, mz1 + 1):
             if rng.random() < 0.08:
                 continue
             if x in (mx0, mx1) or z in (mz0, mz1):
                 s.set(x, 6, z, (GRAYSTONE_SLAB, 0))
-            elif x in (mx0 + 1, mx1 - 1) or z in (mz0 + 1, mz1 - 1):
-                s.set(x, 6, z, (GRAYSTONE, 0))
             else:
                 s.set(x, 6, z, (GRAYSTONE, 0))
-                s.set(x, 7, z, (GRAYSTONE, 0))
-    s.set(mid, 8, mz0 + 3, (GRAYSTONE_SLAB, 0))
-    # The sarcophagus inside, a skull at its head, and a torch gone cold: none lit within.
-    for z in (mz0 + 3, mz0 + 4):
-        s.set(mid, 1, z, (GRAYSTONE, 1))
-    s.set(mid, 2, mz0 + 3, (SLAB, 5))
-    s.set(mid, 2, mz0 + 4, (SKULL, 1))
-    s.set(mid - 2, 1, mz1 - 1, (COBBLE_WALL, 1))
-    s.set(mid + 2, 1, mz1 - 1, (COBBLE_WALL, 1))
-    # Obelisks at the back corners of the yard.
-    for x in (x0 + 2, x1 - 2):
-        z = z1 - 2
-        s.set(x, 1, z, (GRAYSTONE, 0))
-        s.set(x, 2, z, (GRAYSTONE, 2))
-        s.set(x, 3, z, (COBBLE_WALL, 0))
-    webs(s, rng, 6)
-    tidy(s)
-    return s
+                if mx0 + 1 < x < mx1 - 1 and mz0 + 1 < z < mz1 - 1:
+                    s.set(x, 7, z, (GRAYSTONE, 0))
+    s.set(mid, 1, mz1 - 2, (GRAYSTONE, 1))
+    s.set(mid, 2, mz1 - 2, (SKULL, 1))
+    if mz1 - mz0 >= 6:
+        s.set(mid, 1, mz1 - 3, (GRAYSTONE, 1))
 
 
-def small_graveyard(seed, with_webs):
-    """A small graveyard: a low wall of old stone round two rows of graves, a gap for a gate, and a dead tree's
-    stump."""
-    rng = random.Random(seed)
-    s = Struct(11, 9, 4, 1)
-    ground(s, rng, 0.35, [(0.2, (SOUL_SAND, 0))])
-    for x, z in ring(0, 0, s.w - 1, s.l - 1):
-        if z == 0 and x in (5, 6):
-            continue
-        if rng.random() < 0.8:
-            s.set(x, 1, z, old_stone(rng) if rng.random() < 0.6 else (COBBLE_WALL, 1))
-    for z in (2, 5):
-        for x in range(2, s.w - 2, 2):
-            if rng.random() < 0.8:
-                gravestone(s, rng, x, z)
-    s.set(s.w - 2, 1, s.l - 2, (SKULL, 1))
-    if with_webs:
-        webs(s, rng, 4)
-    tidy(s)
-    return s
+def crypt(s, rng, x, z):
+    """The way down into a crypt: a stone frame round a stair sunk into the ground, blocked below."""
+    for dx in range(3):
+        for dz in range(3):
+            s.set(x + dx, 0, z + dz, (GRAYSTONE, 0))
+    for dz in (0, 1, 2):
+        s.set(x, 1, z + dz, dark_stone(rng))
+        s.set(x + 2, 1, z + dz, dark_stone(rng))
+    s.set(x + 1, 1, z + 2, dark_stone(rng))
+    s.set(x + 1, 0, z, (GRAYSTONE_STAIRS, UP_SOUTH))
+    s.set(x + 1, 0, z + 1, AIR)
+    s.set(x + 1, -1, z + 1, (GRAYSTONE_STAIRS, UP_SOUTH))
+    if rng.random() < 0.5:
+        s.set(x + 1, 2, z + 2, (SKULL, 1))
 
 
 # ---------------------------------------------------------------- the fortress
@@ -394,6 +485,113 @@ def chest(s, x, y, z, facing):
     s.set(x, y, z, (CHEST, facing))
 
 
+def garrison_barracks(s, rng, x0, z0, x1, z1, door_x, door_z, west):
+    """The barracks: burnt bunks down both long walls, a chest at the end."""
+    hall(s, rng, x0, z0, x1, z1, 4, 6, old_stone, [(door_x, door_z), (door_x, door_z + 1)], 0.5)
+    for z in range(z0 + 2, z1 - 1, 2):
+        for x in (x0 + 1, x1 - 1):
+            if s.get(x, 1, z) == AIR and rng.random() < 0.8:
+                s.set(x, 1, z, (WOOD_SLAB, 5) if rng.random() < 0.7 else (WOOL, rng.choice([RED, BROWN])))
+    chest(s, x0 + 1 if west else x1 - 1, 1, z0 + 1, 5 if west else 4)
+    webs_in(s, rng, 14, x0 + 1, z0 + 1, x1 - 1, z1 - 1)
+
+
+def garrison_chapel(s, rng, x0, z0, x1, z1, door_x, door_z, west):
+    """The garrison's chapel: a broken altar at its north end, pews burnt to their legs."""
+    hall(s, rng, x0, z0, x1, z1, 4, 8, old_stone, [(door_x, door_z), (door_x, door_z + 1)], 0.35)
+    mid = (x0 + x1) // 2
+    s.set(mid - 1, 1, z0 + 1, (STONE_BRICK, 3))
+    s.set(mid, 1, z0 + 1, (STONE_BRICK, 3))
+    s.set(mid - 1, 2, z0 + 1, (SKULL, 1))
+    s.set(mid + 1, 1, z0 + 1, (SLAB, 5))
+    for z in range(z0 + 4, z1 - 1, 2):
+        for x in (x0 + 2, x0 + 3, x1 - 3, x1 - 2):
+            if rng.random() < 0.6 and s.get(x, 1, z) == AIR:
+                s.set(x, 1, z, (WOOD_SLAB, 5) if rng.random() < 0.6 else (FENCE, 0))
+    chest(s, x1 - 1 if west else x0 + 1, 1, z0 + 1, 4 if west else 5)
+    webs_in(s, rng, 14, x0 + 1, z0 + 1, x1 - 1, z1 - 1)
+
+
+def garrison_smithy(s, rng, x0, z0, x1, z1, door_x, door_z, west):
+    """The smithy: an anvil, a cauldron, a furnace gone cold, weapon racks."""
+    hall(s, rng, x0, z0, x1, z1, 3, 6, old_stone, [(door_x, door_z), (door_x, door_z + 1)], 0.4)
+    back = x0 + 1 if west else x1 - 1
+    step = 1 if west else -1
+    s.set(back + step, 1, z0 + 2, (ANVIL, 0))
+    s.set(back, 1, z0 + 1, (FURNACE, 5 if west else 4))
+    s.set(back, 1, z0 + 3, (CAULDRON, 0))
+    for z in range(z0 + 5, z1):
+        if rng.random() < 0.8:
+            s.set(back, 1, z, (FENCE, 0))
+    chest(s, back + 2 * step, 1, z1 - 1, 2)
+    webs_in(s, rng, 8, x0 + 1, z0 + 1, x1 - 1, z1 - 1)
+
+
+def garrison_prison(s, rng, x0, z0, x1, z1, door_x, door_z, west):
+    """The prison: cells behind iron bars down its back wall, a skeleton or two left in them."""
+    hall(s, rng, x0, z0, x1, z1, 4, 6, dark_stone, [(door_x, door_z), (door_x, door_z + 1)], 0.6)
+    back = x0 + 1 if west else x1 - 1
+    step = 1 if west else -1
+    bars = back + 3 * step
+    for z in range(z0 + 1, z1):
+        if (z - z0) % 4 == 0:
+            for i in range(3):
+                s.set(back + i * step, 1, z, dark_stone(rng))
+                s.set(back + i * step, 2, z, dark_stone(rng))
+        else:
+            for y in (1, 2):
+                if rng.random() < 0.85:
+                    s.set(bars, y, z, (IRON_BARS, 0))
+    for z in range(z0 + 2, z1 - 1, 4):
+        if rng.random() < 0.7:
+            s.set(back, 1, z, (SKULL, 1))
+    chest(s, x1 - 1 if west else x0 + 1, 1, z1 - 1, 2)
+    webs_in(s, rng, 12, x0 + 1, z0 + 1, x1 - 1, z1 - 1, 2, 4)
+
+
+def garrison_stable(s, rng, x0, z0, x1, z1, door_x, door_z, west):
+    """The stable: low walls, stalls of fence and rotten hay."""
+    hall(s, rng, x0, z0, x1, z1, 2, 4, old_stone, [(door_x, door_z), (door_x, door_z + 1)], 0.3)
+    back = x0 + 1 if west else x1 - 1
+    step = 1 if west else -1
+    for z in range(z0 + 3, z1 - 1, 3):
+        for i in range(3):
+            s.set(back + i * step, 1, z, (FENCE, 0))
+    for _ in range(5):
+        x, z = rng.randint(x0 + 1, x1 - 1), rng.randint(z0 + 1, z1 - 1)
+        if s.get(x, 1, z) == AIR:
+            s.set(x, 1, z, (HAY, 0))
+    webs_in(s, rng, 6, x0 + 1, z0 + 1, x1 - 1, z1 - 1, 2, 3)
+
+
+def garrison_storehouse(s, rng, x0, z0, x1, z1, door_x, door_z, west):
+    """The storehouse: barrels and crates, mostly burnt, and the garrison's stores."""
+    hall(s, rng, x0, z0, x1, z1, 4, 6, old_stone, [(door_x, door_z), (door_x, door_z + 1)], 0.5)
+    back = x0 + 1 if west else x1 - 1
+    for _ in range(10):
+        x, z = rng.randint(x0 + 1, x1 - 1), rng.randint(z0 + 1, z1 - 1)
+        if s.get(x, 1, z) == AIR and abs(x - door_x) > 1:
+            s.set(x, 1, z, rng.choice([(PLANKS, 5), (LOG2, 1), (WOOD_SLAB, 5), (HAY, 0)]))
+    chest(s, back, 1, z0 + 1, 5 if west else 4)
+    chest(s, back, 1, z1 - 1, 5 if west else 4)
+    webs_in(s, rng, 12, x0 + 1, z0 + 1, x1 - 1, z1 - 1)
+
+
+def garrison_fallen(s, rng, x0, z0, x1, z1, door_x, door_z, west):
+    """A building fallen in: the stumps of its walls and a heap of stone, a chest somewhere under it."""
+    walls = ring(x0, z0, x1, z1)
+    for (x, z), h in zip(walls, crumbling(len(walls), 0, 3, rng)):
+        if h:
+            column(s, x, z, h, old_stone, rng)
+    rubble(s, rng, (x1 - x0) * (z1 - z0) // 3, x0 + 1, z0 + 1, x1 - 1, z1 - 1)
+    for _ in range(6):
+        x, z = rng.randint(x0 + 1, x1 - 1), rng.randint(z0 + 1, z1 - 1)
+        if s.get(x, 1, z) != AIR and s.get(x, 2, z) == AIR:
+            s.set(x, 2, z, (SLAB, 3) if rng.random() < 0.5 else old_stone(rng))
+    chest(s, rng.randint(x0 + 1, x1 - 1), 1, rng.randint(z0 + 1, z1 - 1), 2)
+    webs_in(s, rng, 4, x0, z0, x1, z1, 1, 3)
+
+
 def old_fortress(seed):
     """The old fortress, the greatest ruin in Forinthry and one of few: a whole walled stronghold of the God Wars,
     fifty-five blocks across. A curtain wall two thick runs round it, crumbling, with great round towers at its
@@ -444,7 +642,7 @@ def old_fortress(seed):
         big_tower(s, rng, cx, cz, rng.randint(9, 13), old_stone)
     for cx in (mid - 5, mid + 5):
         big_tower(s, rng, cx, z0 + 1, rng.randint(12, 15), old_stone)
-    # The gateway through them, an arch over it, the portcullis rusted half down, Zamorak's torn banner.
+    # The gateway through them, an arch over it, the portcullis rusted half down, chains hanging by it.
     for y in range(1, 19):
         for x in (mid - 1, mid, mid + 1):
             for z in range(0, z0 + 5):
@@ -457,17 +655,22 @@ def old_fortress(seed):
         s.set(x, 8, z0, (SLAB, 5) if rng.random() < 0.6 else AIR)
     for x in (mid - 1, mid + 1):
         s.set(x, 4, z0, (STONE_BRICK_STAIRS, (UP_WEST if x < mid else UP_EAST) | UPSIDE_DOWN))
+    drop = rng.randint(1, 2)
     for x in (mid - 1, mid, mid + 1):
-        s.set(x, 4, z0 + 1, (IRON_BARS, 0))
-        if x != mid + 1:
-            s.set(x, 3, z0 + 1, (IRON_BARS, 0))
-    s.set(mid, 6, z0 - 1, (BANNER_ZAMORAK, BANNER_TOP << 2 | BANNER_NORTH))
-    s.set(mid, 5, z0 - 1, (BANNER_ZAMORAK, BANNER_EMBLEM << 2 | BANNER_NORTH))
+        for y in range(5 - drop, 5):
+            if rng.random() < 0.85:
+                s.set(x, y, z0 + 1, (IRON_BARS, 0))
+    for x in (mid - 2, mid + 2):
+        if rng.random() < 0.7:
+            s.set(x, 4, z0 - 1, (IRON_BARS, 0))
     for x in (mid - 9, mid + 9):
         brazier(s, x, z0 - 2)
 
-    # The keep: the great hall in front, the lord's rooms behind, and the stubs of the floor above both.
-    kx0, kz0, kx1, kz1 = mid - 9, 30, mid + 9, 47
+    # The keep: the great hall in front, the lord's rooms behind, and the stubs of the floor above both. Its size
+    # and the depth of its hall differ from one fortress to the next.
+    half = rng.randint(7, 9)
+    kx0, kz0, kx1, kz1 = mid - half, rng.randint(28, 32), mid + half, 47
+    split = kz1 - rng.randint(5, 7)
     beam = hall(s, rng, kx0, kz0, kx1, kz1, 7, 13, dark_stone, [(mid, kz0), (mid - 1, kz0), (mid + 1, kz0)], 0.2,
                 floor=lambda r: r.choice([BRICK, BRICK, CRACKED_BRICK, (GRAYSTONE, 0)]))
     for x in range(kx0 + 1, kx1):
@@ -478,28 +681,35 @@ def old_fortress(seed):
     for z in range(kz0, kz1 + 1, 4):
         for x in (kx0 - 1, kx1 + 1):
             column(s, x, z, rng.randint(3, 8), dark_stone, rng)
-    inner_wall = [(x, 41) for x in range(kx0 + 1, kx1)]
+    inner_wall = [(x, split) for x in range(kx0 + 1, kx1)]
     for (x, z), h in zip(inner_wall, crumbling(len(inner_wall), 3, beam - 1, rng)):
         column(s, x, z, h, dark_stone, rng)
+    door = mid + rng.choice((-3, 0, 3))
     for y in (1, 2, 3):
-        s.set(mid, y, 41, AIR)
+        s.set(door, y, split, AIR)
     # The throne on its dais at the back of the hall, braziers either side, and the hall's long table, burnt.
+    dais = split - 2
     for x in range(mid - 2, mid + 3):
-        s.set(x, 1, 39, (GRAYSTONE_SLAB, 0))
-    s.set(mid, 2, 39, (GRAYSTONE_STAIRS, UP_SOUTH))
-    s.set(mid - 1, 2, 39, (COBBLE_WALL, 0))
-    s.set(mid + 1, 2, 39, (COBBLE_WALL, 0))
+        s.set(x, 1, dais, (GRAYSTONE_SLAB, 0))
+    if rng.random() < 0.75:
+        s.set(mid, 2, dais, (GRAYSTONE_STAIRS, UP_SOUTH))
+        s.set(mid - 1, 2, dais, (COBBLE_WALL, 0))
+        s.set(mid + 1, 2, dais, (COBBLE_WALL, 0))
+    else:
+        s.set(mid + 1, 1, dais - 1, (GRAYSTONE_STAIRS, UP_EAST))       # the throne thrown down
     for x in (mid - 4, mid + 4):
-        brazier(s, x, 39)
-    for z in range(33, 37):
-        for x in (mid - 4, mid + 4):
+        if rng.random() < 0.8:
+            brazier(s, x, dais)
+    for z in range(kz0 + 3, dais - 1):
+        for x in (mid - 4, mid + 4) if rng.random() < 0.5 else (mid,):
             if rng.random() < 0.7:
                 s.set(x, 1, z, (WOOD_SLAB, 5 | 8) if rng.random() < 0.7 else (FENCE, 0))
-    # A stair up the side to the broken floor.
-    for i in range(beam - 1):
-        s.set(kx1 - 1, 1 + i, kz0 + 2 + i, (STONE_BRICK_STAIRS, UP_SOUTH))
+    # A stair up one side to the broken floor.
+    side = rng.choice((kx0 + 1, kx1 - 1))
+    for i in range(min(beam - 1, split - kz0 - 3)):
+        s.set(side, 1 + i, kz0 + 2 + i, (STONE_BRICK_STAIRS, UP_SOUTH))
         for y in range(1, 1 + i):
-            s.set(kx1 - 1, y, kz0 + 2 + i, BRICK)
+            s.set(side, y, kz0 + 2 + i, BRICK)
     # The rooms behind: bookshelves fallen, a bed burnt, and the lord's chests.
     for x in range(kx0 + 1, kx0 + 5):
         if rng.random() < 0.6:
@@ -507,94 +717,34 @@ def old_fortress(seed):
     s.set(kx1 - 2, 1, kz1 - 1, (WOOL, RED))
     s.set(kx1 - 3, 1, kz1 - 1, (WOOL, RED))
     chest(s, mid + 2, 1, kz1 - 1, 2)
-    chest(s, kx0 + 1, 1, 42, 5)
+    chest(s, kx0 + 1, 1, split + 1, 5)
     for x, z in ((kx0 + 1, kz0 + 1), (kx1 - 1, kz1 - 1)):
         s.set(x, 1, z, (SKULL, 1))
     webs_in(s, rng, 30, kx0 + 1, kz0 + 1, kx1 - 1, kz1 - 1, 2, beam + 2)
 
-    # The barracks along the west wall: burnt bunks down both sides.
-    bx0, bz0, bx1, bz1 = 6, 7, 15, 22
-    hall(s, rng, bx0, bz0, bx1, bz1, 4, 6, old_stone, [(bx1, 14), (bx1, 15)], 0.5)
-    for z in range(bz0 + 2, bz1 - 1, 2):
-        for x in (bx0 + 1, bx1 - 1):
-            if s.get(x, 1, z) == AIR and rng.random() < 0.8:
-                s.set(x, 1, z, (WOOD_SLAB, 5) if rng.random() < 0.7 else (WOOL, rng.choice([RED, BROWN])))
-    chest(s, bx0 + 1, 1, bz0 + 1, 5)
-    s.set(bx0 + 1, 1, bz1 - 1, (FENCE, 0))
-    webs_in(s, rng, 14, bx0 + 1, bz0 + 1, bx1 - 1, bz1 - 1)
+    # The garrison's buildings down both sides of the yard, a different lot in each place every time, their doors
+    # on the yard; now and then one has fallen to a heap of stone.
+    slots = [(6, 7, 15, 22), (6, 27, 15, 39), (6, 42, 16, 49), (39, 6, 48, 21), (39, 27, 47, 37), (38, 41, 48, 49)]
+    kinds = [garrison_barracks, garrison_chapel, garrison_smithy, garrison_prison, garrison_stable,
+             garrison_storehouse]
+    rng.shuffle(kinds)
+    if rng.random() < 0.5:
+        kinds[rng.randrange(len(kinds))] = garrison_fallen
+    for (bx0, bz0, bx1, bz1), build in zip(slots, kinds):
+        west = bx0 < mid
+        door_x = bx1 if west else bx0
+        door_z = (bz0 + bz1) // 2
+        build(s, rng, bx0, bz0, bx1, bz1, door_x, door_z, west)
+        if build is garrison_chapel:
+            # Its graves in the yard before it.
+            gx0 = bx1 + 3 if west else bx0 - 8
+            for gx in range(gx0, gx0 + 6, 2):
+                for gz in range(bz0 + 1, bz1 - 2, 4):
+                    if rng.random() < 0.75:
+                        gravestone(s, rng, gx, gz)
 
-    # The chapel along the east wall, its altar at the north end, and its graves outside.
-    cx0, cz0, cx1, cz1 = 39, 6, 48, 21
-    hall(s, rng, cx0, cz0, cx1, cz1, 4, 8, old_stone, [(cx0, 15), (cx0, 16)], 0.35)
-    s.set(43, 1, cz0 + 1, (STONE_BRICK, 3))
-    s.set(44, 1, cz0 + 1, (STONE_BRICK, 3))
-    s.set(43, 2, cz0 + 1, (SKULL, 1))
-    s.set(45, 1, cz0 + 1, (SLAB, 5))
-    for z in range(cz0 + 4, cz1 - 2, 2):
-        for x in (cx0 + 2, cx0 + 3, cx1 - 3, cx1 - 2):
-            if rng.random() < 0.6:
-                s.set(x, 1, z, (WOOD_SLAB, 5) if rng.random() < 0.6 else (FENCE, 0))
-    chest(s, cx1 - 1, 1, cz0 + 1, 4)
-    webs_in(s, rng, 14, cx0 + 1, cz0 + 1, cx1 - 1, cz1 - 1)
-    for gx in range(32, 37, 2):
-        for gz in (8, 12, 16):
-            if rng.random() < 0.8:
-                gravestone(s, rng, gx, gz)
-
-    # The smithy: an anvil, a cauldron, a furnace gone cold, weapon racks.
-    sx0, sz0, sx1, sz1 = 39, 28, 47, 36
-    hall(s, rng, sx0, sz0, sx1, sz1, 3, 6, old_stone, [(sx0, 31), (sx0, 32)], 0.4)
-    s.set(sx1 - 2, 1, sz0 + 2, (ANVIL, 0))
-    s.set(sx1 - 1, 1, sz0 + 1, (FURNACE, 4))
-    s.set(sx1 - 1, 1, sz0 + 3, (CAULDRON, 0))
-    for z in range(sz0 + 5, sz1):
-        s.set(sx1 - 1, 1, z, (FENCE, 0))
-    chest(s, sx0 + 2, 1, sz1 - 1, 2)
-    webs_in(s, rng, 8, sx0 + 1, sz0 + 1, sx1 - 1, sz1 - 1)
-
-    # The prison: cells behind iron bars down one side, a skeleton or two left in them.
-    px0, pz0, px1, pz1 = 6, 28, 15, 39
-    hall(s, rng, px0, pz0, px1, pz1, 4, 6, dark_stone, [(px1, 33), (px1, 34)], 0.6)
-    for z in range(pz0 + 1, pz1):
-        if z in (31, 35):
-            for x in range(px0 + 1, px0 + 4):
-                s.set(x, 1, z, dark_stone(rng))
-                s.set(x, 2, z, dark_stone(rng))
-        else:
-            for y in (1, 2):
-                if rng.random() < 0.85:
-                    s.set(px0 + 4, y, z, (IRON_BARS, 0))
-    for z in (29, 33, 37):
-        if rng.random() < 0.7:
-            s.set(px0 + 1, 1, z, (SKULL, 1))
-    chest(s, px1 - 1, 1, pz1 - 1, 2)
-    webs_in(s, rng, 12, px0 + 1, pz0 + 1, px1 - 1, pz1 - 1, 2, 4)
-
-    # The stable at the back on the west, its stalls and rotten hay.
-    tx0, tz0, tx1, tz1 = 6, 42, 16, 49
-    hall(s, rng, tx0, tz0, tx1, tz1, 2, 4, old_stone, [(11, tz0), (12, tz0)], 0.3)
-    for x in range(tx0 + 2, tx1 - 1, 3):
-        for z in range(tz0 + 3, tz1):
-            s.set(x, 1, z, (FENCE, 0))
-    for _ in range(5):
-        x, z = rng.randint(tx0 + 1, tx1 - 1), rng.randint(tz0 + 4, tz1 - 1)
-        if s.get(x, 1, z) == AIR:
-            s.set(x, 1, z, (HAY, 0))
-    webs_in(s, rng, 6, tx0 + 1, tz0 + 1, tx1 - 1, tz1 - 1, 2, 3)
-
-    # The storehouse at the back on the east: barrels and crates, mostly burnt, and the garrison's stores.
-    ux0, uz0, ux1, uz1 = 38, 41, 48, 49
-    hall(s, rng, ux0, uz0, ux1, uz1, 4, 6, old_stone, [(ux0, 44), (ux0, 45)], 0.5)
-    for _ in range(10):
-        x, z = rng.randint(ux0 + 2, ux1 - 1), rng.randint(uz0 + 1, uz1 - 1)
-        if s.get(x, 1, z) == AIR:
-            s.set(x, 1, z, rng.choice([(PLANKS, 5), (LOG2, 1), (WOOD_SLAB, 5), (HAY, 0)]))
-    chest(s, ux1 - 1, 1, uz0 + 1, 4)
-    chest(s, ux1 - 1, 1, uz1 - 1, 4)
-    webs_in(s, rng, 12, ux0 + 1, uz0 + 1, ux1 - 1, uz1 - 1)
-
-    # The yard: a dry well, a burnt cart, a gibbet, rubble and dead bushes.
-    wx, wz = 20, 15
+    # The yard: a dry well, a burnt cart, a gibbet, here or there.
+    wx, wz = rng.choice(((19, 14), (32, 14), (19, 20), (32, 20)))
     for dx in range(3):
         for dz in range(3):
             if (dx, dz) != (1, 1):
@@ -603,12 +753,15 @@ def old_fortress(seed):
     for dx, dz in ((0, 0), (2, 0), (0, 2), (2, 2)):
         if rng.random() < 0.6:
             s.set(wx + dx, 2, wz + dz, (FENCE, 0))
-    for y in range(1, 5):
-        s.set(33, y, 23, (FENCE, 0))
-    s.set(34, 4, 23, (FENCE, 0))
-    for x in (19, 20):
-        s.set(x, 1, 21, (WOOD_SLAB, 5))
-    s.set(18, 1, 21, (LOG2, 5))
+    gx, gz = (33 if wx < mid else 21), rng.randint(9, 23)
+    if rng.random() < 0.7:
+        for y in range(1, 5):
+            s.set(gx, y, gz, (FENCE, 0))
+        s.set(gx + 1, 4, gz, (FENCE, 0))
+    cx, cz = (wx, wz + 6) if wz < 18 else (wx, wz - 5)
+    for x in (cx, cx + 1):
+        s.set(x, 1, cz, (WOOD_SLAB, 5))
+    s.set(cx - 1, 1, cz, (LOG2, 5))
     rubble(s, rng, 40, 5, 5, s.w - 6, s.l - 6)
     for _ in range(12):
         x, z = rng.randint(4, s.w - 5), rng.randint(4, s.l - 5)
@@ -758,94 +911,176 @@ def chaos_altar(seed, with_webs):
 # ---------------------------------------------------------------- the bandit camp
 
 
-def tent(s, rng, x0, z0, length, color):
-    """A tent of wool five wide: a ridge on fence posts, its sides sloping down, open at the front (z0)."""
-    for z in range(z0, z0 + length):
-        s.set(x0 + 2, 3, z, (WOOL, color))
-        for x in (x0 + 1, x0 + 3):
-            s.set(x, 2, z, (WOOL, color))
-        for x in (x0, x0 + 4):
-            s.set(x, 1, z, (WOOL, color))
-    s.set(x0 + 2, 1, z0, (FENCE, 0))
-    s.set(x0 + 2, 2, z0, (FENCE, 0))
-    # The back closed, a bedroll inside.
-    for x in (x0 + 1, x0 + 2, x0 + 3):
-        s.set(x, 1, z0 + length - 1, (WOOL, color))
-    s.set(x0 + 2, 2, z0 + length - 1, (WOOL, color))
-    s.set(x0 + 2, 1, z0 + 1, (CARPET, BROWN if color != BROWN else RED))
+def trodden(s, rng):
+    """Ground worn bare round a camp: charred earth, gravel and ash."""
+    ground(s, rng, 0.45, [(0.25, (GRAVEL, 0))])
 
 
-def bandit_camp(seed):
-    """A bandits' camp in the Wilderness: a palisade of sharpened stakes, gapped and leaning, round three tents, a
-    fire in a ring of stones, a lookout platform on posts, a cage of iron bars for whoever they caught, and their
-    loot in crates and bales. Bandits keep it."""
+def camp_fire(seed):
+    """The middle of a bandits' camp: a fire in a ring of stones on trodden ground, logs to sit on round it, and in one
+    variant a spit over it."""
     rng = random.Random(seed)
-    s = Struct(21, 19, 6, 1)
-    ground(s, rng, 0.3, [(0.15, (GRAVEL, 0))])
-    x0, z0, x1, z1 = 0, 0, s.w - 1, s.l - 1
-    mid = s.w // 2
-    for x, z in ring(x0, z0, x1, z1):
-        if z == z0 and abs(x - mid) <= 1:
-            continue
-        if rng.random() < 0.82:
-            s.set(x, 1, z, (FENCE, 0))
-            if rng.random() < 0.7:
-                s.set(x, 2, z, (FENCE, 0))
-    # Posts either side of the way in, a skull on one.
-    for x in (mid - 2, mid + 2):
-        s.set(x, 1, z0, (LOG, 0))
-        s.set(x, 2, z0, (LOG, 0))
-        s.set(x, 3, z0, (FENCE, 0))
-    s.set(mid - 2, 4, z0, (SKULL, 1))
-    # Trodden ground in the middle, the fire in a ring of stones.
-    cx, cz = mid, s.l // 2
-    for x in range(cx - 3, cx + 4):
-        for z in range(cz - 3, cz + 4):
-            if rng.random() < 0.6:
-                s.set(x, 0, z, (GRAVEL, 0) if rng.random() < 0.5 else (ASH, 0))
+    s = Struct(7, 7, 4, 1)
+    trodden(s, rng)
+    cx, cz = 3, 3
     s.set(cx, 0, cz, (NETHERRACK, 0))
     s.set(cx, 1, cz, (FIRE, 0))
     for dx, dz in ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)):
-        s.set(cx + dx, 1, cz + dz, (SLAB, 3))
-    # Logs to sit on round the fire.
-    s.set(cx - 3, 1, cz, (LOG, 8))
-    s.set(cx - 3, 1, cz + 1, (LOG, 8))
-    s.set(cx + 3, 1, cz - 1, (LOG, 8))
-    # Three tents, their fronts toward the fire.
-    tent(s, rng, x0 + 2, z1 - 6, 5, BROWN)
-    tent(s, rng, x1 - 6, z1 - 6, 5, RED)
-    tent(s, rng, x0 + 2, z0 + 2, 5, GRAY)
-    # The lookout: a platform on four posts by the gate, with a ladder.
-    lx, lz = x1 - 4, z0 + 2
-    for dx, dz in ((0, 0), (2, 0), (0, 2), (2, 2)):
-        s.fill(lx + dx, 1, lz + dz, lx + dx, 3, lz + dz, (LOG, 0))
-    for dx in range(3):
-        for dz in range(3):
-            s.set(lx + dx, 4, lz + dz, (PLANKS, 1))
-    for dx, dz in ((0, 0), (1, 0), (2, 0), (0, 1), (0, 2), (1, 2), (2, 2), (2, 1)):
-        s.set(lx + dx, 5, lz + dz, (FENCE, 0))
-    for y in range(1, 5):
-        s.set(lx + 1, y, lz - 1 + 0, AIR)
-    for y in range(1, 4):
-        s.set(lx - 1, y, lz + 1, (LADDER, 4))
-    # The cage, its door hanging open.
-    gx, gz = x0 + 8, z1 - 4
-    for dx in range(3):
-        for dz in range(3):
-            if dx in (0, 2) or dz in (0, 2):
-                if not (dx == 1 and dz == 0):
-                    s.fill(gx + dx, 1, gz + dz, gx + dx, 2, gz + dz, (IRON_BARS, 0))
-            s.set(gx + dx, 3, gz + dz, (PLANKS, 1))
-    # Loot in crates and bales, and a weapon rack.
-    for x, z, block in ((x1 - 2, cz, (PLANKS, 0)), (x1 - 2, cz + 1, (HAY, 0)), (x1 - 3, cz + 1, (PLANKS, 0)),
-                        (x1 - 2, cz + 2, (PLANKS, 1))):
-        s.set(x, 1, z, block)
-    s.set(x1 - 2, 2, cz + 1, (WOOD_SLAB, 0))
-    for x in (x0 + 2, x0 + 3, x0 + 4):
-        s.set(x, 1, cz, (FENCE, 0))
-    s.set(x0 + 3, 2, cz, (WOOD_SLAB, 0))
-    # Torches on the gate posts.
-    s.set(mid + 2, 4, z0, (TORCH, 5))
+        if rng.random() < 0.85:
+            s.set(cx + dx, 1, cz + dz, (SLAB, 3))
+    seats = [((0, 2), (0, 3), 8), ((6, 3), (6, 4), 8), ((2, 6), (3, 6), 4), ((3, 0), (4, 0), 4)]
+    rng.shuffle(seats)
+    for a, b, meta in seats[:rng.randint(2, 3)]:
+        s.set(a[0], 1, a[1], (LOG, meta))
+        s.set(b[0], 1, b[1], (LOG, meta))
+    if seed % 2 == 0:
+        s.set(cx - 2, 1, cz, AIR)
+        s.set(cx + 2, 1, cz, AIR)
+        for x in (cx - 2, cx + 2):
+            s.fill(x, 1, cz, x, 2, cz, (FENCE, 0))
+        for x in range(cx - 2, cx + 3):
+            s.set(x, 3, cz, (WOOD_SLAB, 0))
+    tidy(s)
+    return s
+
+
+def camp_tent(seed, kind, color):
+    """A bandits' tent, open at the front (z = 0) toward the fire: a small ridge tent, a long one, a great tent with
+    a pole and a bedroll or two, or a lean-to of hides on posts."""
+    rng = random.Random(seed)
+    wool = (WOOL, color)
+    if kind == "great":
+        s = Struct(7, 8, 6, 1)
+        trodden(s, rng)
+        for z in range(s.l):
+            for x, y in ((0, 1), (1, 2), (2, 3), (3, 4), (4, 3), (5, 2), (6, 1)):
+                s.set(x, y, z, wool)
+        for x in range(1, 6):
+            s.set(x, 1, s.l - 1, wool)
+        s.fill(2, 2, s.l - 1, 4, 2, s.l - 1, wool)
+        s.set(3, 3, s.l - 1, wool)
+        s.fill(3, 1, 0, 3, 3, 0, (FENCE, 0))
+        s.fill(3, 1, s.l - 2, 3, 3, s.l - 2, (FENCE, 0))
+        for x in (1, 5):
+            for z in range(2, 5):
+                s.set(x, 1, z, (CARPET, rng.choice((BROWN, RED, GRAY))))
+        s.set(4, 1, s.l - 2, (PLANKS, 1))
+        s.set(4, 2, s.l - 2, (WOOD_SLAB, 1))
+        tidy(s)
+        return s
+    if kind == "lean_to":
+        s = Struct(5, 4, 4, 1)
+        trodden(s, rng)
+        for x in range(5):
+            s.set(x, 3, 0, (FENCE, 0) if x in (0, 4) else wool)
+            s.set(x, 2, 1, wool)
+            s.set(x, 1, 2, wool)
+        for x in (0, 4):
+            s.fill(x, 1, 0, x, 2, 0, (FENCE, 0))
+        s.set(rng.randint(1, 3), 1, 1, (CARPET, BROWN))
+        s.set(rng.choice((0, 4)), 1, 3, (HAY, 0))
+        tidy(s)
+        return s
+    length = 5 if kind == "small" else 7
+    s = Struct(5, length, 4, 1)
+    trodden(s, rng)
+    for z in range(length):
+        s.set(2, 3, z, wool)
+        for x in (1, 3):
+            s.set(x, 2, z, wool)
+        for x in (0, 4):
+            s.set(x, 1, z, wool)
+    s.fill(2, 1, 0, 2, 2, 0, (FENCE, 0))
+    for x in (1, 2, 3):
+        s.set(x, 1, length - 1, wool)
+    s.set(2, 2, length - 1, wool)
+    s.set(2, 1, 1, (CARPET, RED if color != RED else BROWN))
+    if length > 5:
+        s.set(1, 1, length - 2, (PLANKS, 0))
+        # A flap torn open along one side.
+        side = rng.choice((0, 4))
+        s.set(side, 1, rng.randint(2, length - 3), AIR)
+    tidy(s)
+    return s
+
+
+def camp_lookout(seed):
+    """A bandits' lookout: a plank platform on log posts with a ladder up and a rail round it; the taller one has a
+    roof of slabs over it."""
+    rng = random.Random(seed)
+    tall = seed % 2 == 0
+    s = Struct(5, 5, 10 if tall else 7, 1)
+    trodden(s, rng)
+    deck = 5 if tall else 4
+    for x, z in ((0, 0), (4, 0), (0, 4), (4, 4)):
+        s.fill(x, 1, z, x, deck, z, (LOG, 0))
+    for x in range(5):
+        for z in range(5):
+            if rng.random() < 0.92:
+                s.set(x, deck, z, (PLANKS, 1))
+    for x, z in ring(0, 0, 4, 4):
+        if (x, z) != (2, 0) and rng.random() < 0.85:
+            s.set(x, deck + 1, z, (FENCE, 0))
+    # Cross braces between the posts.
+    for x in (1, 2, 3):
+        s.set(x, deck - 2, 4, (FENCE, 0))
+    s.set(2, deck, 0, AIR)
+    for y in range(1, deck + 1):
+        s.set(2, y, 0, (LADDER, 2))
+    if tall:
+        for x, z in ((0, 0), (4, 0), (0, 4), (4, 4)):
+            s.fill(x, deck + 1, z, x, deck + 2, z, (FENCE, 0))
+        for x in range(5):
+            for z in range(5):
+                if rng.random() < 0.8:
+                    s.set(x, deck + 3, z, (WOOD_SLAB, 1))
+    if not tall:
+        s.set(4, deck + 2, 4, (TORCH, 5))
+    tidy(s)
+    return s
+
+
+def camp_cage(seed):
+    """Where the bandits keep whoever they caught: a cage of iron bars, its door hanging open, or stocks and a gibbet
+    with a skull."""
+    rng = random.Random(seed)
+    s = Struct(4, 4, 5, 1)
+    trodden(s, rng)
+    if seed % 2:
+        for x in range(3):
+            for z in range(3):
+                if x in (0, 2) or z in (0, 2):
+                    if (x, z) != (1, 0):
+                        s.fill(x, 1, z, x, 2, z, (IRON_BARS, 0))
+                s.set(x, 3, z, (PLANKS, 1))
+        if rng.random() < 0.5:
+            s.set(1, 1, 1, (SKULL, 1))
+    else:
+        s.fill(0, 1, 1, 0, 3, 1, (LOG, 0))
+        s.set(1, 3, 1, (FENCE, 0))
+        s.set(2, 3, 1, (FENCE, 0))
+        s.set(2, 2, 1, (IRON_BARS, 0))
+        s.set(2, 1, 1, (SKULL, 1))
+        s.set(1, 1, 3, (WOOD_SLAB, 0))
+        s.set(2, 1, 3, (WOOD_SLAB, 0))
+    tidy(s)
+    return s
+
+
+def camp_stash(seed):
+    """The bandits' loot: crates and bales round a chest, and a rack of weapons."""
+    rng = random.Random(seed)
+    s = Struct(4, 4, 4, 1)
+    trodden(s, rng)
+    spots = [(x, z) for x in range(4) for z in range(4) if (x, z) != (1, 1)]
+    rng.shuffle(spots)
+    for x, z in spots[:rng.randint(5, 8)]:
+        s.set(x, 1, z, rng.choice(((PLANKS, 0), (PLANKS, 1), (HAY, 0), (LOG, 4))))
+        if rng.random() < 0.3:
+            s.set(x, 2, z, (WOOD_SLAB, 0))
+    s.set(1, 1, 1, AIR)
+    chest(s, 1, 1, 1, 3)
+    s.set(1, 2, 1, AIR)
     tidy(s)
     return s
 
@@ -853,17 +1088,31 @@ def bandit_camp(seed):
 # ---------------------------------------------------------------- all of them
 
 VARIANTS = 2
+# Graveyards, laid out at random, come in more.
+GRAVEYARDS = 6
 
 
 def structures():
     """Every Forinthry ruin by its file name, as Structs."""
-    out = {"old_fortress": old_fortress(700)}
+    out = {"old_fortress_%d" % n: old_fortress(700 + n * 7) for n in range(1, 4)}
+    rng = random.Random(611)
+    for n in range(1, GRAVEYARDS + 1):
+        size = rng.randint(25, 29)
+        out["graveyard_of_shadows_%d" % n] = graveyard(600 + n, size, size - rng.randint(0, 3), True)
+        w, l = rng.randint(14, 19), rng.randint(13, 17)
+        out["graveyard_%d" % n] = graveyard(650 + n, w, l, False)
+        out["graveyard_%d_webs" % n] = graveyard(650 + n, w, l, False, True)
     for n in range(1, VARIANTS + 1):
-        out["graveyard_of_shadows_%d" % n] = graveyard_of_shadows(600 + n)
-        out["bandit_camp_%d" % n] = bandit_camp(800 + n)
-        for name, build in (("graveyard", small_graveyard), ("chapel", chapel), ("house", house),
+        out["camp_fire_%d" % n] = camp_fire(800 + n)
+        out["camp_lookout_%d" % n] = camp_lookout(810 + n)
+        out["camp_cage_%d" % n] = camp_cage(820 + n)
+        out["camp_stash_%d" % n] = camp_stash(830 + n)
+        for name, build in (("chapel", chapel), ("house", house),
                             ("watchtower", watchtower), ("chaos_altar", chaos_altar)):
             seed = 900 + n * 10 + sum(map(ord, name))
             out["%s_%d" % (name, n)] = build(seed, False)
             out["%s_%d_webs" % (name, n)] = build(seed, True)
+    tents = (("small", BROWN), ("small", GRAY), ("long", RED), ("great", BROWN), ("lean_to", BLACK), ("long", GRAY))
+    for n, (kind, color) in enumerate(tents, 1):
+        out["camp_tent_%d" % n] = camp_tent(840 + n, kind, color)
     return out

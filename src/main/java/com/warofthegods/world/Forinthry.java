@@ -7,106 +7,26 @@ import java.util.Random;
 
 /**
  * The layout of a Forinthry map, the Wilderness burnt black in the God Wars: where its lava lakes, its green ponds,
- * its small lava mazes and its old fortresses lie. The lava rivers that wind between them follow from noise as the
+ * its old fortresses and the mushroom patches round each team's start lie. The lava rivers that wind between them
+ * follow from noise as the
  * terrain is made (see {@link ChunkProviderForinthry}). Everything keeps away from where the teams start. Like
  * {@link Misthalin}, everything here follows from the map area, the seed and how many teams play.
  */
 public final class Forinthry {
 
-    /** Blocks of path across a maze's cell, and of lava between two cells. */
-    public static final int PATH = 3;
-    public static final int WALL = 2;
-    public static final int PITCH = PATH + WALL;
-    /** How far round a maze, fortress or pool the ground eases from its level back to the land's. */
+    /** How far round a fortress or pool the ground eases from its level back to the land's. */
     public static final int EASE = 8;
-    /** Blocks across the old fortress, as tools/structures/wilderness.py draws it. */
+    /** Blocks across the old fortress, as tools/structures/wilderness.py draws it, and how many variants it draws. */
     public static final int KEEP_SIZE = 55;
+    public static final int KEEP_VARIANTS = 3;
     /** Blocks round where a team starts that nothing here comes nearer than. */
     public static final int BASE_ROOM = 44;
 
     private final MapArea area;
-    private final List<Maze> mazes = new ArrayList<>();
     private final List<Pool> pools = new ArrayList<>();
     private final List<Keep> keeps = new ArrayList<>();
     private final double[][] bases;
-
-    /**
-     * A small lava maze: a square of level ground cut into a grid of paths by channels of lava, carved by the seed
-     * into a maze with a few loops and a way in on each side. Its channels wander a block or two either way, so it
-     * looks worn rather than laid out. A chest lies in its middle (see {@code ForinthryRuins}).
-     */
-    public static final class Maze {
-
-        public final int minX;
-        public final int minZ;
-        public final int cells;
-        /** Open walls: east of cell i, j at [i][j], and south of it at [cells + i][j]. */
-        private final boolean[][] open;
-        private final TerrainNoise warp;
-
-        Maze(int minX, int minZ, int cells, boolean[][] open, long seed) {
-            this.minX = minX;
-            this.minZ = minZ;
-            this.cells = cells;
-            this.open = open;
-            this.warp = new TerrainNoise(seed);
-        }
-
-        /** Blocks across, lava border included. */
-        public int size() {
-            return cells * PITCH + WALL;
-        }
-
-        public int getCenterX() {
-            return minX + size() / 2;
-        }
-
-        public int getCenterZ() {
-            return minZ + size() / 2;
-        }
-
-        public boolean covers(int x, int z, int margin) {
-            return x >= minX - margin && x < minX + size() + margin && z >= minZ - margin && z < minZ + size() + margin;
-        }
-
-        /** Whether x, z is lava: a channel between cells that is not carved open, or the border bar its gateways. */
-        public boolean isLava(int x, int z) {
-            int size = size();
-            int lx = x - minX;
-            int lz = z - minZ;
-            if (lx < 0 || lz < 0 || lx >= size || lz >= size) {
-                return false;
-            }
-            // Inside the border the channels wander; the border itself stays put, so the maze keeps its shape.
-            if (lx >= WALL && lz >= WALL && lx < size - WALL && lz < size - WALL) {
-                lx += (int) Math.round(warp.fbm(x / 7.0, z / 7.0, 2) * 1.4);
-                lz += (int) Math.round(warp.fbm(x / 7.0 + 50, z / 7.0 + 50, 2) * 1.4);
-                lx = Math.max(WALL, Math.min(size - WALL - 1, lx));
-                lz = Math.max(WALL, Math.min(size - WALL - 1, lz));
-            }
-            boolean wallX = lx % PITCH < WALL;
-            boolean wallZ = lz % PITCH < WALL;
-            int i = lx / PITCH;
-            int j = lz / PITCH;
-            if (wallX && wallZ) {
-                return true;
-            }
-            int middle = cells / 2;
-            if (wallX) {
-                if (i == 0 || i == cells) {
-                    return j != middle;
-                }
-                return !open[i - 1][j];
-            }
-            if (wallZ) {
-                if (j == 0 || j == cells) {
-                    return i != middle;
-                }
-                return !open[cells + i][j - 1];
-            }
-            return false;
-        }
-    }
+    private final List<int[]> mushrooms = new ArrayList<>();
 
     /**
      * A pool: a lake of lava, or a small pond of the Wilderness's murky water, its shore ragged. It lies level, one to
@@ -146,17 +66,19 @@ public final class Forinthry {
         }
     }
 
-    /** Where an old fortress stands: its square footprint and how it is turned. */
+    /** Where an old fortress stands: its square footprint, how it is turned, and which variant it is (from 1). */
     public static final class Keep {
 
         public final int minX;
         public final int minZ;
         public final int rotation;
+        public final int variant;
 
-        Keep(int minX, int minZ, int rotation) {
+        Keep(int minX, int minZ, int rotation, int variant) {
             this.minX = minX;
             this.minZ = minZ;
             this.rotation = rotation;
+            this.variant = variant;
         }
 
         public int getCenterX() {
@@ -190,17 +112,7 @@ public final class Forinthry {
         for (int attempt = 0; attempt < 600 && keeps.size() < keepCount; attempt++) {
             int[] spot = spot(random, size, KEEP_SIZE, EASE + 4);
             if (spot != null && roomFor(spot[0], spot[1], KEEP_SIZE, 24)) {
-                keeps.add(new Keep(spot[0], spot[1], random.nextInt(4)));
-            }
-        }
-        // Small mazes, one for about every 500 blocks square.
-        int mazeCount = Math.max(1, (int) Math.round(size * (double) size / (500.0 * 500.0)));
-        int cells = size < 1200 ? 4 : 5;
-        int span = cells * PITCH + WALL;
-        for (int attempt = 0; attempt < 400 && mazes.size() < mazeCount; attempt++) {
-            int[] spot = spot(random, size, span, EASE + 4);
-            if (spot != null && roomFor(spot[0], spot[1], span, 30)) {
-                mazes.add(new Maze(spot[0], spot[1], cells, carve(cells, random), random.nextLong()));
+                keeps.add(new Keep(spot[0], spot[1], random.nextInt(4), 1 + random.nextInt(KEEP_VARIANTS)));
             }
         }
         // Lava lakes, many, and a few green ponds.
@@ -220,6 +132,19 @@ public final class Forinthry {
                 pools.add(new Pool(cx, cz, radius, lava, random.nextLong()));
             }
         }
+        // No animals graze on Forinthry, so mushrooms grow round where each team starts: a ring of patches for its
+        // first food.
+        for (double[] base : bases) {
+            int patches = 7;
+            double turn = random.nextDouble() * Math.PI * 2;
+            for (int i = 0; i < patches; i++) {
+                double angle = turn + i * Math.PI * 2 / patches + (random.nextDouble() - 0.5) * 0.5;
+                double distance = 18 + random.nextDouble() * 14;
+                mushrooms.add(
+                    new int[] { (int) Math.round(base[0] + Math.cos(angle) * distance),
+                        (int) Math.round(base[1] + Math.sin(angle) * distance) });
+            }
+        }
     }
 
     /** A random corner for a square of the size inside the map, kept edge blocks in from it; null if it cannot fit. */
@@ -232,7 +157,7 @@ public final class Forinthry {
             area.getMinZ() + 24 + edge + random.nextInt(room) };
     }
 
-    /** Whether a square there keeps clear of the bases, and spacing blocks clear of the fortresses and mazes. */
+    /** Whether a square there keeps clear of the bases, and spacing blocks clear of the fortresses and pools. */
     private boolean roomFor(int minX, int minZ, int span, int spacing) {
         double cx = minX + span / 2.0;
         double cz = minZ + span / 2.0;
@@ -243,11 +168,6 @@ public final class Forinthry {
         }
         for (Keep keep : keeps) {
             if (overlap(minX, minZ, span, keep.minX, keep.minZ, KEEP_SIZE, spacing)) {
-                return false;
-            }
-        }
-        for (Maze maze : mazes) {
-            if (overlap(minX, minZ, span, maze.minX, maze.minZ, maze.size(), spacing)) {
                 return false;
             }
         }
@@ -275,60 +195,9 @@ public final class Forinthry {
         return false;
     }
 
-    /**
-     * Carves a maze of cells by cells: a walk that opens a wall into a cell not yet reached, backing up when it is
-     * stuck, then a few more walls knocked through so there is more than one way round.
-     */
-    static boolean[][] carve(int cells, Random random) {
-        boolean[][] open = new boolean[cells * 2][cells];
-        boolean[][] seen = new boolean[cells][cells];
-        List<int[]> stack = new ArrayList<>();
-        stack.add(new int[] { cells / 2, cells / 2 });
-        seen[cells / 2][cells / 2] = true;
-        int[][] steps = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
-        while (!stack.isEmpty()) {
-            int[] at = stack.get(stack.size() - 1);
-            List<int[]> ways = new ArrayList<>();
-            for (int[] step : steps) {
-                int ni = at[0] + step[0];
-                int nj = at[1] + step[1];
-                if (ni >= 0 && nj >= 0 && ni < cells && nj < cells && !seen[ni][nj]) {
-                    ways.add(step);
-                }
-            }
-            if (ways.isEmpty()) {
-                stack.remove(stack.size() - 1);
-                continue;
-            }
-            int[] step = ways.get(random.nextInt(ways.size()));
-            int ni = at[0] + step[0];
-            int nj = at[1] + step[1];
-            openBetween(open, cells, at[0], at[1], ni, nj);
-            seen[ni][nj] = true;
-            stack.add(new int[] { ni, nj });
-        }
-        for (int extra = 0; extra < cells - 1; extra++) {
-            int i = random.nextInt(cells - 1);
-            int j = random.nextInt(cells);
-            if (random.nextBoolean()) {
-                open[i][j] = true;
-            } else {
-                open[cells + j][i] = true;
-            }
-        }
-        return open;
-    }
-
-    private static void openBetween(boolean[][] open, int cells, int i, int j, int ni, int nj) {
-        if (ni != i) {
-            open[Math.min(i, ni)][j] = true;
-        } else {
-            open[cells + i][Math.min(j, nj)] = true;
-        }
-    }
-
-    public List<Maze> getMazes() {
-        return Collections.unmodifiableList(mazes);
+    /** The middles of the mushroom patches round where the teams start. */
+    public List<int[]> getMushroomPatches() {
+        return Collections.unmodifiableList(mushrooms);
     }
 
     public List<Pool> getPools() {
@@ -337,16 +206,6 @@ public final class Forinthry {
 
     public List<Keep> getKeeps() {
         return Collections.unmodifiableList(keeps);
-    }
-
-    /** The maze covering x, z, or reaching within margin blocks of it; null if none. */
-    public Maze mazeAt(int x, int z, int margin) {
-        for (Maze maze : mazes) {
-            if (maze.covers(x, z, margin)) {
-                return maze;
-            }
-        }
-        return null;
     }
 
     /** The fortress covering x, z, or reaching within margin blocks of it; null if none. */
@@ -369,16 +228,8 @@ public final class Forinthry {
         return null;
     }
 
-    /** Whether a footprint comes within margin blocks of a maze, a fortress or a pool. */
+    /** Whether a footprint comes within margin blocks of a fortress or a pool. */
     public boolean nearFeature(int minX, int minZ, int sizeX, int sizeZ, int margin) {
-        for (Maze maze : mazes) {
-            int size = maze.size();
-            if (minX < maze.minX + size + margin && maze.minX < minX + sizeX + margin
-                && minZ < maze.minZ + size + margin
-                && maze.minZ < minZ + sizeZ + margin) {
-                return true;
-            }
-        }
         for (Keep keep : keeps) {
             if (minX < keep.minX + KEEP_SIZE + margin && keep.minX < minX + sizeX + margin
                 && minZ < keep.minZ + KEEP_SIZE + margin

@@ -128,7 +128,7 @@ public final class GameWorld {
     private static Forinthry wilderness;
     private static int wildernessGame = -1;
 
-    /** The lava mazes of the running game's map if it is Forinthry; null for no game or another map. */
+    /** The layout of the running game's map if it is Forinthry; null for no game or another map. */
     public static Forinthry forinthry(Game game) {
         if (game == null || game.getMap() != GameMap.FORINTHRY) {
             return null;

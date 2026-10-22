@@ -17,7 +17,7 @@ import math
 
 from boxmodel import Model, clamp
 
-RES = 4
+RES = 1
 FACES = {"top": 1, "bottom": 2, "right": 3, "front": 4, "left": 5, "back": 6}
 SIDES = ("right", "front", "left", "back")
 
@@ -82,7 +82,7 @@ def surface(base, dark, light, grain=2.0, seed=0, gradient=0.24, rim=0.9, contra
         n = 0.5 + (n - 0.5) * contrast
         color = mix(dark, base, n * 2) if n < 0.5 else mix(base, light, (n - 0.5) * 2)
         color = lit(face, y, h, color, gradient)
-        if rim and (x == 0 or y == 0 or x == w - 1 or y == h - 1):
+        if rim and w > 3 and h > 3 and (x == 0 or y == 0 or x == w - 1 or y == h - 1):
             color = shade(color, rim)
         return color
 
@@ -185,82 +185,38 @@ def near_segment(px, py, ax, ay, bx, by):
 
 # ---------------------------------------------------------------- the ghost
 #
-# A ghost: a see-through figure in a hooded robe, pale and blue-white, its face a shadow under the hood with two
-# white eyes. Its long arms hang a little forward, the hands clawed; its robe falls to a tattered hem and trails
-# away behind it to a wisp where its legs would be. The game draws it half see-through, its eyes glowing.
+# A ghost: the shape of a man, pale white all over with a little grey in the folds of its clothes and the shadows
+# of its face, and two white eyes. The game draws it half see-through, its eyes glowing.
 
-GHOST = (228, 230, 242)
-GHOST_SHADOW = (178, 182, 206)
-GHOST_LIGHT = (248, 250, 255)
-GHOST_FACE = (172, 176, 200)
-GHOST_SOCKET = (96, 100, 130)
+GHOST = (232, 234, 242)
+GHOST_SHADOW = (186, 190, 210)
+GHOST_LIGHT = (252, 252, 255)
+GHOST_SOCKET = (140, 144, 170)
 GHOST_EYE = (255, 255, 255)
 
 
-def ghost_cloth(seed):
-    base = surface(GHOST, GHOST_SHADOW, GHOST_LIGHT, grain=2.5, seed=seed, gradient=0.3, contrast=0.7)
-
-    def folds(face, x, y, w, h):
-        c = base(face, x, y, w, h)
-        if face in SIDES:
-            u, _ = uv(x, y, w, h)
-            c = shade(c, 0.9 + 0.1 * math.sin(u * math.pi * max(2, w / RES / 1.6)))
-        return c
-
-    return folds
-
-
 def ghost():
-    m = Model("ghost", 128, 64, seed=41, res=RES)
-    cloth = ghost_cloth(3)
+    m = Model("ghost", 64, 64, seed=41, res=RES)
+    pale = surface(GHOST, GHOST_SHADOW, GHOST_LIGHT, grain=3.0, seed=3, gradient=0.3, contrast=0.6)
     head = m.part("head", pivot=(0, 0, 0))
-    face = over(surface(GHOST_FACE, GHOST_SHADOW, GHOST, grain=1.2, seed=5, gradient=0.3),
-                on(("front",), ellipse(0.3, 0.45, 0.16, 0.11), GHOST_SOCKET),
-                on(("front",), ellipse(0.7, 0.45, 0.16, 0.11), GHOST_SOCKET),
-                on(("front",), ellipse(0.5, 0.78, 0.14, 0.05), GHOST_SOCKET),
-                on(("front",), lambda u, v: abs(u - 0.5) < 0.06 and 0.48 < v < 0.66, GHOST_SHADOW),
-                on(("front",), lambda u, v: v < 0.25, lambda f, x, y, w, h: mix(GHOST_SOCKET, GHOST_FACE,
-                                                                                (y + 0.5) / h * 4)))
-    head.box(-3.5, -8, -4.3, 7, 8, 7, face)
-    # The hood, open in front, its peak rising to a point and falling behind.
-    hood = over(cloth, on(("front",), lambda u, v: v > 0.14, CUT),
-                on(("bottom",), lambda u, v: True, CUT))
-    head.box(-4, -8.6, -4.4, 8, 9, 8, hood, inflate=0.2)
-    peak = head.child("hood_peak", pivot=(0, -9, 0), rotation=(-0.35, 0, 0))
-    peak.box(-3, -2, -3.5, 6, 2, 7, cloth)
-    peak.child("hood_tip", pivot=(0, -2, 0), rotation=(-0.3, 0, 0)).box(-1.5, -2, -2, 3, 2, 4, cloth)
+    face = over(pale, on(("front",), lambda u, v: 0.4 < v < 0.6 and (0.1 < u < 0.45 or 0.55 < u < 0.9),
+                         GHOST_SOCKET),
+                on(("front",), lambda u, v: 0.75 < v < 0.85 and 0.3 < u < 0.7, GHOST_SHADOW))
+    head.box(-4, -8, -4, 8, 8, 8, face)
     eyes = head.child("eyes", pivot=(0, 0, 0), glow=True)
-    eyes.box(-2.6, -4.9, -3.6, 1, 1, 1, glow(GHOST_EYE), inflate=-0.1)
-    eyes.box(1.6, -4.9, -3.6, 1, 1, 1, glow(GHOST_EYE), inflate=-0.1)
-
+    eyes.box(-3, -4, -4.1, 2, 1, 1, glow(GHOST_EYE), inflate=-0.05)
+    eyes.box(1, -4, -4.1, 2, 1, 1, glow(GHOST_EYE), inflate=-0.05)
     body = m.part("body", pivot=(0, 0, 0))
-    chest = over(cloth, on(("front",), lambda u, v: abs(u - 0.5) < 0.07 + v * 0.1 and v < 0.6,
-                           lambda f, x, y, w, h: shade(cloth(f, x, y, w, h), 0.78)))
-    body.box(-4, 0, -2, 8, 7, 4, chest)
-    body.box(-3.5, 6, -2, 7, 5, 4, cloth)
-    body.box(-4.5, -0.5, 1.4, 9, 9, 2, over(cloth, ragged(SIDES, 0.7, 0.3, 7)), inflate=-0.1)   # the hood's drape
-    # The robe from the waist: wider to the hem, then trailing off behind in narrowing tatters.
-    skirt = body.child("robe", pivot=(0, 11, 0))
-    skirt.box(-4.5, 0, -2.5, 9, 5, 5, over(cloth, ragged(SIDES, 0.75, 0.3, 11)))
-    link = skirt.child("robe1", pivot=(0, 4, 0.3), rotation=(0.45, 0, 0))
-    link.box(-3.5, 0, -2, 7, 5, 4, over(cloth, ragged(SIDES, 0.6, 0.45, 13)))
-    for i, (w, d, length, turn) in enumerate(((5, 3, 4, 0.45), (3, 2, 4, 0.4), (2, 1, 3, 0.35))):
-        link = link.child("robe%d" % (i + 2), pivot=(0, length + 0.3, 0.3), rotation=(turn, 0, 0))
-        link.box(-w / 2.0, 0, -d / 2.0, w, length, d, over(cloth, ragged(SIDES, 0.55, 0.5, 17 + i)), inflate=0.1)
-
-    hand = surface(GHOST_FACE, GHOST_SHADOW, GHOST, grain=0.8, seed=9)
+    body.box(-4, 0, -2, 8, 12, 4, over(pale, on(("front",), lambda u, v: abs(u - 0.5) < 0.07,
+                                                lambda f, x, y, w, h: shade(pale(f, x, y, w, h), 0.86))))
     for side in (-1, 1):
         name = "left" if side > 0 else "right"
-        arm = m.part("%s_arm" % name, pivot=(side * 5, 1, 0), rotation=(-0.45, 0, side * -0.12))
-        arm.box(-1, -1, -1, 2, 7, 2, cloth)
-        arm.box(-1.5, 1, -1.5, 3, 6, 3, over(cloth, ragged(SIDES, 0.55, 0.45, 21 + side)), inflate=0.1)  # sleeve
-        fore = arm.child("%s_forearm" % name, pivot=(0, 6, 0), rotation=(-0.55, 0, 0))
-        fore.box(-1, 0, -1, 2, 6, 2, hand, inflate=-0.15)
-        palm = fore.child("%s_hand" % name, pivot=(0, 6, 0), rotation=(-0.2, 0, 0))
-        palm.box(-1, 0, -1, 2, 2, 2, hand, inflate=-0.1)
-        for i, (dx, spread) in enumerate(((-0.6, -0.25), (0, 0), (0.6, 0.25))):
-            finger = palm.child("%s_finger%d" % (name, i), pivot=(dx, 1.6, -0.4), rotation=(-0.35, 0, spread))
-            finger.box(-0.5, 0, -0.5, 1, 4, 1, hand, inflate=-0.3)
+        arm = m.part("%s_arm" % name, pivot=(side * 5, 2, 0), rotation=(-0.25, 0, side * -0.08))
+        arm.box(-1 if side > 0 else -3, -2, -2, 4, 12, 4, pale, mirror=side > 0)
+        leg = m.part("%s_leg" % name, pivot=(side * 1.9, 12, 0))
+        # Its legs fade away toward the feet.
+        leg.box(-2, 0, -2, 4, 12, 4, over(pale, on(SIDES, lambda u, v: v > 0.75 and (u * 4 + v * 7) % 2 < 1, CUT),
+                                          on(("bottom",), lambda u, v: True, CUT)), mirror=side > 0)
     return m
 
 
@@ -701,9 +657,9 @@ def scales(colors, seed):
             return shade(c, 0.86) if (y / (1.5 * RES)) % 1 < 0.15 else c
         c = hide(face, x, y, w, h)
         # Each scale a little lighter or darker than the next, lit at its top.
-        sy = y / (1.25 * RES)
+        sy = y / (2.0 * RES)
         row = int(sy)
-        sx = x / (1.6 * RES) + 0.5 * (row % 2)
+        sx = x / (2.0 * RES) + 0.5 * (row % 2)
         fy = sy % 1
         tone = 0.95 + 0.1 * _hash(int(sx), row, FACES[face] + seed)
         return shade(c, tone * (1.04 - 0.08 * fy))
