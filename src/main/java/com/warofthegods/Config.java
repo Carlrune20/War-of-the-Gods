@@ -245,6 +245,14 @@ public class Config {
     public static double skeletonSwordChance = 0.3;
 
     public static int rtsStateTicks = 2;
+
+    public static boolean safeModeEnabled = true;
+    /** Average milliseconds a tick takes over which, kept up for safeModeEnterSeconds, safe mode comes on. */
+    public static int safeModeEnterMs = 45;
+    public static int safeModeEnterSeconds = 10;
+    /** Average milliseconds a tick takes under which, kept up for safeModeExitSeconds, safe mode goes off. */
+    public static int safeModeExitMs = 35;
+    public static int safeModeExitSeconds = 30;
     public static int rtsCameraFov = 40;
     public static boolean rtsEdgeScroll = true;
     public static boolean rtsFarTerrain = true;
@@ -987,6 +995,47 @@ public class Config {
             32,
             "How coarse the map's surface beyond the loaded chunks is drawn: about this many pixels across each of its"
                 + " squares. Lower is finer and slower.");
+
+        String performance = "performance";
+        configuration.addCustomCategoryComment(
+            performance,
+            "Safe mode, which eases the server's load while its ticks run long: units not fighting look for work and"
+                + " plan their way half as often, AI players think half as often, live updates go out half as often"
+                + " and no wilderness mobs spawn. A tick should take 50 milliseconds at most, for 20 ticks a second.");
+        safeModeEnabled = configuration.getBoolean(
+            "safeMode",
+            performance,
+            safeModeEnabled,
+            "Whether safe mode comes on by itself when the server falls behind.");
+        safeModeEnterMs = configuration.getInt(
+            "safeModeEnterMs",
+            performance,
+            safeModeEnterMs,
+            10,
+            1000,
+            "Average milliseconds per tick over which safe mode comes on, once kept up for safeModeEnterSeconds.");
+        safeModeEnterSeconds = configuration.getInt(
+            "safeModeEnterSeconds",
+            performance,
+            safeModeEnterSeconds,
+            1,
+            600,
+            "Seconds ticks must run long before safe mode comes on.");
+        safeModeExitMs = configuration.getInt(
+            "safeModeExitMs",
+            performance,
+            safeModeExitMs,
+            5,
+            1000,
+            "Average milliseconds per tick under which safe mode goes off, once kept up for safeModeExitSeconds. Keep"
+                + " it below safeModeEnterMs.");
+        safeModeExitSeconds = configuration.getInt(
+            "safeModeExitSeconds",
+            performance,
+            safeModeExitSeconds,
+            1,
+            600,
+            "Seconds ticks must run quick before safe mode goes off.");
 
         if (configuration.hasChanged()) {
             configuration.save();

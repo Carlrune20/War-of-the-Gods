@@ -286,7 +286,7 @@ public class CommandRts extends CommandBase {
             "/rts train <team> <worker|warrior|archer|cavalry|horse|white_knight|black_knight|tradigee|sagittare>"
                 + " [count] - queue"
                 + " units for free at a building (op)");
-        send(sender, "/rts upgrade <building id> - take a town center, and its town, into the next age at once (op)");
+        send(sender, "/rts upgrade <building id> - take a town center, and its town, into the next tier at once (op)");
         send(sender, "/rts research <team> <upgrade> - give a team an upgrade at once (op)");
         send(sender, "/rts chop <team> - send a team's idle workers to chop the tree nearest its town center (op)");
         send(
@@ -1171,7 +1171,7 @@ public class CommandRts extends CommandBase {
         }
         if (building.type != BuildingType.TOWN_HALL) {
             throw new CommandException(
-                "Only town centers go up a level; the other buildings follow their town into each new age");
+                "Only town centers go up a level; the other buildings follow their town into each new tier");
         }
         Team owner = game.getTeam(building.team);
         if (!building.isComplete() || owner == null || game.getAge(owner) >= building.type.levels) {

@@ -213,9 +213,9 @@ public enum BuildingType {
         return buildable && (faction() == null || faction() == faction) && !shunnedBy(faction);
     }
 
-    /** The name of an age, such as "Age II". */
+    /** The name players see for an age, such as "Tier II". */
     public static String ageName(int age) {
-        return "Age " + (age == 2 ? "II" : age == 3 ? "III" : "I");
+        return "Tier " + (age == 2 ? "II" : age == 3 ? "III" : "I");
     }
 
     BuildingType(String id, String displayName, String configName, int levels, boolean buildable,

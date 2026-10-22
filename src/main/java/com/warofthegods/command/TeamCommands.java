@@ -23,7 +23,8 @@ import com.warofthegods.world.GameWorld;
  * the server allows it, and only ops move other players or deal everyone out afresh.
  *
  * <pre>
- *   {type: "teams.list"}                     the teams and their players, and who is on no team
+ *   {type: "teams.list"}                     the teams and their players, and who is on no team; running is false,
+ *                                            with no teams, while no game is running
  *   {type: "teams.join", team, player?}      join a team, or (ops) put another player on it
  *   {type: "teams.leave", player?}           leave your team, or (ops) take another player off theirs
  *   {type: "teams.auto", all?}               (ops) put players on no team on the smallest teams; all deals everyone
@@ -75,11 +76,24 @@ public final class TeamCommands {
     }
 
     private static void list(WebRequest request) {
+        if (GameManager.getGame() == null && !request.viewer.isObserver()) {
+            // The menu still opens, so an op can start a game from it.
+            JsonObject message = WebJson.message("teams");
+            message.addProperty("running", false);
+            message.add("teams", new JsonArray());
+            message.add("unassigned", new JsonArray());
+            message.addProperty("mine", "");
+            message.addProperty("op", isOp(request));
+            message.addProperty("selfJoin", Config.allowSelfJoin);
+            request.reply(message);
+            return;
+        }
         Game game = game(request);
         if (game == null) {
             return;
         }
         JsonObject message = WebJson.message("teams");
+        message.addProperty("running", true);
         JsonArray teams = new JsonArray();
         for (Team team : game.getTeams()) {
             JsonObject json = new JsonObject();

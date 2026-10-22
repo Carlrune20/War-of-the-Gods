@@ -990,14 +990,14 @@ public final class Buildings {
      */
     public static String levelUpProblem(Game game, Building building) {
         if (building.type != BuildingType.TOWN_HALL) {
-            return "Buildings take on the look of each new age by themselves; advance the town center instead";
+            return "Buildings take on the look of each new tier by themselves; advance the town center instead";
         }
         if (!building.isComplete()) {
             return "It is not built yet";
         }
         Team team = game.getTeam(building.team);
         if (team == null || game.getAge(team) >= building.type.levels) {
-            return "Your town is in its last age";
+            return "Your town is in its last tier";
         }
         if (building.getResearch() != null) {
             return "It is busy";
