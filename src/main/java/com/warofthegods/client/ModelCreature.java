@@ -87,10 +87,17 @@ public class ModelCreature extends ModelBiped {
         float twitch = MathHelper.sin(age * 0.11F) > 0.93F ? 0.2F : 0;
         model.turn("left_ear", 0, 0, -twitch);
         model.turn("right_ear", 0, 0, twitch);
-        // Aviansie's wings beat slowly as they hover, and harder as they fly.
-        float flap = MathHelper.sin(age * (0.25F + 0.35F * swingAmount)) * (0.12F + 0.3F * swingAmount);
-        model.turn("left_wing", 0, 0, flap);
-        model.turn("right_wing", 0, 0, -flap);
+        // Aviansie's wings stir slowly at the same pace whether they hover or fly, the tips following; as with the
+        // greater demon's, a pace that rose with speed would jump about from frame to frame and read as frantic
+        // flapping. Flying only rocks them a little with the body.
+        float step = MathHelper.cos(swing * 0.6662F) * swingAmount;
+        float beat = MathHelper.sin(age * 0.12F) * 0.18F;
+        float rock = step * 0.08F;
+        float bob = Math.abs(step) * 0.05F;
+        model.turn("left_wing", bob, rock, beat + bob);
+        model.turn("right_wing", bob, rock, -beat - bob);
+        model.turn("left_wing_tip", 0, 0, beat * 0.6F + bob * 0.5F);
+        model.turn("right_wing_tip", 0, 0, -beat * 0.6F - bob * 0.5F);
         // The player model's arms at the creature's shoulders, so a goblin's axe is in its hand.
         bipedRightArm.rotationPointX += -shoulder[0] + ARM_X;
         bipedRightArm.rotationPointY = shoulder[1];
