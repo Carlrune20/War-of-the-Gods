@@ -39,7 +39,15 @@ public final class ShaderPack {
     private static final String FOLDER_NAME = "War of the Gods";
     private static final String VERSION_FILE = "installed-by-war-of-the-gods.txt";
 
+    /** The far terrain's program and where it is in the jar, and the pack's buffer for what glows. */
+    private static final String FAR_TERRAIN = "/assets/warofthegods/shaders/far_terrain/far_terrain";
+    private static final int GLOW_BUFFER = 4;
+
     private static IntBuffer drawBuffers;
+    private static IntBuffer farTerrainBuffers;
+    private static int farTerrainProgram;
+    private static boolean farTerrainProgramTried;
+    private static Field currentPackName;
     private static int program;
     private static boolean bypassing;
 
@@ -174,6 +182,93 @@ public final class ShaderPack {
         bypassing = true;
         GL20.glUseProgram(0);
         GL11.glDrawBuffer(GL30.GL_COLOR_ATTACHMENT0);
+    }
+
+    /**
+     * Like {@link #beginPlain()}, for the RTS view's far terrain: under this mod's pack it is drawn with a program of
+     * its own instead (assets/warofthegods/shaders/far_terrain), lit and coloured like the map's blocks and with its
+     * lava and embers glowing into the pack's bloom. Under another pack, or if the program won't compile, it is drawn
+     * plain.
+     */
+    public static void beginFarTerrain(long worldTime) {
+        beginPlain();
+        if (!bypassing || !isOwnPackInUse()) {
+            return;
+        }
+        int lod = farTerrainProgram();
+        if (lod == 0) {
+            return;
+        }
+        GL20.glUseProgram(lod);
+        GL20.glUniform1i(GL20.glGetUniformLocation(lod, "light"), 0);
+        GL20.glUniform1i(GL20.glGetUniformLocation(lod, "worldDay"), (int) (worldTime / 24000L));
+        if (farTerrainBuffers == null) {
+            farTerrainBuffers = BufferUtils.createIntBuffer(2);
+            farTerrainBuffers.put(GL30.GL_COLOR_ATTACHMENT0)
+                .put(GL30.GL_COLOR_ATTACHMENT0 + GLOW_BUFFER)
+                .flip();
+        }
+        GL20.glDrawBuffers(farTerrainBuffers);
+    }
+
+    /** Whether OptiFine's shader pack in use is this mod's. */
+    private static boolean isOwnPackInUse() {
+        try {
+            if (currentPackName == null) {
+                currentPackName = Class.forName("shadersmod.client.Shaders")
+                    .getDeclaredField("currentshadername");
+                currentPackName.setAccessible(true);
+            }
+            return FOLDER_NAME.equals(currentPackName.get(null));
+        } catch (ReflectiveOperationException | LinkageError e) {
+            return false;
+        }
+    }
+
+    /** The far terrain's program, made the first time it is needed; 0 if it could not be. */
+    private static int farTerrainProgram() {
+        if (farTerrainProgramTried) {
+            return farTerrainProgram;
+        }
+        farTerrainProgramTried = true;
+        try {
+            int vertex = compile(GL20.GL_VERTEX_SHADER, FAR_TERRAIN + ".vsh");
+            int fragment = compile(GL20.GL_FRAGMENT_SHADER, FAR_TERRAIN + ".fsh");
+            int program = GL20.glCreateProgram();
+            GL20.glAttachShader(program, vertex);
+            GL20.glAttachShader(program, fragment);
+            GL20.glLinkProgram(program);
+            GL20.glDeleteShader(vertex);
+            GL20.glDeleteShader(fragment);
+            if (GL20.glGetProgrami(program, GL20.GL_LINK_STATUS) == GL11.GL_FALSE) {
+                String log = GL20.glGetProgramInfoLog(program, 4096);
+                GL20.glDeleteProgram(program);
+                throw new IOException(log);
+            }
+            farTerrainProgram = program;
+        } catch (IOException e) {
+            WarOfTheGods.LOG.warn("Could not make the far terrain's shader program; it is drawn plain", e);
+        }
+        return farTerrainProgram;
+    }
+
+    private static int compile(int type, String resource) throws IOException {
+        String source;
+        try (InputStream in = ShaderPack.class.getResourceAsStream(resource)) {
+            if (in == null) {
+                throw new IOException("missing " + resource);
+            }
+            source = new String(readAll(in), UTF_8);
+        }
+        int shader = GL20.glCreateShader(type);
+        GL20.glShaderSource(shader, source);
+        GL20.glCompileShader(shader);
+        if (GL20.glGetShaderi(shader, GL20.GL_COMPILE_STATUS) == GL11.GL_FALSE) {
+            String log = GL20.glGetShaderInfoLog(shader, 4096);
+            GL20.glDeleteShader(shader);
+            throw new IOException(resource + ": " + log);
+        }
+        return shader;
     }
 
     /** Puts back the shader program and buffers {@link #beginPlain()} set aside. */

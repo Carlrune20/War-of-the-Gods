@@ -55,6 +55,7 @@ jobs:
         run: |
           sudo apt-get install -y -qq glslang-tools > /dev/null
           python3 .github/scripts/shader-check.py shaderpack/shaders
+          python3 .github/scripts/shader-check.py src/main/resources/assets/warofthegods/shaders/far_terrain
 
       - name: Build
         run: ./gradlew --stacktrace build
