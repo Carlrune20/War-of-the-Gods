@@ -1943,7 +1943,9 @@ public final class GuiRts extends GuiScreen {
             RtsState.BuildingTypeInfo type = state.buildingType(b.type);
             RtsState.TeamInfo team = state.teamsById.get(b.team);
             boolean hurt = b.complete && b.health < b.maxHealth;
+            // F1 hides buildings' names and bars, as it hides their outlines.
             if (type == null || team == null
+                || mc.gameSettings.hideGUI
                 || !seen(b)
                 || (!"town_hall".equals(b.type) && !client.selectedBuildings.contains(b.id)
                     && b.complete
