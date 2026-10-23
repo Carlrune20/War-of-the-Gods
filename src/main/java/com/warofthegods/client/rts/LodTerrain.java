@@ -25,6 +25,7 @@ import net.minecraft.client.renderer.culling.ClippingHelperImpl;
 import net.minecraft.client.renderer.culling.Frustrum;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.entity.Entity;
+import net.minecraft.init.Blocks;
 import net.minecraft.world.World;
 
 import org.lwjgl.BufferUtils;
@@ -325,6 +326,21 @@ final class LodTerrain {
                 .getMaterial() == Material.water;
     }
 
+    /**
+     * How much of a column's top glows, for the bloom of the mod's shader pack: all of lava and fire, the hot cracks of
+     * ember rock. Cells carry it in their colour's alpha, which only the pack's far terrain program reads.
+     */
+    private static float glowOf(int stored) {
+        Block block = ModBlocks.fromStored(stored >> 4);
+        if (block == null) {
+            return 0;
+        }
+        if (block.getMaterial() == Material.lava || block == Blocks.fire || block == ModBlocks.staticFire) {
+            return 1;
+        }
+        return block == ModBlocks.emberRock ? 0.35F : 0;
+    }
+
     private int columnColor(LodChunk chunk, int index) {
         int color = colors.of(chunk.blocks[index]);
         int depth = chunk.depths[index];
@@ -568,12 +584,14 @@ final class LodTerrain {
         int cells = 16 / size;
         int[] heights = new int[cells * cells];
         int[] colors = new int[cells * cells];
+        int[] glows = new int[cells * cells];
         for (int j = 0; j < cells; j++) {
             for (int i = 0; i < cells; i++) {
                 int height = 0;
                 long r = 0;
                 long g = 0;
                 long b = 0;
+                float glow = 0;
                 int count = 0;
                 for (int z = j * size; z < (j + 1) * size; z++) {
                     for (int x = i * size; x < (i + 1) * size; x++) {
@@ -586,12 +604,14 @@ final class LodTerrain {
                         r += (color >> 16) & 0xFF;
                         g += (color >> 8) & 0xFF;
                         b += color & 0xFF;
+                        glow += glowOf(chunk.blocks[index]);
                         count++;
                     }
                 }
                 heights[i + j * cells] = height;
                 if (count > 0) {
                     colors[i + j * cells] = (int) (r / count) << 16 | (int) (g / count) << 8 | (int) (b / count);
+                    glows[i + j * cells] = Math.round(glow / count * 255);
                 }
             }
         }
@@ -612,11 +632,12 @@ final class LodTerrain {
                     continue;
                 }
                 int color = colors[i + j * cells];
+                int glow = glows[i + j * cells];
                 int x0 = i * size;
                 int x1 = x0 + size;
                 int z0 = j * size;
                 int z1 = z0 + size;
-                t.setColorOpaque_I(color);
+                t.setColorRGBA_I(color, glow);
                 t.addVertex(x0, h, z0);
                 t.addVertex(x0, h, z1);
                 t.addVertex(x1, h, z1);
@@ -629,7 +650,7 @@ final class LodTerrain {
                 int hNorth = j > 0 ? heights[i + (j - 1) * cells] : edgeLow(north, x0, 15, size, 0);
                 bottom = Math.min(bottom, Math.min(Math.min(hEast, hWest), Math.min(hSouth, hNorth)));
                 if (hEast < h || hWest < h) {
-                    t.setColorOpaque_I(BlockColors.shade(color, SHADE_EW));
+                    t.setColorRGBA_I(BlockColors.shade(color, SHADE_EW), glow);
                     if (hEast < h) {
                         t.addVertex(x1, h, z0);
                         t.addVertex(x1, h, z1);
@@ -644,7 +665,7 @@ final class LodTerrain {
                     }
                 }
                 if (hSouth < h || hNorth < h) {
-                    t.setColorOpaque_I(BlockColors.shade(color, SHADE_NS));
+                    t.setColorRGBA_I(BlockColors.shade(color, SHADE_NS), glow);
                     if (hSouth < h) {
                         t.addVertex(x0, h, z1);
                         t.addVertex(x0, hSouth, z1);
@@ -718,7 +739,10 @@ final class LodTerrain {
                         int packed = fog.cellLight(c - 1, r - 1);
                         light = (packed >> 20 & 15) << 4 | (packed >> 4 & 15);
                     }
-                    pixels[r * width + c] = 0xFF000000 | colors[light];
+                    // The alpha is the light level, for the shader pack (ShaderPack.beginFarTerrain); without it,
+                    // unused.
+                    int level = Math.max(light >> 4, light & 15);
+                    pixels[r * width + c] = level * 17 << 24 | colors[light];
                 }
             }
             fogTexture.updateDynamicTexture();

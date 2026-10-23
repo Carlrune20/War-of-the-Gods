@@ -187,7 +187,7 @@ public final class RtsClient {
                 world.provider.setSkyRenderer(this);
             }
             if (active && camera != null) {
-                ShaderPack.beginPlain();
+                ShaderPack.beginFarTerrain(world.getWorldTime());
                 try {
                     terrain.render(RtsClient.this, partialTicks);
                 } finally {

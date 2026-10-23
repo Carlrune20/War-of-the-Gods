@@ -43,9 +43,14 @@ overworld never counts that many days, so the lobby gets no map's look. A new ma
   and fire) and glowing eyes, which the mod draws through `gbuffers_spidereyes`. Fog of war dims lava's glow with its
   light, so unexplored lava gives nothing away.
 - `composite` and `composite1` blur that into bloom, and `final` grades each map's colours.
-- The RTS view's far terrain and its outlines, rings and markers are drawn with OpenGL's fixed pipeline, which shader
-  programs don't follow, so the mod sets the program aside while it draws them into the colour buffer
-  (`ShaderPack.beginPlain`). They then go through the same bloom and grading as the rest of the world.
+- The RTS view's outlines, rings and markers are drawn with OpenGL's fixed pipeline, which shader programs don't
+  follow, so the mod sets the program aside while it draws them into the colour buffer (`ShaderPack.beginPlain`).
+  They then go through the same bloom and grading as the rest of the world.
+- The RTS view's far terrain gets a program of its own under this pack (`ShaderPack.beginFarTerrain`, from
+  `src/main/resources/assets/warofthegods/shaders/far_terrain`). It lights the terrain the same way the pack lights
+  blocks, Forinthry's ember glow included, and makes lava, fire and ember rock glow into the bloom. Each cell carries
+  how much of it glows in its colour's alpha, and the fog of war texture carries the light level in its alpha. Keep
+  this program in step with `light.glsl`. Under another pack, the far terrain is drawn plain.
 
 CI compiles every program with `glslangValidator` (`.github/scripts/shader-check.py`), resolving `#include` as
 OptiFine does. Run the same check locally with `python3 .github/scripts/shader-check.py shaderpack/shaders`.
