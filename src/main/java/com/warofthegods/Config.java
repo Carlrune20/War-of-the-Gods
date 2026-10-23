@@ -22,6 +22,8 @@ public class Config {
     public static int wildernessBiomeId = 120;
     /** Whether the client puts the mod's shader pack in its shaderpacks folder when OptiFine is installed. */
     public static boolean installShaderPack = true;
+    /** Milliseconds of each frame the client may spend building chunks waiting to be drawn, under OptiFine. */
+    public static int chunkUpdateMillis = 4;
     public static int mapMargin = 48;
     public static final long[] startingResources = { 200, 200, 100 };
 
@@ -424,6 +426,15 @@ public class Config {
             "Whether the client puts the War of the Gods shader pack, with a look of its own for each map, in its"
                 + " shaderpacks folder when OptiFine is installed, keeping it up to date with the mod. Pick it in"
                 + " Video Settings > Shaders. Set on the client.");
+        chunkUpdateMillis = configuration.getInt(
+            "chunkUpdateMillis",
+            Configuration.CATEGORY_GENERAL,
+            chunkUpdateMillis,
+            0,
+            20,
+            "Milliseconds of each frame the client may spend building chunks still waiting to be drawn, on top of"
+                + " OptiFine's Chunk Updates, so the world fills in quickly under shaders. Only with OptiFine's"
+                + " default Chunk Loading; 0 leaves chunks to OptiFine alone. Set on the client.");
         mapMargin = configuration.getInt(
             "mapMargin",
             Configuration.CATEGORY_GENERAL,

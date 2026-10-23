@@ -70,6 +70,7 @@ public class ClientProxy extends CommonProxy {
         RtsClient.init();
         ShaderPack.install(Minecraft.getMinecraft().mcDataDir);
         ShaderPack.register();
+        ChunkCatchUp.register();
     }
 
     @Override

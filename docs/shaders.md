@@ -16,6 +16,11 @@ gargoyles, dragons and centaurs glow.
 2. Start the game once. The mod puts the pack in `shaderpacks/War of the Gods` and keeps it up to date with the mod.
 3. In **Options > Video Settings > Shaders**, pick **War of the Gods**.
 
+Under shaders OptiFine builds a set number of chunks each frame (**Video Settings > Performance > Chunk Updates**,
+1 unless changed), and shaders lower the frame rate, so new ground used to fill in slowly while the CPU and GPU sat
+mostly idle. The mod now spends up to `chunkUpdateMillis` (4 by default) of each frame building chunks still waiting
+to be drawn. For faster still, raise **Chunk Updates** to 3 to 5 and turn on **Dynamic Updates**.
+
 **Shader Options** in the same screen has sliders for bloom, Forinthry's ember glow and the vignette, and a switch for
 each map's colour grading. To keep a pack of your own edits, copy the folder under another name first: the mod
 replaces `War of the Gods` whenever its version changes. To stop the mod installing it, set `installShaderPack=false`
