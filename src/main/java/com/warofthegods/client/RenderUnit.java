@@ -249,7 +249,8 @@ public class RenderUnit extends RenderBiped {
         } else if (kind.creatureModel() != null) {
             creatureModel.setModel(kind.creatureModel());
             modelBipedMain = creatureModel;
-        } else if (kind.eliteUpgrade() != null) {
+        } else if (kind.eliteUpgrade() != null || kind == UnitKind.GUARDIAN) {
+            // A Guardian of Armadyl is a knight too, in the White Knight's plate, and wears a knight's skin.
             boolean elite = unit.isWatchedElite();
             knightModel.setStyle(kind, elite);
             modelBipedMain = knightModel;
