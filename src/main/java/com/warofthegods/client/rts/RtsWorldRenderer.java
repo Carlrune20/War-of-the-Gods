@@ -177,8 +177,10 @@ public final class RtsWorldRenderer {
     private void lines(float partialTicks, float alpha) {
         RtsState state = client.state;
         tessellator.startDrawing(GL11.GL_LINES);
+        // F1 hides buildings' outlines, as it hides their names.
+        boolean hideBuildings = Minecraft.getMinecraft().gameSettings.hideGUI;
         for (RtsState.BuildingInfo b : state.buildings.values()) {
-            if (state.isEnemyTeam(b.team) && !client.fog.isExplored(b.x, b.z, b.sizeX, b.sizeZ)) {
+            if (hideBuildings || state.isEnemyTeam(b.team) && !client.fog.isExplored(b.x, b.z, b.sizeX, b.sizeZ)) {
                 continue;
             }
             RtsState.TeamInfo team = state.teamsById.get(b.team);
