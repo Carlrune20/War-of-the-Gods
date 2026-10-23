@@ -561,8 +561,9 @@ public class EntityUnit extends EntityCreature {
      */
     private Item tool() {
         Team team = team();
-        // Aviansie and Armadyl's heroes carry the bow, sword or staff their model has in hand.
-        if (kind.flies()) {
+        // Aviansie and Armadyl's heroes carry the spear, sword or staff their model has in hand; the aviansie warrior's
+        // hand is empty in its model, for its team's sword.
+        if (kind.flies() && kind != UnitKind.AVIANSIE_WARRIOR) {
             return null;
         }
         // Blue wizards hold a staff, Zamorak mages Zamorak's own and dark wizards nothing, casting from bare hands;

@@ -15,7 +15,9 @@ import com.warofthegods.client.model.JsonModel;
  * (made by tools/models/generate.py, see tools/models/creatures.py). Their head, body, arms and legs move as the player
  * model's do, from where they are on each creature, and the player
  * model's arms are moved to the creature's shoulders so what a goblin holds is in its hand. Goblins' ears twitch, and
- * the big ones sway a little from side to side as they walk.
+ * the big ones sway a little from side to side as they walk. Armadyl's aviansie and his heroes share
+ * models/aviansie.json
+ * (see tools/models/armadyl.py), and beat their wings as they go.
  */
 public class ModelCreature extends ModelBiped {
 
@@ -39,6 +41,7 @@ public class ModelCreature extends ModelBiped {
         add("ogre", 8.5F, 3, 0);
         add("strongstack", 7.5F, 3, 0);
         add("graardor", 9, 3, 0);
+        add("aviansie", 6, 3, 0);
         setModel("goblin");
     }
 
@@ -47,7 +50,7 @@ public class ModelCreature extends ModelBiped {
         shoulders.put(name, new float[] { x, y, z });
     }
 
-    /** Draws it as the named creature from now on: goblin, hobgoblin, ork, ogre, strongstack or graardor. */
+    /** Draws it as the named creature from now on: goblin, hobgoblin, ork, ogre, strongstack, graardor or aviansie. */
     public void setModel(String name) {
         model = models.containsKey(name) ? models.get(name) : models.get("goblin");
         shoulder = shoulders.containsKey(name) ? shoulders.get(name) : shoulders.get("goblin");
@@ -84,6 +87,10 @@ public class ModelCreature extends ModelBiped {
         float twitch = MathHelper.sin(age * 0.11F) > 0.93F ? 0.2F : 0;
         model.turn("left_ear", 0, 0, -twitch);
         model.turn("right_ear", 0, 0, twitch);
+        // Aviansie's wings beat slowly as they hover, and harder as they fly.
+        float flap = MathHelper.sin(age * (0.25F + 0.35F * swingAmount)) * (0.12F + 0.3F * swingAmount);
+        model.turn("left_wing", 0, 0, flap);
+        model.turn("right_wing", 0, 0, -flap);
         // The player model's arms at the creature's shoulders, so a goblin's axe is in its hand.
         bipedRightArm.rotationPointX += -shoulder[0] + ARM_X;
         bipedRightArm.rotationPointY = shoulder[1];

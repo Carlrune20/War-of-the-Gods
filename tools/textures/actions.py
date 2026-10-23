@@ -38,17 +38,22 @@ MINECRAFT_JAR = os.path.expanduser("~/.gradle/caches/retro_futura_gradle/mc-vani
 
 SIZE = 64
 COLUMNS = 16
-FACTIONS = ("saradomin", "zamorak", "bandos")
+FACTIONS = ("saradomin", "zamorak", "bandos", "armadyl")
 BUILDINGS = ("town_hall", "house", "farm", "quarry", "barracks", "storehouse", "armory", "tower", "wall", "gate",
              "white_knights_fortress", "black_knights_fortress", "archery_range", "stables", "chaos_temple",
              "monastery", "wizards_tower", "stone_circle", "goblin_cave", "war_pit", "bandos_temple",
-             "bandos_bastion")
+             "bandos_bastion", "tower_house", "armadyl_temple", "observatory", "roost", "armadyl_eyrie")
 UNITS = ("worker", "soldier", "archer", "white_knight", "black_knight", "tradigee", "sagittare", "cavalry",
          "chaos_priest", "monk", "dark_wizard", "zamorak_mage", "blue_wizard", "lesser_demon",
          "centaur")
 # Bandos's units, which only his teams train, so only his icons have them.
 BANDOS_UNITS = ("slave", "goblin", "goblin_thrower", "hobgoblin", "ork", "ogre", "goblin_priest", "spiritual_warrior",
                 "spiritual_ranger", "spiritual_mage", "strongstack", "steelwill", "grimspike", "graardor")
+# Armadyl's units, which only his teams train: the men by their skins' faces, the aviansie and his heroes by the
+# head of the aviansie model in their own texture.
+ARMADYL_UNITS = ("armadyl_priest", "guardian", "aviansie_ranger", "aviansie_warrior", "aviansie_mage", "kilisa",
+                 "geerin", "skree", "kreearra")
+AVIANSIE = ("aviansie_ranger", "aviansie_warrior", "aviansie_mage", "kilisa", "geerin", "skree", "kreearra")
 # The model each of them wears.
 CREATURES = {"hobgoblin": "hobgoblin", "ork": "ork", "graardor": "ork", "ogre": "ogre", "strongstack": "strongstack",
              "steelwill": "strongstack", "grimspike": "strongstack"}
@@ -83,6 +88,12 @@ ITEMS = {
     "upgrade/black_demons": ("head", "black_demon"),
     "upgrade/siege_weapons": ("block", "blocks/tnt_top.png", "blocks/tnt_side.png"),
     "upgrade/armed_goblins": "items/stone_axe.png",
+    "upgrade/armadyls_eye": ("tint", "items/ender_eye.png", (110, 210, 230)),
+    "upgrade/keen_sight": "items/spider_eye.png",
+    "upgrade/updrafts": "items/feather.png",
+    "upgrade/armadyl_armour": ("mod", "items/armadyl_helmet.png"),
+    "upgrade/armadyl_crossbows": ("mod", "items/armadyl_crossbow.png"),
+    "upgrade/divine_law": "items/book_written.png",
     # Taking a building up a level, or the town into the next age.
     "level": "items/experience_bottle.png",
     "gate": "items/door_wood.png",
@@ -350,6 +361,8 @@ def face_icon(faction, kind):
     """A unit's face: the front of its head with its hat layer over it, as large as the icon."""
     if kind in HEADS:
         return model_head(HEADS[kind])
+    if kind in AVIANSIE:
+        return creature_head("aviansie", kind)
     if kind in BANDOS_UNITS and kind != "slave":
         return creature_head(CREATURES.get(kind, "goblin"), kind)
     return skin_face("%s_%s" % (faction, kind))
@@ -433,6 +446,8 @@ def block_icon(top, side):
 def item_icon(jar, spec):
     if isinstance(spec, tuple) and spec[0] == "face":
         return skin_face(spec[1])
+    if isinstance(spec, tuple) and spec[0] == "mod":
+        return framed(Image.open(os.path.join(ROOT, "textures", spec[1])).convert("RGBA"), (0, 0, 0, 0), 4)
     if isinstance(spec, tuple) and spec[0] == "head":
         return model_head(spec[1])
     if isinstance(spec, tuple) and spec[0] == "block":
@@ -457,7 +472,7 @@ def main():
             if os.path.exists(path):
                 icons.append(("building/%s/%s" % (faction, name), building(faces, path)))
     for faction in FACTIONS:
-        for name in UNITS + (BANDOS_UNITS if faction == "bandos" else ()):
+        for name in UNITS + (BANDOS_UNITS if faction == "bandos" else ARMADYL_UNITS if faction == "armadyl" else ()):
             icons.append(("face/%s/%s" % (faction, name), face_icon(faction, name)))
         # A trebuchet has no face: it is drawn whole, as a building is.
         icons.append(("face/%s/trebuchet" % faction,
