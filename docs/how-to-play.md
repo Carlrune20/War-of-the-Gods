@@ -107,7 +107,8 @@ Misthalin, but there is no river, and the land is hostile:
   Obsidian glazes the rock wherever lava meets it. There are lava lakes and small lava potholes too.
 - **No animals.** Nothing grazes on Forinthry: instead a ring of mushroom patches grows round each team's town
   center for its first food.
-- **Always night.** The sun never rises on Forinthry, until it gets shaders of its own.
+- **Always night.** The sun never rises on Forinthry. With the mod's [shaders](shaders.md), the ash overhead glows red
+  with the lava below, lighting the night a dim ember red.
 - **The old fortresses.** Great walled ruins 55 blocks across, about one for every 500 by 500 blocks of map (at least
   one), each in one of three layouts: a curtain wall with towers and a gatehouse round the burnt-out keep, with
   barracks, a chapel, smithy, prison, stable or storehouse in their yards, all hung with cobwebs and full of chests. No
