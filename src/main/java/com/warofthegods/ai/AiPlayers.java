@@ -138,6 +138,8 @@ public final class AiPlayers {
     /** Blocks from the town center it looks for trees when none stand nearer, and how often, in ticks. */
     private static final int FAR_TREE_RANGE = 128;
     private static final int FAR_TREE_TICKS = 20 * 30;
+    /** How long it waits to look again for a spot for one of its god's buildings that fit nowhere near home. */
+    private static final int NO_SPOT_RETRY_TICKS = 20 * 120;
     /** Blocks round trees it found far off that it chops in until they run out. */
     private static final int FOREST_RANGE = 24;
     /** Workers gathering in one place before it puts a storehouse there, and how far from a store that is. */
@@ -174,7 +176,8 @@ public final class AiPlayers {
         Upgrade.WATCH_TOWER, Upgrade.MASONRY, Upgrade.PLATE_ARMOR, Upgrade.FIRE_ARROWS, Upgrade.FORTIFIED_WALLS,
         Upgrade.STONE_WALLS, Upgrade.DIAMOND_HOES, Upgrade.DIAMOND_AXES, Upgrade.DIAMOND_PICKAXES,
         Upgrade.TEMPERED_STEEL, Upgrade.GUARD_TOWER, Upgrade.ELITE_BLACK_KNIGHTS, Upgrade.JUSTICIARS,
-        Upgrade.CITADEL_WALLS, Upgrade.GREATER_DEMONS, Upgrade.BLACK_DEMONS };
+        Upgrade.CITADEL_WALLS, Upgrade.GREATER_DEMONS, Upgrade.BLACK_DEMONS, Upgrade.KEEN_SIGHT, Upgrade.UPDRAFTS,
+        Upgrade.ARMADYL_CROSSBOWS, Upgrade.ARMADYL_ARMOUR, Upgrade.DIVINE_LAW };
     /** Blocks across a cell of the map it keeps track of having explored. */
     private static final int FOG_CELL = 8;
     /** How far its units and buildings see, in blocks, as in the RTS view's fog of war. */
@@ -243,6 +246,13 @@ public final class AiPlayers {
         int waves;
         /** Whether no spot near the town center fits a knights' fortress, so it stops waiting to build one. */
         boolean noFortressSpot;
+        /**
+         * Its god's buildings no spot near home fit last time it looked, such as a roost on flat ground, with the tick
+         * it looks again; meanwhile it goes on to what it needs after them.
+         */
+        final Map<BuildingType, Integer> noSpotUntil = new HashMap<>();
+        /** The AI's tick, as of its last turn. */
+        int now;
         /** The foot of a tree it found far from home, round which it chops; null when it knows of none. */
         int[] forest;
         int lastFarTreeSearch = -FAR_TREE_TICKS;
@@ -348,6 +358,7 @@ public final class AiPlayers {
     }
 
     private void think(Game game, WorldServer world, Team team, State state) {
+        state.now = ticks;
         Building hall = finishedTownCenter(game, team);
         if (hall == null) {
             return;
@@ -1004,7 +1015,11 @@ public final class AiPlayers {
         if (plan == null && type.isFortress()) {
             state.noFortressSpot = true;
             WarOfTheGods.LOG.info("AI {} found no spot for {}", team.getName(), type.displayName);
-        }
+        } else if (plan == null && Arrays.asList(godsBuildings(team))
+            .contains(type)) {
+                state.noSpotUntil.put(type, ticks + NO_SPOT_RETRY_TICKS);
+                WarOfTheGods.LOG.info("AI {} found no spot for {} yet", team.getName(), type.displayName);
+            }
         if (plan == null || !team.spend(type.cost())) {
             return;
         }
@@ -1060,7 +1075,7 @@ public final class AiPlayers {
         }
         // Its god's houses: Zamorak's chaos temple, Bandos's temple, or Saradomin's monastery and wizards' tower.
         for (BuildingType godly : godsBuildings(team)) {
-            if (count(game, team, godly, false) == 0) {
+            if (count(game, team, godly, false) == 0 && state.noSpotUntil.getOrDefault(godly, 0) <= state.now) {
                 return godly;
             }
         }
@@ -1559,7 +1574,7 @@ public final class AiPlayers {
             case BANDOS:
                 return new BuildingType[] { BuildingType.BANDOS_TEMPLE };
             case ARMADYL:
-                return new BuildingType[] { BuildingType.ARMADYL_TEMPLE, BuildingType.ROOST };
+                return new BuildingType[] { BuildingType.ARMADYL_TEMPLE, BuildingType.OBSERVATORY, BuildingType.ROOST };
             default:
                 return new BuildingType[] { BuildingType.MONASTERY, BuildingType.WIZARDS_TOWER };
         }
