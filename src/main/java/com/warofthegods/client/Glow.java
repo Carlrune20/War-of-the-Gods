@@ -88,8 +88,9 @@ public final class Glow {
         if (!looked) {
             looked = true;
             for (String name : new String[] { "shadersmod.client.Shaders", "net.optifine.shaders.Shaders" }) {
+                Class<?> shaders;
                 try {
-                    Class<?> shaders = Class.forName(name);
+                    shaders = Class.forName(name);
                     beginSpiderEyes = shaders.getMethod("beginSpiderEyes");
                     endSpiderEyes = shaders.getMethod("endSpiderEyes");
                 } catch (ReflectiveOperationException | LinkageError e) {
