@@ -118,9 +118,15 @@ public class Config {
         defaults(BuildingType.ARMADYL_EYRIE, new long[] { 0, 300, 400 }, 4000, 90);
     }
 
-    /** Food, Wood and Gold the town center costs to go up to level 2, and to level 3. */
-    public static final long[] townCenterLevel2Cost = { 200, 200, 150 };
-    public static final long[] townCenterLevel3Cost = { 400, 300, 400 };
+    /**
+     * Food, Wood and Gold the town center costs to go up to level 2, and to level 3: Age of Mythology's Classical and
+     * Heroic ages, whose villager costs 50 food as a worker does here.
+     */
+    public static final long[] townCenterLevel2Cost = { 400, 0, 0 };
+    public static final long[] townCenterLevel3Cost = { 800, 0, 500 };
+    /** Seconds the town center takes to go up to level 2, and to level 3, as Age of Mythology's ages take. */
+    public static int townCenterLevel2Seconds = 60;
+    public static int townCenterLevel3Seconds = 75;
     /** Seconds going up from level 1 to 2 takes; from 2 to 3 takes twice as long. */
     public static int upgradeSeconds = 30;
     /** How many times as long repairing a building's whole health takes as building it. */
@@ -298,7 +304,7 @@ public class Config {
     public static int rtsFarTerrainCellPixels = 6;
 
     /** Bumped when defaults change in a way that should replace what older config files hold. */
-    private static final int CONFIG_VERSION = 14;
+    private static final int CONFIG_VERSION = 15;
 
     public static void synchronizeConfiguration(File configFile) {
         Configuration configuration = new Configuration(configFile);
@@ -382,6 +388,13 @@ public class Config {
         if (oldVersion < 14) {
             // Centaurs cost more favor.
             forget(configuration, "units", "centaurCostFavor");
+        }
+        if (oldVersion < 15) {
+            // Going up a tier became as dear as Age of Mythology's ages.
+            for (String resource : new String[] { "Food", "Wood", "Gold" }) {
+                forget(configuration, "buildings", "townCenterLevel2Cost" + resource);
+                forget(configuration, "buildings", "townCenterLevel3Cost" + resource);
+            }
         }
         version.set(CONFIG_VERSION);
 
@@ -584,7 +597,21 @@ public class Config {
             upgradeSeconds,
             0,
             3600,
-            "Seconds a building takes to go up to level 2; level 3 takes twice as long.");
+            "Seconds a building takes to go up to level 2; level 3 takes twice as long. The town center has its own.");
+        townCenterLevel2Seconds = configuration.getInt(
+            "townCenterLevel2Seconds",
+            buildings,
+            townCenterLevel2Seconds,
+            0,
+            3600,
+            "Seconds the town center takes to go up to level 2, taking its team into Tier II.");
+        townCenterLevel3Seconds = configuration.getInt(
+            "townCenterLevel3Seconds",
+            buildings,
+            townCenterLevel3Seconds,
+            0,
+            3600,
+            "Seconds the town center takes to go up to level 3, taking its team into Tier III.");
         repairTimeMultiplier = configuration.getInt(
             "repairTimeMultiplier",
             buildings,

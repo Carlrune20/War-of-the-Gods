@@ -25,6 +25,10 @@ A town center is a camp in a fenced ring round a campfire, with a longhouse, a l
 
 A town center trains workers and takes in what they gather.
 
+**Going up a tier.** The town center takes its team into the next tier, as Age of Mythology's ages go: Tier II costs
+400 Food and takes 60 s, Tier III 800 Food and 500 Gold and takes 75 s. Every building of the team takes on the new
+tier's look by itself.
+
 **Settlements.** Town centers stand on settlements. A settlement nobody holds is an abandoned camp, laid out like a town
 center: three plank huts with rotted walls and sagging roofs, one half fallen in, round a cold fireplace in a ring of
 mossy stones, with a white flag at the gate.

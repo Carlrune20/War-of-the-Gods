@@ -330,6 +330,9 @@ public enum BuildingType {
 
     /** Seconds an upgrade to the level takes. */
     public int upgradeTicks(int level) {
+        if (this == TOWN_HALL && level > 1) {
+            return Math.max(1, 20 * (level <= 2 ? Config.townCenterLevel2Seconds : Config.townCenterLevel3Seconds));
+        }
         return Math.max(1, Config.upgradeSeconds * 20 * (level - 1));
     }
 
