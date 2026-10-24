@@ -3,6 +3,7 @@ package com.warofthegods.ai;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -25,6 +26,7 @@ import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.GoldMine;
+import com.warofthegods.game.Market;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.SafeMode;
 import com.warofthegods.game.Settlement;
@@ -118,6 +120,22 @@ public final class AiPlayers {
     private static final int FORTRESS_FIGHTERS = 8;
     /** Of each resource a building or upgrade costs, how much more it keeps in hand after paying for it. */
     private static final long RESEARCH_MARGIN = 50;
+    /** Ticks between its trades at the market, a lot at a time. */
+    private static final int TRADE_TICKS = 200;
+    /**
+     * Gold it sells food and wood for at the market once its gold mines run low, while it has less; what it keeps of
+     * food or wood over what it is saving for when it sells them; the least gold it sells a lot for.
+     */
+    private static final long TRADE_GOLD = 300;
+    private static final long TRADE_KEEP = 300;
+    private static final long TRADE_MIN_SELL = 40;
+    /**
+     * Food or wood it runs so short of that it buys more at the market, gold it keeps in hand over what it is saving
+     * for when it does, and the most gold it pays for a lot.
+     */
+    private static final long TRADE_LOW = 100;
+    private static final long TRADE_GOLD_KEEP = 200;
+    private static final long TRADE_MAX_BUY = 200;
     /** How much it has to have left over after paying for a building it does not need, to count it as to spare. */
     private static final long SPARE_MARGIN = 150;
     /** Most of each building it builds in all once it has resources to spare. */
@@ -253,6 +271,8 @@ public final class AiPlayers {
         final Map<BuildingType, Integer> noSpotUntil = new HashMap<>();
         /** The AI's tick, as of its last turn. */
         int now;
+        /** Its tick when it last traded at a market. */
+        int lastTrade = -TRADE_TICKS;
         /** The foot of a tree it found far from home, round which it chops; null when it knows of none. */
         int[] forest;
         int lastFarTreeSearch = -FAR_TREE_TICKS;
@@ -415,6 +435,7 @@ public final class AiPlayers {
         staffSites(game, team, workers);
         repair(game, world, team, workers);
         gather(game, world, team, hall, workers, state);
+        trade(game, team, state, hall);
         if (!saving && !savingForFortress) {
             research(game, team, state);
             trainFighters(game, team, state, fighterCount);
@@ -1073,6 +1094,10 @@ public final class AiPlayers {
         if (wants(team, BuildingType.STABLES) && count(game, team, BuildingType.STABLES, false) == 0) {
             return BuildingType.STABLES;
         }
+        // A market, to sell food and wood for gold once its gold mines run low, and anyway in Age III.
+        if (count(game, team, BuildingType.MARKET, false) == 0 && (age >= 3 || goldScarce(game, team, state))) {
+            return BuildingType.MARKET;
+        }
         // Its god's houses: Zamorak's chaos temple, Bandos's temple, or Saradomin's monastery and wizards' tower.
         for (BuildingType godly : godsBuildings(team)) {
             if (count(game, team, godly, false) == 0 && state.noSpotUntil.getOrDefault(godly, 0) <= state.now) {
@@ -1652,6 +1677,54 @@ public final class AiPlayers {
                 }
                 building.startResearch(upgrade.id);
                 WarOfTheGods.LOG.info("AI {} is researching {}", team.getName(), upgrade.displayName.toLowerCase());
+                return;
+            }
+        }
+    }
+
+    /**
+     * Trades a lot at its market now and then. Short of gold for going up an age, or once its gold mines run low, it
+     * sells whichever of food and wood it has most to spare over what it is saving for, while the market still pays
+     * fairly for it; short of food or wood with gold to spare, it buys some, while the price is not too steep.
+     */
+    private static void trade(Game game, Team team, State state, Building hall) {
+        if (state.now - state.lastTrade < TRADE_TICKS || count(game, team, BuildingType.MARKET, true) == 0) {
+            return;
+        }
+        Map<Resource, Long> goal = new EnumMap<>(Resource.class);
+        if (game.getAge(team) < 3 && Buildings.levelUpProblem(game, hall) == null) {
+            goal.putAll(hall.type.upgradeCost(hall.getLevel() + 1));
+        }
+        long gold = team.getResource(Resource.GOLD);
+        long goldWanted = Math
+            .max(goal.getOrDefault(Resource.GOLD, 0L), goldScarce(game, team, state) ? TRADE_GOLD : 0);
+        if (gold < goldWanted) {
+            Resource best = null;
+            long bestSpare = 0;
+            for (Resource good : Market.GOODS) {
+                long spare = team.getResource(good) - goal.getOrDefault(good, 0L) - TRADE_KEEP;
+                if (spare >= Config.marketLot && spare > bestSpare && team.marketSellGain(good) >= TRADE_MIN_SELL) {
+                    best = good;
+                    bestSpare = spare;
+                }
+            }
+            if (best != null) {
+                long gain = team.marketSellGain(best);
+                if (team.sellToMarket(best)) {
+                    state.lastTrade = state.now;
+                    WarOfTheGods.LOG
+                        .info("AI {} sold {} {} for {} gold", team.getName(), Config.marketLot, best.id, gain);
+                }
+            }
+            return;
+        }
+        for (Resource good : Market.GOODS) {
+            long cost = team.marketBuyCost(good);
+            if (team.getResource(good) < Math.max(goal.getOrDefault(good, 0L), TRADE_LOW) && cost <= TRADE_MAX_BUY
+                && gold - cost >= goldWanted + TRADE_GOLD_KEEP
+                && team.buyFromMarket(good)) {
+                state.lastTrade = state.now;
+                WarOfTheGods.LOG.info("AI {} bought {} {} for {} gold", team.getName(), Config.marketLot, good.id, cost);
                 return;
             }
         }

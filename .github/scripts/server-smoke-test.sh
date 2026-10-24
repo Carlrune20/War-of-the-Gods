@@ -602,6 +602,19 @@ wait_for_log "Laid out Red quarry #" 30
 echo "rts finish red" >&3
 wait_for_log "Built Red quarry #" 60
 echo "ok: Red dug a quarry into a mined out gold mine"
+# A market trades food and wood for gold, each lot sold bringing the price down for the next.
+echo "rts build red market" >&3
+wait_for_log "Laid out Red market #" 30
+echo "rts finish red" >&3
+wait_for_log "Built Red market #" 60
+echo "rts resources set red food 1000" >&3
+echo "rts resources set red wood 1000" >&3
+echo "rts resources set red gold 1000" >&3
+echo "rts trade red sell food 2" >&3
+wait_for_log "sold 200 food for " 30
+echo "rts trade red buy wood" >&3
+wait_for_log "bought 100 wood for " 30
+echo "ok: Red sold food and bought wood at its market"
 # Economy mode: the computer runs only Red's workers, putting the idle ones to gathering, then lets go again.
 echo "rts ai red economy" >&3
 wait_for_log "Team Red: the computer now runs its workers" 30

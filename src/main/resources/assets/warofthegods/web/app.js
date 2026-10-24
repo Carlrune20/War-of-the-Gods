@@ -1345,6 +1345,9 @@
         if (building.type === "observatory" && building.complete && (team.upgrades || []).includes("armadyls_eye")) {
             actions.append(el("span", "note", "Right-click to open Armadyl's eye there (3 favor)"));
         }
+        if (type.trades && building.team === team.id) {
+            renderMarket(actions, team, building);
+        }
         if ((type.trains || []).length) {
             const n = rallyGroups.get(building.id);
             const rallied = n !== undefined || building.rallyX !== undefined;
@@ -1399,6 +1402,31 @@
                 });
             research.disabled = !levelOk || busy || !canAfford(team, upgrade.cost);
             actions.append(research);
+        }
+    }
+
+    // A market's buttons: buying a lot of food or wood with gold, and selling one for gold, at the team's prices now;
+    // shift-click trades five lots.
+    function renderMarket(actions, team, building) {
+        const lot = state.game.marketLot || 100;
+        for (const buy of [true, false]) {
+            actions.append(el("span", "note", buy ? "Buy" : "Sell"));
+            for (const good of ["food", "wood"]) {
+                const gold = ((team.market || {})[good] || {})[buy ? "buy" : "sell"] || 0;
+                const b = squareButton("market/" + (buy ? "buy_" : "sell_") + good, good,
+                    (buy ? "Buy " : "Sell ") + lot + " " + good + " for " + gold + " gold\nEach lot "
+                    + (buy ? "bought puts the price up" : "sold brings the price down")
+                    + "; prices drift back while you leave them. Shift-click for 5", async (event) => {
+                        const reply = await send("buildings.trade",
+                            {building: building.id, resource: good, buy, lots: event.shiftKey ? 5 : 1});
+                        if (reply) {
+                            showToast((buy ? "Bought " : "Sold ") + reply.amount + " " + good + " for " + reply.gold
+                                + " gold");
+                        }
+                    });
+                b.disabled = buy ? (team.resources.gold || 0) < gold : (team.resources[good] || 0) < lot;
+                actions.append(b);
+            }
         }
     }
 

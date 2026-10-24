@@ -54,6 +54,9 @@ public class Team {
     private double[] eye;
     private long eyeUntil;
     private long eyeReadyAt;
+    /** The team's market prices of food and wood, in gold a lot, as they were at marketTick of the game's time. */
+    private final EnumMap<Resource, Double> marketPrices = new EnumMap<>(Resource.class);
+    private long marketTick;
 
     Team(Game game, String name, EnumChatFormatting color) {
         this.game = game;
@@ -62,6 +65,9 @@ public class Team {
         this.faction = Faction.forColor(color);
         for (Resource resource : Resource.values()) {
             resources.put(resource, 0L);
+        }
+        for (Resource good : Market.GOODS) {
+            marketPrices.put(good, Market.basePrice());
         }
     }
 
@@ -292,6 +298,63 @@ public class Team {
         return true;
     }
 
+    /** Brings the market prices up to the game's time, letting them drift back since the last trade. */
+    private void settleMarket() {
+        long now = game.getElapsedTicks();
+        if (now != marketTick) {
+            for (Resource good : Market.GOODS) {
+                marketPrices.put(good, Market.recover(marketPrices.get(good), now - marketTick));
+            }
+            marketTick = now;
+        }
+    }
+
+    /** The team's market price of food or wood now, in gold a lot before the fee. */
+    public double getMarketPrice(Resource good) {
+        settleMarket();
+        return marketPrices.get(good);
+    }
+
+    /** Gold buying a lot of food or wood at the market costs the team now. */
+    public long marketBuyCost(Resource good) {
+        return Market.buyCost(getMarketPrice(good));
+    }
+
+    /** Gold selling a lot of food or wood at the market gets the team now. */
+    public long marketSellGain(Resource good) {
+        return Market.sellGain(getMarketPrice(good));
+    }
+
+    /**
+     * Buys a lot of food or wood with gold at the market, putting its price up; false, buying nothing, when the team
+     * has too little gold.
+     */
+    public boolean buyFromMarket(Resource good) {
+        long cost = marketBuyCost(good);
+        if (getResource(Resource.GOLD) < cost) {
+            return false;
+        }
+        resources.put(Resource.GOLD, getResource(Resource.GOLD) - cost);
+        addResource(good, Config.marketLot);
+        marketPrices.put(good, Market.afterBuy(marketPrices.get(good)));
+        return true;
+    }
+
+    /**
+     * Sells a lot of food or wood for gold at the market, putting its price down; false, selling nothing, when the
+     * team has less than a lot of it.
+     */
+    public boolean sellToMarket(Resource good) {
+        if (getResource(good) < Config.marketLot) {
+            return false;
+        }
+        long gain = marketSellGain(good);
+        resources.put(good, getResource(good) - Config.marketLot);
+        addResource(Resource.GOLD, gain);
+        marketPrices.put(good, Market.afterSell(marketPrices.get(good)));
+        return true;
+    }
+
     public static String idOf(String name) {
         return name.toLowerCase();
     }
@@ -388,6 +451,13 @@ public class Team {
         tag.setBoolean("ai", ai);
         tag.setBoolean("aiEconomy", aiEconomy);
         tag.setBoolean("revealed", revealed);
+        settleMarket();
+        NBTTagCompound marketTag = new NBTTagCompound();
+        for (Resource good : Market.GOODS) {
+            marketTag.setDouble(good.id, marketPrices.get(good));
+        }
+        marketTag.setLong("tick", marketTick);
+        tag.setTag("market", marketTag);
         return tag;
     }
 
@@ -432,6 +502,13 @@ public class Team {
         team.ai = tag.getBoolean("ai");
         team.aiEconomy = tag.getBoolean("aiEconomy");
         team.revealed = tag.getBoolean("revealed");
+        NBTTagCompound marketTag = tag.getCompoundTag("market");
+        for (Resource good : Market.GOODS) {
+            if (marketTag.hasKey(good.id)) {
+                team.marketPrices.put(good, marketTag.getDouble(good.id));
+            }
+        }
+        team.marketTick = marketTag.getLong("tick");
         return team;
     }
 }

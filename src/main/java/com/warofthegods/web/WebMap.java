@@ -29,6 +29,7 @@ import com.warofthegods.game.Faction;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.GoldMine;
+import com.warofthegods.game.Market;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.SafeMode;
 import com.warofthegods.game.Settlement;
@@ -256,6 +257,7 @@ public final class WebMap {
         json.addProperty("trainSeconds", Config.trainSeconds);
         json.addProperty("buildingGap", Buildings.GAP);
         json.addProperty("carryCapacity", Config.carryCapacity);
+        json.addProperty("marketLot", Config.marketLot);
         JsonObject buildingTypes = new JsonObject();
         for (BuildingType type : BuildingType.values()) {
             Schematic schematic = Buildings.get()
@@ -285,6 +287,9 @@ public final class WebMap {
             }
             if (type.raisedByWizards()) {
                 typeJson.addProperty("wizards", true);
+            }
+            if (type.trades()) {
+                typeJson.addProperty("trades", true);
             }
             if (type.isWorkplace()) {
                 typeJson.addProperty("workers", type.maxWorkers());
@@ -392,6 +397,15 @@ public final class WebMap {
                     resources.addProperty(resource.id, team.getResource(resource));
                 }
                 json.add("resources", resources);
+                // Gold a lot of food or wood costs the team at a market, and gets it.
+                JsonObject market = new JsonObject();
+                for (Resource good : Market.GOODS) {
+                    JsonObject prices = new JsonObject();
+                    prices.addProperty("buy", team.marketBuyCost(good));
+                    prices.addProperty("sell", team.marketSellGain(good));
+                    market.add(good.id, prices);
+                }
+                json.add("market", market);
                 JsonArray members = new JsonArray();
                 for (Map.Entry<UUID, String> member : team.getMembers()
                     .entrySet()) {

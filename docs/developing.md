@@ -33,6 +33,7 @@ They cover the logic that does not need a running game:
 | `BridgeLineTest` | Bridge pieces run straight along the longer axis, from the first point, and are capped in length. |
 | `WallLineTest` | Walls get posts at ends and turns, close gaps beside obstacles with short segments, and skip pieces where something already stands. |
 | `BuildingTypeTest` | Building ids and old names resolve, age and faction rules, workers, housing, and upgrade timing. |
+| `MarketTest` | Market fees, prices moving with each lot traded within their bounds, and drifting back over time. |
 | `UnitKindTest` | Which units fight, worship or are heroes, that costs are sensible, the team colour to god mapping, and upgrade prerequisites. |
 | `MapAreaTest` | Inside and outside the playable square, and the distance outside it. |
 | `TerrainNoiseTest` | Terrain noise is repeatable per seed, stays in range, and changes smoothly. |
@@ -62,7 +63,7 @@ The smoke test boots the server seven times. Each boot checks the previous one:
 - **Boot 4** checks that units and buildings come back after a restart. It also checks that a team losing its town
   center gets a countdown, and that a team with neither a town center nor workers is defeated, leaving a winner.
 - **Boot 5** has the computer play a team. It checks the knights' fortresses, the archery range and stables, the gods'
-  temples, the stone circle and the lesser demon.
+  temples, the stone circle and the lesser demon, the quarry and trading at a market.
 - **Boots 6 and 7** start a game on Forinthry and check that it comes back from the save as Forinthry.
 
 Along the way, the web checks log in with a one-time link, serve the map's blocks, and stream live state over the

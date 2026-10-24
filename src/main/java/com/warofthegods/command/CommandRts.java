@@ -35,6 +35,7 @@ import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
 import com.warofthegods.game.GameMap;
 import com.warofthegods.game.GoldMine;
+import com.warofthegods.game.Market;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Settlement;
 import com.warofthegods.game.Team;
@@ -80,6 +81,7 @@ public class CommandRts extends CommandBase {
         "damage",
         "upgrade",
         "research",
+        "trade",
         "chop",
         "mine",
         "deplete",
@@ -108,7 +110,7 @@ public class CommandRts extends CommandBase {
     @Override
     public String getCommandUsage(ICommandSender sender) {
         return "/rts <help|info|newgame|quickgame|endgame|spawn|surrender|team|ally|unally|resources|units|buildings|build|wall|bridge|gate|train|damage"
-            + "|upgrade|research|chop|mine|finish|ai|reveal|seeall|memory|web>";
+            + "|upgrade|research|trade|chop|mine|finish|ai|reveal|seeall|memory|web>";
     }
 
     /** Everyone may run /rts; subcommands that change the game check for op themselves. */
@@ -185,6 +187,9 @@ public class CommandRts extends CommandBase {
                 break;
             case "research":
                 research(sender, rest);
+                break;
+            case "trade":
+                trade(sender, rest);
                 break;
             case "chop":
                 chop(sender, rest);
@@ -288,6 +293,7 @@ public class CommandRts extends CommandBase {
                 + " units for free at a building (op)");
         send(sender, "/rts upgrade <building id> - take a town center, and its town, into the next tier at once (op)");
         send(sender, "/rts research <team> <upgrade> - give a team an upgrade at once (op)");
+        send(sender, "/rts trade <team> <buy|sell> <food|wood> [lots] - trade at the team's market (op)");
         send(sender, "/rts chop <team> - send a team's idle workers to chop the tree nearest its town center (op)");
         send(
             sender,
@@ -1210,6 +1216,50 @@ public class CommandRts extends CommandBase {
             unit.applyUpgrades(team);
         }
         send(sender, "Team " + team.getColoredName() + " has " + upgrade.displayName.toLowerCase());
+    }
+
+    /** Trades lots of food or wood for gold at a team's finished market, as its players would. */
+    private void trade(ICommandSender sender, String[] args) {
+        requireOp(sender);
+        Game game = requireGame();
+        requireArgs(args, 3, "/rts trade <team> <buy|sell> <food|wood> [lots]");
+        Team team = requireTeam(game, args[0]);
+        boolean buy = "buy".equalsIgnoreCase(args[1]);
+        if (!buy && !"sell".equalsIgnoreCase(args[1])) {
+            throw new CommandException("/rts trade <team> <buy|sell> <food|wood> [lots]");
+        }
+        Resource good = Resource.byId(args[2]);
+        if (good == null || !Market.trades(good)) {
+            throw new CommandException("A market trades food and wood for gold");
+        }
+        int lots = args.length > 3 ? parseIntBounded(sender, args[3], 1, 100) : 1;
+        boolean market = false;
+        for (Building building : game.getBuildings(team)) {
+            market |= building.type.trades() && building.isComplete();
+        }
+        if (!market) {
+            throw new CommandException("Team %s has no finished market", team.getName());
+        }
+        long goldBefore = team.getResource(Resource.GOLD);
+        int traded = 0;
+        while (traded < lots && (buy ? team.buyFromMarket(good) : team.sellToMarket(good))) {
+            traded++;
+        }
+        send(
+            sender,
+            "Team " + team.getColoredName()
+                + (buy ? " bought " : " sold ")
+                + (long) traded * Config.marketLot
+                + " "
+                + good.id
+                + " for "
+                + Math.abs(team.getResource(Resource.GOLD) - goldBefore)
+                + " gold; "
+                + good.id
+                + " now costs "
+                + team.marketBuyCost(good)
+                + " gold and sells for "
+                + team.marketSellGain(good));
     }
 
     private void finish(ICommandSender sender, String[] args) {

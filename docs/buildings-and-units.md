@@ -61,6 +61,7 @@ mostly dry and not too steep. Foundations fill in dips, and anything above the b
 | Monastery | Saradomin's teams only, Tier II: trains monks, who earn favor just by living | 150 Wood, 75 Gold | 800 | 30 s |
 | Wizards' tower | Saradomin's teams only, Tier II: trains blue wizards | 100 Wood, 150 Gold | 900 | 30 s |
 | Armory | Researches military upgrades; needs Tier II | 120 Wood, 60 Gold | 700 | 25 s |
+| Market | Trades food and wood for gold, 100 at a time, at prices that worsen with each trade; needs Tier II | 175 Wood | 800 | 30 s |
 | Tower | Watches over the land round it; with watch towers (Tier II) shoots arrows at enemies within 16 blocks, and with guard towers (Tier III) within 24; researches both | 50 Wood, 100 Gold | 900 | 25 s |
 | Wall | Keeps enemies out; laid out from one point to another, a 5 by 5 piece at a time | 10 Gold a piece | 600 a segment, 800 a post | 10 s a piece |
 | Gate | A wall segment your own units and allies walk through; it opens as they come near | 40 Gold | 600 | at once |
@@ -71,6 +72,15 @@ mostly dry and not too steep. Foundations fill in dips, and anything above the b
 **Quarries.** A quarry needs the storehouse to have researched tunnel mining (400 Food and 400 Wood, after runite
 pickaxes), and costs 500 Wood in Tier III. Up to three workers work a quarry like a farm. They bring in 2 gold each per
 harvest for ever, more with the pickaxe upgrades.
+
+**Markets.** Every god's teams can build a market from Tier II. Select it to buy 100 food or 100 wood with gold, or sell
+100 for gold (shift-click trades five lots). A lot is worth 100 gold at first; buying costs 30% over that (130 gold)
+and selling gets 30% under it (70 gold). Each lot a team buys puts that price up by 8 gold for the team, and each lot
+it sells brings it down by 8, between 20 and 400, so selling a lot of one thing soon stops paying. Prices are the
+team's own, and drift back towards 100 by 10 gold a minute while the team leaves them alone. The computer builds a
+market once its gold mines run low, or in Tier III, and sells its spare food and wood when it is short of gold. All the
+numbers are in the `buildings` section of the config file (`marketLot`, `marketBasePrice`, `marketFee`,
+`marketPriceStep`, `marketMinPrice`, `marketMaxPrice`, `marketRecoveryPerMinute`).
 
 **Knights' fortresses.** Each one belongs to its god: only Saradomin's teams can build the White Knights' castle, and
 only Zamorak's the Kinshra fortress.

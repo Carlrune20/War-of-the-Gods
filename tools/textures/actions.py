@@ -42,7 +42,7 @@ FACTIONS = ("saradomin", "zamorak", "bandos", "armadyl")
 BUILDINGS = ("town_hall", "house", "farm", "quarry", "barracks", "storehouse", "armory", "tower", "wall", "gate",
              "white_knights_fortress", "black_knights_fortress", "archery_range", "stables", "chaos_temple",
              "monastery", "wizards_tower", "stone_circle", "goblin_cave", "war_pit", "bandos_temple",
-             "bandos_bastion", "tower_house", "armadyl_temple", "observatory", "roost", "armadyl_eyrie")
+             "bandos_bastion", "tower_house", "armadyl_temple", "observatory", "roost", "armadyl_eyrie", "market")
 UNITS = ("worker", "soldier", "archer", "white_knight", "black_knight", "tradigee", "sagittare", "cavalry",
          "chaos_priest", "monk", "dark_wizard", "zamorak_mage", "blue_wizard", "lesser_demon",
          "centaur")
@@ -105,7 +105,8 @@ ITEMS = {
 
 GRASS = (124, 189, 82)
 WATER = (63, 118, 228)
-COLORS = {0: "white", 1: "orange", 7: "gray", 8: "silver", 11: "blue", 12: "brown", 14: "red", 15: "black"}
+COLORS = dict(enumerate(("white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray", "silver", "cyan",
+                         "purple", "blue", "brown", "green", "red", "black")))
 
 
 def texture(jar, path):

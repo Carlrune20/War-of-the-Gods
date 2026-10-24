@@ -218,6 +218,9 @@ underfoot, rocks of scorched stone and obsidian, and in place of the open patch 
 - Select workers and right-click a mine. Each worker there mines 4 gold every 3 seconds and carries it to the nearest
   town center or storehouse. A bar over the mine shows how much is left.
 - A mine that runs out is left as bare grey rock. Its workers go on to the nearest mine within 64 blocks.
+- Short of gold, or of food or wood? From Tier II a market sells 100 food or wood for gold, or buys 100 with it. Each
+  trade makes the next one of the same kind worse, and prices recover slowly while you leave them (see
+  [Markets](buildings-and-units.md#buildings)).
 - Training takes 5 seconds per unit, one at a time per building.
 
 ## Tiers

@@ -2633,6 +2633,67 @@ def armadyl_eyrie(p, level):
     return s
 
 
+def market(p, level):
+    """Where food and wood change hands for gold: three stalls round an open plaza under a striped awning of the god's
+    colours, on posts, with the goods heaped behind the counters, hay and pumpkins for food, stacked logs for wood,
+    and strongboxes and gold at the back. Age II adds more goods, a lamp under the peak and banners from the awning;
+    Age III a low wall round the back and sides."""
+    s = Struct(11, 11, 14, 1)
+    foundation(s, p, 0, 0, 10, 10)
+    top = 4 if level == 1 else 5
+    for x, z in ((1, 1), (5, 1), (9, 1), (1, 5), (9, 5), (1, 9), (5, 9), (9, 9)):
+        s.fill(x, 1, z, x, top, z, p.frame)
+    # The awning, rising in steps to a peak, striped along each side.
+    for i in range(6):
+        y = top + 1 + i
+        lo, hi = i, 10 - i
+        for x in range(lo, hi + 1):
+            for z in range(lo, hi + 1):
+                if x in (lo, hi) or z in (lo, hi):
+                    along = x if z in (lo, hi) else z
+                    s.set(x, y, z, p.cloth if along % 2 == 0 else p.cloth2)
+    flag(s, p, 5, top + 7, top + 8, 5, "east")
+    for x in (1, 5, 9):
+        torch(s, p, x, 3, 0, "north")
+    # The counters: food on the west, wood on the east, gold at the back.
+    counter = (p.roof_slab[0], p.roof_slab[1] | 8)
+    for z in range(3, 8):
+        s.set(2, 1, z, counter)
+        s.set(8, 1, z, counter)
+    for x in range(3, 8):
+        s.set(x, 1, 8, counter)
+    s.set(2, 2, 4, (PUMPKIN, 3))
+    s.set(2, 2, 6, (HAY, 0))
+    s.fill(1, 1, 3, 1, 2, 4, (HAY, 0))
+    s.set(1, 1, 6, (PUMPKIN, 3))
+    s.set(1, 1, 7, (CAULDRON, 3))
+    s.fill(9, 1, 3, 9, 2, 4, (LOG, 8))
+    s.fill(9, 1, 6, 9, 1, 7, (LOG, 8))
+    s.set(8, 2, 6, (WORKBENCH, 0))
+    for x in (4, 6):
+        s.set(x, 1, 9, (CHEST, 2))
+    s.set(5, 2, 8, (GOLD_BLOCK, 0))
+    if level > 1:
+        s.set(5, top + 5, 5, p.lamp)
+        s.set(9, 2, 6, (LOG, 8))
+        s.set(1, 2, 6, (PUMPKIN, 3))
+        s.set(3, 2, 8, (CAULDRON, 0))
+        s.set(7, 2, 8, (ANVIL, 0))
+        s.set(5, 1, 5, (CAULDRON, 3))
+        for x in (3, 7):
+            hang(s, p, x, top, 0, "south", tall=1, inverted=(x > 5))
+    if level > 2:
+        for x in range(0, 11):
+            if s.get(x, 1, 10) == AIR:
+                s.set(x, 1, 10, p.low_wall)
+        for z in range(2, 10):
+            for x in (0, 10):
+                s.set(x, 1, z, p.low_wall)
+        for x, z in ((0, 2), (10, 2)):
+            s.set(x, 2, z, (TORCH, 5))
+    return s
+
+
 FIXED_STYLE_BUILDINGS = {
     "white_knights_fortress": lambda p, level: fortress(False),
     "black_knights_fortress": lambda p, level: fortress(True),
@@ -2681,6 +2742,7 @@ BUILDINGS = {
     "observatory": (FIXED_STYLE_BUILDINGS["observatory"], 3),
     "roost": (FIXED_STYLE_BUILDINGS["roost"], 3),
     "armadyl_eyrie": (FIXED_STYLE_BUILDINGS["armadyl_eyrie"], 1),
+    "market": (market, 3),
 }
 
 # The palette each fortress's building site and ruin are drawn in, whichever folder it is written into.
