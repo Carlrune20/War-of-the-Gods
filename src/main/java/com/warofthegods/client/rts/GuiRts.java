@@ -2818,8 +2818,7 @@ public final class GuiRts extends GuiScreen {
                         "market/" + (buy ? "buy_" : "sell_") + good,
                         good,
                         (buy ? "Buy " + lot + " " + good + " for " + gold + " gold"
-                            : "Sell " + lot + " " + good + " for " + gold + " gold")
-                            + "\nEach lot "
+                            : "Sell " + lot + " " + good + " for " + gold + " gold") + "\nEach lot "
                             + (buy ? "bought puts the price up" : "sold brings the price down")
                             + "; prices drift back while you leave them. Shift-click for 5",
                         shift -> {

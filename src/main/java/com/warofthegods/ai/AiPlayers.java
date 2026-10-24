@@ -1724,7 +1724,8 @@ public final class AiPlayers {
                 && gold - cost >= goldWanted + TRADE_GOLD_KEEP
                 && team.buyFromMarket(good)) {
                 state.lastTrade = state.now;
-                WarOfTheGods.LOG.info("AI {} bought {} {} for {} gold", team.getName(), Config.marketLot, good.id, cost);
+                WarOfTheGods.LOG
+                    .info("AI {} bought {} {} for {} gold", team.getName(), Config.marketLot, good.id, cost);
                 return;
             }
         }
