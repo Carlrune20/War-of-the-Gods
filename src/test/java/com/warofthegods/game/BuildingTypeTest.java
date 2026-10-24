@@ -113,6 +113,14 @@ class BuildingTypeTest {
     }
 
     @Test
+    void goingUpATierTakesAgeOfMythologysAdvanceTimes() {
+        assertEquals(60 * 20, BuildingType.TOWN_HALL.upgradeTicks(2));
+        assertEquals(75 * 20, BuildingType.TOWN_HALL.upgradeTicks(3));
+        assertEquals(400L, (long) BuildingType.TOWN_HALL.upgradeCost(2).get(Resource.FOOD));
+        assertEquals(500L, (long) BuildingType.TOWN_HALL.upgradeCost(3).get(Resource.GOLD));
+    }
+
+    @Test
     void ageNamesAreRomanNumerals() {
         assertEquals("Tier I", BuildingType.ageName(1));
         assertEquals("Tier III", BuildingType.ageName(3));
