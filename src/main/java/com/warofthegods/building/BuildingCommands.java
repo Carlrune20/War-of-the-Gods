@@ -7,10 +7,12 @@ import java.util.Map;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.warofthegods.Config;
 import com.warofthegods.game.Building;
 import com.warofthegods.game.BuildingType;
 import com.warofthegods.game.Game;
 import com.warofthegods.game.GameManager;
+import com.warofthegods.game.Market;
 import com.warofthegods.game.Resource;
 import com.warofthegods.game.Team;
 import com.warofthegods.game.UnitKind;
@@ -50,11 +52,15 @@ import com.warofthegods.world.GameWorld;
  *       back what it cost; with research: true instead, stop what the building researches or its level-up
  *   {type: "buildings.destroy", buildings: [id...]}  take the team's own buildings or building sites down at once
  *   {type: "buildings.eye", building: id, x, z}  open Armadyl's eye from an observatory over x, z, paying its favor
+ *   {type: "buildings.trade", building: id, resource: "food" | "wood", buy: bool, lots?}  at a finished market, buy
+ *       lots of the resource with gold, or with buy false sell them for gold, each at the price the last left
  * </pre>
  */
 public final class BuildingCommands {
 
     private static final int MAX_TRAIN = 10;
+    /** Most lots traded at a market in one go. */
+    private static final int MAX_TRADE = 10;
 
     private BuildingCommands() {}
 
@@ -71,6 +77,7 @@ public final class BuildingCommands {
         WebCommand.register("buildings.cancel", BuildingCommands::cancel);
         WebCommand.register("buildings.destroy", BuildingCommands::destroy);
         WebCommand.register("buildings.eye", BuildingCommands::eye);
+        WebCommand.register("buildings.trade", BuildingCommands::trade);
     }
 
     /** The viewer's own building the request names, or null after replying why not. */
@@ -466,6 +473,52 @@ public final class BuildingCommands {
             }
         }
         request.reply(WebJson.message("buildings.eye"));
+    }
+
+    /**
+     * Trades at a market: buys lots of food or wood with gold, or sells them for gold, one at a time, each at the
+     * price the one before left, for as many as asked while the team can pay or has the goods.
+     */
+    private static void trade(WebRequest request) {
+        Team team = UnitCommands.commander(request);
+        Building building = team == null ? null : ownBuilding(request, team);
+        if (building == null) {
+            return;
+        }
+        if (!building.type.trades() || !building.isComplete()) {
+            request.replyError("Trade at a finished market");
+            return;
+        }
+        JsonElement field = request.body.get("resource");
+        Resource good = field != null && field.isJsonPrimitive() ? Resource.byId(field.getAsString()) : null;
+        if (good == null || !Market.trades(good)) {
+            request.replyError("A market trades food and wood for gold");
+            return;
+        }
+        boolean buy = UnitCommands.boolField(request.body, "buy");
+        int lots = Math.max(1, Math.min(MAX_TRADE, UnitCommands.intField(request.body, "lots", 1)));
+        long goldBefore = team.getResource(Resource.GOLD);
+        int traded = 0;
+        while (traded < lots && (buy ? team.buyFromMarket(good) : team.sellToMarket(good))) {
+            traded++;
+        }
+        if (traded == 0) {
+            request.replyError(
+                buy ? "Not enough gold: " + Config.marketLot
+                    + " "
+                    + good.id
+                    + " costs "
+                    + team.marketBuyCost(good)
+                    + " gold"
+                    : "Not enough " + good.id + " to sell: the market buys " + Config.marketLot + " at a time");
+            return;
+        }
+        JsonObject reply = WebJson.message("buildings.traded");
+        reply.addProperty("resource", good.id);
+        reply.addProperty("amount", (long) traded * Config.marketLot);
+        reply.addProperty("gold", Math.abs(team.getResource(Resource.GOLD) - goldBefore));
+        reply.addProperty("buy", buy);
+        request.reply(reply);
     }
 
     /** Whether the team has a unit or building within Armadyl's eye of x, z. */

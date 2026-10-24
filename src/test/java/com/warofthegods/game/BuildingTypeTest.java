@@ -116,8 +116,14 @@ class BuildingTypeTest {
     void goingUpATierTakesAgeOfMythologysAdvanceTimes() {
         assertEquals(60 * 20, BuildingType.TOWN_HALL.upgradeTicks(2));
         assertEquals(75 * 20, BuildingType.TOWN_HALL.upgradeTicks(3));
-        assertEquals(400L, (long) BuildingType.TOWN_HALL.upgradeCost(2).get(Resource.FOOD));
-        assertEquals(500L, (long) BuildingType.TOWN_HALL.upgradeCost(3).get(Resource.GOLD));
+        assertEquals(
+            400L,
+            (long) BuildingType.TOWN_HALL.upgradeCost(2)
+                .get(Resource.FOOD));
+        assertEquals(
+            500L,
+            (long) BuildingType.TOWN_HALL.upgradeCost(3)
+                .get(Resource.GOLD));
     }
 
     @Test
@@ -137,5 +143,16 @@ class BuildingTypeTest {
         assertEquals(0, BuildingType.HOUSE.minHeight());
         assertTrue(BuildingType.ARMADYL_EYRIE.isFortress());
         assertTrue(BuildingType.ARMADYL_EYRIE.trains.contains(UnitKind.KREEARRA));
+    }
+
+    @Test
+    void everyGodsTeamsBuildAMarketFromAgeTwo() {
+        for (Faction faction : Faction.values()) {
+            assertTrue(BuildingType.MARKET.buildableBy(faction));
+        }
+        assertEquals(2, BuildingType.MARKET.age());
+        assertTrue(BuildingType.MARKET.trades());
+        assertFalse(BuildingType.STOREHOUSE.trades());
+        assertEquals(BuildingType.MARKET, BuildingType.byId("market"));
     }
 }

@@ -131,7 +131,13 @@ public enum BuildingType {
      * Guardians of Armadyl, Kree'arra and his lieutenants, and trebuchets. Armadyl's teams only.
      */
     ARMADYL_EYRIE("armadyl_eyrie", "Armadyl's eyrie", "armadylEyrie", 1, true, false, UnitKind.GUARDIAN,
-        UnitKind.KILISA, UnitKind.GEERIN, UnitKind.SKREE, UnitKind.KREEARRA, UnitKind.TREBUCHET);
+        UnitKind.KILISA, UnitKind.GEERIN, UnitKind.SKREE, UnitKind.KREEARRA, UnitKind.TREBUCHET),
+    /**
+     * Stalls under a striped awning where food and wood are sold for gold and bought with it, at prices that worsen
+     * with every lot a team trades and drift back while it leaves them be (see {@link Market}). Every god's teams
+     * build one, from Age II.
+     */
+    MARKET("market", "Market", "market", 3, true, false);
 
     public final String id;
     public final String displayName;
@@ -285,6 +291,11 @@ public enum BuildingType {
     /** Whether it is laid out in a line from one point to another, piece by piece: a wall or a bridge. */
     public boolean isLine() {
         return isWall() || this == BRIDGE;
+    }
+
+    /** Whether food and wood can be traded for gold here. */
+    public boolean trades() {
+        return this == MARKET;
     }
 
     /** Whether workers can work here, gathering resources. */

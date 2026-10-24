@@ -79,6 +79,8 @@ public final class RtsState {
         public int workers;
         /** Raised by dark wizards rather than workers, as the stone circle is. */
         public boolean wizards;
+        /** Whether food and wood are traded for gold there, as at a market. */
+        public boolean trades;
         public final List<String> trains = new ArrayList<>();
         public int levels;
         /** What going up to each level costs, by level. */
@@ -105,6 +107,8 @@ public final class RtsState {
         public int seaLevel;
         public int unitsPerTeam;
         public int buildingGap;
+        /** Food or wood a market trades at a time. */
+        public int marketLot;
         public final Map<String, UnitKindInfo> unitKinds = new LinkedHashMap<>();
         public final Map<String, BuildingTypeInfo> buildingTypes = new LinkedHashMap<>();
         public final Map<String, UpgradeInfo> upgrades = new LinkedHashMap<>();
@@ -132,6 +136,9 @@ public final class RtsState {
         public String ai;
         /** Where Armadyl's eye watches for the team, as x, z, radius; null while it is closed. */
         public double[] eye;
+        /** Gold a lot of food or wood costs the team at a market, and gets it, by resource. */
+        public final Map<String, Long> marketBuy = new HashMap<>();
+        public final Map<String, Long> marketSell = new HashMap<>();
     }
 
     /** Something with a place in the world: a unit, player or mob. */
@@ -332,6 +339,7 @@ public final class RtsState {
         info.seaLevel = integer(json, "seaLevel");
         info.unitsPerTeam = integer(json, "unitsPerTeam");
         info.buildingGap = integer(json, "buildingGap");
+        info.marketLot = json.has("marketLot") ? integer(json, "marketLot") : 100;
         for (Map.Entry<String, JsonElement> entry : object(json, "unitKinds").entrySet()) {
             JsonObject kind = entry.getValue()
                 .getAsJsonObject();
@@ -358,6 +366,7 @@ public final class RtsState {
             typeInfo.cost = amounts(object(type, "cost"));
             typeInfo.buildable = bool(type, "buildable");
             typeInfo.wizards = bool(type, "wizards");
+            typeInfo.trades = bool(type, "trades");
             typeInfo.faction = type.has("faction") ? string(type, "faction") : null;
             for (JsonElement faction : array(type, "shunnedBy")) {
                 typeInfo.shunnedBy.add(faction.getAsString());
@@ -479,6 +488,12 @@ public final class RtsState {
                 info.eye = new double[] { number(eye, "x"), number(eye, "z"), number(eye, "radius") };
             }
             info.ai = team.has("ai") ? string(team, "ai") : null;
+            for (Map.Entry<String, JsonElement> good : object(team, "market").entrySet()) {
+                JsonObject prices = good.getValue()
+                    .getAsJsonObject();
+                info.marketBuy.put(good.getKey(), (long) integer(prices, "buy"));
+                info.marketSell.put(good.getKey(), (long) integer(prices, "sell"));
+            }
             teams.add(info);
             teamsById.put(info.id, info);
         }

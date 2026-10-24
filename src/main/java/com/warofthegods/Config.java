@@ -116,6 +116,7 @@ public class Config {
         defaults(BuildingType.OBSERVATORY, new long[] { 0, 120, 100 }, 700, 30);
         defaults(BuildingType.ROOST, new long[] { 0, 175, 75 }, 700, 30);
         defaults(BuildingType.ARMADYL_EYRIE, new long[] { 0, 300, 400 }, 4000, 90);
+        defaults(BuildingType.MARKET, new long[] { 0, 175, 0 }, 800, 30);
     }
 
     /**
@@ -202,6 +203,19 @@ public class Config {
     /** Most workers at one quarry, and the gold each gets out of it per harvest, which comes as often as a farm's. */
     public static int quarryWorkers = 3;
     public static int quarryGold = 2;
+    /**
+     * The market: food and wood change hands for gold a lot at a time. Each team has its own prices, starting at
+     * marketBasePrice gold a lot; buying a lot pays marketFee percent over the price and selling one gets that much
+     * under it, and each lot bought puts the price up by marketPriceStep, each sold down, between marketMinPrice and
+     * marketMaxPrice. Left alone, prices drift back to marketBasePrice by marketRecoveryPerMinute a minute.
+     */
+    public static int marketLot = 100;
+    public static int marketBasePrice = 100;
+    public static int marketFee = 30;
+    public static int marketPriceStep = 8;
+    public static int marketMinPrice = 20;
+    public static int marketMaxPrice = 400;
+    public static int marketRecoveryPerMinute = 10;
     /** Gold a gold mine holds when the game starts. */
     public static int goldMineGold = 2000;
     /** Gold every mining site holds on top of its share of goldMineGold, whatever its ore. */
@@ -577,6 +591,50 @@ public class Config {
             0,
             100000,
             "Gold each worker at a quarry gathers per harvest, for ever; harvests come as often as a farm's.");
+        marketLot = configuration
+            .getInt("marketLot", buildings, marketLot, 1, 100000, "Food or wood bought or sold at a market at a time.");
+        marketBasePrice = configuration.getInt(
+            "marketBasePrice",
+            buildings,
+            marketBasePrice,
+            1,
+            100000,
+            "Gold a lot of food or wood is worth at the market at first, and what prices drift back to.");
+        marketFee = configuration.getInt(
+            "marketFee",
+            buildings,
+            marketFee,
+            0,
+            99,
+            "Percent over the price a team pays to buy a lot at the market, and under it a team gets to sell one.");
+        marketPriceStep = configuration.getInt(
+            "marketPriceStep",
+            buildings,
+            marketPriceStep,
+            0,
+            100000,
+            "Gold the price of food or wood goes up for each lot a team buys, and down for each it sells.");
+        marketMinPrice = configuration.getInt(
+            "marketMinPrice",
+            buildings,
+            marketMinPrice,
+            1,
+            100000,
+            "Lowest a market price falls, however much is sold.");
+        marketMaxPrice = configuration.getInt(
+            "marketMaxPrice",
+            buildings,
+            marketMaxPrice,
+            1,
+            1000000,
+            "Highest a market price climbs, however much is bought.");
+        marketRecoveryPerMinute = configuration.getInt(
+            "marketRecoveryPerMinute",
+            buildings,
+            marketRecoveryPerMinute,
+            0,
+            100000,
+            "Gold a minute market prices drift back towards the starting price while nobody trades.");
         townCenterPopulation = configuration.getInt(
             "townCenterPopulation",
             buildings,

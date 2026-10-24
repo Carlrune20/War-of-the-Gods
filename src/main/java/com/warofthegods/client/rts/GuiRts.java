@@ -108,6 +108,8 @@ public final class GuiRts extends GuiScreen {
 
     /** Icons drawn as Minecraft items in the view; icons.png has the same pictures for the web map. */
     private static final Map<String, ItemStack> VANILLA_ICONS = new HashMap<>();
+    /** What a market trades for gold. */
+    private static final String[] MARKET_GOODS = { "food", "wood" };
 
     static {
         VANILLA_ICONS.put("food", new ItemStack(Items.beef));
@@ -2649,6 +2651,9 @@ public final class GuiRts extends GuiScreen {
         if ("observatory".equals(building.type) && building.complete && team.upgrades.contains("armadyls_eye")) {
             actions.add(label("Right-click to open Armadyl's eye there (3 favor)", 0x9FE8F0));
         }
+        if (type.trades && building.team.equals(team.id)) {
+            addMarket(actions, team, building);
+        }
         if (!type.trains.isEmpty()) {
             Integer number = client.rallyGroups.get(building.id);
             boolean rallied = number != null || !Double.isNaN(building.rallyX);
@@ -2793,6 +2798,51 @@ public final class GuiRts extends GuiScreen {
                             reply -> client.showToast("Researching " + upgrade.name.toLowerCase(), false));
                     },
                     levelOk && !busy && RtsState.canAfford(team, upgrade.cost)));
+        }
+    }
+
+    /**
+     * A market's buttons: buying a lot of food or wood with gold, and selling one for gold, at the team's prices now;
+     * shift-click trades five lots.
+     */
+    private void addMarket(List<Widget> actions, RtsState.TeamInfo team, RtsState.BuildingInfo building) {
+        int lot = state().game.marketLot;
+        for (boolean buy : new boolean[] { true, false }) {
+            actions.add(label(buy ? "Buy" : "Sell", 0xC8C8C8));
+            for (String good : MARKET_GOODS) {
+                long gold = (buy ? team.marketBuy : team.marketSell).getOrDefault(good, 0L);
+                boolean enabled = buy ? team.resources.getOrDefault("gold", 0L) >= gold
+                    : team.resources.getOrDefault(good, 0L) >= lot;
+                actions.add(
+                    square(
+                        "market/" + (buy ? "buy_" : "sell_") + good,
+                        good,
+                        (buy ? "Buy " + lot + " " + good + " for " + gold + " gold"
+                            : "Sell " + lot + " " + good + " for " + gold + " gold") + "\nEach lot "
+                            + (buy ? "bought puts the price up" : "sold brings the price down")
+                            + "; prices drift back while you leave them. Shift-click for 5",
+                        shift -> {
+                            JsonObject body = new JsonObject();
+                            body.addProperty("building", building.id);
+                            body.addProperty("resource", good);
+                            body.addProperty("buy", buy);
+                            body.addProperty("lots", shift ? 5 : 1);
+                            client.command(
+                                "buildings.trade",
+                                body,
+                                reply -> client.showToast(
+                                    (buy ? "Bought " : "Sold ") + (reply.has("amount") ? reply.get("amount")
+                                        .getAsLong() : lot)
+                                        + " "
+                                        + good
+                                        + " for "
+                                        + (reply.has("gold") ? reply.get("gold")
+                                            .getAsLong() : gold)
+                                        + " gold",
+                                    false));
+                        },
+                        enabled));
+            }
         }
     }
 
