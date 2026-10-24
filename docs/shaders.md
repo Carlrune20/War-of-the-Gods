@@ -42,7 +42,9 @@ overworld never counts that many days, so the lobby gets no map's look. A new ma
 - What glows goes to `colortex4`: blocks listed in `block.properties` (lava, fire, glowstone and the mod's ember rock
   and fire) and glowing eyes, which the mod draws through `gbuffers_spidereyes`. Fog of war dims lava's glow with its
   light, so unexplored lava gives nothing away.
-- `composite` and `composite1` blur that into bloom, and `final` grades each map's colours.
+- `composite` to `composite3` blur that into bloom: a narrow blur, then a wide one over it, each across and then
+  down. One wide blur alone spaced its taps too far apart and drew the bloom in steps and squares. `final` grades each
+  map's colours.
 - The RTS view's outlines, rings and markers are drawn with OpenGL's fixed pipeline, which shader programs don't
   follow, so the mod sets the program aside while it draws them into the colour buffer (`ShaderPack.beginPlain`).
   They then go through the same bloom and grading as the rest of the world.
